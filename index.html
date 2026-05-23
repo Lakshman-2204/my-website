@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Name Input Website</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="container">
+    <h1>Welcome</h1>
+    <p>Enter your name below to get started.</p>
+
+    <div class="form-box">
+      <label for="userName">Your Name</label>
+	  <input
+		type="text"
+		id="userName"
+		placeholder="e.g. Jane Smith"
+	  />
+	  <button onclick="submitName()">Submit</button>
+    </div>
+
+    <div id="output" class="output hidden"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

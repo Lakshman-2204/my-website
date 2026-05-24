@@ -1675,10 +1675,56 @@ function paymentDone() {
 function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
+   document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
+   const allCat = document.getElementById('cat-all');
+   if (allCat) allCat.classList.add('active');
    window.scrollTo({
       top: 0,
       behavior: 'smooth'
    });
+}
+
+function showByCategory(groupName) {
+   document.getElementById('heroSection').classList.add('hidden');
+   document.getElementById('productsSection').classList.remove('hidden');
+   document.getElementById('productTitle').textContent = groupName;
+   const grid = document.getElementById('productsGrid');
+   grid.innerHTML = '';
+   Object.entries(products).forEach(([catKey, catData]) => {
+      if (catData.category === groupName) {
+         catData.items.forEach(item => renderCard({
+            ...item,
+            type: catData.type
+         }, catKey, grid));
+      }
+   });
+   window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+   });
+}
+
+function catClick(cat) {
+   document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
+   const el = document.getElementById('cat-' + cat);
+   if (el) el.classList.add('active');
+   const categoryMap = {
+      furniture: 'Furniture',
+      marbles: 'Marbles',
+      flooring: 'Flooring',
+      decor: 'Decor',
+      drinks: 'Cool Drinks',
+      milk: 'Milk',
+      bricks: 'Bricks',
+      soil: 'Soil',
+      toys: '3D Toys',
+      fancy: 'Fancy Items'
+   };
+   if (cat === 'all') {
+      showAllProducts();
+   } else if (categoryMap[cat]) {
+      showByCategory(categoryMap[cat]);
+   }
 }
 
 function showToast(msg) {

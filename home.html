@@ -7,118 +7,95 @@
       <link rel="stylesheet" href="style.css"/>
    </head>
    <body>
-      <!-- NAVBAR -->
-      <nav class="navbar">
-         <div class="logo" onclick="goHome()" style="cursor:pointer"> MyStore</div>
-         <ul class="nav-links" id="navLinks">
-            <li class="dropdown">
-               <a href="#">Furniture ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('sofa')">Sofa</a></li>
-                  <li><a href="#" onclick="showProducts('diningTable')">Dining Table</a></li>
-                  <li><a href="#" onclick="showProducts('wardrobe')">Wardrobe</a></li>
-                  <li><a href="#" onclick="showProducts('bedFrame')">Bed Frame</a></li>
-               </ul>
-            </li>
-            <li class="dropdown">
-               <a href="#">Marbles ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('whiteMarble')">White Marble</a></li>
-                  <li><a href="#" onclick="showProducts('blackMarble')">Black Marble</a></li>
-                  <li><a href="#" onclick="showProducts('italianMarble')">Italian Marble</a></li>
-                  <li><a href="#" onclick="showProducts('granite')">Granite</a></li>
-               </ul>
-            </li>
-            <li class="dropdown">
-               <a href="#">Flooring ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('hardwood')">Hardwood</a></li>
-                  <li><a href="#" onclick="showProducts('vinyl')">Vinyl</a></li>
-                  <li><a href="#" onclick="showProducts('ceramicTiles')">Ceramic Tiles</a></li>
-                  <li><a href="#" onclick="showProducts('laminate')">Laminate</a></li>
-               </ul>
-            </li>
-            <li class="dropdown">
-               <a href="#">Decor ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('wallArt')">Wall Art</a></li>
-                  <li><a href="#" onclick="showProducts('curtains')">Curtains</a></li>
-                  <li><a href="#" onclick="showProducts('lighting')">Lighting</a></li>
-                  <li><a href="#" onclick="showProducts('rugs')">Rugs</a></li>
-               </ul>
-            </li>
-            <li class="dropdown">
-               <a href="#">Cool Drinks ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('cola')">Cola</a></li>
-                  <li><a href="#" onclick="showProducts('juice')">Fruit Juice</a></li>
-                  <li><a href="#" onclick="showProducts('energyDrink')">Energy Drinks</a></li>
-                  <li><a href="#" onclick="showProducts('sodaWater')">Soda & Water</a></li>
-               </ul>
-            </li>
-            <li><a href="#" onclick="showProducts('milk')"> Milk</a></li>
-            <!-- BRICKS -->
-            <li class="dropdown">
-               <a href="#">Bricks ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('redBricks')">Red Bricks</a></li>
-                  <li><a href="#" onclick="showProducts('flybricks')">Fly Ash Bricks</a></li>
-                  <li><a href="#" onclick="showProducts('concreteBricks')">Concrete Blocks</a></li>
-               </ul>
-            </li>
-            <!-- SOIL -->
-            <li class="dropdown">
-               <a href="#">Soil ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('gardenSoil')">Garden Soil</a></li>
-                  <li><a href="#" onclick="showProducts('cococpeat')">Coco Peat</a></li>
-                  <li><a href="#" onclick="showProducts('fertilizer')">Fertilizer Soil</a></li>
-               </ul>
-            </li>
-            <!-- 3D TOYS -->
-            <li class="dropdown">
-               <a href="#">3D Toys ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('toysAnimals')">Animals</a></li>
-                  <li><a href="#" onclick="showProducts('toysVehicles')">Vehicles</a></li>
-                  <li><a href="#" onclick="showProducts('toysCustom')">Custom Prints</a></li>
-               </ul>
-            </li>
-            <!-- FANCY -->
-            <li class="dropdown">
-               <a href="#">Fancy Items ▾</a>
-               <ul class="dropdown-menu">
-                  <li><a href="#" onclick="showProducts('hairClips')">Hair Clips</a></li>
-                  <li><a href="#" onclick="showProducts('earrings')">Earrings</a></li>
-                  <li><a href="#" onclick="showProducts('bangles')">Bangles</a></li>
-                  <li><a href="#" onclick="showProducts('necklaces')">Necklaces</a></li>
-               </ul>
-            </li>
-            <li><a href="#">Contact</a></li>
-         </ul>
-         <div class="nav-right">
-            <!-- SEARCH BAR -->
-            <div class="search-box">
-               <input
-                  type="text"
-                  id="searchInput"
-                  placeholder="Search products..."
-                  oninput="liveSearch()"
-                  onkeydown="if(event.key==='Enter') doSearch()"
-                  autocomplete="off"
-                  />
-               <button onclick="doSearch()"> </button>
+      <!-- 3-ROW HEADER -->
+      <header class="site-header">
+         <!-- ROW 1: Brand + Address + Rewards -->
+         <div class="header-top">
+            <div class="header-brand-tabs">
+               <div class="brand-tab" onclick="goHome()">
+                  <span class="brand-emoji">🛍️</span>
+                  <span class="brand-name">MyStore</span>
+               </div>
+            </div>
+            <div class="header-top-right">
+               <div class="header-address">
+                  🏠 <strong>HOME</strong> Hyderabad, Telangana &gt;
+               </div>
+               <div class="header-rewards">⚡ 285</div>
+            </div>
+         </div>
+         <!-- ROW 2: Search + Account + Cart -->
+         <div class="header-middle">
+            <div class="search-box-wide">
+               <span class="search-icon-sym">🔍</span>
+               <input type="text" id="searchInput" placeholder="Search for Products, Brands and More"
+                  oninput="liveSearch()" onkeydown="if(event.key==='Enter') doSearch()" autocomplete="off"/>
                <div class="search-dropdown" id="searchDropdown"></div>
             </div>
-            <span id="welcomeUser" class="welcome-text"></span>
-            <!-- CART ICON -->
-            <div class="cart-icon" onclick="showCart()">
-               <span class="cart-badge" id="cartBadge">0</span>
+            <div class="header-actions">
+               <div class="header-user">
+                  👤 <span id="welcomeUser">Account</span> ▾
+               </div>
+               <div class="header-more">More ▾</div>
+               <div class="header-cart" onclick="showCart()">
+                  🛒 Cart
+                  <span class="cart-badge" id="cartBadge">0</span>
+               </div>
+               <button class="btn-header-logout" onclick="logout()">Logout</button>
             </div>
-            <button class="btn-logout" onclick="logout()">Logout</button>
-            <div class="hamburger" onclick="toggleMenu()">☰</div>
          </div>
-      </nav>
+         <!-- ROW 3: Category Icons -->
+         <div class="header-categories">
+            <div class="cat-item active" id="cat-all" onclick="catClick('all')">
+               <div class="cat-icon">🛍️</div>
+               <span>For You</span>
+            </div>
+            <div class="cat-item" id="cat-furniture" onclick="catClick('furniture')">
+               <div class="cat-icon">🪑</div>
+               <span>Furniture</span>
+            </div>
+            <div class="cat-item" id="cat-marbles" onclick="catClick('marbles')">
+               <div class="cat-icon">💎</div>
+               <span>Marbles</span>
+            </div>
+            <div class="cat-item" id="cat-flooring" onclick="catClick('flooring')">
+               <div class="cat-icon">🪵</div>
+               <span>Flooring</span>
+            </div>
+            <div class="cat-item" id="cat-decor" onclick="catClick('decor')">
+               <div class="cat-icon">🎨</div>
+               <span>Decor</span>
+            </div>
+            <div class="cat-item" id="cat-drinks" onclick="catClick('drinks')">
+               <div class="cat-icon">🥤</div>
+               <span>Cool Drinks</span>
+            </div>
+            <div class="cat-item" id="cat-milk" onclick="catClick('milk')">
+               <div class="cat-icon">🥛</div>
+               <span>Milk</span>
+            </div>
+            <div class="cat-item" id="cat-bricks" onclick="catClick('bricks')">
+               <div class="cat-icon">🧱</div>
+               <span>Bricks</span>
+            </div>
+            <div class="cat-item" id="cat-soil" onclick="catClick('soil')">
+               <div class="cat-icon">🌿</div>
+               <span>Soil</span>
+            </div>
+            <div class="cat-item" id="cat-toys" onclick="catClick('toys')">
+               <div class="cat-icon">🎮</div>
+               <span>3D Toys</span>
+            </div>
+            <div class="cat-item" id="cat-fancy" onclick="catClick('fancy')">
+               <div class="cat-icon">💍</div>
+               <span>Fancy Items</span>
+            </div>
+            <div class="cat-item" id="cat-contact">
+               <div class="cat-icon">📞</div>
+               <span>Contact</span>
+            </div>
+         </div>
+      </header>
       <!-- HERO -->
       <div class="hero" id="heroSection">
          <h1 id="heroGreeting">Welcome!</h1>

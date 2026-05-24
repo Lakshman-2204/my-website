@@ -47,10 +47,27 @@
                   <li><a href="#" onclick="showProducts('rugs')">Rugs</a></li>
                </ul>
             </li>
+            <!-- COOL DRINKS -->
+            <li class="dropdown">
+               <a href="#">Cool Drinks ▾</a>
+               <ul class="dropdown-menu">
+                  <li><a href="#" onclick="showProducts('cola')">Cola</a></li>
+                  <li><a href="#" onclick="showProducts('juice')">Fruit Juice</a></li>
+                  <li><a href="#" onclick="showProducts('energyDrink')">Energy Drinks</a></li>
+                  <li><a href="#" onclick="showProducts('sodaWater')">Soda & Water</a></li>
+               </ul>
+            </li>
+            <!-- MILK -->
+            <li><a href="#" onclick="showProducts('milk')">🥛 Milk</a></li>
             <li><a href="#">Contact</a></li>
          </ul>
          <div class="nav-right">
             <span id="welcomeUser" class="welcome-text"></span>
+            <!-- CART ICON -->
+            <div class="cart-icon" onclick="showCart()">
+               🛒
+               <span class="cart-badge" id="cartBadge">0</span>
+            </div>
             <button class="btn-logout" onclick="logout()">Logout</button>
             <div class="hamburger" onclick="toggleMenu()">☰</div>
          </div>
@@ -58,7 +75,7 @@
       <!-- HERO -->
       <div class="hero" id="heroSection">
          <h1 id="heroGreeting">Welcome!</h1>
-         <p>Quality Furniture, Marbles & More</p>
+         <p>Quality Furniture, Marbles, Drinks & More</p>
          <button class="btn-shop" onclick="showProducts('sofa')">Shop Now</button>
       </div>
       <!-- PRODUCTS SECTION -->
@@ -69,8 +86,31 @@
          </div>
          <div class="products-grid" id="productsGrid"></div>
       </div>
-      <!-- CART TOAST -->
-      <div class="toast hidden" id="toast">✅ Item added to cart!</div>
+      <!-- CART SIDEBAR -->
+      <div class="cart-overlay hidden" id="cartOverlay" onclick="closeCart()"></div>
+      <div class="cart-sidebar hidden" id="cartSidebar">
+         <div class="cart-header">
+            <h3>🛒 Your Cart</h3>
+            <button class="cart-close" onclick="closeCart()">✕</button>
+         </div>
+         <div class="cart-items" id="cartItems"></div>
+         <div class="cart-footer">
+            <div class="cart-summary">
+               <div class="summary-row">
+                  <span>Total Items:</span>
+                  <span id="cartTotalItems">0</span>
+               </div>
+               <div class="summary-row total-row">
+                  <span>Total Cost:</span>
+                  <span id="cartTotalCost">₹0</span>
+               </div>
+            </div>
+            <button class="btn-checkout" onclick="checkout()">Proceed to Checkout</button>
+            <button class="btn-clear" onclick="clearCart()">Clear Cart</button>
+         </div>
+      </div>
+      <!-- TOAST -->
+      <div class="toast hidden" id="toast"></div>
       <script src="script.js"></script>
    </body>
 </html>

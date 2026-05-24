@@ -1735,6 +1735,14 @@ function showToast(msg) {
 }
 
 // ── AUTH ──
+function getUsers() {
+   return JSON.parse(localStorage.getItem('users') || '[]');
+}
+
+function saveUsers(users) {
+   localStorage.setItem('users', JSON.stringify(users));
+}
+
 function signUp() {
    const name = document.getElementById('signupName').value.trim();
    const email = document.getElementById('signupEmail').value.trim();
@@ -1752,11 +1760,14 @@ function signUp() {
       alert('Passwords do not match.');
       return;
    }
-   localStorage.setItem('registeredUser', JSON.stringify({
-      name,
-      email,
-      password
-   }));
+   const users = getUsers();
+   if (users.find(u => u.email === email)) {
+      alert('An account with this email already exists. Please login.');
+      window.location.href = 'login.html';
+      return;
+   }
+   users.push({ name, email, password });
+   saveUsers(users);
    alert('Account created! Please login.');
    window.location.href = 'login.html';
 }
@@ -1765,13 +1776,14 @@ function login() {
    const email = document.getElementById('loginEmail').value.trim();
    const password = document.getElementById('loginPassword').value;
    const errorMsg = document.getElementById('loginError');
-   const savedUser = JSON.parse(localStorage.getItem('registeredUser'));
-   if (!savedUser || savedUser.email !== email || savedUser.password !== password) {
+   const users = getUsers();
+   const user = users.find(u => u.email === email && u.password === password);
+   if (!user) {
       errorMsg.classList.remove('hidden');
       return;
    }
    errorMsg.classList.add('hidden');
-   localStorage.setItem('loggedInUser', JSON.stringify(savedUser));
+   localStorage.setItem('loggedInUser', JSON.stringify(user));
    window.location.href = 'home.html';
 }
 
@@ -1781,9 +1793,21 @@ function checkLogin() {
       window.location.href = 'login.html';
       return;
    }
-   document.getElementById('welcomeUser').textContent = 'Hi, ' + user.name;
+   document.getElementById('welcomeUser').textContent = user.name;
    document.getElementById('heroGreeting').textContent = 'Welcome, ' + user.name + '!';
+   const header = document.getElementById('userDropdownName');
+   if (header) header.textContent = '👋 Hi, ' + user.name;
 }
+
+function toggleUserMenu(e) {
+   e.stopPropagation();
+   document.getElementById('userDropdown').classList.toggle('open');
+}
+
+document.addEventListener('click', function () {
+   const dd = document.getElementById('userDropdown');
+   if (dd) dd.classList.remove('open');
+});
 
 function logout() {
    localStorage.removeItem('loggedInUser');

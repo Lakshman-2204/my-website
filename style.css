@@ -261,15 +261,7 @@ body {
 	font-weight: 500;
 	white-space: nowrap;
 	user-select: none;
-}
-
-.header-more {
-	color: white;
-	cursor: pointer;
-	font-size: 0.88rem;
-	font-weight: 500;
-	white-space: nowrap;
-	user-select: none;
+	position: relative;
 }
 
 .header-cart {
@@ -299,21 +291,57 @@ body {
 	padding: 0 3px;
 }
 
-.btn-header-logout {
-	padding: 6px 14px;
-	background: transparent;
-	border: 1px solid rgba(255, 255, 255, 0.4);
-	color: white;
-	border-radius: 6px;
-	cursor: pointer;
-	font-size: 0.82rem;
-	transition: all 0.2s;
-	white-space: nowrap;
+.user-dropdown {
+	display: none;
+	position: absolute;
+	top: calc(100% + 12px);
+	right: 0;
+	background: white;
+	border-radius: 8px;
+	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+	min-width: 220px;
+	z-index: 4000;
+	overflow: hidden;
 }
 
-.btn-header-logout:hover {
-	background: #e74c3c;
-	border-color: #e74c3c;
+.user-dropdown.open {
+	display: block;
+}
+
+.user-dropdown-header {
+	background: #1a1a2e;
+	color: white;
+	font-weight: bold;
+	font-size: 0.88rem;
+	padding: 12px 16px;
+}
+
+.user-dropdown-item {
+	padding: 11px 16px;
+	font-size: 0.88rem;
+	color: #333;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+
+.user-dropdown-item:hover {
+	background: #f0f4ff;
+	color: #1a1a2e;
+}
+
+.user-dropdown-divider {
+	height: 1px;
+	background: #eee;
+	margin: 4px 0;
+}
+
+.user-dropdown-logout {
+	color: #e74c3c;
+}
+
+.user-dropdown-logout:hover {
+	background: #fff0f0;
+	color: #e74c3c;
 }
 
 /* ROW 3: Category icons */
@@ -374,9 +402,7 @@ body {
 	}
 
 	.header-address,
-	.header-rewards,
-	.header-more,
-	.btn-header-logout {
+	.header-rewards {
 		display: none;
 	}
 

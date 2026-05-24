@@ -33,15 +33,24 @@
                <div class="search-dropdown" id="searchDropdown"></div>
             </div>
             <div class="header-actions">
-               <div class="header-user">
+               <div class="header-user" onclick="toggleUserMenu(event)">
                   👤 <span id="welcomeUser">Account</span> ▾
+                  <div class="user-dropdown" id="userDropdown">
+                     <div class="user-dropdown-header" id="userDropdownName"></div>
+                     <div class="user-dropdown-item" onclick="alert('My Profile — coming soon')">👤 My Profile</div>
+                     <div class="user-dropdown-item" onclick="alert('Orders — coming soon')">📦 Orders</div>
+                     <div class="user-dropdown-item" onclick="alert('Saved Cards & Wallets — coming soon')">💳 Saved Cards & Wallets</div>
+                     <div class="user-dropdown-item" onclick="alert('Saved Addresses — coming soon')">📍 Saved Addresses</div>
+                     <div class="user-dropdown-item" onclick="alert('Wishlist — coming soon')">❤️ Wishlist</div>
+                     <div class="user-dropdown-item" onclick="alert('Notifications — coming soon')">🔔 Notifications</div>
+                     <div class="user-dropdown-divider"></div>
+                     <div class="user-dropdown-item user-dropdown-logout" onclick="logout()">🚪 Logout</div>
+                  </div>
                </div>
-               <div class="header-more">More ▾</div>
                <div class="header-cart" onclick="showCart()">
                   🛒 Cart
                   <span class="cart-badge" id="cartBadge">0</span>
                </div>
-               <button class="btn-header-logout" onclick="logout()">Logout</button>
             </div>
          </div>
          <!-- ROW 3: Category Icons -->

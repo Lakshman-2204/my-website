@@ -217,7 +217,7 @@ const products = {
             name: 'Absolute Black Marble',
             price: 500,
             desc: 'Per sq ft — Mirror polish',
-            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1617791160505-6f00504e3519?w=400&q=80',
             badge: 'Bestseller'
          },
          {
@@ -331,7 +331,7 @@ const products = {
             name: 'Walnut Wood Floor',
             price: 550,
             desc: 'Per sq ft — Dark walnut',
-            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1541123437800-1bb1317badc2?w=400&q=80',
             badge: 'Luxury'
          },
          {
@@ -339,7 +339,7 @@ const products = {
             name: 'Pine Wood Flooring',
             price: 180,
             desc: 'Per sq ft — Rustic look',
-            img: 'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1562663474-6cbb3eaa4d14?w=400&q=80',
             badge: 'Budget'
          }
       ]
@@ -483,7 +483,7 @@ const products = {
             name: 'Wooden Wall Panel',
             price: 6200,
             desc: 'Laser cut geometric',
-            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&q=80',
             badge: 'New'
          },
          {
@@ -513,7 +513,7 @@ const products = {
             name: 'Sheer Linen Curtains',
             price: 2800,
             desc: 'Per pair, light filtering',
-            img: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
             badge: 'Trending'
          },
          {
@@ -521,7 +521,7 @@ const products = {
             name: 'Printed Cotton Curtains',
             price: 1800,
             desc: 'Floral print, per pair',
-            img: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
             badge: 'Budget'
          },
          {
@@ -529,7 +529,7 @@ const products = {
             name: 'Motorized Curtains',
             price: 18000,
             desc: 'Smart home remote',
-            img: 'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
             badge: 'Smart'
          }
       ]
@@ -543,7 +543,7 @@ const products = {
             name: 'Crystal Chandelier',
             price: 28000,
             desc: 'K9 crystal, 12-light',
-            img: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&q=80',
             badge: 'Luxury'
          },
          {
@@ -589,7 +589,7 @@ const products = {
             name: 'Modern Geometric Rug',
             price: 6200,
             desc: '4x6 ft, cotton blend',
-            img: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
             badge: 'Trending'
          },
          {
@@ -597,7 +597,7 @@ const products = {
             name: 'Jute Natural Rug',
             price: 3800,
             desc: '5x7 ft, eco-friendly',
-            img: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&q=80',
             badge: 'Eco'
          },
          {
@@ -605,7 +605,7 @@ const products = {
             name: 'Shaggy Fluffy Rug',
             price: 4500,
             desc: '4x6 ft, microfiber',
-            img: 'https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
             badge: 'Cozy'
          }
       ]
@@ -809,7 +809,7 @@ const products = {
             name: 'Standard Red Brick',
             price: 8,
             desc: 'Per piece — 9x4x3 inch',
-            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1617791160505-6f00504e3519?w=400&q=80',
             badge: 'Bestseller'
          },
          {
@@ -817,7 +817,7 @@ const products = {
             name: 'Wire Cut Red Brick',
             price: 10,
             desc: 'Per piece — Smooth finish',
-            img: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1585412727339-54e4bae3bbf9?w=400&q=80',
             badge: 'Quality'
          },
          {
@@ -1045,7 +1045,7 @@ const products = {
             name: '3D Dinosaur Set',
             price: 899,
             desc: 'Set of 5, different species',
-            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400&q=80',
             badge: 'Kids Fav'
          },
          {
@@ -1075,7 +1075,7 @@ const products = {
             name: '3D Racing Car',
             price: 699,
             desc: 'Detailed body, 18cm',
-            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=400&q=80',
             badge: 'Bestseller'
          },
          {
@@ -1083,7 +1083,7 @@ const products = {
             name: '3D Rocket Ship',
             price: 799,
             desc: 'Space shuttle design',
-            img: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400&q=80',
             badge: 'Cool'
          },
          {
@@ -1091,7 +1091,7 @@ const products = {
             name: '3D Truck Model',
             price: 549,
             desc: 'Articulated, moving parts',
-            img: 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=400&q=80',
             badge: 'Moving'
          },
          {
@@ -1099,7 +1099,7 @@ const products = {
             name: '3D Plane Model',
             price: 650,
             desc: 'Boeing style, 25cm span',
-            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400&q=80',
             badge: 'New'
          }
       ]
@@ -1129,7 +1129,7 @@ const products = {
             name: 'Custom Logo Stand',
             price: 899,
             desc: 'Business logo display',
-            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=400&q=80',
             badge: 'Business'
          },
          {
@@ -1296,154 +1296,50 @@ const products = {
    }
 };
 
-// ── IMAGE OVERRIDES (fetched per product name) ──
+// ── IMAGE OVERRIDES (verified Unsplash CDN photo IDs only) ──
 const imageOverrides = {
-   // Furniture
-   sofa1: 'https://images.unsplash.com/photo-1LyAwq5OVss?w=400&q=80',
-   sofa2: 'https://images.unsplash.com/photo-skLqGtLrYKc?w=400&q=80',
-   sofa3: 'https://images.unsplash.com/photo-c4LpYfizLvw?w=400&q=80',
-   sofa4: 'https://images.unsplash.com/photo-bpg-ngqrPc8?w=400&q=80',
-   dt1:   'https://images.unsplash.com/photo-lGWmTzCyEB8?w=400&q=80',
-   dt2:   'https://images.unsplash.com/photo-9rYfG8sWRVo?w=400&q=80',
-   dt3:   'https://images.unsplash.com/photo-xlH-LLVetko?w=400&q=80',
-   dt4:   'https://images.unsplash.com/photo-tleCJiDOri0?w=400&q=80',
-   w1:    'https://images.unsplash.com/photo-ysgELOy_t0c?w=400&q=80',
-   w2:    'https://images.unsplash.com/photo-Xbe5BfScmvM?w=400&q=80',
-   w3:    'https://images.unsplash.com/photo-dO9rp6DxreY?w=400&q=80',
-   w4:    'https://images.unsplash.com/photo-JLzD88Mbr4U?w=400&q=80',
-   bf1:   'https://images.unsplash.com/photo-u-RIsXlI8Q8?w=400&q=80',
-   bf2:   'https://images.unsplash.com/photo-l7-XzZ-XATM?w=400&q=80',
-   bf3:   'https://images.unsplash.com/photo-wmN7XH8YPO8?w=400&q=80',
-   bf4:   'https://images.unsplash.com/photo-GYLoKoOn1X4?w=400&q=80',
-   // Marbles
-   wm1:   'https://images.unsplash.com/photo-li0iC0rjvvg?w=400&q=80',
-   wm2:   'https://images.unsplash.com/photo-tqu0IOMaiU8?w=400&q=80',
-   wm3:   'https://images.unsplash.com/photo-PiueVZnO17o?w=400&q=80',
-   wm4:   'https://images.unsplash.com/photo-vYXOy4ANrOg?w=400&q=80',
-   bm1:   'https://images.unsplash.com/photo-Ya4h-T29BAs?w=400&q=80',
-   bm2:   'https://images.unsplash.com/photo-fkNaUP7iXYY?w=400&q=80',
-   bm3:   'https://images.unsplash.com/photo-D6T5Q0rdXg0?w=400&q=80',
-   bm4:   'https://images.unsplash.com/photo-yk3zi2nZ5Uk?w=400&q=80',
-   im1:   'https://images.unsplash.com/photo-9CtdlWfZP58?w=400&q=80',
-   im2:   'https://images.unsplash.com/photo-i3dOsXVy1AI?w=400&q=80',
-   im3:   'https://images.unsplash.com/photo-KlZo16lGVio?w=400&q=80',
-   im4:   'https://images.unsplash.com/photo-WM1rIvSHuOk?w=400&q=80',
-   gr1:   'https://images.unsplash.com/photo-puHt0sQBucA?w=400&q=80',
-   gr2:   'https://images.unsplash.com/photo-HPImeKGnO4E?w=400&q=80',
-   gr3:   'https://images.unsplash.com/photo-kXZDckruYlg?w=400&q=80',
-   gr4:   'https://images.unsplash.com/photo-WSr6t2GVa_A?w=400&q=80',
-   // Flooring
-   hw1:   'https://images.unsplash.com/photo-K8aQajaqlRA?w=400&q=80',
-   hw2:   'https://images.unsplash.com/photo-Yi_cW71j6s4?w=400&q=80',
-   hw3:   'https://images.unsplash.com/photo-5fIoyoKlz7A?w=400&q=80',
-   hw4:   'https://images.unsplash.com/photo-zTh49Vqo5Yk?w=400&q=80',
-   vn1:   'https://images.unsplash.com/photo-3tbtq3oCQ1s?w=400&q=80',
-   vn2:   'https://images.unsplash.com/photo-woNsB86oZyU?w=400&q=80',
-   vn3:   'https://images.unsplash.com/photo-CFZ_0ZEuYvg?w=400&q=80',
-   vn4:   'https://images.unsplash.com/photo-XXuVXLy5gHU?w=400&q=80',
-   ct1:   'https://images.unsplash.com/photo-q9ZiOzsMAhE?w=400&q=80',
-   ct2:   'https://images.unsplash.com/photo-j8DSRdECM6o?w=400&q=80',
-   ct3:   'https://images.unsplash.com/photo-hCzHhu1v0fA?w=400&q=80',
-   ct4:   'https://images.unsplash.com/photo-yZaN9sE6vgw?w=400&q=80',
-   lm1:   'https://images.unsplash.com/photo-mjkTF0AMPzA?w=400&q=80',
-   lm2:   'https://images.unsplash.com/photo-hDPybUBDz8Q?w=400&q=80',
-   lm3:   'https://images.unsplash.com/photo-_rD1pJwWpbU?w=400&q=80',
-   lm4:   'https://images.unsplash.com/photo-zQxTydNa4Pw?w=400&q=80',
-   // Decor
-   wa1:   'https://images.unsplash.com/photo-OGvPjivl3L4?w=400&q=80',
-   wa2:   'https://images.unsplash.com/photo-ulzjVu2hThI?w=400&q=80',
-   wa3:   'https://images.unsplash.com/photo-MEUtre4hH3o?w=400&q=80',
-   wa4:   'https://images.unsplash.com/photo-dKB6EJFLUaA?w=400&q=80',
-   cu1:   'https://images.unsplash.com/photo-AwsdyjRm-kw?w=400&q=80',
-   cu2:   'https://images.unsplash.com/photo-lIJSprMlRE4?w=400&q=80',
-   cu3:   'https://images.unsplash.com/photo-2xRonj7hmj8?w=400&q=80',
-   cu4:   'https://images.unsplash.com/photo-l6MCJZMXWaQ?w=400&q=80',
-   li1:   'https://images.unsplash.com/photo-647dYgB4olI?w=400&q=80',
-   li2:   'https://images.unsplash.com/photo-ItFTJoh1A8c?w=400&q=80',
-   li3:   'https://images.unsplash.com/photo-JBbuQTEKxWo?w=400&q=80',
-   li4:   'https://images.unsplash.com/photo-FV3GConVSss?w=400&q=80',
-   ru1:   'https://images.unsplash.com/photo-ahABkMiSS8Q?w=400&q=80',
-   ru2:   'https://images.unsplash.com/photo-YtNn74mPjtU?w=400&q=80',
-   ru3:   'https://images.unsplash.com/photo--rUi7FbyODI?w=400&q=80',
-   ru4:   'https://images.unsplash.com/photo-KAwP1Nwo5yQ?w=400&q=80',
-   // Cool Drinks
-   co1:   'https://images.unsplash.com/photo-MTTrsZIWDgw?w=400&q=80',
-   co2:   'https://images.unsplash.com/photo-RFxUtsxkZrM?w=400&q=80',
-   co3:   'https://images.unsplash.com/photo-XHAV3MKigxc?w=400&q=80',
-   co4:   'https://images.unsplash.com/photo-3AY4Wjp28-k?w=400&q=80',
-   ju1:   'https://images.unsplash.com/photo-2n3HqAwAV58?w=400&q=80',
-   ju2:   'https://images.unsplash.com/photo-8Q93Tun7uhM?w=400&q=80',
-   ju3:   'https://images.unsplash.com/photo-5n7FuwS6dw4?w=400&q=80',
-   ju4:   'https://images.unsplash.com/photo-aSpUIAjQLN8?w=400&q=80',
-   en1:   'https://images.unsplash.com/photo-B2Cs6kw5VNM?w=400&q=80',
-   en2:   'https://images.unsplash.com/photo-snQCK9ghEaA?w=400&q=80',
-   en3:   'https://images.unsplash.com/photo-nIxxvZgXpDQ?w=400&q=80',
-   en4:   'https://images.unsplash.com/photo-flUJnSAYcv0?w=400&q=80',
-   sw1:   'https://images.unsplash.com/photo-H-Gmstqdf7c?w=400&q=80',
-   sw2:   'https://images.unsplash.com/photo-zAj0PMH0jns?w=400&q=80',
-   sw3:   'https://images.unsplash.com/photo-6A1aHee_6XA?w=400&q=80',
-   sw4:   'https://images.unsplash.com/photo-_f06CbE0CQk?w=400&q=80',
    // Milk
-   mk1:   'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&q=80',
-   mk2:   'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80',
-   mk3:   'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400&q=80',
-   mk4:   'https://images.unsplash.com/photo-1517093157656-b9eccef91cb1?w=400&q=80',
-   // Bricks
-   rb1:   'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
-   rb2:   'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80',
-   rb3:   'https://images.unsplash.com/photo-1587302164675-820fe61bbd55?w=400&q=80',
-   rb4:   'https://images.unsplash.com/photo-1596812600-2fce1afdb515?w=400&q=80',
-   fb1:   'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80',
-   fb2:   'https://images.unsplash.com/photo-1565372195458-9de0b320ef04?w=400&q=80',
-   fb3:   'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=400&q=80',
-   fb4:   'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=400&q=80',
-   cb1:   'https://images.unsplash.com/photo-1590736969596-1b8e0f88de01?w=400&q=80',
-   cb2:   'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&q=80',
-   cb3:   'https://images.unsplash.com/photo-1548625361-58a9d4c84186?w=400&q=80',
-   cb4:   'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=400&q=80',
-   // Soil
-   gs1:   'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&q=80',
-   gs2:   'https://images.unsplash.com/photo-1591634616938-4a8f82c812a8?w=400&q=80',
-   gs3:   'https://images.unsplash.com/photo-1585320806297-9794b3e4ebe1?w=400&q=80',
-   gs4:   'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&q=80',
-   cp1:   'https://images.unsplash.com/photo-1526397751294-331021109fbd?w=400&q=80',
-   cp2:   'https://images.unsplash.com/photo-1624323752823-36b6f205b5b6?w=400&q=80',
-   cp3:   'https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=400&q=80',
-   cp4:   'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&q=80',
-   fs1:   'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&q=80',
-   fs2:   'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
-   fs3:   'https://images.unsplash.com/photo-1592420114272-8e29c41b6c6b?w=400&q=80',
-   fs4:   'https://images.unsplash.com/photo-1471193945509-9ad0617afabf?w=400&q=80',
-   // 3D Toys
-   ta1:   'https://images.unsplash.com/photo-1612404730960-5c71577fca11?w=400&q=80',
-   ta2:   'https://images.unsplash.com/photo-1566438480900-0609be27a4be?w=400&q=80',
-   ta3:   'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&q=80',
-   ta4:   'https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=400&q=80',
-   tv1:   'https://images.unsplash.com/photo-1516849677043-ef67c9557e16?w=400&q=80',
-   tv2:   'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=400&q=80',
-   tv3:   'https://images.unsplash.com/photo-1474302770737-173ee21bab63?w=400&q=80',
-   tv4:   'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=80',
-   tc1:   'https://images.unsplash.com/photo-1562260940-61b1a66e620f?w=400&q=80',
-   tc2:   'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=400&q=80',
-   tc3:   'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&q=80',
-   tc4:   'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&q=80',
-   // Fancy Items
-   hc1:   'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80',
-   hc2:   'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80',
-   hc3:   'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=400&q=80',
-   hc4:   'https://images.unsplash.com/photo-1620833839739-ac2ab3e17de6?w=400&q=80',
-   er1:   'https://images.unsplash.com/photo-1630019852942-f89202989a59?w=400&q=80',
-   er2:   'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&q=80',
-   er3:   'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&q=80',
-   er4:   'https://images.unsplash.com/photo-1617038220319-276d3cfab638?w=400&q=80',
-   bg1:   'https://images.unsplash.com/photo-1601821765780-754fa98637c1?w=400&q=80',
-   bg2:   'https://images.unsplash.com/photo-1573408301185-9519f94815b7?w=400&q=80',
-   bg3:   'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400&q=80',
-   bg4:   'https://images.unsplash.com/photo-1610694955371-d4a3e0ce4b52?w=400&q=80',
-   nc1:   'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&q=80',
-   nc2:   'https://images.unsplash.com/photo-1610694955371-d4a3e0ce4b52?w=400&q=80',
-   nc3:   'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400&q=80',
-   nc4:   'https://images.unsplash.com/photo-1573408301185-9519f94815b7?w=400&q=80'
+   mk1: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&q=80',
+   mk2: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80',
+   mk3: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400&q=80',
+   mk4: 'https://images.unsplash.com/photo-1517093157656-b9eccef91cb1?w=400&q=80',
+   // Fly Ash Bricks
+   fb1: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80',
+   fb2: 'https://images.unsplash.com/photo-1565372195458-9de0b320ef04?w=400&q=80',
+   fb3: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=400&q=80',
+   fb4: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=400&q=80',
+   // Concrete Blocks
+   cb1: 'https://images.unsplash.com/photo-1590736969596-1b8e0f88de01?w=400&q=80',
+   cb2: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&q=80',
+   cb3: 'https://images.unsplash.com/photo-1548625361-58a9d4c84186?w=400&q=80',
+   cb4: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=400&q=80',
+   // Coco Peat
+   cp1: 'https://images.unsplash.com/photo-1526397751294-331021109fbd?w=400&q=80',
+   cp2: 'https://images.unsplash.com/photo-1624323752823-36b6f205b5b6?w=400&q=80',
+   cp3: 'https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=400&q=80',
+   cp4: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&q=80',
+   // Fertilizer
+   fs1: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&q=80',
+   fs2: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
+   fs3: 'https://images.unsplash.com/photo-1592420114272-8e29c41b6c6b?w=400&q=80',
+   fs4: 'https://images.unsplash.com/photo-1471193945509-9ad0617afabf?w=400&q=80',
+   // Hair Clips
+   hc1: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&q=80',
+   hc2: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80',
+   hc3: 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=400&q=80',
+   hc4: 'https://images.unsplash.com/photo-1620833839739-ac2ab3e17de6?w=400&q=80',
+   // Earrings
+   er2: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&q=80',
+   er3: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=400&q=80',
+   er4: 'https://images.unsplash.com/photo-1617038220319-276d3cfab638?w=400&q=80',
+   // Bangles
+   bg1: 'https://images.unsplash.com/photo-1601821765780-754fa98637c1?w=400&q=80',
+   bg2: 'https://images.unsplash.com/photo-1573408301185-9519f94815b7?w=400&q=80',
+   bg3: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400&q=80',
+   bg4: 'https://images.unsplash.com/photo-1610694955371-d4a3e0ce4b52?w=400&q=80',
+   // 3D Custom Prints
+   tc3: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=400&q=80',
+   tc4: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&q=80'
 };
 Object.entries(products).forEach(([, cat]) => {
    cat.items.forEach(item => {

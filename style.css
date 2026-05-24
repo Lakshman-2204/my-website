@@ -1450,6 +1450,13 @@ body {
 	margin: 0 auto;
 }
 
+.admin-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
 .admin-page-title h1 {
 	font-size: 1.5rem;
 	color: #1a1a2e;
@@ -1460,6 +1467,21 @@ body {
 	color: #666;
 	font-size: 0.88rem;
 }
+
+.admin-add-main-btn {
+	padding: 12px 22px;
+	background: #2e7d32;
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+	font-size: 0.95rem;
+	font-weight: 700;
+	cursor: pointer;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.admin-add-main-btn:hover { background: #1b5e20; }
 
 .admin-content {
 	max-width: 1400px;

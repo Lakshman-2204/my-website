@@ -217,7 +217,7 @@ const products = {
             name: 'Absolute Black Marble',
             price: 500,
             desc: 'Per sq ft — Mirror polish',
-            img: 'https://images.unsplash.com/photo-1617791160505-6f00504e3519?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
             badge: 'Bestseller'
          },
          {
@@ -331,7 +331,7 @@ const products = {
             name: 'Walnut Wood Floor',
             price: 550,
             desc: 'Per sq ft — Dark walnut',
-            img: 'https://images.unsplash.com/photo-1541123437800-1bb1317badc2?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
             badge: 'Luxury'
          },
          {
@@ -339,7 +339,7 @@ const products = {
             name: 'Pine Wood Flooring',
             price: 180,
             desc: 'Per sq ft — Rustic look',
-            img: 'https://images.unsplash.com/photo-1562663474-6cbb3eaa4d14?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?w=400&q=80',
             badge: 'Budget'
          }
       ]
@@ -483,7 +483,7 @@ const products = {
             name: 'Wooden Wall Panel',
             price: 6200,
             desc: 'Laser cut geometric',
-            img: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
             badge: 'New'
          },
          {
@@ -513,7 +513,7 @@ const products = {
             name: 'Sheer Linen Curtains',
             price: 2800,
             desc: 'Per pair, light filtering',
-            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=80',
             badge: 'Trending'
          },
          {
@@ -521,7 +521,7 @@ const products = {
             name: 'Printed Cotton Curtains',
             price: 1800,
             desc: 'Floral print, per pair',
-            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&q=80',
             badge: 'Budget'
          },
          {
@@ -529,7 +529,7 @@ const products = {
             name: 'Motorized Curtains',
             price: 18000,
             desc: 'Smart home remote',
-            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?w=400&q=80',
             badge: 'Smart'
          }
       ]
@@ -543,7 +543,7 @@ const products = {
             name: 'Crystal Chandelier',
             price: 28000,
             desc: 'K9 crystal, 12-light',
-            img: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&q=80',
             badge: 'Luxury'
          },
          {
@@ -589,7 +589,7 @@ const products = {
             name: 'Modern Geometric Rug',
             price: 6200,
             desc: '4x6 ft, cotton blend',
-            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=80',
             badge: 'Trending'
          },
          {
@@ -597,7 +597,7 @@ const products = {
             name: 'Jute Natural Rug',
             price: 3800,
             desc: '5x7 ft, eco-friendly',
-            img: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&q=80',
             badge: 'Eco'
          },
          {
@@ -605,7 +605,7 @@ const products = {
             name: 'Shaggy Fluffy Rug',
             price: 4500,
             desc: '4x6 ft, microfiber',
-            img: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=400&q=80',
             badge: 'Cozy'
          }
       ]
@@ -809,7 +809,7 @@ const products = {
             name: 'Standard Red Brick',
             price: 8,
             desc: 'Per piece — 9x4x3 inch',
-            img: 'https://images.unsplash.com/photo-1617791160505-6f00504e3519?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
             badge: 'Bestseller'
          },
          {
@@ -817,7 +817,7 @@ const products = {
             name: 'Wire Cut Red Brick',
             price: 10,
             desc: 'Per piece — Smooth finish',
-            img: 'https://images.unsplash.com/photo-1585412727339-54e4bae3bbf9?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=400&q=80',
             badge: 'Quality'
          },
          {
@@ -1045,7 +1045,7 @@ const products = {
             name: '3D Dinosaur Set',
             price: 899,
             desc: 'Set of 5, different species',
-            img: 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
             badge: 'Kids Fav'
          },
          {
@@ -1075,7 +1075,7 @@ const products = {
             name: '3D Racing Car',
             price: 699,
             desc: 'Detailed body, 18cm',
-            img: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
             badge: 'Bestseller'
          },
          {
@@ -1083,7 +1083,7 @@ const products = {
             name: '3D Rocket Ship',
             price: 799,
             desc: 'Space shuttle design',
-            img: 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=400&q=80',
             badge: 'Cool'
          },
          {
@@ -1091,7 +1091,7 @@ const products = {
             name: '3D Truck Model',
             price: 549,
             desc: 'Articulated, moving parts',
-            img: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400&q=80',
             badge: 'Moving'
          },
          {
@@ -1099,7 +1099,7 @@ const products = {
             name: '3D Plane Model',
             price: 650,
             desc: 'Boeing style, 25cm span',
-            img: 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
             badge: 'New'
          }
       ]
@@ -1129,7 +1129,7 @@ const products = {
             name: 'Custom Logo Stand',
             price: 899,
             desc: 'Business logo display',
-            img: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=400&q=80',
+            img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
             badge: 'Business'
          },
          {
@@ -1341,11 +1341,29 @@ const imageOverrides = {
    tc3: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=400&q=80',
    tc4: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&q=80'
 };
+// Apply hardcoded image overrides
 Object.entries(products).forEach(([, cat]) => {
    cat.items.forEach(item => {
       if (imageOverrides[item.id]) item.img = imageOverrides[item.id];
    });
 });
+// Apply admin product overrides saved via Admin Panel
+(function () {
+   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   Object.entries(products).forEach(([, cat]) => {
+      cat.items.forEach(item => {
+         const o = ov[item.id];
+         if (!o) return;
+         if (o.img)  item.img  = o.img;
+         if (o.name) item.name = o.name;
+         if (o.desc) item.desc = o.desc;
+         if (o.price !== undefined) {
+            if (cat.type === 'milk') item.pricePerLitre = o.price;
+            else item.price = o.price;
+         }
+      });
+   });
+})();
 
 // ── ALL ITEMS FLAT LIST (for search) ──
 function getAllItems() {
@@ -1849,6 +1867,20 @@ function checkLogin() {
    const header = document.getElementById('userDropdownName');
    if (header) header.textContent = '👋 Hi, ' + user.name;
    updateAddressDisplay(user.email);
+   if (user.isAdmin) {
+      const adminLink = document.getElementById('adminPanelLink');
+      if (adminLink) adminLink.classList.remove('hidden');
+   }
+}
+
+function seedAdmin() {
+   let users = getUsers();
+   // Remove old default placeholder admin if present
+   users = users.filter(u => u.email !== 'admin@mystore.com');
+   if (!users.find(u => u.email === 'g.ramkumar3127@gmail.com')) {
+      users.push({ name: 'Admin', email: 'g.ramkumar3127@gmail.com', password: 'Gsggrl@703662', isAdmin: true });
+   }
+   saveUsers(users);
 }
 
 function updateAddressDisplay(email) {
@@ -1896,4 +1928,118 @@ if (document.getElementById('heroGreeting')) {
    updateCartUI();
    const si = document.getElementById('searchInput');
    if (si) si.value = '';
+}
+
+// Seed admin account on every page load (no-op if already exists)
+seedAdmin();
+
+// ── ADMIN PANEL ──
+let _editId = null;
+
+function initAdmin() {
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   if (!user || !user.isAdmin) { window.location.href = 'login.html'; return; }
+   document.getElementById('adminUserName').textContent = user.name;
+   renderAdminGrid();
+}
+
+function renderAdminGrid() {
+   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   const container = document.getElementById('adminContent');
+   container.innerHTML = '';
+   Object.entries(products).forEach(([catKey, catData]) => {
+      const section = document.createElement('div');
+      section.className = 'admin-section';
+      section.innerHTML = `<h2 class="admin-section-title">${catData.category} — ${catData.title}</h2>`;
+      const grid = document.createElement('div');
+      grid.className = 'admin-product-grid';
+      catData.items.forEach(item => {
+         const o = ov[item.id] || {};
+         const displayImg = o.img || item.img;
+         const displayName = o.name || item.name;
+         const displayPrice = (o.price !== undefined ? o.price : (item.price || item.pricePerLitre)).toLocaleString('en-IN');
+         const displayDesc = o.desc || item.desc;
+         const modified = !!ov[item.id];
+         const card = document.createElement('div');
+         card.className = 'admin-product-card' + (modified ? ' modified' : '');
+         card.innerHTML = `
+            <div class="admin-card-img-wrap">
+               <img src="${displayImg}" alt="${displayName}" loading="lazy"
+                    onerror="this.src='https://placehold.co/200x140?text=No+Image'"/>
+               ${modified ? '<span class="admin-modified-badge">Modified</span>' : ''}
+            </div>
+            <div class="admin-card-info">
+               <div class="admin-card-name">${displayName}</div>
+               <div class="admin-card-price">₹${displayPrice}</div>
+               <div class="admin-card-desc">${displayDesc}</div>
+            </div>
+            <button class="admin-edit-btn" onclick="openEditModal('${item.id}','${catKey}')">✏️ Edit</button>`;
+         grid.appendChild(card);
+      });
+      section.appendChild(grid);
+      container.appendChild(section);
+   });
+}
+
+function openEditModal(itemId, catKey) {
+   const cat = products[catKey];
+   const item = cat.items.find(i => i.id === itemId);
+   if (!item) return;
+   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   const o = ov[itemId] || {};
+   _editId = itemId;
+   document.getElementById('modalTitle').textContent = 'Edit: ' + item.name;
+   document.getElementById('modalImgUrl').value = o.img || item.img;
+   document.getElementById('modalName').value = o.name || item.name;
+   document.getElementById('modalPrice').value = o.price !== undefined ? o.price : (item.price || item.pricePerLitre);
+   document.getElementById('modalDesc').value = o.desc || item.desc;
+   document.getElementById('modalPreviewImg').src = o.img || item.img;
+   document.getElementById('editModal').classList.remove('hidden');
+}
+
+function previewModalImg() {
+   const url = document.getElementById('modalImgUrl').value.trim();
+   if (url) document.getElementById('modalPreviewImg').src = url;
+}
+
+function saveProductEdit() {
+   if (!_editId) return;
+   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   ov[_editId] = {
+      img:   document.getElementById('modalImgUrl').value.trim(),
+      name:  document.getElementById('modalName').value.trim(),
+      price: parseFloat(document.getElementById('modalPrice').value),
+      desc:  document.getElementById('modalDesc').value.trim()
+   };
+   localStorage.setItem('adminProductOverrides', JSON.stringify(ov));
+   closeEditModal();
+   renderAdminGrid();
+   showAdminToast('✅ Saved! Changes will appear in the store.');
+}
+
+function resetProductEdit() {
+   if (!_editId) return;
+   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   delete ov[_editId];
+   localStorage.setItem('adminProductOverrides', JSON.stringify(ov));
+   closeEditModal();
+   renderAdminGrid();
+   showAdminToast('↺ Reset to original defaults.');
+}
+
+function closeEditModal() {
+   document.getElementById('editModal').classList.add('hidden');
+   _editId = null;
+}
+
+function handleModalOverlayClick(e) {
+   if (e.target.id === 'editModal') closeEditModal();
+}
+
+function showAdminToast(msg) {
+   const t = document.getElementById('adminToast');
+   if (!t) return;
+   t.textContent = msg;
+   t.classList.remove('hidden');
+   setTimeout(() => t.classList.add('hidden'), 2800);
 }

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8"/>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Admin Panel — MyStore</title>
+      <link rel="stylesheet" href="style.css"/>
+   </head>
+   <body class="admin-page">
+      <!-- ADMIN HEADER -->
+      <div class="admin-header">
+         <div class="admin-brand" onclick="window.location='home.html'">🛍️ MyStore Admin</div>
+         <div class="admin-header-right">
+            <span id="adminUserName"></span>
+            <button class="admin-store-btn" onclick="window.location='home.html'">← View Store</button>
+            <button class="admin-logout-btn" onclick="logout()">Logout</button>
+         </div>
+      </div>
+
+      <!-- PAGE TITLE -->
+      <div class="admin-page-title">
+         <h1>⚙️ Product Manager</h1>
+         <p>Click <strong>✏️ Edit</strong> on any product to update its image, name, price, or description. Changes are saved instantly and reflected in the store for all visitors.</p>
+      </div>
+
+      <!-- PRODUCT GRID (filled by JS) -->
+      <div class="admin-content" id="adminContent"></div>
+
+      <!-- EDIT MODAL -->
+      <div class="admin-modal-overlay hidden" id="editModal" onclick="handleModalOverlayClick(event)">
+         <div class="admin-modal">
+            <div class="admin-modal-header">
+               <h3 id="modalTitle">Edit Product</h3>
+               <button class="admin-modal-close" onclick="closeEditModal()">✕</button>
+            </div>
+            <div class="admin-modal-body">
+               <div class="modal-preview-wrap">
+                  <img id="modalPreviewImg" src="" alt="Preview" onerror="this.src='https://placehold.co/400x180?text=Image+Preview'"/>
+               </div>
+               <div class="modal-field">
+                  <label>Image URL</label>
+                  <input type="text" id="modalImgUrl" placeholder="https://images.unsplash.com/photo-..." oninput="previewModalImg()"/>
+                  <small>Paste any public image URL. The preview updates as you type.</small>
+               </div>
+               <div class="modal-field">
+                  <label>Product Name</label>
+                  <input type="text" id="modalName" placeholder="Product name"/>
+               </div>
+               <div class="modal-field">
+                  <label>Price (₹)</label>
+                  <input type="number" id="modalPrice" placeholder="0" min="0"/>
+               </div>
+               <div class="modal-field">
+                  <label>Description</label>
+                  <input type="text" id="modalDesc" placeholder="Short description"/>
+               </div>
+            </div>
+            <div class="admin-modal-footer">
+               <button class="admin-btn-save" onclick="saveProductEdit()">💾 Save Changes</button>
+               <button class="admin-btn-reset" onclick="resetProductEdit()">↺ Reset to Default</button>
+               <button class="admin-btn-cancel" onclick="closeEditModal()">Cancel</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- TOAST -->
+      <div class="toast hidden" id="adminToast"></div>
+
+      <script src="script.js"></script>
+      <script>initAdmin();</script>
+   </body>
+</html>

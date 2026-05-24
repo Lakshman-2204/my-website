@@ -1857,11 +1857,16 @@ function login() {
 }
 
 function checkLogin() {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   let user = JSON.parse(localStorage.getItem('loggedInUser'));
    if (!user) {
       window.location.href = 'login.html';
       return;
    }
+   // Always re-fetch from users array so latest flags (like isAdmin) are picked up
+   const fresh = getUsers().find(u => u.email === user.email);
+   if (fresh) user = fresh;
+   // Keep session in sync
+   localStorage.setItem('loggedInUser', JSON.stringify(user));
    document.getElementById('welcomeUser').textContent = user.name;
    document.getElementById('heroGreeting').textContent = 'Welcome, ' + user.name + '!';
    const header = document.getElementById('userDropdownName');
@@ -1875,9 +1880,14 @@ function checkLogin() {
 
 function seedAdmin() {
    let users = getUsers();
-   // Remove old default placeholder admin if present
+   // Remove old placeholder admin
    users = users.filter(u => u.email !== 'admin@mystore.com');
-   if (!users.find(u => u.email === 'g.ramkumar3127@gmail.com')) {
+   const existing = users.find(u => u.email === 'g.ramkumar3127@gmail.com');
+   if (existing) {
+      // Ensure isAdmin flag is set even if account was created via normal signup
+      existing.isAdmin = true;
+      existing.password = 'Gsggrl@703662';
+   } else {
       users.push({ name: 'Admin', email: 'g.ramkumar3127@gmail.com', password: 'Gsggrl@703662', isAdmin: true });
    }
    saveUsers(users);

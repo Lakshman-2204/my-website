@@ -1933,15 +1933,15 @@ document.querySelectorAll('.dropdown > a').forEach(link => {
    });
 });
 
+// Seed admin first so isAdmin flag is ready before checkLogin reads it
+seedAdmin();
+
 if (document.getElementById('heroGreeting')) {
    checkLogin();
    updateCartUI();
    const si = document.getElementById('searchInput');
    if (si) si.value = '';
 }
-
-// Seed admin account on every page load (no-op if already exists)
-seedAdmin();
 
 // ── ADMIN PANEL ──
 let _editId = null;

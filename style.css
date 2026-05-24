@@ -1471,14 +1471,35 @@ body {
 	margin-bottom: 36px;
 }
 
-.admin-section-title {
-	font-size: 1rem;
-	font-weight: 700;
-	color: #1a1a2e;
+.admin-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 	padding-bottom: 8px;
 	border-bottom: 2px solid #e0e0e0;
 	margin-bottom: 14px;
 }
+
+.admin-section-title {
+	font-size: 1rem;
+	font-weight: 700;
+	color: #1a1a2e;
+	margin: 0;
+}
+
+.admin-add-item-btn {
+	padding: 5px 12px;
+	background: #2e7d32;
+	color: #fff;
+	border: none;
+	border-radius: 6px;
+	font-size: 0.78rem;
+	font-weight: 600;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.admin-add-item-btn:hover { background: #1b5e20; }
 
 .admin-product-grid {
 	display: grid;
@@ -1556,8 +1577,12 @@ body {
 	color: #999;
 }
 
+.admin-card-actions {
+	display: flex;
+}
+
 .admin-edit-btn {
-	width: 100%;
+	flex: 1;
 	padding: 8px;
 	background: #1a1a2e;
 	color: #fff;
@@ -1568,8 +1593,45 @@ body {
 	transition: background 0.2s;
 }
 
-.admin-edit-btn:hover {
-	background: #2196f3;
+.admin-edit-btn:hover { background: #2196f3; }
+
+.admin-delete-btn {
+	padding: 8px 10px;
+	background: #c62828;
+	color: #fff;
+	border: none;
+	font-size: 0.82rem;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+
+.admin-delete-btn:hover { background: #b71c1c; }
+
+.admin-custom-badge {
+	position: absolute;
+	top: 5px;
+	left: 5px;
+	background: #2e7d32;
+	color: #fff;
+	font-size: 0.6rem;
+	font-weight: 700;
+	padding: 2px 6px;
+	border-radius: 10px;
+	text-transform: uppercase;
+}
+
+.admin-product-card.custom {
+	border-color: #2e7d32;
+}
+
+.modal-select {
+	width: 100%;
+	padding: 9px 12px;
+	border: 1.5px solid #ddd;
+	border-radius: 7px;
+	font-size: 0.88rem;
+	outline: none;
+	background: #fff;
 }
 
 /* Admin Edit Modal */

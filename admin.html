@@ -37,6 +37,10 @@
                <div class="modal-preview-wrap">
                   <img id="modalPreviewImg" src="" alt="Preview" onerror="this.src='https://placehold.co/400x180?text=Image+Preview'"/>
                </div>
+               <div class="modal-field hidden" id="catSelectRow">
+                  <label>Category</label>
+                  <select id="modalCatKey" class="modal-select"></select>
+               </div>
                <div class="modal-field">
                   <label>Image URL</label>
                   <input type="text" id="modalImgUrl" placeholder="https://images.unsplash.com/photo-..." oninput="previewModalImg()"/>
@@ -54,10 +58,14 @@
                   <label>Description</label>
                   <input type="text" id="modalDesc" placeholder="Short description"/>
                </div>
+               <div class="modal-field hidden" id="badgeRow">
+                  <label>Badge <small style="font-weight:400;text-transform:none">(e.g. New, Hot, Sale)</small></label>
+                  <input type="text" id="modalBadge" placeholder="New"/>
+               </div>
             </div>
             <div class="admin-modal-footer">
-               <button class="admin-btn-save" onclick="saveProductEdit()">💾 Save Changes</button>
-               <button class="admin-btn-reset" onclick="resetProductEdit()">↺ Reset to Default</button>
+               <button class="admin-btn-save" id="adminBtnSave" onclick="saveProductEdit()">💾 Save Changes</button>
+               <button class="admin-btn-reset" id="adminBtnReset" onclick="resetProductEdit()">↺ Reset to Default</button>
                <button class="admin-btn-cancel" onclick="closeEditModal()">Cancel</button>
             </div>
          </div>

@@ -1364,6 +1364,15 @@ Object.entries(products).forEach(([, cat]) => {
       });
    });
 })();
+// Load admin-added custom products
+(function () {
+   const newItems = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
+   newItems.forEach(ni => {
+      if (products[ni.catKey] && !products[ni.catKey].items.find(i => i.id === ni.id)) {
+         products[ni.catKey].items.push({ id: ni.id, name: ni.name, price: ni.price, desc: ni.desc, img: ni.img, badge: ni.badge || 'New' });
+      }
+   });
+})();
 
 // ── ALL ITEMS FLAT LIST (for search) ──
 function getAllItems() {
@@ -1856,10 +1865,13 @@ function login() {
    window.location.href = 'home.html';
 }
 
-const ADMIN_EMAIL = 'g.ramkumar3127@gmail.com';
+const ADMIN_EMAILS = [
+   'g.ramkumar3127@gmail.com',
+   'lakshmankumar2812@gmail.com'
+];
 
 function isAdmin(email) {
-   return email === ADMIN_EMAIL;
+   return ADMIN_EMAILS.includes(email);
 }
 
 function checkLogin() {
@@ -1883,14 +1895,19 @@ function seedAdmin() {
    let users = getUsers();
    // Remove old placeholder admin
    users = users.filter(u => u.email !== 'admin@mystore.com');
-   const existing = users.find(u => u.email === 'g.ramkumar3127@gmail.com');
-   if (existing) {
-      // Ensure isAdmin flag is set even if account was created via normal signup
-      existing.isAdmin = true;
-      existing.password = 'Gsggrl@703662';
-   } else {
-      users.push({ name: 'Admin', email: 'g.ramkumar3127@gmail.com', password: 'Gsggrl@703662', isAdmin: true });
-   }
+   const admins = [
+      { name: 'Admin', email: 'g.ramkumar3127@gmail.com',    password: 'Gsggrl@703662', isAdmin: true },
+      { name: 'Admin', email: 'lakshmankumar2812@gmail.com', password: 'Decem@2204',    isAdmin: true }
+   ];
+   admins.forEach(admin => {
+      const existing = users.find(u => u.email === admin.email);
+      if (existing) {
+         existing.isAdmin  = true;
+         existing.password = admin.password;
+      } else {
+         users.push(admin);
+      }
+   });
    saveUsers(users);
 }
 
@@ -1946,6 +1963,7 @@ if (document.getElementById('heroGreeting')) {
 
 // ── ADMIN PANEL ──
 let _editId = null;
+let _addMode = false;
 
 function initAdmin() {
    const user = JSON.parse(localStorage.getItem('loggedInUser'));
@@ -1955,36 +1973,45 @@ function initAdmin() {
 }
 
 function renderAdminGrid() {
-   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   const ov  = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
    const container = document.getElementById('adminContent');
    container.innerHTML = '';
    Object.entries(products).forEach(([catKey, catData]) => {
       const section = document.createElement('div');
       section.className = 'admin-section';
-      section.innerHTML = `<h2 class="admin-section-title">${catData.category} — ${catData.title}</h2>`;
+      section.innerHTML = `
+         <div class="admin-section-header">
+            <h2 class="admin-section-title">${catData.category} — ${catData.title}</h2>
+            <button class="admin-add-item-btn" onclick="openAddModal('${catKey}')">➕ Add Item</button>
+         </div>`;
       const grid = document.createElement('div');
       grid.className = 'admin-product-grid';
       catData.items.forEach(item => {
+         const isCustom = item.id.startsWith('custom_');
          const o = ov[item.id] || {};
-         const displayImg = o.img || item.img;
-         const displayName = o.name || item.name;
+         const displayImg   = o.img  || item.img;
+         const displayName  = o.name || item.name;
          const displayPrice = (o.price !== undefined ? o.price : (item.price || item.pricePerLitre)).toLocaleString('en-IN');
-         const displayDesc = o.desc || item.desc;
-         const modified = !!ov[item.id];
+         const displayDesc  = o.desc || item.desc;
+         const modified = !isCustom && !!ov[item.id];
          const card = document.createElement('div');
-         card.className = 'admin-product-card' + (modified ? ' modified' : '');
+         card.className = 'admin-product-card' + (modified ? ' modified' : '') + (isCustom ? ' custom' : '');
          card.innerHTML = `
             <div class="admin-card-img-wrap">
                <img src="${displayImg}" alt="${displayName}" loading="lazy"
                     onerror="this.src='https://placehold.co/200x140?text=No+Image'"/>
-               ${modified ? '<span class="admin-modified-badge">Modified</span>' : ''}
+               ${isCustom  ? '<span class="admin-custom-badge">Custom</span>'   : ''}
+               ${modified  ? '<span class="admin-modified-badge">Modified</span>' : ''}
             </div>
             <div class="admin-card-info">
                <div class="admin-card-name">${displayName}</div>
                <div class="admin-card-price">₹${displayPrice}</div>
                <div class="admin-card-desc">${displayDesc}</div>
             </div>
-            <button class="admin-edit-btn" onclick="openEditModal('${item.id}','${catKey}')">✏️ Edit</button>`;
+            <div class="admin-card-actions">
+               <button class="admin-edit-btn" onclick="openEditModal('${item.id}','${catKey}')">✏️ Edit</button>
+               ${isCustom ? `<button class="admin-delete-btn" onclick="deleteCustomProduct('${item.id}')">🗑️</button>` : ''}
+            </div>`;
          grid.appendChild(card);
       });
       section.appendChild(grid);
@@ -1992,19 +2019,46 @@ function renderAdminGrid() {
    });
 }
 
+function openAddModal(catKey) {
+   _editId  = null;
+   _addMode = true;
+   document.getElementById('modalTitle').textContent = '➕ Add New Product';
+   document.getElementById('modalImgUrl').value  = '';
+   document.getElementById('modalName').value    = '';
+   document.getElementById('modalPrice').value   = '';
+   document.getElementById('modalDesc').value    = '';
+   document.getElementById('modalBadge').value   = 'New';
+   document.getElementById('modalPreviewImg').src = 'https://placehold.co/400x180?text=Image+Preview';
+   const sel = document.getElementById('modalCatKey');
+   sel.innerHTML = Object.entries(products)
+      .map(([k, c]) => `<option value="${k}" ${k === catKey ? 'selected' : ''}>${c.category} — ${c.title}</option>`)
+      .join('');
+   document.getElementById('catSelectRow').classList.remove('hidden');
+   document.getElementById('badgeRow').classList.remove('hidden');
+   document.getElementById('adminBtnSave').textContent  = '➕ Add Product';
+   document.getElementById('adminBtnReset').classList.add('hidden');
+   document.getElementById('editModal').classList.remove('hidden');
+}
+
 function openEditModal(itemId, catKey) {
-   const cat = products[catKey];
+   _addMode = false;
+   const cat  = products[catKey];
    const item = cat.items.find(i => i.id === itemId);
    if (!item) return;
    const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
-   const o = ov[itemId] || {};
-   _editId = itemId;
-   document.getElementById('modalTitle').textContent = 'Edit: ' + item.name;
-   document.getElementById('modalImgUrl').value = o.img || item.img;
-   document.getElementById('modalName').value = o.name || item.name;
-   document.getElementById('modalPrice').value = o.price !== undefined ? o.price : (item.price || item.pricePerLitre);
-   document.getElementById('modalDesc').value = o.desc || item.desc;
-   document.getElementById('modalPreviewImg').src = o.img || item.img;
+   const o  = ov[itemId] || {};
+   _editId  = itemId;
+   document.getElementById('modalTitle').textContent  = 'Edit: ' + item.name;
+   document.getElementById('modalImgUrl').value  = o.img  || item.img;
+   document.getElementById('modalName').value    = o.name || item.name;
+   document.getElementById('modalPrice').value   = o.price !== undefined ? o.price : (item.price || item.pricePerLitre);
+   document.getElementById('modalDesc').value    = o.desc || item.desc;
+   document.getElementById('modalBadge').value   = o.badge || item.badge || '';
+   document.getElementById('modalPreviewImg').src = o.img  || item.img;
+   document.getElementById('catSelectRow').classList.add('hidden');
+   document.getElementById('badgeRow').classList.remove('hidden');
+   document.getElementById('adminBtnSave').textContent  = '💾 Save Changes';
+   document.getElementById('adminBtnReset').classList.remove('hidden');
    document.getElementById('editModal').classList.remove('hidden');
 }
 
@@ -2014,18 +2068,50 @@ function previewModalImg() {
 }
 
 function saveProductEdit() {
+   if (_addMode) { saveNewProduct(); return; }
    if (!_editId) return;
    const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
    ov[_editId] = {
       img:   document.getElementById('modalImgUrl').value.trim(),
       name:  document.getElementById('modalName').value.trim(),
       price: parseFloat(document.getElementById('modalPrice').value),
-      desc:  document.getElementById('modalDesc').value.trim()
+      desc:  document.getElementById('modalDesc').value.trim(),
+      badge: document.getElementById('modalBadge').value.trim()
    };
    localStorage.setItem('adminProductOverrides', JSON.stringify(ov));
    closeEditModal();
    renderAdminGrid();
    showAdminToast('✅ Saved! Changes will appear in the store.');
+}
+
+function saveNewProduct() {
+   const name  = document.getElementById('modalName').value.trim();
+   const price = parseFloat(document.getElementById('modalPrice').value);
+   if (!name || isNaN(price)) { alert('Name and Price are required.'); return; }
+   const newItem = {
+      id:     'custom_' + Date.now(),
+      catKey: document.getElementById('modalCatKey').value,
+      name,
+      price,
+      desc:  document.getElementById('modalDesc').value.trim(),
+      img:   document.getElementById('modalImgUrl').value.trim() || 'https://placehold.co/400x300?text=No+Image',
+      badge: document.getElementById('modalBadge').value.trim() || 'New'
+   };
+   const items = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
+   items.push(newItem);
+   localStorage.setItem('adminNewItems', JSON.stringify(items));
+   closeEditModal();
+   renderAdminGrid();
+   showAdminToast('✅ New product added to store!');
+}
+
+function deleteCustomProduct(id) {
+   if (!confirm('Delete this product from the store?')) return;
+   let items = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
+   items = items.filter(i => i.id !== id);
+   localStorage.setItem('adminNewItems', JSON.stringify(items));
+   renderAdminGrid();
+   showAdminToast('🗑️ Product deleted.');
 }
 
 function resetProductEdit() {
@@ -2040,7 +2126,8 @@ function resetProductEdit() {
 
 function closeEditModal() {
    document.getElementById('editModal').classList.add('hidden');
-   _editId = null;
+   _editId  = null;
+   _addMode = false;
 }
 
 function handleModalOverlayClick(e) {

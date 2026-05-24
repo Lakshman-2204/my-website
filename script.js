@@ -1843,4 +1843,6 @@ document.querySelectorAll('.dropdown > a').forEach(link => {
 if (document.getElementById('heroGreeting')) {
    checkLogin();
    updateCartUI();
+   const si = document.getElementById('searchInput');
+   if (si) si.value = '';
 }

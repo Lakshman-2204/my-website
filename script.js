@@ -1867,7 +1867,7 @@ function login() {
 
 const ADMIN_EMAILS = [
    'g.ramkumar3127@gmail.com',
-   'lakshmankumar2812@gmail.com'
+   'lakshmankumar586@gmail.com'
 ];
 
 function isAdmin(email) {
@@ -1897,7 +1897,7 @@ function seedAdmin() {
    users = users.filter(u => u.email !== 'admin@mystore.com');
    const admins = [
       { name: 'Admin', email: 'g.ramkumar3127@gmail.com',    password: 'Gsggrl@703662', isAdmin: true },
-      { name: 'Admin', email: 'lakshmankumar2812@gmail.com', password: 'Decem@2204',    isAdmin: true }
+      { name: 'Admin', email: 'lakshmankumar586@gmail.com',  password: 'Lucky@123',     isAdmin: true }
    ];
    admins.forEach(admin => {
       const existing = users.find(u => u.email === admin.email);

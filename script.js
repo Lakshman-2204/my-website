@@ -1797,6 +1797,19 @@ function checkLogin() {
    document.getElementById('heroGreeting').textContent = 'Welcome, ' + user.name + '!';
    const header = document.getElementById('userDropdownName');
    if (header) header.textContent = '👋 Hi, ' + user.name;
+   updateAddressDisplay(user.email);
+}
+
+function updateAddressDisplay(email) {
+   const el = document.getElementById('headerAddress');
+   if (!el) return;
+   const addresses = JSON.parse(localStorage.getItem('addresses_' + email) || '[]');
+   if (addresses.length === 0) {
+      el.innerHTML = '📍 <span>Add Address</span>';
+   } else {
+      const first = addresses[0];
+      el.innerHTML = `🏠 <strong>${first.label || 'HOME'}</strong> ${first.line} &gt;`;
+   }
 }
 
 function toggleUserMenu(e) {

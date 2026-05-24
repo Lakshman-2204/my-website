@@ -1856,23 +1856,24 @@ function login() {
    window.location.href = 'home.html';
 }
 
+const ADMIN_EMAIL = 'g.ramkumar3127@gmail.com';
+
+function isAdmin(email) {
+   return email === ADMIN_EMAIL;
+}
+
 function checkLogin() {
-   let user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
    if (!user) {
       window.location.href = 'login.html';
       return;
    }
-   // Always re-fetch from users array so latest flags (like isAdmin) are picked up
-   const fresh = getUsers().find(u => u.email === user.email);
-   if (fresh) user = fresh;
-   // Keep session in sync
-   localStorage.setItem('loggedInUser', JSON.stringify(user));
    document.getElementById('welcomeUser').textContent = user.name;
    document.getElementById('heroGreeting').textContent = 'Welcome, ' + user.name + '!';
    const header = document.getElementById('userDropdownName');
    if (header) header.textContent = '👋 Hi, ' + user.name;
    updateAddressDisplay(user.email);
-   if (user.isAdmin) {
+   if (isAdmin(user.email)) {
       const adminLink = document.getElementById('adminPanelLink');
       if (adminLink) adminLink.classList.remove('hidden');
    }
@@ -1948,7 +1949,7 @@ let _editId = null;
 
 function initAdmin() {
    const user = JSON.parse(localStorage.getItem('loggedInUser'));
-   if (!user || !user.isAdmin) { window.location.href = 'login.html'; return; }
+   if (!user || !isAdmin(user.email)) { window.location.href = 'login.html'; return; }
    document.getElementById('adminUserName').textContent = user.name;
    renderAdminGrid();
 }

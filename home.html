@@ -9,7 +9,7 @@
    <body>
       <!-- NAVBAR -->
       <nav class="navbar">
-         <div class="logo">MyStore</div>
+         <div class="logo" onclick="goHome()" style="cursor:pointer"> MyStore</div>
          <ul class="nav-links" id="navLinks">
             <li class="dropdown">
                <a href="#">Furniture ▾</a>
@@ -47,7 +47,6 @@
                   <li><a href="#" onclick="showProducts('rugs')">Rugs</a></li>
                </ul>
             </li>
-            <!-- COOL DRINKS -->
             <li class="dropdown">
                <a href="#">Cool Drinks ▾</a>
                <ul class="dropdown-menu">
@@ -57,15 +56,63 @@
                   <li><a href="#" onclick="showProducts('sodaWater')">Soda & Water</a></li>
                </ul>
             </li>
-            <!-- MILK -->
-            <li><a href="#" onclick="showProducts('milk')">🥛 Milk</a></li>
+            <li><a href="#" onclick="showProducts('milk')"> Milk</a></li>
+            <!-- BRICKS -->
+            <li class="dropdown">
+               <a href="#">Bricks ▾</a>
+               <ul class="dropdown-menu">
+                  <li><a href="#" onclick="showProducts('redBricks')">Red Bricks</a></li>
+                  <li><a href="#" onclick="showProducts('flybricks')">Fly Ash Bricks</a></li>
+                  <li><a href="#" onclick="showProducts('concreteBricks')">Concrete Blocks</a></li>
+               </ul>
+            </li>
+            <!-- SOIL -->
+            <li class="dropdown">
+               <a href="#">Soil ▾</a>
+               <ul class="dropdown-menu">
+                  <li><a href="#" onclick="showProducts('gardenSoil')">Garden Soil</a></li>
+                  <li><a href="#" onclick="showProducts('cococpeat')">Coco Peat</a></li>
+                  <li><a href="#" onclick="showProducts('fertilizer')">Fertilizer Soil</a></li>
+               </ul>
+            </li>
+            <!-- 3D TOYS -->
+            <li class="dropdown">
+               <a href="#">3D Toys ▾</a>
+               <ul class="dropdown-menu">
+                  <li><a href="#" onclick="showProducts('toysAnimals')">Animals</a></li>
+                  <li><a href="#" onclick="showProducts('toysVehicles')">Vehicles</a></li>
+                  <li><a href="#" onclick="showProducts('toysCustom')">Custom Prints</a></li>
+               </ul>
+            </li>
+            <!-- FANCY -->
+            <li class="dropdown">
+               <a href="#">Fancy Items ▾</a>
+               <ul class="dropdown-menu">
+                  <li><a href="#" onclick="showProducts('hairClips')">Hair Clips</a></li>
+                  <li><a href="#" onclick="showProducts('earrings')">Earrings</a></li>
+                  <li><a href="#" onclick="showProducts('bangles')">Bangles</a></li>
+                  <li><a href="#" onclick="showProducts('necklaces')">Necklaces</a></li>
+               </ul>
+            </li>
             <li><a href="#">Contact</a></li>
          </ul>
          <div class="nav-right">
+            <!-- SEARCH BAR -->
+            <div class="search-box">
+               <input
+                  type="text"
+                  id="searchInput"
+                  placeholder="Search products..."
+                  oninput="liveSearch()"
+                  onkeydown="if(event.key==='Enter') doSearch()"
+                  autocomplete="off"
+                  />
+               <button onclick="doSearch()"> </button>
+               <div class="search-dropdown" id="searchDropdown"></div>
+            </div>
             <span id="welcomeUser" class="welcome-text"></span>
             <!-- CART ICON -->
             <div class="cart-icon" onclick="showCart()">
-               🛒
                <span class="cart-badge" id="cartBadge">0</span>
             </div>
             <button class="btn-logout" onclick="logout()">Logout</button>
@@ -75,14 +122,16 @@
       <!-- HERO -->
       <div class="hero" id="heroSection">
          <h1 id="heroGreeting">Welcome!</h1>
-         <p>Quality Furniture, Marbles, Drinks & More</p>
-         <button class="btn-shop" onclick="showProducts('sofa')">Shop Now</button>
+         <p>Furniture · Marbles · Drinks · Bricks · Toys · Fancy Items & More</p>
+         <button class="btn-shop" onclick="showAllProducts()"> Shop Now — View All Products</button>
       </div>
       <!-- PRODUCTS SECTION -->
       <div class="products-section hidden" id="productsSection">
          <div class="products-header">
             <h2 id="productTitle">Products</h2>
-            <button class="btn-back" onclick="goHome()">← Back to Home</button>
+            <div style="display:flex;gap:10px;align-items:center">
+               <button class="btn-back" onclick="goHome()"> Back to Home</button>
+            </div>
          </div>
          <div class="products-grid" id="productsGrid"></div>
       </div>
@@ -90,7 +139,7 @@
       <div class="cart-overlay hidden" id="cartOverlay" onclick="closeCart()"></div>
       <div class="cart-sidebar hidden" id="cartSidebar">
          <div class="cart-header">
-            <h3>🛒 Your Cart</h3>
+            <h3> Your Cart</h3>
             <button class="cart-close" onclick="closeCart()">✕</button>
          </div>
          <div class="cart-items" id="cartItems"></div>
@@ -105,8 +154,86 @@
                   <span id="cartTotalCost">₹0</span>
                </div>
             </div>
-            <button class="btn-checkout" onclick="checkout()">Proceed to Checkout</button>
-            <button class="btn-clear" onclick="clearCart()">Clear Cart</button>
+            <button class="btn-checkout" onclick="checkout()"> Proceed to Pay</button>
+            <button class="btn-clear" onclick="clearCart()"> Clear Cart</button>
+         </div>
+      </div>
+      <!-- RAZORPAY MODAL -->
+      <div class="rp-overlay hidden" id="rpOverlay">
+         <div class="rp-modal">
+            <div class="rp-header">
+               <span> Secure Payment</span>
+               <button onclick="closePayment()">✕</button>
+            </div>
+            <div class="rp-body">
+               <div class="rp-logo"> MyStore</div>
+               <div class="rp-amount" id="rpAmount">₹0</div>
+               <p style="color:#888;font-size:0.82rem;text-align:center;margin-bottom:1.2rem">Secure payment powered by Razorpay</p>
+               <div class="rp-tabs">
+                  <button class="rp-tab active" onclick="switchTab('upi',this)">UPI</button>
+                  <button class="rp-tab" onclick="switchTab('card',this)">Card</button>
+                  <button class="rp-tab" onclick="switchTab('netbanking',this)">Net Banking</button>
+                  <button class="rp-tab" onclick="switchTab('wallet',this)">Wallet</button>
+               </div>
+               <!-- UPI -->
+               <div class="rp-panel" id="tab-upi">
+                  <label class="rp-label">UPI ID</label>
+                  <input class="rp-input" id="upiId" placeholder="yourname@upi"/>
+                  <button class="rp-pay-btn" onclick="processPayment('UPI')">Pay Now</button>
+               </div>
+               <!-- CARD -->
+               <div class="rp-panel hidden" id="tab-card">
+                  <label class="rp-label">Card Number</label>
+                  <input class="rp-input" id="cardNum" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)"/>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+                     <div>
+                        <label class="rp-label">Expiry</label>
+                        <input class="rp-input" placeholder="MM/YY" maxlength="5"/>
+                     </div>
+                     <div>
+                        <label class="rp-label">CVV</label>
+                        <input class="rp-input" placeholder="•••" maxlength="3" type="password"/>
+                     </div>
+                  </div>
+                  <label class="rp-label" style="margin-top:10px">Name on Card</label>
+                  <input class="rp-input" placeholder="Your Full Name"/>
+                  <button class="rp-pay-btn" onclick="processPayment('Card')">Pay Now</button>
+               </div>
+               <!-- NET BANKING -->
+               <div class="rp-panel hidden" id="tab-netbanking">
+                  <label class="rp-label">Select Bank</label>
+                  <select class="rp-input">
+                     <option>State Bank of India</option>
+                     <option>HDFC Bank</option>
+                     <option>ICICI Bank</option>
+                     <option>Axis Bank</option>
+                     <option>Kotak Mahindra Bank</option>
+                     <option>Punjab National Bank</option>
+                     <option>Bank of Baroda</option>
+                     <option>Canara Bank</option>
+                  </select>
+                  <button class="rp-pay-btn" onclick="processPayment('Net Banking')">Pay Now</button>
+               </div>
+               <!-- WALLET -->
+               <div class="rp-panel hidden" id="tab-wallet">
+                  <div class="wallet-grid">
+                     <div class="wallet-opt selected" onclick="selectWallet(this)"> PhonePe</div>
+                     <div class="wallet-opt" onclick="selectWallet(this)"> GPay</div>
+                     <div class="wallet-opt" onclick="selectWallet(this)"> Paytm</div>
+                     <div class="wallet-opt" onclick="selectWallet(this)"> Amazon Pay</div>
+                  </div>
+                  <button class="rp-pay-btn" onclick="processPayment('Wallet')">Pay Now</button>
+               </div>
+               <!-- SUCCESS -->
+               <div class="rp-panel hidden" id="tab-success">
+                  <div class="rp-success">
+                     <div class="success-icon"> </div>
+                     <h3>Payment Successful!</h3>
+                     <p id="successMsg"></p>
+                     <button class="rp-pay-btn" onclick="paymentDone()">Continue Shopping</button>
+                  </div>
+               </div>
+            </div>
          </div>
       </div>
       <!-- TOAST -->

@@ -2459,8 +2459,16 @@ function isStoreOwner(user) {
 function checkLogin() {
    const user = JSON.parse(localStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
+
+   // Accounts created before the role system have no role — ask once
+   if (!user.role && !isAdmin(user.email)) {
+      showRoleSetupModal(user);
+      return;
+   }
+
    // Store owners who are not admin should not be on home.html
    if (isStoreOwner(user)) { window.location.href = 'shopowner.html'; return; }
+
    document.getElementById('welcomeUser').textContent = user.name;
    document.getElementById('heroGreeting').textContent = 'Welcome, ' + user.name + '!';
    const header = document.getElementById('userDropdownName');
@@ -2471,6 +2479,30 @@ function checkLogin() {
       if (adminLink) adminLink.classList.remove('hidden');
       const shopLink = document.getElementById('shopOwnerLink');
       if (shopLink) shopLink.classList.remove('hidden');
+   }
+}
+
+// One-time role picker for accounts created before the role system
+function showRoleSetupModal(user) {
+   var overlay = document.getElementById('roleSetupOverlay');
+   if (overlay) overlay.classList.remove('hidden');
+}
+
+function confirmRole(role) {
+   var user = JSON.parse(localStorage.getItem('loggedInUser'));
+   if (!user) return;
+   user.role = role;
+   localStorage.setItem('loggedInUser', JSON.stringify(user));
+   // also update in the users array
+   var users = getUsers();
+   var u = users.find(function(x) { return x.email === user.email; });
+   if (u) { u.role = role; saveUsers(users); }
+   // redirect
+   if (role === 'storeowner') {
+      window.location.href = 'shopowner.html';
+   } else {
+      // reload to continue normal checkLogin flow
+      window.location.reload();
    }
 }
 

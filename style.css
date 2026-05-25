@@ -1302,26 +1302,103 @@ body {
 }
 .order-btn-continue:hover { background: #f5f5f5; }
 
+/* ── ROLE SETUP MODAL (one-time prompt) ── */
+.role-setup-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0,0,0,0.65);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 9999;
+	padding: 1rem;
+}
+
+.role-setup-modal {
+	background: white;
+	border-radius: 18px;
+	padding: 2rem 1.8rem;
+	max-width: 380px;
+	width: 100%;
+	text-align: center;
+	box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.role-setup-modal h2 {
+	font-size: 1.3rem;
+	font-weight: 800;
+	color: #1a1a2e;
+	margin-bottom: 0.4rem;
+}
+
+.role-setup-modal p {
+	font-size: 0.87rem;
+	color: #777;
+	margin-bottom: 1.4rem;
+}
+
+.role-setup-cards {
+	display: flex;
+	gap: 0.85rem;
+}
+
+.role-setup-card {
+	flex: 1;
+	border: 2px solid #e0e0e0;
+	border-radius: 12px;
+	padding: 1.2rem 0.75rem;
+	cursor: pointer;
+	transition: all 0.2s;
+	background: white;
+}
+
+.role-setup-card:hover {
+	border-color: #1a73e8;
+	background: #eef3ff;
+	transform: translateY(-2px);
+}
+
+.role-setup-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.role-setup-name { font-size: 0.9rem; font-weight: 700; color: #1a1a2e; }
+.role-setup-desc { font-size: 0.72rem; color: #777; margin-top: 0.25rem; }
+
 /* ── ROLE SELECTOR (signup page) ── */
 .role-selector {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
+	display: flex;
+	flex-direction: row;
 	gap: 0.75rem;
 	margin-top: 0.4rem;
 }
 
+.role-option {
+	flex: 1;
+	font-size: unset !important;
+	font-weight: unset !important;
+	color: unset !important;
+}
+
 .role-option input[type="radio"] {
-	display: none;
+	display: none !important;
+	padding: 0 !important;
+	border: none !important;
+	width: auto !important;
+	height: auto !important;
 }
 
 .role-card {
 	border: 2px solid #e0e0e0;
 	border-radius: 10px;
-	padding: 0.9rem 0.7rem;
+	padding: 1rem 0.75rem;
 	text-align: center;
 	cursor: pointer;
 	transition: all 0.2s;
 	background: white;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.25rem;
+	height: 100%;
+	box-sizing: border-box;
 }
 
 .role-option input:checked + .role-card {
@@ -1329,9 +1406,9 @@ body {
 	background: #eef3ff;
 }
 
-.role-icon  { font-size: 1.6rem; margin-bottom: 0.3rem; }
+.role-icon  { font-size: 1.6rem; line-height: 1; }
 .role-name  { font-size: 0.88rem; font-weight: 700; color: #1a1a2e; }
-.role-desc  { font-size: 0.72rem; color: #777; margin-top: 0.2rem; }
+.role-desc  { font-size: 0.72rem; color: #777; }
 
 /* ── SHOP OWNER PAGE ── */
 .shopowner-page {

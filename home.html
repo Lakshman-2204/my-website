@@ -234,6 +234,25 @@
             </div>
          </div>
       </div>
+      <!-- ROLE SETUP MODAL (one-time, for accounts created before role system) -->
+      <div class="role-setup-overlay hidden" id="roleSetupOverlay">
+         <div class="role-setup-modal">
+            <h2>👋 One quick thing...</h2>
+            <p>Tell us who you are so we can show the right page.</p>
+            <div class="role-setup-cards">
+               <div class="role-setup-card" onclick="confirmRole('customer')">
+                  <div class="role-setup-icon">🛍️</div>
+                  <div class="role-setup-name">Customer</div>
+                  <div class="role-setup-desc">Browse & order products</div>
+               </div>
+               <div class="role-setup-card" onclick="confirmRole('storeowner')">
+                  <div class="role-setup-icon">🏪</div>
+                  <div class="role-setup-name">Store Owner</div>
+                  <div class="role-setup-desc">Manage incoming orders</div>
+               </div>
+            </div>
+         </div>
+      </div>
       <!-- ORDER CONFIRMATION MODAL -->
       <div class="order-overlay hidden" id="orderOverlay">
          <div class="order-modal">

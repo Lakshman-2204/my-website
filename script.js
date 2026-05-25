@@ -1550,11 +1550,20 @@ function renderCard(item, catKey, grid) {
       `₹${item.pricePerLitre}/litre` :
       `₹${item.price.toLocaleString('en-IN')}`;
 
+   const wlUser = JSON.parse(localStorage.getItem('loggedInUser'));
+   const wl = wlUser ? getWishlist(wlUser.email) : [];
+   const inWL = wl.some(w => w.id === item.id);
+
    const card = document.createElement('div');
    card.className = 'product-card';
    card.id = 'card_' + item.id;
    card.innerHTML = `
- <img src="${item.img}" alt="${item.name}" loading="lazy"/>
+ <div class="card-img-wrap">
+   <img src="${item.img}" alt="${item.name}" loading="lazy"/>
+   <button class="wish-btn${inWL ? ' wished' : ''}" id="wish_${item.id}"
+           onclick="toggleWishlist('${item.id}','${catKey}',this)"
+           title="${inWL ? 'Remove from Wishlist' : 'Add to Wishlist'}">${inWL ? '❤️' : '🤍'}</button>
+ </div>
  <div class="product-info">
  <span class="badge">${item.badge}</span>
  <div class="product-name">${item.name}</div>
@@ -1936,11 +1945,11 @@ function updateAddressDisplay(email) {
    const el = document.getElementById('headerAddress');
    if (!el) return;
    const addresses = JSON.parse(localStorage.getItem('addresses_' + email) || '[]');
-   if (addresses.length === 0) {
+   if (!addresses.length) {
       el.innerHTML = '📍 <span>Add Address</span>';
    } else {
-      const first = addresses[0];
-      el.innerHTML = `🏠 <strong>${first.label || 'HOME'}</strong> ${first.line} &gt;`;
+      const def = addresses.find(a => a.isDefault) || addresses[0];
+      el.innerHTML = `🏠 <strong>HOME</strong> ${def.city || def.line} ›`;
    }
 }
 
@@ -2352,12 +2361,13 @@ function initProfile() {
 }
 
 function switchProfileTab(tab) {
-   ['info', 'addresses', 'orders'].forEach(t => {
+   ['info', 'addresses', 'orders', 'wishlist'].forEach(t => {
       document.getElementById('ptab-' + t).classList.toggle('hidden', t !== tab);
       document.getElementById('ptab-' + t + '-btn').classList.toggle('active', t === tab);
    });
    if (tab === 'addresses') renderAddresses();
    if (tab === 'orders')    renderOrders();
+   if (tab === 'wishlist')  renderWishlistTab();
 }
 
 function saveProfileInfo() {
@@ -2387,13 +2397,17 @@ function renderAddresses() {
    list.innerHTML = addrs.map((a, i) => `
       <div class="addr-card">
          <div class="addr-card-info">
-            <div class="addr-card-name">${a.name}${a.phone ? ' · ' + a.phone : ''}</div>
+            <div class="addr-card-name">
+               ${a.name}${a.phone ? ' · ' + a.phone : ''}
+               ${a.isDefault ? '<span class="addr-default-badge">✅ Default</span>' : ''}
+            </div>
             <div class="addr-card-line">${a.line}</div>
             <div class="addr-card-line">${a.city}${a.state ? ', ' + a.state : ''} — ${a.pin}</div>
          </div>
          <div class="addr-card-actions">
+            ${!a.isDefault ? `<button class="addr-default-btn" onclick="setDefaultAddress(${i})">Set Default</button>` : ''}
             <button class="addr-edit-btn" onclick="openAddressModal(${i})">✏️ Edit</button>
-            <button class="addr-del-btn"  onclick="deleteAddress(${i})">🗑️ Delete</button>
+            <button class="addr-del-btn"  onclick="deleteAddress(${i})">🗑️</button>
          </div>
       </div>`).join('');
 }
@@ -2419,6 +2433,15 @@ function openAddressModal(idx) {
 function closeAddressModal() { document.getElementById('addressModal').classList.add('hidden'); _editAddrIdx = -1; }
 function handleAddrOverlayClick(e) { if (e.target.id === 'addressModal') closeAddressModal(); }
 
+function setDefaultAddress(idx) {
+   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const addrs = getAddresses(user.email);
+   addrs.forEach((a, i) => a.isDefault = (i === idx));
+   saveAddressesData(user.email, addrs);
+   renderAddresses();
+   showProfileToast('✅ Default address updated!');
+}
+
 function saveAddress() {
    const name  = document.getElementById('addr-name').value.trim();
    const phone = document.getElementById('addr-phone').value.trim();
@@ -2427,21 +2450,29 @@ function saveAddress() {
    const state = document.getElementById('addr-state').value.trim();
    const pin   = document.getElementById('addr-pin').value.trim();
    if (!name || !line || !city || !pin) { alert('Please fill Name, Address, City and PIN.'); return; }
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
    const addrs = getAddresses(user.email);
-   const addr  = { name, phone, line, city, state, pin };
-   if (_editAddrIdx >= 0) addrs[_editAddrIdx] = addr; else addrs.push(addr);
+   const isEdit = _editAddrIdx >= 0;
+   // preserve existing isDefault when editing
+   const wasDefault = isEdit ? addrs[_editAddrIdx].isDefault : false;
+   const addr  = { name, phone, line, city, state, pin, isDefault: wasDefault };
+   if (isEdit) addrs[_editAddrIdx] = addr; else addrs.push(addr);
+   // auto-set default if this is the only address
+   if (addrs.length === 1) addrs[0].isDefault = true;
    saveAddressesData(user.email, addrs);
    closeAddressModal();
    renderAddresses();
-   showProfileToast(_editAddrIdx >= 0 ? '✅ Address updated!' : '✅ Address saved!');
+   showProfileToast(isEdit ? '✅ Address updated!' : '✅ Address saved!');
 }
 
 function deleteAddress(idx) {
    if (!confirm('Delete this address?')) return;
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
    const addrs = getAddresses(user.email);
+   const wasDefault = addrs[idx].isDefault;
    addrs.splice(idx, 1);
+   // if deleted address was default, promote the first remaining one
+   if (wasDefault && addrs.length > 0) addrs[0].isDefault = true;
    saveAddressesData(user.email, addrs);
    renderAddresses();
    showProfileToast('🗑️ Address deleted.');
@@ -2467,6 +2498,61 @@ function renderOrders() {
             <span class="order-total">Total: ₹${o.total.toLocaleString('en-IN')}</span>
          </div>
       </div>`).join('');
+}
+
+// ── WISHLIST ──
+function getWishlist(email)          { return JSON.parse(localStorage.getItem('wishlist_' + email) || '[]'); }
+function saveWishlistData(email, arr) { localStorage.setItem('wishlist_' + email, JSON.stringify(arr)); }
+
+function toggleWishlist(itemId, catKey, btn) {
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   if (!user) { alert('Please log in to use Wishlist.'); return; }
+   const wl = getWishlist(user.email);
+   const idx = wl.findIndex(w => w.id === itemId);
+   if (idx >= 0) {
+      wl.splice(idx, 1);
+      if (btn) { btn.textContent = '🤍'; btn.classList.remove('wished'); btn.title = 'Add to Wishlist'; }
+      showToast('Removed from Wishlist');
+   } else {
+      const cat  = products[catKey];
+      const item = cat && cat.items.find(i => i.id === itemId);
+      if (item) wl.push({ id: item.id, catKey, name: item.name, price: item.price || item.pricePerLitre, img: item.img, desc: item.desc, badge: item.badge });
+      if (btn) { btn.textContent = '❤️'; btn.classList.add('wished'); btn.title = 'Remove from Wishlist'; }
+      showToast('❤️ Added to Wishlist!');
+   }
+   saveWishlistData(user.email, wl);
+}
+
+function renderWishlistTab() {
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const wl   = user ? getWishlist(user.email) : [];
+   const container = document.getElementById('wishlistItems');
+   if (!wl.length) { container.innerHTML = '<p class="prof-empty">No items in wishlist yet.<br>Click 🤍 on any product to add it.</p>'; return; }
+   container.innerHTML = wl.map(item => `
+      <div class="wish-item-card">
+         <img src="${item.img}" alt="${item.name}" onerror="this.src='https://placehold.co/80x80?text=img'"/>
+         <div class="wish-item-info">
+            <div class="wish-item-name">${item.name}</div>
+            <div class="wish-item-desc">${item.desc || ''}</div>
+            <div class="wish-item-price">₹${(item.price || 0).toLocaleString('en-IN')}</div>
+         </div>
+         <div class="wish-item-actions">
+            <button class="addr-edit-btn" onclick="wishGoToProduct('${item.catKey}')">🛍️ View</button>
+            <button class="addr-del-btn"  onclick="removeFromWishlistTab('${item.id}')">🗑️</button>
+         </div>
+      </div>`).join('');
+}
+
+function removeFromWishlistTab(itemId) {
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const wl   = getWishlist(user.email).filter(w => w.id !== itemId);
+   saveWishlistData(user.email, wl);
+   renderWishlistTab();
+}
+
+function wishGoToProduct(catKey) {
+   window.location = 'home.html';
+   localStorage.setItem('_openCat', catKey);
 }
 
 function showProfileToast(msg) {

@@ -658,11 +658,38 @@ body {
 	box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-.product-card img {
+.card-img-wrap {
+	position: relative;
+}
+
+.card-img-wrap img {
 	width: 100%;
 	height: 200px;
 	object-fit: cover;
+	display: block;
 }
+
+.wish-btn {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	background: rgba(255,255,255,0.88);
+	border: none;
+	border-radius: 50%;
+	width: 34px;
+	height: 34px;
+	font-size: 1rem;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+	transition: transform 0.15s, background 0.2s;
+	z-index: 1;
+}
+
+.wish-btn:hover { transform: scale(1.15); background: #fff; }
+.wish-btn.wished { background: #fff0f0; }
 
 .product-info {
 	padding: 1rem;
@@ -2256,6 +2283,29 @@ body {
 	flex-shrink: 0;
 }
 
+.addr-default-badge {
+	background: #e8f5e9;
+	color: #2e7d32;
+	font-size: 0.72rem;
+	font-weight: 700;
+	padding: 2px 8px;
+	border-radius: 20px;
+	margin-left: 8px;
+}
+
+.addr-default-btn {
+	padding: 6px 10px;
+	background: #fff8e1;
+	color: #f57f17;
+	border: 1.5px solid #ffe082;
+	border-radius: 7px;
+	font-size: 0.78rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.addr-default-btn:hover { background: #fff3cd; }
+
 .addr-edit-btn {
 	padding: 6px 12px;
 	background: #e3f2fd;
@@ -2433,6 +2483,52 @@ body {
 	font-weight: 700;
 	color: #1a1a2e;
 	font-size: 0.92rem;
+}
+
+/* Wishlist items on profile page */
+.wish-item-card {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 12px 0;
+	border-bottom: 1px solid #f0f0f0;
+}
+
+.wish-item-card:last-child { border-bottom: none; }
+
+.wish-item-card img {
+	width: 72px;
+	height: 72px;
+	object-fit: cover;
+	border-radius: 8px;
+	flex-shrink: 0;
+}
+
+.wish-item-info { flex: 1; }
+
+.wish-item-name {
+	font-weight: 700;
+	font-size: 0.9rem;
+	margin-bottom: 3px;
+}
+
+.wish-item-desc {
+	font-size: 0.8rem;
+	color: #777;
+	margin-bottom: 4px;
+}
+
+.wish-item-price {
+	font-weight: 700;
+	color: #2e7d32;
+	font-size: 0.92rem;
+}
+
+.wish-item-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	flex-shrink: 0;
 }
 
 @media (max-width: 600px) {

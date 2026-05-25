@@ -17,19 +17,134 @@
          </div>
       </div>
 
-      <!-- PAGE TITLE -->
-      <div class="admin-page-title">
-         <div class="admin-title-row">
-            <div>
-               <h1>⚙️ Product Manager</h1>
-               <p>Click <strong>✏️ Edit</strong> on any product to update it. Use <strong>➕ Add New Product</strong> to add items to the store.</p>
-            </div>
-            <button class="admin-add-main-btn" onclick="openAddModal(Object.keys(products)[0])">➕ Add New Product</button>
-         </div>
+      <!-- TAB NAV -->
+      <div class="admin-tabs">
+         <button class="admin-tab active" id="tab-products-btn" onclick="switchAdminTab('products')">🛍️ Products</button>
+         <button class="admin-tab" id="tab-settings-btn" onclick="switchAdminTab('settings')">⚙️ Settings</button>
       </div>
 
-      <!-- PRODUCT GRID (filled by JS) -->
-      <div class="admin-content" id="adminContent"></div>
+      <!-- PRODUCTS TAB -->
+      <div id="tab-products">
+         <!-- PAGE TITLE -->
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>⚙️ Product Manager</h1>
+                  <p>Click <strong>✏️ Edit</strong> on any product to update it. Use <strong>➕ Add New Product</strong> to add items to the store.</p>
+               </div>
+               <button class="admin-add-main-btn" onclick="openAddModal(Object.keys(products)[0])">➕ Add New Product</button>
+            </div>
+         </div>
+         <!-- PRODUCT GRID (filled by JS) -->
+         <div class="admin-content" id="adminContent"></div>
+      </div>
+
+      <!-- SETTINGS TAB -->
+      <div id="tab-settings" class="hidden">
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>⚙️ Store Settings</h1>
+                  <p>Customise how your store looks and behaves. Changes are saved instantly.</p>
+               </div>
+               <button class="admin-add-main-btn" onclick="saveAllSettings()">💾 Save All Settings</button>
+            </div>
+         </div>
+         <div class="settings-content">
+
+            <!-- STORE INFO -->
+            <div class="settings-card">
+               <div class="settings-card-header">🏪 Store Info</div>
+               <div class="settings-card-body">
+                  <div class="settings-field">
+                     <label>Store Name</label>
+                     <input type="text" id="set-storeName" placeholder="MyStore"/>
+                  </div>
+                  <div class="settings-field">
+                     <label>Hero Subtitle</label>
+                     <input type="text" id="set-heroSubtitle" placeholder="Furniture · Marbles · Drinks · Bricks · Toys & More"/>
+                  </div>
+                  <div class="settings-field">
+                     <label>Shop Now Button Text</label>
+                     <input type="text" id="set-shopBtnText" placeholder="Shop Now — View All Products"/>
+                  </div>
+               </div>
+            </div>
+
+            <!-- ANNOUNCEMENT BAR -->
+            <div class="settings-card">
+               <div class="settings-card-header">📢 Announcement Bar</div>
+               <div class="settings-card-body">
+                  <div class="settings-field settings-toggle-row">
+                     <label>Show Announcement Bar</label>
+                     <label class="toggle-switch">
+                        <input type="checkbox" id="set-announcementOn"/>
+                        <span class="toggle-slider"></span>
+                     </label>
+                  </div>
+                  <div class="settings-field">
+                     <label>Message</label>
+                     <input type="text" id="set-announcementText" placeholder="🎉 Free delivery on orders above ₹999!"/>
+                  </div>
+                  <div class="settings-field">
+                     <label>Background Colour</label>
+                     <div style="display:flex;gap:10px;align-items:center">
+                        <input type="color" id="set-announcementColor" value="#1a237e" style="width:48px;height:36px;border:none;cursor:pointer;border-radius:6px"/>
+                        <input type="text" id="set-announcementColorHex" placeholder="#1a237e" style="flex:1" oninput="syncColorPicker()"/>
+                     </div>
+                  </div>
+                  <div class="settings-field">
+                     <label>Text Colour</label>
+                     <div style="display:flex;gap:10px;align-items:center">
+                        <input type="color" id="set-announcementTextColor" value="#ffffff" style="width:48px;height:36px;border:none;cursor:pointer;border-radius:6px"/>
+                        <input type="text" id="set-announcementTextColorHex" placeholder="#ffffff" style="flex:1" oninput="syncTextColorPicker()"/>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            <!-- CONTACT & ADDRESS -->
+            <div class="settings-card">
+               <div class="settings-card-header">📞 Contact & Address</div>
+               <div class="settings-card-body">
+                  <div class="settings-field">
+                     <label>Phone Number</label>
+                     <input type="text" id="set-phone" placeholder="+91 98765 43210"/>
+                  </div>
+                  <div class="settings-field">
+                     <label>WhatsApp Number</label>
+                     <input type="text" id="set-whatsapp" placeholder="+91 98765 43210"/>
+                  </div>
+                  <div class="settings-field">
+                     <label>Email</label>
+                     <input type="text" id="set-contactEmail" placeholder="store@example.com"/>
+                  </div>
+                  <div class="settings-field">
+                     <label>Store Address</label>
+                     <textarea id="set-address" rows="3" placeholder="123, Main Street, City, State — 123456"></textarea>
+                  </div>
+               </div>
+            </div>
+
+            <!-- DELIVERY SETTINGS -->
+            <div class="settings-card">
+               <div class="settings-card-header">🚚 Delivery Settings</div>
+               <div class="settings-card-body">
+                  <div class="settings-field">
+                     <label>Free Delivery Above (₹)</label>
+                     <input type="number" id="set-freeDeliveryAbove" placeholder="999" min="0"/>
+                     <small>Set to 0 to always charge delivery.</small>
+                  </div>
+                  <div class="settings-field">
+                     <label>Delivery Charge (₹)</label>
+                     <input type="number" id="set-deliveryCharge" placeholder="49" min="0"/>
+                     <small>Applied when order is below the free delivery threshold.</small>
+                  </div>
+               </div>
+            </div>
+
+         </div><!-- /settings-content -->
+      </div><!-- /tab-settings -->
 
       <!-- EDIT MODAL -->
       <div class="admin-modal-overlay hidden" id="editModal" onclick="handleModalOverlayClick(event)">

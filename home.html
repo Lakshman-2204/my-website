@@ -104,6 +104,9 @@
             </div>
          </div>
       </header>
+      <!-- ANNOUNCEMENT BAR (controlled from Admin → Settings) -->
+      <div class="announcement-bar hidden" id="announcementBar"></div>
+
       <!-- HERO -->
       <div class="hero" id="heroSection">
          <h1 id="heroGreeting">Welcome!</h1>
@@ -224,5 +227,6 @@
       <!-- TOAST -->
       <div class="toast hidden" id="toast"></div>
       <script src="script.js"></script>
+      <script>loadSiteSettings();</script>
    </body>
 </html>

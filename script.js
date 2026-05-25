@@ -1704,7 +1704,11 @@ function checkout() {
       return;
    }
    closeCart();
-   const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+   let total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+   const st = window._adminSettings || {};
+   const threshold = st.freeDeliveryAbove || 0;
+   const charge    = st.deliveryCharge    || 0;
+   if (charge > 0 && (threshold === 0 || total < threshold)) total += charge;
    document.getElementById('rpAmount').textContent = '₹' + total.toLocaleString('en-IN');
    document.getElementById('rpOverlay').classList.remove('hidden');
    switchTab('upi', document.querySelector('.rp-tab'));
@@ -1970,6 +1974,11 @@ function initAdmin() {
    if (!user || !isAdmin(user.email)) { window.location.href = 'login.html'; return; }
    document.getElementById('adminUserName').textContent = user.name;
    renderAdminGrid();
+   // sync color pickers when user types in hex fields
+   const bgPicker  = document.getElementById('set-announcementColor');
+   const txtPicker = document.getElementById('set-announcementTextColor');
+   if (bgPicker)  bgPicker.addEventListener('input',  () => { document.getElementById('set-announcementColorHex').value     = bgPicker.value; });
+   if (txtPicker) txtPicker.addEventListener('input', () => { document.getElementById('set-announcementTextColorHex').value = txtPicker.value; });
 }
 
 function renderAdminGrid() {
@@ -2140,4 +2149,110 @@ function showAdminToast(msg) {
    t.textContent = msg;
    t.classList.remove('hidden');
    setTimeout(() => t.classList.add('hidden'), 2800);
+}
+
+// ── ADMIN TABS ──
+function switchAdminTab(tab) {
+   document.getElementById('tab-products').classList.toggle('hidden', tab !== 'products');
+   document.getElementById('tab-settings').classList.toggle('hidden', tab !== 'settings');
+   document.getElementById('tab-products-btn').classList.toggle('active', tab === 'products');
+   document.getElementById('tab-settings-btn').classList.toggle('active', tab === 'settings');
+   if (tab === 'settings') loadSettingsForm();
+}
+
+// ── ADMIN SETTINGS ──
+const SETTINGS_KEY = 'adminSettings';
+
+function getAdminSettings() {
+   return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+}
+
+function loadSettingsForm() {
+   const s = getAdminSettings();
+   setVal('set-storeName',              s.storeName             || '');
+   setVal('set-heroSubtitle',           s.heroSubtitle          || '');
+   setVal('set-shopBtnText',            s.shopBtnText           || '');
+   setChecked('set-announcementOn',     !!s.announcementOn);
+   setVal('set-announcementText',       s.announcementText      || '');
+   const bgColor   = s.announcementColor     || '#1a237e';
+   const txtColor  = s.announcementTextColor || '#ffffff';
+   setVal('set-announcementColor',      bgColor);
+   setVal('set-announcementColorHex',   bgColor);
+   setVal('set-announcementTextColor',  txtColor);
+   setVal('set-announcementTextColorHex', txtColor);
+   setVal('set-phone',          s.phone         || '');
+   setVal('set-whatsapp',       s.whatsapp      || '');
+   setVal('set-contactEmail',   s.contactEmail  || '');
+   setVal('set-address',        s.address       || '');
+   setVal('set-freeDeliveryAbove', s.freeDeliveryAbove !== undefined ? s.freeDeliveryAbove : '');
+   setVal('set-deliveryCharge',   s.deliveryCharge    !== undefined ? s.deliveryCharge    : '');
+}
+
+function setVal(id, val)     { const el = document.getElementById(id); if (el) el.value   = val; }
+function setChecked(id, val) { const el = document.getElementById(id); if (el) el.checked = val; }
+
+function syncColorPicker() {
+   const hex = document.getElementById('set-announcementColorHex').value.trim();
+   if (/^#[0-9a-fA-F]{6}$/.test(hex)) document.getElementById('set-announcementColor').value = hex;
+}
+function syncTextColorPicker() {
+   const hex = document.getElementById('set-announcementTextColorHex').value.trim();
+   if (/^#[0-9a-fA-F]{6}$/.test(hex)) document.getElementById('set-announcementTextColor').value = hex;
+}
+
+function saveAllSettings() {
+   const bgColor  = document.getElementById('set-announcementColor').value;
+   const txtColor = document.getElementById('set-announcementTextColor').value;
+   const s = {
+      storeName:             document.getElementById('set-storeName').value.trim(),
+      heroSubtitle:          document.getElementById('set-heroSubtitle').value.trim(),
+      shopBtnText:           document.getElementById('set-shopBtnText').value.trim(),
+      announcementOn:        document.getElementById('set-announcementOn').checked,
+      announcementText:      document.getElementById('set-announcementText').value.trim(),
+      announcementColor:     bgColor,
+      announcementTextColor: txtColor,
+      phone:                 document.getElementById('set-phone').value.trim(),
+      whatsapp:              document.getElementById('set-whatsapp').value.trim(),
+      contactEmail:          document.getElementById('set-contactEmail').value.trim(),
+      address:               document.getElementById('set-address').value.trim(),
+      freeDeliveryAbove:     parseFloat(document.getElementById('set-freeDeliveryAbove').value) || 0,
+      deliveryCharge:        parseFloat(document.getElementById('set-deliveryCharge').value)    || 0
+   };
+   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+   showAdminToast('✅ Settings saved! Refresh the store to see changes.');
+}
+
+// ── APPLY SITE SETTINGS (called on home.html) ──
+function loadSiteSettings() {
+   const s = getAdminSettings();
+   if (!s || !Object.keys(s).length) return;
+
+   // Store name
+   if (s.storeName) {
+      document.querySelectorAll('.brand-name').forEach(el => el.textContent = s.storeName);
+      document.title = s.storeName;
+   }
+   // Hero subtitle
+   const heroP = document.querySelector('.hero p');
+   if (heroP && s.heroSubtitle) heroP.textContent = s.heroSubtitle;
+   // Shop Now button
+   const shopBtn = document.querySelector('.btn-shop');
+   if (shopBtn && s.shopBtnText) shopBtn.textContent = s.shopBtnText;
+
+   // Announcement bar
+   const bar = document.getElementById('announcementBar');
+   if (bar) {
+      if (s.announcementOn && s.announcementText) {
+         bar.textContent = s.announcementText;
+         bar.style.background = s.announcementColor     || '#1a237e';
+         bar.style.color      = s.announcementTextColor || '#ffffff';
+         bar.classList.remove('hidden');
+      } else {
+         bar.classList.add('hidden');
+      }
+   }
+
+   // Delivery charge in cart footer
+   window._adminSettings = s;
+}
 }

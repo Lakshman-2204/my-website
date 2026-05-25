@@ -2037,6 +2037,100 @@ function clearCart() {
    updateCartUI();
 }
 
+// ── MAKE ORDER (offline pickup) ──
+function makeOrder() {
+   if (cart.length === 0) { showToast('Your cart is empty!'); return; }
+   var user = JSON.parse(localStorage.getItem('loggedInUser'));
+   if (!user) { showToast('Please login to place an order.'); return; }
+
+   // Generate unique order ID: ORD-YYMMDD-XXXX
+   var now   = new Date();
+   var yy    = String(now.getFullYear()).slice(2);
+   var mm    = String(now.getMonth() + 1).padStart(2, '0');
+   var dd    = String(now.getDate()).padStart(2, '0');
+   var rand  = Math.random().toString(36).substring(2, 6).toUpperCase();
+   var orderId = 'ORD-' + yy + mm + dd + '-' + rand;
+
+   var total = cart.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
+   var dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric',
+                                                    hour: '2-digit', minute: '2-digit' });
+
+   // Save order to profile
+   var order = {
+      orderId:  orderId,
+      date:     dateStr,
+      items:    cart.map(function(c) { return { id: c.id, name: c.name, price: c.price, qty: c.qty, img: c.img }; }),
+      total:    total,
+      method:   'Pickup',
+      status:   'Pending Pickup'
+   };
+   var key = 'orders_' + user.email;
+   var orders = JSON.parse(localStorage.getItem(key) || '[]');
+   orders.unshift(order);
+   localStorage.setItem(key, JSON.stringify(orders));
+
+   // Also save to shared allOrders store for shop owner dashboard
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   allOrders.unshift({
+      orderId:       orderId,
+      date:          dateStr,
+      timestamp:     now.getTime(),
+      customerName:  user.name,
+      customerEmail: user.email,
+      items:         order.items,
+      total:         total,
+      status:        'Pending Pickup'
+   });
+   localStorage.setItem('allOrders', JSON.stringify(allOrders));
+
+   // Build confirmation UI
+   document.getElementById('orderIdDisplay').textContent   = orderId;
+   document.getElementById('orderDateDisplay').textContent = dateStr;
+   document.getElementById('orderTotalDisplay').textContent = '₹' + total.toLocaleString('en-IN');
+
+   var listEl = document.getElementById('orderItemsList');
+   listEl.innerHTML = '';
+   cart.forEach(function(c) {
+      var row = document.createElement('div');
+      row.className = 'order-item-row';
+      row.innerHTML = '<span class="oi-name">' + c.name + ' x' + c.qty + '</span>' +
+                      '<span class="oi-price">&#8377;' + (c.price * c.qty).toLocaleString('en-IN') + '</span>';
+      listEl.appendChild(row);
+   });
+
+   // Build WhatsApp share link
+   var st  = window._adminSettings || {};
+   var waNum = (st.whatsapp || st.phone || '').replace(/\D/g, '');
+   var msg = '*New Order — MyStore*\n' +
+             'Order ID: *' + orderId + '*\n' +
+             'Date: ' + dateStr + '\n' +
+             'Customer: ' + user.name + '\n\n' +
+             '*Items:*\n' +
+             cart.map(function(c) {
+                return '• ' + c.name + ' x' + c.qty + ' — ₹' + (c.price * c.qty).toLocaleString('en-IN');
+             }).join('\n') +
+             '\n\n*Total: ₹' + total.toLocaleString('en-IN') + '*\n\n' +
+             'Customer will collect & pay at shop.';
+   var waUrl = 'https://wa.me/' + waNum + '?text=' + encodeURIComponent(msg);
+   var waBtn = document.getElementById('orderWhatsappBtn');
+   if (waNum) {
+      waBtn.onclick = function() { window.open(waUrl, '_blank'); };
+      waBtn.style.display = '';
+   } else {
+      waBtn.style.display = 'none';
+   }
+
+   // Show modal, clear cart
+   cart = [];
+   updateCartUI();
+   closeCart();
+   document.getElementById('orderOverlay').classList.remove('hidden');
+}
+
+function closeOrderModal() {
+   document.getElementById('orderOverlay').classList.add('hidden');
+}
+
 // ── CHECKOUT → RAZORPAY ──
 function checkout() {
    if (cart.length === 0) {
@@ -2311,46 +2405,41 @@ function saveUsers(users) {
 }
 
 function signUp() {
-   const name = document.getElementById('signupName').value.trim();
-   const email = document.getElementById('signupEmail').value.trim();
+   const name     = document.getElementById('signupName').value.trim();
+   const email    = document.getElementById('signupEmail').value.trim();
    const password = document.getElementById('signupPassword').value;
-   const confirm = document.getElementById('signupConfirm').value;
-   if (!name || !email || !password || !confirm) {
-      alert('Please fill in all fields.');
-      return;
-   }
-   if (password.length < 6) {
-      alert('Password must be at least 6 characters.');
-      return;
-   }
-   if (password !== confirm) {
-      alert('Passwords do not match.');
-      return;
-   }
+   const confirm  = document.getElementById('signupConfirm').value;
+   const roleEl   = document.querySelector('input[name="userRole"]:checked');
+   const role     = roleEl ? roleEl.value : 'customer';
+   if (!name || !email || !password || !confirm) { alert('Please fill in all fields.'); return; }
+   if (password.length < 6) { alert('Password must be at least 6 characters.'); return; }
+   if (password !== confirm) { alert('Passwords do not match.'); return; }
    const users = getUsers();
    if (users.find(u => u.email === email)) {
       alert('An account with this email already exists. Please login.');
       window.location.href = 'login.html';
       return;
    }
-   users.push({ name, email, password });
+   users.push({ name, email, password, role });
    saveUsers(users);
    alert('Account created! Please login.');
    window.location.href = 'login.html';
 }
 
 function login() {
-   const email = document.getElementById('loginEmail').value.trim();
+   const email    = document.getElementById('loginEmail').value.trim();
    const password = document.getElementById('loginPassword').value;
    const errorMsg = document.getElementById('loginError');
-   const users = getUsers();
-   const user = users.find(u => u.email === email && u.password === password);
-   if (!user) {
-      errorMsg.classList.remove('hidden');
-      return;
-   }
+   const users    = getUsers();
+   const user     = users.find(u => u.email === email && u.password === password);
+   if (!user) { errorMsg.classList.remove('hidden'); return; }
    errorMsg.classList.add('hidden');
    localStorage.setItem('loggedInUser', JSON.stringify(user));
+   // Admin → home.html (can access all pages via dropdown)
+   if (isAdmin(user.email)) { window.location.href = 'home.html'; return; }
+   // Store owner → shopowner.html
+   if (user.role === 'storeowner') { window.location.href = 'shopowner.html'; return; }
+   // Customer → home.html
    window.location.href = 'home.html';
 }
 
@@ -2363,12 +2452,15 @@ function isAdmin(email) {
    return ADMIN_EMAILS.includes(email);
 }
 
+function isStoreOwner(user) {
+   return user && user.role === 'storeowner' && !isAdmin(user.email);
+}
+
 function checkLogin() {
    const user = JSON.parse(localStorage.getItem('loggedInUser'));
-   if (!user) {
-      window.location.href = 'login.html';
-      return;
-   }
+   if (!user) { window.location.href = 'login.html'; return; }
+   // Store owners who are not admin should not be on home.html
+   if (isStoreOwner(user)) { window.location.href = 'shopowner.html'; return; }
    document.getElementById('welcomeUser').textContent = user.name;
    document.getElementById('heroGreeting').textContent = 'Welcome, ' + user.name + '!';
    const header = document.getElementById('userDropdownName');
@@ -2377,6 +2469,8 @@ function checkLogin() {
    if (isAdmin(user.email)) {
       const adminLink = document.getElementById('adminPanelLink');
       if (adminLink) adminLink.classList.remove('hidden');
+      const shopLink = document.getElementById('shopOwnerLink');
+      if (shopLink) shopLink.classList.remove('hidden');
    }
 }
 
@@ -2421,6 +2515,122 @@ document.addEventListener('click', function () {
    const dd = document.getElementById('userDropdown');
    if (dd) dd.classList.remove('open');
 });
+
+function checkShopOwnerLogin() {
+   var user = JSON.parse(localStorage.getItem('loggedInUser'));
+   if (!user) { window.location.href = 'login.html'; return; }
+   if (!isAdmin(user.email) && !isStoreOwner(user)) {
+      window.location.href = 'home.html'; return;
+   }
+   var nameEl = document.getElementById('shopOwnerName');
+   if (nameEl) nameEl.textContent = user.name;
+   var storeBtn = document.getElementById('shopViewStoreBtn');
+   if (storeBtn && isAdmin(user.email)) storeBtn.classList.remove('hidden');
+   renderShopDashboard();
+}
+
+function renderShopDashboard(filterStatus) {
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var list = document.getElementById('shopOrderList');
+   if (!list) return;
+
+   // Update stats
+   var pending   = allOrders.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
+   var ready     = allOrders.filter(function(o) { return o.status === 'Ready'; }).length;
+   var completed = allOrders.filter(function(o) { return o.status === 'Completed'; }).length;
+   var statPending   = document.getElementById('statPending');
+   var statReady     = document.getElementById('statReady');
+   var statCompleted = document.getElementById('statCompleted');
+   if (statPending)   statPending.textContent   = pending;
+   if (statReady)     statReady.textContent     = ready;
+   if (statCompleted) statCompleted.textContent = completed;
+
+   // Filter
+   var filtered = filterStatus ? allOrders.filter(function(o) { return o.status === filterStatus; }) : allOrders;
+
+   // Update active tab
+   document.querySelectorAll('.shop-tab').forEach(function(t) { t.classList.remove('active'); });
+   var activeTab = document.getElementById('tab-' + (filterStatus || 'all'));
+   if (activeTab) activeTab.classList.add('active');
+
+   if (filtered.length === 0) {
+      list.innerHTML = '<div class="shop-empty">No orders ' + (filterStatus ? 'with status "' + filterStatus + '"' : 'yet') + '.</div>';
+      return;
+   }
+
+   list.innerHTML = '';
+   filtered.forEach(function(order) {
+      var statusClass = order.status === 'Completed' ? 'status-completed' :
+                        order.status === 'Ready'     ? 'status-ready'     : 'status-pending';
+
+      var itemsHTML = order.items.map(function(item) {
+         return '<div class="shop-order-item">' +
+                   '<img src="' + item.img + '" alt="' + item.name + '" onerror="this.src=\'https://placehold.co/60x60?text=Item\'"/>' +
+                   '<div class="shop-order-item-info">' +
+                      '<div class="shop-item-name">' + item.name + '</div>' +
+                      '<div class="shop-item-qty">Qty: ' + item.qty + ' &nbsp;·&nbsp; &#8377;' + (item.price * item.qty).toLocaleString('en-IN') + '</div>' +
+                   '</div>' +
+                '</div>';
+      }).join('');
+
+      var card = document.createElement('div');
+      card.className = 'shop-order-card';
+      card.id = 'shopcard-' + order.orderId;
+      card.innerHTML =
+         '<div class="shop-order-header">' +
+            '<div>' +
+               '<div class="shop-order-id">' + order.orderId + '</div>' +
+               '<div class="shop-order-meta">' + order.customerName + ' &nbsp;·&nbsp; ' + order.date + '</div>' +
+            '</div>' +
+            '<div class="shop-order-right">' +
+               '<span class="shop-status-badge ' + statusClass + '">' + order.status + '</span>' +
+               '<div class="shop-order-total">&#8377;' + order.total.toLocaleString('en-IN') + '</div>' +
+            '</div>' +
+         '</div>' +
+         '<div class="shop-order-items">' + itemsHTML + '</div>' +
+         '<div class="shop-order-actions">' +
+            (order.status === 'Pending Pickup' ?
+               '<button class="shop-btn-ready" onclick="updateOrderStatus(\'' + order.orderId + '\',\'Ready\')">✅ Mark Ready</button>' : '') +
+            (order.status === 'Ready' ?
+               '<button class="shop-btn-complete" onclick="updateOrderStatus(\'' + order.orderId + '\',\'Completed\')">🏁 Mark Completed</button>' +
+               '<button class="shop-btn-pending" onclick="updateOrderStatus(\'' + order.orderId + '\',\'Pending Pickup\')">↩ Back to Pending</button>' : '') +
+            (order.status === 'Completed' ?
+               '<span class="shop-done-label">✔ Done — collected by customer</span>' : '') +
+         '</div>';
+      list.appendChild(card);
+   });
+}
+
+function updateOrderStatus(orderId, newStatus) {
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var order = allOrders.find(function(o) { return o.orderId === orderId; });
+   if (order) {
+      order.status = newStatus;
+      localStorage.setItem('allOrders', JSON.stringify(allOrders));
+   }
+   var activeTab = document.querySelector('.shop-tab.active');
+   var filterStatus = activeTab ? activeTab.dataset.filter : null;
+   renderShopDashboard(filterStatus || null);
+}
+
+function lookupOrder() {
+   var val = document.getElementById('shopSearchInput').value.trim().toUpperCase();
+   if (!val) { renderShopDashboard(); return; }
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var filtered = allOrders.filter(function(o) { return o.orderId.toUpperCase().includes(val); });
+   document.querySelectorAll('.shop-tab').forEach(function(t) { t.classList.remove('active'); });
+   var list = document.getElementById('shopOrderList');
+   if (filtered.length === 0) {
+      list.innerHTML = '<div class="shop-empty">No order found for "' + val + '".</div>';
+      return;
+   }
+   list.innerHTML = '';
+   // reuse renderShopDashboard logic inline by temporarily replacing allOrders
+   var backup = localStorage.getItem('allOrders');
+   localStorage.setItem('allOrders', JSON.stringify(filtered));
+   renderShopDashboard();
+   localStorage.setItem('allOrders', backup);
+}
 
 function logout() {
    localStorage.removeItem('loggedInUser');

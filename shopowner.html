@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8"/>
+   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+   <title>Shop Dashboard — MyStore</title>
+   <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="shopowner-page">
+
+   <!-- HEADER -->
+   <div class="shop-header">
+      <div class="shop-header-left">
+         <div class="shop-brand">🏪 Shop Dashboard</div>
+         <div class="shop-owner-name" id="shopOwnerName"></div>
+      </div>
+      <div class="shop-header-right">
+         <button class="shop-store-btn hidden" id="shopViewStoreBtn" onclick="window.location='home.html'">🛍️ View Store</button>
+         <button class="shop-admin-btn" onclick="window.location='admin.html'" id="shopAdminBtn" style="display:none">⚙️ Admin</button>
+         <button class="shop-logout-btn" onclick="logout()">Logout</button>
+      </div>
+   </div>
+
+   <!-- STATS BAR -->
+   <div class="shop-stats-bar">
+      <div class="shop-stat" onclick="renderShopDashboard('Pending Pickup')">
+         <div class="shop-stat-num" id="statPending">0</div>
+         <div class="shop-stat-label">Pending</div>
+      </div>
+      <div class="shop-stat" onclick="renderShopDashboard('Ready')">
+         <div class="shop-stat-num" id="statReady">0</div>
+         <div class="shop-stat-label">Ready</div>
+      </div>
+      <div class="shop-stat" onclick="renderShopDashboard('Completed')">
+         <div class="shop-stat-num" id="statCompleted">0</div>
+         <div class="shop-stat-label">Completed</div>
+      </div>
+   </div>
+
+   <!-- SEARCH BAR -->
+   <div class="shop-search-bar">
+      <input type="text" id="shopSearchInput" placeholder="🔍 Enter Order ID to look up..."
+             oninput="lookupOrder()" autocomplete="off"/>
+   </div>
+
+   <!-- FILTER TABS -->
+   <div class="shop-tabs">
+      <button class="shop-tab active" id="tab-all" data-filter="" onclick="renderShopDashboard()">All Orders</button>
+      <button class="shop-tab" id="tab-Pending Pickup" data-filter="Pending Pickup" onclick="renderShopDashboard('Pending Pickup')">⏳ Pending</button>
+      <button class="shop-tab" id="tab-Ready" data-filter="Ready" onclick="renderShopDashboard('Ready')">✅ Ready</button>
+      <button class="shop-tab" id="tab-Completed" data-filter="Completed" onclick="renderShopDashboard('Completed')">🏁 Completed</button>
+   </div>
+
+   <!-- ORDER LIST -->
+   <div class="shop-order-list" id="shopOrderList">
+      <div class="shop-empty">No orders yet. Waiting for customers to place orders.</div>
+   </div>
+
+   <script src="script.js"></script>
+   <script>
+      checkShopOwnerLogin();
+      // Show admin button for admins
+      var _u = JSON.parse(localStorage.getItem('loggedInUser'));
+      if (_u && isAdmin(_u.email)) {
+         var ab = document.getElementById('shopAdminBtn');
+         if (ab) ab.style.display = '';
+      }
+   </script>
+</body>
+</html>

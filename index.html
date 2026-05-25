@@ -26,6 +26,27 @@
             <label>Confirm Password</label>
             <input type="password" id="signupConfirm" placeholder="Repeat password"/>
          </div>
+         <div class="form-group">
+            <label>I am a</label>
+            <div class="role-selector">
+               <label class="role-option" id="role-customer-label">
+                  <input type="radio" name="userRole" id="role-customer" value="customer" checked/>
+                  <div class="role-card">
+                     <div class="role-icon">🛍️</div>
+                     <div class="role-name">Customer</div>
+                     <div class="role-desc">Browse & order products</div>
+                  </div>
+               </label>
+               <label class="role-option" id="role-owner-label">
+                  <input type="radio" name="userRole" id="role-storeowner" value="storeowner"/>
+                  <div class="role-card">
+                     <div class="role-icon">🏪</div>
+                     <div class="role-name">Store Owner</div>
+                     <div class="role-desc">Manage incoming orders</div>
+                  </div>
+               </label>
+            </div>
+         </div>
          <button class="btn-primary" onclick="signUp()">Create Account</button>
          <p class="switch-link">
             Already have an account? <a href="login.html">Login here</a>

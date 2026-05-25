@@ -20,6 +20,7 @@
          <button class="profile-tab"        id="ptab-addresses-btn" onclick="switchProfileTab('addresses')">📍 Addresses</button>
          <button class="profile-tab"        id="ptab-orders-btn"    onclick="switchProfileTab('orders')">📦 My Orders</button>
          <button class="profile-tab"        id="ptab-wishlist-btn"  onclick="switchProfileTab('wishlist')">❤️ Wishlist</button>
+         <button class="profile-tab"        id="ptab-cards-btn"     onclick="switchProfileTab('cards')">💳 Cards</button>
       </div>
 
       <!-- PROFILE INFO TAB -->
@@ -83,6 +84,51 @@
             <div class="profile-card-header">❤️ My Wishlist</div>
             <div class="profile-card-body" id="wishlistItems">
                <p class="prof-empty">No items in wishlist yet.</p>
+            </div>
+         </div>
+      </div>
+
+      <!-- CARDS TAB -->
+      <div id="ptab-cards" class="profile-content hidden">
+         <div class="profile-card">
+            <div class="profile-card-header">
+               💳 Saved Cards
+               <button class="profile-add-addr-btn" onclick="openCardModal()">➕ Add New Card</button>
+            </div>
+            <div class="profile-card-body" id="cardsList">
+               <p class="prof-empty">No saved cards yet.</p>
+            </div>
+         </div>
+         <p style="font-size:0.8rem;color:#999;text-align:center;margin-top:8px">⚠️ CVV is never stored. You will be asked for it each time you pay.</p>
+      </div>
+
+      <!-- CARD MODAL -->
+      <div class="addr-modal-overlay hidden" id="cardModal" onclick="handleCardOverlayClick(event)">
+         <div class="addr-modal">
+            <div class="addr-modal-header">
+               <h3>➕ Add New Card</h3>
+               <button onclick="closeCardModal()">✕</button>
+            </div>
+            <div class="addr-modal-body">
+               <div class="profile-field">
+                  <label>Card Number</label>
+                  <input type="text" id="card-number" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCardInput(this)"/>
+               </div>
+               <div class="addr-row">
+                  <div class="profile-field">
+                     <label>Expiry</label>
+                     <input type="text" id="card-expiry" placeholder="MM/YY" maxlength="5" oninput="formatExpiry(this)"/>
+                  </div>
+                  <div class="profile-field">
+                     <label>Name on Card</label>
+                     <input type="text" id="card-name" placeholder="Your Name"/>
+                  </div>
+               </div>
+               <p style="font-size:0.78rem;color:#e65100;margin-top:4px;line-height:1.5">⚠️ CVV is never saved for your security. You will be asked for it each time you make a payment.</p>
+            </div>
+            <div class="addr-modal-footer">
+               <button class="addr-save-btn" onclick="saveCard()">💾 Save Card</button>
+               <button class="addr-cancel-btn" onclick="closeCardModal()">Cancel</button>
             </div>
          </div>
       </div>

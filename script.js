@@ -1732,6 +1732,7 @@ function switchTab(tab, btn) {
    document.querySelectorAll('.rp-tab').forEach(b => b.classList.remove('active'));
    document.getElementById('tab-' + tab).classList.remove('hidden');
    if (btn) btn.classList.add('active');
+   if (tab === 'card') loadSavedCardsInPayment();
 }
 
 function selectWallet(el) {
@@ -1760,13 +1761,30 @@ function processPayment(method) {
          orderId: 'ORD-' + Date.now(),
          date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
          items: cart.map(c => ({ name: c.name, qty: c.qty, price: c.price })),
-         total,
-         method,
-         status: 'Confirmed'
+         total, method, status: 'Confirmed'
       };
       const orders = JSON.parse(localStorage.getItem('orders_' + user.email) || '[]');
       orders.push(order);
       localStorage.setItem('orders_' + user.email, JSON.stringify(orders));
+
+      // Save new card if checkbox ticked
+      if (method === 'Card') {
+         const saveCheck = document.getElementById('saveCardCheck');
+         if (saveCheck && saveCheck.checked) {
+            const num  = (document.getElementById('cardNum').value || '').replace(/\s/g, '');
+            const exp  = (document.getElementById('cardExpiry').value || '').trim();
+            const name = (document.getElementById('cardHolder').value || '').trim();
+            if (num.length >= 12 && exp && name) {
+               const cards = getSavedCards(user.email);
+               const last4 = num.slice(-4);
+               const brand = getCardBrand(num);
+               if (!cards.some(c => c.last4 === last4 && c.expiry === exp)) {
+                  cards.push({ last4, expiry: exp, nameOnCard: name, brand });
+                  saveCardsData(user.email, cards);
+               }
+            }
+         }
+      }
    }
 }
 
@@ -1989,6 +2007,9 @@ if (document.getElementById('heroGreeting')) {
    updateCartUI();
    const si = document.getElementById('searchInput');
    if (si) si.value = '';
+   // Open category if coming from wishlist "View" button
+   const _cat = localStorage.getItem('_openCat');
+   if (_cat) { localStorage.removeItem('_openCat'); setTimeout(() => showProducts(_cat), 50); }
 }
 
 // ── ADMIN PANEL ──
@@ -2192,9 +2213,9 @@ const SETTINGS_KEY = 'adminSettings';
 const DEFAULT_MENU_ITEMS = [
    { icon: '👤', label: 'My Profile',           url: 'profile.html' },
    { icon: '📦', label: 'Orders',               url: 'profile.html?tab=orders' },
-   { icon: '💳', label: 'Saved Cards & Wallets', url: '' },
+   { icon: '💳', label: 'Saved Cards & Wallets', url: 'profile.html?tab=cards' },
    { icon: '📍', label: 'Saved Addresses',       url: 'profile.html?tab=addresses' },
-   { icon: '❤️', label: 'Wishlist',              url: '' },
+   { icon: '❤️', label: 'Wishlist',              url: 'profile.html?tab=wishlist' },
    { icon: '🔔', label: 'Notifications',         url: '' }
 ];
 
@@ -2308,7 +2329,14 @@ function loadSiteSettings() {
    // Always render menu items (use defaults if no settings saved yet)
    const menuContainer = document.getElementById('dynamicMenuItems');
    if (menuContainer) {
-      const items = (s.menuItems && s.menuItems.length) ? s.menuItems : DEFAULT_MENU_ITEMS;
+      const savedItems  = (s.menuItems && s.menuItems.length) ? s.menuItems : DEFAULT_MENU_ITEMS;
+      // Merge: if saved item has no URL but DEFAULT has one, use the default URL
+      const defaultMap  = {};
+      DEFAULT_MENU_ITEMS.forEach(d => { defaultMap[d.label] = d.url; });
+      const items = savedItems.map(item => ({
+         ...item,
+         url: item.url || defaultMap[item.label] || ''
+      }));
       menuContainer.innerHTML = items.map(item => {
          const action = item.url
             ? `window.location='${item.url}'`
@@ -2361,13 +2389,14 @@ function initProfile() {
 }
 
 function switchProfileTab(tab) {
-   ['info', 'addresses', 'orders', 'wishlist'].forEach(t => {
+   ['info', 'addresses', 'orders', 'wishlist', 'cards'].forEach(t => {
       document.getElementById('ptab-' + t).classList.toggle('hidden', t !== tab);
       document.getElementById('ptab-' + t + '-btn').classList.toggle('active', t === tab);
    });
    if (tab === 'addresses') renderAddresses();
    if (tab === 'orders')    renderOrders();
    if (tab === 'wishlist')  renderWishlistTab();
+   if (tab === 'cards')     renderCards();
 }
 
 function saveProfileInfo() {
@@ -2551,8 +2580,8 @@ function removeFromWishlistTab(itemId) {
 }
 
 function wishGoToProduct(catKey) {
-   window.location = 'home.html';
    localStorage.setItem('_openCat', catKey);
+   window.location = 'home.html';
 }
 
 function showProfileToast(msg) {
@@ -2561,4 +2590,124 @@ function showProfileToast(msg) {
    t.textContent = msg;
    t.classList.remove('hidden');
    setTimeout(() => t.classList.add('hidden'), 2800);
+}
+
+// ── SAVED CARDS ──
+function getSavedCards(email)       { return JSON.parse(localStorage.getItem('savedCards_' + email) || '[]'); }
+function saveCardsData(email, arr)  { localStorage.setItem('savedCards_' + email, JSON.stringify(arr)); }
+
+function getCardBrand(number) {
+   const n = number.replace(/\s/g, '');
+   if (/^4/.test(n))           return 'Visa';
+   if (/^5[1-5]/.test(n))      return 'Mastercard';
+   if (/^3[47]/.test(n))       return 'Amex';
+   if (/^6/.test(n))           return 'RuPay';
+   return 'Card';
+}
+
+function formatCardInput(input) {
+   let v = input.value.replace(/\D/g, '').substring(0, 16);
+   input.value = v.replace(/(.{4})/g, '$1 ').trim();
+}
+
+function formatExpiry(input) {
+   let v = input.value.replace(/\D/g, '').substring(0, 4);
+   if (v.length >= 3) v = v.substring(0, 2) + '/' + v.substring(2);
+   input.value = v;
+}
+
+function renderCards() {
+   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const list  = document.getElementById('cardsList');
+   const cards = getSavedCards(user.email);
+   if (!cards.length) { list.innerHTML = '<p class="prof-empty">No saved cards yet.<br>Add a card to speed up checkout.</p>'; return; }
+   list.innerHTML = cards.map((c, i) => `
+      <div class="saved-card-row">
+         <div class="saved-card-left">
+            <span class="card-brand-badge">${c.brand}</span>
+            <div class="saved-card-details">
+               <div class="saved-card-num">•••• •••• •••• ${c.last4}</div>
+               <div class="saved-card-meta">${c.nameOnCard} &nbsp;·&nbsp; Expires ${c.expiry}</div>
+            </div>
+         </div>
+         <button class="addr-del-btn" onclick="deleteCard(${i})">🗑️</button>
+      </div>`).join('');
+}
+
+function openCardModal() {
+   ['card-number','card-expiry','card-name'].forEach(id => document.getElementById(id).value = '');
+   document.getElementById('cardModal').classList.remove('hidden');
+}
+
+function closeCardModal()           { document.getElementById('cardModal').classList.add('hidden'); }
+function handleCardOverlayClick(e)  { if (e.target.id === 'cardModal') closeCardModal(); }
+
+function saveCard() {
+   const number = document.getElementById('card-number').value.replace(/\s/g, '');
+   const expiry = document.getElementById('card-expiry').value.trim();
+   const name   = document.getElementById('card-name').value.trim();
+   if (number.length < 12 || !expiry || !name) { alert('Please fill in Card Number, Expiry and Name.'); return; }
+   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const cards = getSavedCards(user.email);
+   const last4 = number.slice(-4);
+   const brand = getCardBrand(number);
+   if (cards.some(c => c.last4 === last4 && c.expiry === expiry)) { alert('This card is already saved.'); return; }
+   cards.push({ last4, expiry, nameOnCard: name, brand });
+   saveCardsData(user.email, cards);
+   closeCardModal();
+   renderCards();
+   showProfileToast('✅ Card saved! CVV will be asked at payment time.');
+}
+
+function deleteCard(idx) {
+   if (!confirm('Remove this card?')) return;
+   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const cards = getSavedCards(user.email);
+   cards.splice(idx, 1);
+   saveCardsData(user.email, cards);
+   renderCards();
+   showProfileToast('🗑️ Card removed.');
+}
+
+// ── SAVED CARDS IN PAYMENT MODAL ──
+let _selectedSavedCard = -1;
+
+function loadSavedCardsInPayment() {
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const container = document.getElementById('savedCardsInPayment');
+   if (!container || !user) return;
+   const cards = getSavedCards(user.email);
+   _selectedSavedCard = -1;
+   if (!cards.length) { container.innerHTML = ''; return; }
+   container.innerHTML = `
+      <p class="rp-label" style="margin-bottom:6px">Saved Cards</p>
+      ${cards.map((c, i) => `
+         <div class="rp-saved-card" id="rp_card_${i}" onclick="selectSavedCard(${i})">
+            <span class="card-brand-badge">${c.brand}</span>
+            <span style="font-weight:600">•••• ${c.last4}</span>
+            <span style="color:#aaa;font-size:0.78rem;margin-left:6px">${c.expiry}</span>
+            <div class="rp-cvv-row hidden" id="rp_cvv_row_${i}" onclick="event.stopPropagation()">
+               <input class="rp-input" id="rp_cvv_${i}" type="password" placeholder="CVV" maxlength="4" style="margin-top:8px"/>
+               <button class="rp-pay-btn" style="margin-top:8px" onclick="payWithSavedCard(${i})">Pay Now</button>
+            </div>
+         </div>`).join('')}
+      <div class="rp-or-divider">— or use a new card —</div>`;
+}
+
+function selectSavedCard(idx) {
+   if (_selectedSavedCard >= 0) {
+      document.getElementById('rp_card_' + _selectedSavedCard).classList.remove('selected');
+      document.getElementById('rp_cvv_row_' + _selectedSavedCard).classList.add('hidden');
+   }
+   if (_selectedSavedCard === idx) { _selectedSavedCard = -1; return; }
+   _selectedSavedCard = idx;
+   document.getElementById('rp_card_' + idx).classList.add('selected');
+   document.getElementById('rp_cvv_row_' + idx).classList.remove('hidden');
+   document.getElementById('rp_cvv_' + idx).focus();
+}
+
+function payWithSavedCard(idx) {
+   const cvv = (document.getElementById('rp_cvv_' + idx).value || '').trim();
+   if (cvv.length < 3) { alert('Please enter your CVV (3 or 4 digits).'); return; }
+   processPayment('Card (' + document.getElementById('rp_card_' + idx).querySelector('.card-brand-badge').textContent + ' •••• ' + getSavedCards(JSON.parse(localStorage.getItem('loggedInUser')).email)[idx].last4 + ')');
 }

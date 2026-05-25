@@ -166,21 +166,30 @@
                </div>
                <!-- CARD -->
                <div class="rp-panel hidden" id="tab-card">
-                  <label class="rp-label">Card Number</label>
-                  <input class="rp-input" id="cardNum" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)"/>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-                     <div>
-                        <label class="rp-label">Expiry</label>
-                        <input class="rp-input" placeholder="MM/YY" maxlength="5"/>
+                  <!-- Saved cards injected here by JS -->
+                  <div id="savedCardsInPayment"></div>
+                  <!-- New card form -->
+                  <div id="newCardForm">
+                     <label class="rp-label">Card Number</label>
+                     <input class="rp-input" id="cardNum" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)"/>
+                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+                        <div>
+                           <label class="rp-label">Expiry</label>
+                           <input class="rp-input" id="cardExpiry" placeholder="MM/YY" maxlength="5" oninput="formatExpiry(this)"/>
+                        </div>
+                        <div>
+                           <label class="rp-label">CVV</label>
+                           <input class="rp-input" id="cardCvv" placeholder="•••" maxlength="4" type="password"/>
+                        </div>
                      </div>
-                     <div>
-                        <label class="rp-label">CVV</label>
-                        <input class="rp-input" placeholder="•••" maxlength="3" type="password"/>
-                     </div>
+                     <label class="rp-label" style="margin-top:10px">Name on Card</label>
+                     <input class="rp-input" id="cardHolder" placeholder="Your Full Name"/>
+                     <label class="rp-save-card-row">
+                        <input type="checkbox" id="saveCardCheck"/> Save this card for future payments
+                     </label>
+                     <p class="rp-cvv-note">⚠️ CVV is never saved — you'll be asked every time.</p>
+                     <button class="rp-pay-btn" onclick="processPayment('Card')">Pay Now</button>
                   </div>
-                  <label class="rp-label" style="margin-top:10px">Name on Card</label>
-                  <input class="rp-input" placeholder="Your Full Name"/>
-                  <button class="rp-pay-btn" onclick="processPayment('Card')">Pay Now</button>
                </div>
                <!-- NET BANKING -->
                <div class="rp-panel hidden" id="tab-netbanking">

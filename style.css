@@ -401,9 +401,15 @@ body {
 		padding: 8px 12px;
 	}
 
-	.header-address,
 	.header-rewards {
 		display: none;
+	}
+	.header-address {
+		font-size: 0.75rem;
+		max-width: 120px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.header-middle {
@@ -2483,6 +2489,90 @@ body {
 	font-weight: 700;
 	color: #1a1a2e;
 	font-size: 0.92rem;
+}
+
+/* ── SAVED CARDS ── */
+.saved-card-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 13px 0;
+	border-bottom: 1px solid #f0f0f0;
+}
+
+.saved-card-row:last-child { border-bottom: none; }
+
+.saved-card-left {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.card-brand-badge {
+	background: #1a1a2e;
+	color: #fff;
+	font-size: 0.72rem;
+	font-weight: 700;
+	padding: 3px 8px;
+	border-radius: 5px;
+	letter-spacing: 0.04em;
+	min-width: 60px;
+	text-align: center;
+}
+
+.saved-card-num {
+	font-weight: 700;
+	font-size: 0.92rem;
+	letter-spacing: 0.06em;
+}
+
+.saved-card-meta {
+	font-size: 0.78rem;
+	color: #888;
+	margin-top: 2px;
+}
+
+/* Payment modal saved cards */
+.rp-saved-card {
+	padding: 10px 12px;
+	border: 1.5px solid #e0e0e0;
+	border-radius: 8px;
+	margin-bottom: 8px;
+	cursor: pointer;
+	transition: border-color 0.2s, background 0.2s;
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.rp-saved-card:hover  { border-color: #1a1a2e; }
+.rp-saved-card.selected { border-color: #1a1a2e; background: #f5f5fa; }
+
+.rp-cvv-row { width: 100%; }
+
+.rp-or-divider {
+	text-align: center;
+	color: #bbb;
+	font-size: 0.8rem;
+	margin: 10px 0 6px;
+}
+
+.rp-save-card-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 0.82rem;
+	color: #555;
+	margin-top: 10px;
+	cursor: pointer;
+}
+
+.rp-cvv-note {
+	font-size: 0.77rem;
+	color: #e65100;
+	margin-top: 6px;
+	margin-bottom: 2px;
 }
 
 /* Wishlist items on profile page */

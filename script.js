@@ -2470,69 +2470,127 @@ function initAdmin() {
 }
 
 function renderAdminGrid() {
-   const ov  = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
-   const container = document.getElementById('adminContent');
+   var ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   var container = document.getElementById('adminContent');
    container.innerHTML = '';
-   Object.entries(products).forEach(([catKey, catData]) => {
-      const section = document.createElement('div');
-      section.className = 'admin-section';
-      section.innerHTML = `
-         <div class="admin-section-header">
-            <h2 class="admin-section-title">${catData.category} — ${catData.title}</h2>
-            <button class="admin-add-item-btn" onclick="openAddModal('${catKey}')">➕ Add Item</button>
-         </div>`;
-      const grid = document.createElement('div');
-      grid.className = 'admin-product-grid';
-      catData.items.forEach(item => {
-         const isCustom = item.id.startsWith('custom_');
-         const o = ov[item.id] || {};
-         const displayImg   = o.img  || item.img;
-         const displayName  = o.name || item.name;
-         const displayPrice = (o.price !== undefined ? o.price : (item.price || item.pricePerLitre)).toLocaleString('en-IN');
-         const displayDesc  = o.desc || item.desc;
-         const modified = !isCustom && !!ov[item.id];
-         const card = document.createElement('div');
-         card.className = 'admin-product-card' + (modified ? ' modified' : '') + (isCustom ? ' custom' : '');
-         card.innerHTML = `
-            <div class="admin-card-img-wrap">
-               <img src="${displayImg}" alt="${displayName}" loading="lazy"
-                    onerror="this.src='https://placehold.co/200x140?text=No+Image'"/>
-               ${isCustom  ? '<span class="admin-custom-badge">Custom</span>'   : ''}
-               ${modified  ? '<span class="admin-modified-badge">Modified</span>' : ''}
-            </div>
-            <div class="admin-card-info">
-               <div class="admin-card-name">${displayName}</div>
-               <div class="admin-card-price">₹${displayPrice}</div>
-               <div class="admin-card-desc">${displayDesc}</div>
-            </div>
-            <div class="admin-card-actions">
-               <button class="admin-edit-btn" onclick="openEditModal('${item.id}','${catKey}')">✏️ Edit</button>
-               ${isCustom ? `<button class="admin-delete-btn" onclick="deleteCustomProduct('${item.id}')">🗑️</button>` : ''}
-            </div>`;
-         grid.appendChild(card);
+
+   // Render grouped by main category
+   Object.entries(MAIN_CATS).forEach(function(entry) {
+      var mcKey = entry[0];
+      var mc    = entry[1];
+
+      // Count total items in this main category
+      var totalItems = mc.keys.reduce(function(sum, k) {
+         return sum + (products[k] ? products[k].items.length : 0);
+      }, 0);
+
+      var group = document.createElement('div');
+      group.className = 'admin-maincat-group';
+
+      // Main category header
+      var mcHeader = document.createElement('div');
+      mcHeader.className = 'admin-maincat-header';
+      mcHeader.innerHTML = '<span class="admin-maincat-icon">' + mc.icon + '</span>' +
+                           '<span class="admin-maincat-label">' + mc.label + '</span>' +
+                           '<span class="admin-maincat-count">' + mc.keys.length + ' sub-categories · ' + totalItems + ' items</span>';
+      group.appendChild(mcHeader);
+
+      // Sub-category sections
+      mc.keys.forEach(function(catKey) {
+         var catData = products[catKey];
+         if (!catData) return;
+
+         var section = document.createElement('div');
+         section.className = 'admin-section';
+
+         var secHeader = document.createElement('div');
+         secHeader.className = 'admin-section-header';
+         secHeader.innerHTML = '<h2 class="admin-section-title">' + getCatIcon(catKey) + ' ' + catData.title + '</h2>';
+         var addBtn = document.createElement('button');
+         addBtn.className = 'admin-add-item-btn';
+         addBtn.textContent = '➕ Add Item';
+         addBtn.onclick = (function(k) { return function() { openAddModal(k); }; })(catKey);
+         secHeader.appendChild(addBtn);
+         section.appendChild(secHeader);
+
+         var grid = document.createElement('div');
+         grid.className = 'admin-product-grid';
+
+         catData.items.forEach(function(item) {
+            var isCustom = item.id.startsWith('custom_');
+            var o = ov[item.id] || {};
+            var displayImg   = o.img  || item.img;
+            var displayName  = o.name || item.name;
+            var rawPrice     = o.price !== undefined ? o.price : (item.price || item.pricePerLitre || 0);
+            var displayPrice = rawPrice.toLocaleString('en-IN');
+            var displayDesc  = o.desc || item.desc || '';
+            var modified     = !isCustom && !!ov[item.id];
+
+            var card = document.createElement('div');
+            card.className = 'admin-product-card' + (modified ? ' modified' : '') + (isCustom ? ' custom' : '');
+
+            var badges = (isCustom ? '<span class="admin-custom-badge">Custom</span>' : '') +
+                         (modified ? '<span class="admin-modified-badge">Modified</span>' : '');
+
+            card.innerHTML = '<div class="admin-card-img-wrap">' +
+                                '<img src="' + displayImg + '" alt="' + displayName + '" loading="lazy" ' +
+                                     'onerror="this.src=\'https://placehold.co/200x140?text=No+Image\'"/>' +
+                                badges +
+                             '</div>' +
+                             '<div class="admin-card-info">' +
+                                '<div class="admin-card-name">' + displayName + '</div>' +
+                                '<div class="admin-card-price">&#8377;' + displayPrice + '</div>' +
+                                '<div class="admin-card-desc">' + displayDesc + '</div>' +
+                             '</div>' +
+                             '<div class="admin-card-actions">' +
+                                '<button class="admin-edit-btn" onclick="openEditModal(\'' + item.id + '\',\'' + catKey + '\')">&#9999;&#65039; Edit</button>' +
+                                (isCustom ? '<button class="admin-delete-btn" onclick="deleteCustomProduct(\'' + item.id + '\')">&#128465;&#65039;</button>' : '') +
+                             '</div>';
+            grid.appendChild(card);
+         });
+
+         section.appendChild(grid);
+         group.appendChild(section);
       });
-      section.appendChild(grid);
-      container.appendChild(section);
+
+      container.appendChild(group);
    });
 }
 
 function openAddModal(catKey) {
    _editId  = null;
    _addMode = true;
-   document.getElementById('modalTitle').textContent = '➕ Add New Product';
-   document.getElementById('modalImgUrl').value  = '';
-   document.getElementById('modalName').value    = '';
-   document.getElementById('modalPrice').value   = '';
-   document.getElementById('modalDesc').value    = '';
-   document.getElementById('modalBadge').value   = 'New';
-   document.getElementById('modalPreviewImg').src = 'https://placehold.co/400x180?text=Image+Preview';
-   const sel = document.getElementById('modalCatKey');
-   sel.innerHTML = Object.entries(products)
-      .map(([k, c]) => `<option value="${k}" ${k === catKey ? 'selected' : ''}>${c.category} — ${c.title}</option>`)
-      .join('');
+   document.getElementById('modalTitle').textContent  = '➕ Add New Product';
+   document.getElementById('modalImgUrl').value       = '';
+   document.getElementById('modalName').value         = '';
+   document.getElementById('modalPrice').value        = '';
+   document.getElementById('modalDesc').value         = '';
+   document.getElementById('modalBadge').value        = 'New';
+   document.getElementById('modalPreviewImg').src     = 'https://placehold.co/400x180?text=Image+Preview';
+
+   // Build grouped <optgroup> dropdown
+   var sel = document.getElementById('modalCatKey');
+   sel.innerHTML = '';
+   Object.entries(MAIN_CATS).forEach(function(entry) {
+      var mcKey = entry[0];
+      var mc    = entry[1];
+      var group = document.createElement('optgroup');
+      group.label = mc.icon + ' ' + mc.label;
+      mc.keys.forEach(function(k) {
+         var catData = products[k];
+         if (!catData) return;
+         var opt = document.createElement('option');
+         opt.value = k;
+         opt.textContent = getCatIcon(k) + ' ' + catData.title;
+         if (k === catKey) opt.selected = true;
+         group.appendChild(opt);
+      });
+      sel.appendChild(group);
+   });
+
    document.getElementById('catSelectRow').classList.remove('hidden');
    document.getElementById('badgeRow').classList.remove('hidden');
-   document.getElementById('adminBtnSave').textContent  = '➕ Add Product';
+   document.getElementById('adminBtnSave').textContent = '➕ Add Product';
    document.getElementById('adminBtnReset').classList.add('hidden');
    document.getElementById('editModal').classList.remove('hidden');
 }

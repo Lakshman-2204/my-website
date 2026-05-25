@@ -1764,6 +1764,7 @@ function showAllProducts() {
    document.getElementById('productTitle').textContent = ' All Products';
 
    const grid = document.getElementById('productsGrid');
+   grid.style.display = '';
    grid.innerHTML = '';
 
    const categoryGroups = {};
@@ -1808,6 +1809,7 @@ function showProducts(category) {
    document.getElementById('productTitle').textContent = data.title;
 
    const grid = document.getElementById('productsGrid');
+   grid.style.display = '';
    grid.innerHTML = '';
    data.items.forEach(item => renderCard({
       ...item,
@@ -2092,6 +2094,7 @@ function showByCategory(groupName) {
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = groupName;
    const grid = document.getElementById('productsGrid');
+   grid.style.display = '';
    grid.innerHTML = '';
    Object.entries(products).forEach(([catKey, catData]) => {
       if (catData.category === groupName) {
@@ -2123,7 +2126,7 @@ function catClick(cat) {
    }
 }
 
-// Show the sub-category selection grid for a main category
+// Show the two-panel layout: sidebar of sub-categories + products on the right
 function showMainCategory(mainCatKey) {
    var mc = MAIN_CATS[mainCatKey];
    if (!mc) return;
@@ -2131,38 +2134,65 @@ function showMainCategory(mainCatKey) {
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = mc.label;
    var grid = document.getElementById('productsGrid');
+   grid.style.display = 'block'; // override grid layout for this wrapper
 
-   var totalItems = 0;
-   var cards = '';
+   // Build sidebar items
+   var sidebarHTML = '';
    for (var i = 0; i < mc.keys.length; i++) {
       var k = mc.keys[i];
       var catData = products[k];
       if (!catData) continue;
-      var count = catData.items.length;
-      totalItems += count;
-      cards += '<div class="subcat-card" onclick="showProductsForSubCat(\'' + k + '\',\'' + mainCatKey + '\')">' +
-               '<div class="subcat-icon">' + getCatIcon(k) + '</div>' +
-               '<div class="subcat-label">' + catData.title + '</div>' +
-               '<div class="subcat-count">' + count + ' items</div>' +
-               '</div>';
+      var activeClass = (i === 0) ? ' active' : '';
+      sidebarHTML += '<div class="subcat-sidebar-item' + activeClass + '" id="sidebarItem_' + k + '" onclick="showProductsForSubCat(\'' + k + '\',\'' + mainCatKey + '\')">' +
+                     '<span class="subcat-sidebar-icon">' + getCatIcon(k) + '</span>' +
+                     '<span>' + catData.title + '</span>' +
+                     '</div>';
    }
-   cards += '<div class="subcat-card subcat-card-all" onclick="showProductsByMainCat(\'' + mainCatKey + '\')">' +
-            '<div class="subcat-icon">🛍️</div>' +
-            '<div class="subcat-label">View All</div>' +
-            '<div class="subcat-count">' + totalItems + ' items</div>' +
-            '</div>';
 
-   grid.innerHTML = '<div class="subcat-grid">' + cards + '</div>';
+   // Build initial product panel (first sub-category)
+   var firstKey = mc.keys[0];
+   var productsHTML = buildCompactProducts(firstKey);
+
+   grid.innerHTML = '<div class="maincat-layout">' +
+                    '<div class="subcat-sidebar">' + sidebarHTML + '</div>' +
+                    '<div class="subcat-products-panel" id="subcatProductsPanel">' + productsHTML + '</div>' +
+                    '</div>';
+
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Show products for one sub-category, with back button to the parent main category
+// Build compact product cards HTML for a sub-category (returns HTML string)
+function buildCompactProducts(catKey) {
+   var catData = products[catKey];
+   if (!catData) return '<p style="color:#999;padding:1rem">No products found.</p>';
+   var tempContainer = document.createElement('div');
+   for (var i = 0; i < catData.items.length; i++) {
+      renderCard(Object.assign({}, catData.items[i], { type: catData.type }), catKey, tempContainer);
+   }
+   return '<div class="subcat-panel-title">' + catData.title + '</div>' +
+          '<div class="compact-grid">' + tempContainer.innerHTML + '</div>';
+}
+
+// Show products for a sub-category in the right panel (sidebar stays visible)
 function showProductsForSubCat(catKey, parentMainCatKey) {
-   showProducts(catKey);
-   // Override the Back button to go back to the sub-category grid
-   const backBtn = document.querySelector('.btn-back');
-   if (backBtn && parentMainCatKey) {
-      backBtn.onclick = () => showMainCategory(parentMainCatKey);
+   var panel = document.getElementById('subcatProductsPanel');
+   if (panel) {
+      // Two-panel mode: update only the right panel
+      panel.innerHTML = buildCompactProducts(catKey);
+      // Re-init any qty inputs that renderCard added
+      // Mark active sidebar item
+      document.querySelectorAll('.subcat-sidebar-item').forEach(function(el) {
+         el.classList.remove('active');
+      });
+      var activeItem = document.getElementById('sidebarItem_' + catKey);
+      if (activeItem) activeItem.classList.add('active');
+   } else {
+      // Fallback: full-page product display
+      showProducts(catKey);
+      var backBtn = document.querySelector('.btn-back');
+      if (backBtn && parentMainCatKey) {
+         backBtn.onclick = function() { showMainCategory(parentMainCatKey); };
+      }
    }
 }
 
@@ -2175,6 +2205,7 @@ function showProductsByMainCat(mainCatKey) {
    ps.classList.remove('hidden');
    document.getElementById('productTitle').textContent = mc.label + ' — All';
    const grid = document.getElementById('productsGrid');
+   grid.style.display = '';
    grid.innerHTML = '';
    mc.keys.forEach(k => {
       const catData = products[k];

@@ -6,6 +6,7 @@ const products = {
       title: 'Sofas',
       type: 'regular',
       category: 'Furniture',
+      mainCat: 'home',
       items: [{
             id: 'sofa1',
             name: 'Royal Velvet Sofa',
@@ -44,6 +45,7 @@ const products = {
       title: 'Dining Tables',
       type: 'regular',
       category: 'Furniture',
+      mainCat: 'home',
       items: [{
             id: 'dt1',
             name: 'Teak Wood Dining Set',
@@ -82,6 +84,7 @@ const products = {
       title: 'Wardrobes',
       type: 'regular',
       category: 'Furniture',
+      mainCat: 'home',
       items: [{
             id: 'w1',
             name: 'Sliding Door Wardrobe',
@@ -120,6 +123,7 @@ const products = {
       title: 'Bed Frames',
       type: 'regular',
       category: 'Furniture',
+      mainCat: 'home',
       items: [{
             id: 'bf1',
             name: 'King Size Wooden Bed',
@@ -158,6 +162,7 @@ const products = {
       title: 'White Marble',
       type: 'regular',
       category: 'Marbles',
+      mainCat: 'home',
       items: [{
             id: 'wm1',
             name: 'Statuario White Marble',
@@ -196,6 +201,7 @@ const products = {
       title: 'Black Marble',
       type: 'regular',
       category: 'Marbles',
+      mainCat: 'home',
       items: [{
             id: 'bm1',
             name: 'Nero Marquina',
@@ -234,6 +240,7 @@ const products = {
       title: 'Italian Marble',
       type: 'regular',
       category: 'Marbles',
+      mainCat: 'home',
       items: [{
             id: 'im1',
             name: 'Botticino Marble',
@@ -272,6 +279,7 @@ const products = {
       title: 'Granite',
       type: 'regular',
       category: 'Marbles',
+      mainCat: 'home',
       items: [{
             id: 'gr1',
             name: 'Black Pearl Granite',
@@ -310,6 +318,7 @@ const products = {
       title: 'Hardwood Flooring',
       type: 'regular',
       category: 'Flooring',
+      mainCat: 'home',
       items: [{
             id: 'hw1',
             name: 'Oak Hardwood Floor',
@@ -348,6 +357,7 @@ const products = {
       title: 'Vinyl Flooring',
       type: 'regular',
       category: 'Flooring',
+      mainCat: 'home',
       items: [{
             id: 'vn1',
             name: 'Wood-Look Vinyl',
@@ -386,6 +396,7 @@ const products = {
       title: 'Ceramic Tiles',
       type: 'regular',
       category: 'Flooring',
+      mainCat: 'home',
       items: [{
             id: 'ct1',
             name: 'Glossy White Tiles',
@@ -424,6 +435,7 @@ const products = {
       title: 'Laminate Flooring',
       type: 'regular',
       category: 'Flooring',
+      mainCat: 'home',
       items: [{
             id: 'lm1',
             name: 'Oak Laminate',
@@ -462,6 +474,7 @@ const products = {
       title: 'Wall Art',
       type: 'regular',
       category: 'Decor',
+      mainCat: 'home',
       items: [{
             id: 'wa1',
             name: 'Abstract Canvas Print',
@@ -500,6 +513,7 @@ const products = {
       title: 'Curtains',
       type: 'regular',
       category: 'Decor',
+      mainCat: 'home',
       items: [{
             id: 'cu1',
             name: 'Velvet Blackout Curtains',
@@ -538,6 +552,7 @@ const products = {
       title: 'Lighting',
       type: 'regular',
       category: 'Decor',
+      mainCat: 'home',
       items: [{
             id: 'li1',
             name: 'Crystal Chandelier',
@@ -576,6 +591,7 @@ const products = {
       title: 'Rugs',
       type: 'regular',
       category: 'Decor',
+      mainCat: 'home',
       items: [{
             id: 'ru1',
             name: 'Persian Wool Rug',
@@ -614,6 +630,7 @@ const products = {
       title: 'Cola Drinks',
       type: 'regular',
       category: 'Cool Drinks',
+      mainCat: 'dailyneeds',
       items: [{
             id: 'co1',
             name: 'Coca-Cola 2L',
@@ -652,6 +669,7 @@ const products = {
       title: 'Fruit Juices',
       type: 'regular',
       category: 'Cool Drinks',
+      mainCat: 'dailyneeds',
       items: [{
             id: 'ju1',
             name: 'Tropicana Orange 1L',
@@ -690,6 +708,7 @@ const products = {
       title: 'Energy Drinks',
       type: 'regular',
       category: 'Cool Drinks',
+      mainCat: 'dailyneeds',
       items: [{
             id: 'en1',
             name: 'Red Bull 250ml',
@@ -728,6 +747,7 @@ const products = {
       title: 'Soda & Water',
       type: 'regular',
       category: 'Cool Drinks',
+      mainCat: 'dailyneeds',
       items: [{
             id: 'sw1',
             name: 'Bisleri Water 1L',
@@ -766,6 +786,7 @@ const products = {
       title: 'Fresh Milk',
       type: 'milk',
       category: 'Milk',
+      mainCat: 'dailyneeds',
       items: [{
             id: 'mk1',
             name: 'Amul Full Cream Milk',
@@ -804,6 +825,7 @@ const products = {
       title: 'Red Bricks',
       type: 'regular',
       category: 'Bricks',
+      mainCat: 'construction',
       items: [{
             id: 'rb1',
             name: 'Standard Red Brick',
@@ -842,6 +864,7 @@ const products = {
       title: 'Fly Ash Bricks',
       type: 'regular',
       category: 'Bricks',
+      mainCat: 'construction',
       items: [{
             id: 'fb1',
             name: 'Standard Fly Ash Brick',
@@ -880,6 +903,7 @@ const products = {
       title: 'Concrete Blocks',
       type: 'regular',
       category: 'Bricks',
+      mainCat: 'construction',
       items: [{
             id: 'cb1',
             name: 'Solid Concrete Block',
@@ -918,6 +942,7 @@ const products = {
       title: 'Garden Soil',
       type: 'regular',
       category: 'Soil',
+      mainCat: 'agriculture',
       items: [{
             id: 'gs1',
             name: 'Premium Garden Soil',
@@ -956,6 +981,7 @@ const products = {
       title: 'Coco Peat',
       type: 'regular',
       category: 'Soil',
+      mainCat: 'agriculture',
       items: [{
             id: 'cp1',
             name: 'Coco Peat Brick 650g',
@@ -994,6 +1020,7 @@ const products = {
       title: 'Fertilizer Soil',
       type: 'regular',
       category: 'Soil',
+      mainCat: 'agriculture',
       items: [{
             id: 'fs1',
             name: 'Vermicompost 5kg',
@@ -1032,6 +1059,7 @@ const products = {
       title: '3D Printed Animal Toys',
       type: 'regular',
       category: '3D Toys',
+      mainCat: 'entertainment',
       items: [{
             id: 'ta1',
             name: '3D Lion Figurine',
@@ -1070,6 +1098,7 @@ const products = {
       title: '3D Printed Vehicle Toys',
       type: 'regular',
       category: '3D Toys',
+      mainCat: 'entertainment',
       items: [{
             id: 'tv1',
             name: '3D Racing Car',
@@ -1108,6 +1137,7 @@ const products = {
       title: '3D Custom Prints',
       type: 'regular',
       category: '3D Toys',
+      mainCat: 'entertainment',
       items: [{
             id: 'tc1',
             name: 'Custom Name Tag',
@@ -1146,6 +1176,7 @@ const products = {
       title: 'Hair Clips',
       type: 'regular',
       category: 'Fancy Items',
+      mainCat: 'clothing',
       items: [{
             id: 'hc1',
             name: 'Pearl Hair Clips Set',
@@ -1184,6 +1215,7 @@ const products = {
       title: 'Earrings',
       type: 'regular',
       category: 'Fancy Items',
+      mainCat: 'clothing',
       items: [{
             id: 'er1',
             name: 'Gold Hoop Earrings',
@@ -1222,6 +1254,7 @@ const products = {
       title: 'Bangles',
       type: 'regular',
       category: 'Fancy Items',
+      mainCat: 'clothing',
       items: [{
             id: 'bg1',
             name: 'Gold Plated Bangles Set',
@@ -1260,6 +1293,7 @@ const products = {
       title: 'Necklaces',
       type: 'regular',
       category: 'Fancy Items',
+      mainCat: 'clothing',
       items: [{
             id: 'nc1',
             name: 'Gold Chain Necklace',
@@ -1294,6 +1328,234 @@ const products = {
          }
       ]
    }
+   // ── DAILY NEEDS ──
+   ,groceries: { title: 'Groceries', type: 'regular', category: 'Groceries', mainCat: 'dailyneeds', items: [
+      { id: 'gr1', name: 'Basmati Rice (5 kg)', price: 349, desc: 'Long grain, premium quality', img: 'https://placehold.co/400x300/e8f5e9/333?text=Basmati+Rice', badge: 'Popular' },
+      { id: 'gr2', name: 'Wheat Flour (5 kg)', price: 199, desc: 'Chakki fresh atta', img: 'https://placehold.co/400x300/e8f5e9/333?text=Wheat+Flour', badge: 'Fresh' },
+      { id: 'gr3', name: 'Refined Cooking Oil (1 L)', price: 145, desc: 'Sunflower oil, refined', img: 'https://placehold.co/400x300/e8f5e9/333?text=Cooking+Oil', badge: 'Daily Use' },
+      { id: 'gr4', name: 'Sugar (1 kg)', price: 55, desc: 'White granulated sugar', img: 'https://placehold.co/400x300/e8f5e9/333?text=Sugar', badge: 'Essential' },
+      { id: 'gr5', name: 'Toor Dal (1 kg)', price: 129, desc: 'Split pigeon peas', img: 'https://placehold.co/400x300/e8f5e9/333?text=Toor+Dal', badge: 'Protein' },
+      { id: 'gr6', name: 'Tea Leaves (500 g)', price: 189, desc: 'Assam CTC blend', img: 'https://placehold.co/400x300/e8f5e9/333?text=Tea+Leaves', badge: 'Premium' }
+   ]},
+   vegetables: { title: 'Vegetables & Fruits', type: 'regular', category: 'Daily Needs', mainCat: 'dailyneeds', items: [
+      { id: 'vg1', name: 'Potatoes (1 kg)', price: 30, desc: 'Farm fresh, washed', img: 'https://placehold.co/400x300/f1f8e9/333?text=Potatoes', badge: 'Fresh' },
+      { id: 'vg2', name: 'Tomatoes (1 kg)', price: 40, desc: 'Ripe, juicy tomatoes', img: 'https://placehold.co/400x300/f1f8e9/333?text=Tomatoes', badge: 'Fresh' },
+      { id: 'vg3', name: 'Onions (1 kg)', price: 35, desc: 'Red onions, farm direct', img: 'https://placehold.co/400x300/f1f8e9/333?text=Onions', badge: 'Essential' },
+      { id: 'vg4', name: 'Banana (12 pcs)', price: 60, desc: 'Nendran / Robusta variety', img: 'https://placehold.co/400x300/f1f8e9/333?text=Bananas', badge: 'Daily' },
+      { id: 'vg5', name: 'Mixed Vegetables (1 kg)', price: 55, desc: 'Carrot, beans, peas, capsicum', img: 'https://placehold.co/400x300/f1f8e9/333?text=Mixed+Vegetables', badge: 'Combo' },
+      { id: 'vg6', name: 'Green Chilli (250 g)', price: 25, desc: 'Spicy farm-fresh chillies', img: 'https://placehold.co/400x300/f1f8e9/333?text=Chilli', badge: 'Hot' }
+   ]},
+   dairy: { title: 'Dairy & Bakery', type: 'regular', category: 'Daily Needs', mainCat: 'dailyneeds', items: [
+      { id: 'db1', name: 'Eggs (12 pcs)', price: 90, desc: 'Farm-fresh country eggs', img: 'https://placehold.co/400x300/fff9c4/333?text=Eggs', badge: 'Fresh' },
+      { id: 'db2', name: 'Paneer (200 g)', price: 75, desc: 'Soft fresh cottage cheese', img: 'https://placehold.co/400x300/fff9c4/333?text=Paneer', badge: 'Fresh' },
+      { id: 'db3', name: 'Butter (100 g)', price: 55, desc: 'Salted / unsalted butter', img: 'https://placehold.co/400x300/fff9c4/333?text=Butter', badge: 'Creamy' },
+      { id: 'db4', name: 'Curd (500 g)', price: 45, desc: 'Thick set natural curd', img: 'https://placehold.co/400x300/fff9c4/333?text=Curd', badge: 'Daily' },
+      { id: 'db5', name: 'Bread (loaf)', price: 35, desc: 'Whole wheat sandwich bread', img: 'https://placehold.co/400x300/fff9c4/333?text=Bread', badge: 'Fresh' },
+      { id: 'db6', name: 'Cheese Slices (10 pcs)', price: 110, desc: 'Processed cheese, melt-ready', img: 'https://placehold.co/400x300/fff9c4/333?text=Cheese', badge: 'Tasty' }
+   ]},
+   sweets: { title: 'Sweets & Snacks', type: 'regular', category: 'Daily Needs', mainCat: 'dailyneeds', items: [
+      { id: 'sw1', name: 'Gulab Jamun (500 g)', price: 149, desc: 'Soft khoya-based, soaked in syrup', img: 'https://placehold.co/400x300/fce4ec/333?text=Gulab+Jamun', badge: 'Sweet' },
+      { id: 'sw2', name: 'Besan Ladoo (250 g)', price: 120, desc: 'Ghee-roasted gram flour balls', img: 'https://placehold.co/400x300/fce4ec/333?text=Ladoo', badge: 'Festive' },
+      { id: 'sw3', name: 'Mixture (200 g)', price: 60, desc: 'Crispy namkeen mix', img: 'https://placehold.co/400x300/fce4ec/333?text=Mixture', badge: 'Crispy' },
+      { id: 'sw4', name: 'Murukku (200 g)', price: 55, desc: 'Rice flour spiral snack', img: 'https://placehold.co/400x300/fce4ec/333?text=Murukku', badge: 'Crunchy' },
+      { id: 'sw5', name: 'Jalebi (250 g)', price: 80, desc: 'Crispy fermented batter, syrup-soaked', img: 'https://placehold.co/400x300/fce4ec/333?text=Jalebi', badge: 'Hot' },
+      { id: 'sw6', name: 'Halwa (250 g)', price: 90, desc: 'Sooji/Wheat halwa with ghee', img: 'https://placehold.co/400x300/fce4ec/333?text=Halwa', badge: 'Classic' }
+   ]},
+   // ── CLOTHING ──
+   menswear: { title: "Men's Wear", type: 'regular', category: 'Clothing', mainCat: 'clothing', items: [
+      { id: 'mw1', name: 'Formal Shirt', price: 499, desc: 'Cotton blend, full sleeve', img: 'https://placehold.co/400x300/e3f2fd/333?text=Formal+Shirt', badge: 'Office' },
+      { id: 'mw2', name: 'Casual T-Shirt', price: 249, desc: 'Round neck, pure cotton', img: 'https://placehold.co/400x300/e3f2fd/333?text=T-Shirt', badge: 'Casual' },
+      { id: 'mw3', name: 'Formal Trouser', price: 699, desc: 'Regular fit, polyester cotton', img: 'https://placehold.co/400x300/e3f2fd/333?text=Trouser', badge: 'Formal' },
+      { id: 'mw4', name: 'Dhoti (5 m)', price: 350, desc: 'Pure cotton, white/color', img: 'https://placehold.co/400x300/e3f2fd/333?text=Dhoti', badge: 'Traditional' },
+      { id: 'mw5', name: 'Kurta Pyjama Set', price: 799, desc: 'Festive cotton kurta set', img: 'https://placehold.co/400x300/e3f2fd/333?text=Kurta', badge: 'Festive' },
+      { id: 'mw6', name: 'Lungi', price: 199, desc: 'Checked cotton lungi', img: 'https://placehold.co/400x300/e3f2fd/333?text=Lungi', badge: 'Comfort' }
+   ]},
+   womenswear: { title: "Women's Wear", type: 'regular', category: 'Clothing', mainCat: 'clothing', items: [
+      { id: 'ww1', name: 'Cotton Saree', price: 799, desc: 'Handloom cotton, 5.5 m', img: 'https://placehold.co/400x300/f3e5f5/333?text=Cotton+Saree', badge: 'Daily' },
+      { id: 'ww2', name: 'Silk Saree', price: 2999, desc: 'Kanjivaram pure silk', img: 'https://placehold.co/400x300/f3e5f5/333?text=Silk+Saree', badge: 'Premium' },
+      { id: 'ww3', name: 'Churidar Set', price: 649, desc: 'Cotton churidar with dupatta', img: 'https://placehold.co/400x300/f3e5f5/333?text=Churidar', badge: 'Trendy' },
+      { id: 'ww4', name: 'Salwar Kameez', price: 549, desc: 'Printed cotton, 3-piece', img: 'https://placehold.co/400x300/f3e5f5/333?text=Salwar', badge: 'Casual' },
+      { id: 'ww5', name: 'Blouse (stitched)', price: 299, desc: 'Cotton saree blouse, all sizes', img: 'https://placehold.co/400x300/f3e5f5/333?text=Blouse', badge: 'Classic' },
+      { id: 'ww6', name: 'Nightgown', price: 349, desc: 'Comfortable maxi nightdress', img: 'https://placehold.co/400x300/f3e5f5/333?text=Nightgown', badge: 'Comfort' }
+   ]},
+   kidswear: { title: "Kids' Wear", type: 'regular', category: 'Clothing', mainCat: 'clothing', items: [
+      { id: 'kw1', name: 'School Uniform Set', price: 449, desc: 'Shirt + trouser/skirt', img: 'https://placehold.co/400x300/e8eaf6/333?text=School+Uniform', badge: 'School' },
+      { id: 'kw2', name: 'Kids T-Shirt', price: 149, desc: 'Printed cotton, age 3–12', img: 'https://placehold.co/400x300/e8eaf6/333?text=Kids+T-Shirt', badge: 'Fun' },
+      { id: 'kw3', name: 'Frock / Dress', price: 299, desc: 'Floral print cotton frock', img: 'https://placehold.co/400x300/e8eaf6/333?text=Frock', badge: 'Cute' },
+      { id: 'kw4', name: 'Shorts & T-Shirt Set', price: 249, desc: 'Summer play set, age 4–10', img: 'https://placehold.co/400x300/e8eaf6/333?text=Shorts+Set', badge: 'Play' },
+      { id: 'kw5', name: 'Kids Sweater', price: 349, desc: 'Wool blend, warm & soft', img: 'https://placehold.co/400x300/e8eaf6/333?text=Sweater', badge: 'Winter' },
+      { id: 'kw6', name: 'Baby Romper Set', price: 199, desc: 'Soft cotton, 3–18 months', img: 'https://placehold.co/400x300/e8eaf6/333?text=Baby+Romper', badge: 'Infant' }
+   ]},
+   textiles: { title: 'Textiles & Fabric', type: 'regular', category: 'Clothing', mainCat: 'clothing', items: [
+      { id: 'tx1', name: 'Cotton Fabric (1 m)', price: 80, desc: 'Plain weave, 44" wide', img: 'https://placehold.co/400x300/f3e5f5/333?text=Cotton+Fabric', badge: 'Per Metre' },
+      { id: 'tx2', name: 'Silk Fabric (1 m)', price: 450, desc: 'Pure silk, lustrous finish', img: 'https://placehold.co/400x300/f3e5f5/333?text=Silk+Fabric', badge: 'Premium' },
+      { id: 'tx3', name: 'Polyester Fabric (1 m)', price: 50, desc: 'Wrinkle-resistant, easy wash', img: 'https://placehold.co/400x300/f3e5f5/333?text=Polyester', badge: 'Durable' },
+      { id: 'tx4', name: 'Khadi Cloth (1 m)', price: 120, desc: 'Handspun, eco-friendly', img: 'https://placehold.co/400x300/f3e5f5/333?text=Khadi', badge: 'Handmade' }
+   ]},
+   // ── CONSTRUCTION ──
+   cement: { title: 'Cement & Concrete', type: 'regular', category: 'Construction', mainCat: 'construction', items: [
+      { id: 'cm1', name: 'OPC 53 Grade Cement (50 kg)', price: 420, desc: 'Ordinary Portland Cement, high strength', img: 'https://placehold.co/400x300/fff3e0/333?text=OPC+Cement', badge: 'Bestseller' },
+      { id: 'cm2', name: 'PPC Cement (50 kg)', price: 400, desc: 'Portland Pozzolana Cement', img: 'https://placehold.co/400x300/fff3e0/333?text=PPC+Cement', badge: 'Durable' },
+      { id: 'cm3', name: 'White Cement (5 kg)', price: 280, desc: 'For finishing & tile joints', img: 'https://placehold.co/400x300/fff3e0/333?text=White+Cement', badge: 'Finish' },
+      { id: 'cm4', name: 'M-Sand (1 bag)', price: 65, desc: 'Manufactured sand for plastering', img: 'https://placehold.co/400x300/fff3e0/333?text=M-Sand', badge: 'Quality' }
+   ]},
+   paint: { title: 'Paints & Coatings', type: 'regular', category: 'Construction', mainCat: 'construction', items: [
+      { id: 'pt1', name: 'Interior Emulsion (1 L)', price: 180, desc: 'Smooth finish, washable', img: 'https://placehold.co/400x300/fff3e0/333?text=Interior+Paint', badge: 'Popular' },
+      { id: 'pt2', name: 'Exterior Paint (1 L)', price: 220, desc: 'Weather-resistant, UV protected', img: 'https://placehold.co/400x300/fff3e0/333?text=Exterior+Paint', badge: 'Durable' },
+      { id: 'pt3', name: 'Wood Paint / Enamel (1 L)', price: 195, desc: 'For doors, windows & furniture', img: 'https://placehold.co/400x300/fff3e0/333?text=Wood+Paint', badge: 'Glossy' },
+      { id: 'pt4', name: 'Primer (1 L)', price: 140, desc: 'Water-based wall primer', img: 'https://placehold.co/400x300/fff3e0/333?text=Primer', badge: 'Base Coat' },
+      { id: 'pt5', name: 'Waterproofing Coat (1 L)', price: 280, desc: 'Terrace & bathroom waterproofing', img: 'https://placehold.co/400x300/fff3e0/333?text=Waterproofing', badge: 'Protect' }
+   ]},
+   plumbing: { title: 'Pipes & Plumbing', type: 'regular', category: 'Construction', mainCat: 'construction', items: [
+      { id: 'pl1', name: 'PVC Pipe 4" (3 m)', price: 320, desc: 'For drainage & sewage', img: 'https://placehold.co/400x300/fff3e0/333?text=PVC+Pipe', badge: 'Heavy Duty' },
+      { id: 'pl2', name: 'CPVC Hot Water Pipe (3 m)', price: 480, desc: 'For hot water plumbing', img: 'https://placehold.co/400x300/fff3e0/333?text=CPVC+Pipe', badge: 'Temp Resistant' },
+      { id: 'pl3', name: 'Bathroom Tap (single)', price: 350, desc: 'Chrome-plated brass tap', img: 'https://placehold.co/400x300/fff3e0/333?text=Bathroom+Tap', badge: 'Quality' },
+      { id: 'pl4', name: 'Overhead Water Tank (500 L)', price: 2200, desc: 'Sintex/ISI marked, triple layer', img: 'https://placehold.co/400x300/fff3e0/333?text=Water+Tank', badge: 'ISI Mark' },
+      { id: 'pl5', name: 'Kitchen Sink (single bowl)', price: 1800, desc: 'Stainless steel, 304 grade', img: 'https://placehold.co/400x300/fff3e0/333?text=Kitchen+Sink', badge: 'Steel' }
+   ]},
+   doors: { title: 'Doors & Windows', type: 'regular', category: 'Construction', mainCat: 'construction', items: [
+      { id: 'dr1', name: 'Teak Wood Door', price: 8500, desc: 'Solid teak, panelled design', img: 'https://placehold.co/400x300/fff3e0/333?text=Teak+Door', badge: 'Premium' },
+      { id: 'dr2', name: 'Steel Security Door', price: 6500, desc: 'Double-sheet steel with grille', img: 'https://placehold.co/400x300/fff3e0/333?text=Steel+Door', badge: 'Security' },
+      { id: 'dr3', name: 'UPVC Window (3×4 ft)', price: 4500, desc: 'Weatherproof, double glass', img: 'https://placehold.co/400x300/fff3e0/333?text=UPVC+Window', badge: 'Weatherproof' },
+      { id: 'dr4', name: 'Flush Door (7×3 ft)', price: 2800, desc: 'HDF core, smooth finish', img: 'https://placehold.co/400x300/fff3e0/333?text=Flush+Door', badge: 'Interior' }
+   ]},
+   electricals: { title: 'Electrical Supplies', type: 'regular', category: 'Construction', mainCat: 'construction', items: [
+      { id: 'el1', name: 'Copper Wire 1.5mm (90 m)', price: 1350, desc: 'ISI certified, FR insulation', img: 'https://placehold.co/400x300/fff3e0/333?text=Copper+Wire', badge: 'ISI Mark' },
+      { id: 'el2', name: 'MCB Circuit Breaker', price: 180, desc: '16A / 32A single-pole MCB', img: 'https://placehold.co/400x300/fff3e0/333?text=MCB', badge: 'Safety' },
+      { id: 'el3', name: 'Switchboard with Sockets', price: 350, desc: '6-module modular board', img: 'https://placehold.co/400x300/fff3e0/333?text=Switchboard', badge: 'Modular' },
+      { id: 'el4', name: 'Concealed Conduit Pipe (3 m)', price: 45, desc: 'PVC conduit for wiring', img: 'https://placehold.co/400x300/fff3e0/333?text=Conduit', badge: 'Essential' }
+   ]},
+   // ── AGRICULTURE ──
+   seeds: { title: 'Seeds & Saplings', type: 'regular', category: 'Agriculture', mainCat: 'agriculture', items: [
+      { id: 'sd1', name: 'Tomato Seeds (10 g)', price: 60, desc: 'Hybrid F1, high-yield variety', img: 'https://placehold.co/400x300/e8f5e9/333?text=Tomato+Seeds', badge: 'Hybrid' },
+      { id: 'sd2', name: 'Chilli Seeds (5 g)', price: 55, desc: 'Hot variety, disease resistant', img: 'https://placehold.co/400x300/e8f5e9/333?text=Chilli+Seeds', badge: 'Hot' },
+      { id: 'sd3', name: 'Paddy Seeds (1 kg)', price: 85, desc: 'Improved variety, high yielding', img: 'https://placehold.co/400x300/e8f5e9/333?text=Paddy+Seeds', badge: 'High Yield' },
+      { id: 'sd4', name: 'Coconut Sapling', price: 150, desc: 'West Coast Tall, 1-year-old', img: 'https://placehold.co/400x300/e8f5e9/333?text=Coconut+Sapling', badge: 'Local' },
+      { id: 'sd5', name: 'Vegetable Seed Kit', price: 199, desc: '10 varieties — brinjal, beans, spinach…', img: 'https://placehold.co/400x300/e8f5e9/333?text=Seed+Kit', badge: 'Combo' }
+   ]},
+   farmtools: { title: 'Farming Tools', type: 'regular', category: 'Agriculture', mainCat: 'agriculture', items: [
+      { id: 'ft1', name: 'Iron Spade', price: 320, desc: 'Long handle, heavy-duty', img: 'https://placehold.co/400x300/e8f5e9/333?text=Spade', badge: 'Heavy Duty' },
+      { id: 'ft2', name: 'Sickle / Koita', price: 180, desc: 'Carbon steel blade, wood handle', img: 'https://placehold.co/400x300/e8f5e9/333?text=Sickle', badge: 'Sharp' },
+      { id: 'ft3', name: 'Garden Hoe', price: 250, desc: 'For weeding & soil loosening', img: 'https://placehold.co/400x300/e8f5e9/333?text=Garden+Hoe', badge: 'Tool' },
+      { id: 'ft4', name: 'Knapsack Sprayer (16 L)', price: 1200, desc: 'Manual pump, adjustable nozzle', img: 'https://placehold.co/400x300/e8f5e9/333?text=Sprayer', badge: 'Durable' },
+      { id: 'ft5', name: 'Watering Can (10 L)', price: 280, desc: 'Galvanised steel with rose nozzle', img: 'https://placehold.co/400x300/e8f5e9/333?text=Watering+Can', badge: 'Garden' }
+   ]},
+   irrigation: { title: 'Irrigation Equipment', type: 'regular', category: 'Agriculture', mainCat: 'agriculture', items: [
+      { id: 'ir1', name: 'Drip Irrigation Kit', price: 2500, desc: 'Covers 100 sq m, complete set', img: 'https://placehold.co/400x300/e8f5e9/333?text=Drip+Kit', badge: 'Water Saving' },
+      { id: 'ir2', name: 'Sprinkler Set (4 heads)', price: 850, desc: 'Garden lawn sprinkler system', img: 'https://placehold.co/400x300/e8f5e9/333?text=Sprinkler', badge: 'Efficient' },
+      { id: 'ir3', name: 'Water Pump 0.5 HP', price: 3200, desc: 'Mono-block pump for borewell', img: 'https://placehold.co/400x300/e8f5e9/333?text=Water+Pump', badge: 'Powerful' },
+      { id: 'ir4', name: 'PVC Suction Pipe (3 m)', price: 220, desc: 'Flexible, for pump connection', img: 'https://placehold.co/400x300/e8f5e9/333?text=Suction+Pipe', badge: 'Flexible' }
+   ]},
+   // ── KITCHEN & HOUSEHOLD ──
+   utensils: { title: 'Utensils & Cookware', type: 'regular', category: 'Kitchen', mainCat: 'kitchen', items: [
+      { id: 'ut1', name: 'Pressure Cooker (5 L)', price: 1299, desc: 'Aluminium, ISI certified', img: 'https://placehold.co/400x300/fce4ec/333?text=Pressure+Cooker', badge: 'Bestseller' },
+      { id: 'ut2', name: 'Iron Kadai (30 cm)', price: 599, desc: 'Cast iron, seasoned, deep fry', img: 'https://placehold.co/400x300/fce4ec/333?text=Iron+Kadai', badge: 'Cast Iron' },
+      { id: 'ut3', name: 'SS Vessels Set (5 pcs)', price: 899, desc: 'Stainless steel containers', img: 'https://placehold.co/400x300/fce4ec/333?text=SS+Vessels', badge: 'Set' },
+      { id: 'ut4', name: 'Non-Stick Pan (26 cm)', price: 749, desc: 'PFOA-free coating, induction safe', img: 'https://placehold.co/400x300/fce4ec/333?text=Non-Stick+Pan', badge: 'Healthy' },
+      { id: 'ut5', name: 'Idli Maker (4-plate)', price: 499, desc: 'Stainless steel, 16 idli capacity', img: 'https://placehold.co/400x300/fce4ec/333?text=Idli+Maker', badge: 'Traditional' },
+      { id: 'ut6', name: 'Tawa (30 cm)', price: 349, desc: 'Iron tawa for chapathi & dosa', img: 'https://placehold.co/400x300/fce4ec/333?text=Tawa', badge: 'Classic' }
+   ]},
+   plastic: { title: 'Plastic & Steel Items', type: 'regular', category: 'Kitchen', mainCat: 'kitchen', items: [
+      { id: 'pk1', name: 'Water Bucket (20 L)', price: 149, desc: 'Heavy-duty plastic, with lid', img: 'https://placehold.co/400x300/e3f2fd/333?text=Bucket', badge: 'Durable' },
+      { id: 'pk2', name: 'Storage Container Set (6 pcs)', price: 399, desc: 'Airtight, BPA-free plastic', img: 'https://placehold.co/400x300/e3f2fd/333?text=Containers', badge: 'Airtight' },
+      { id: 'pk3', name: 'Plastic Shelf (3-tier)', price: 599, desc: 'Modular, freestanding shelf', img: 'https://placehold.co/400x300/e3f2fd/333?text=Plastic+Shelf', badge: 'Organiser' },
+      { id: 'pk4', name: 'Dustbin 10 L', price: 199, desc: 'With lid, swing-top design', img: 'https://placehold.co/400x300/e3f2fd/333?text=Dustbin', badge: 'Hygiene' },
+      { id: 'pk5', name: 'SS Water Bottle (1 L)', price: 299, desc: 'Insulated, keeps cold 12 hrs', img: 'https://placehold.co/400x300/e3f2fd/333?text=Water+Bottle', badge: 'Insulated' }
+   ]},
+   cleaning: { title: 'Cleaning Supplies', type: 'regular', category: 'Kitchen', mainCat: 'kitchen', items: [
+      { id: 'cl1', name: 'Coconut Broom', price: 80, desc: 'Natural fiber, long handle', img: 'https://placehold.co/400x300/efebe9/333?text=Broom', badge: 'Natural' },
+      { id: 'cl2', name: 'Floor Mop Set', price: 299, desc: 'Spin mop with bucket', img: 'https://placehold.co/400x300/efebe9/333?text=Mop+Set', badge: 'No-Bend' },
+      { id: 'cl3', name: 'Phenyl Floor Cleaner (1 L)', price: 89, desc: 'Disinfectant, pine fragrance', img: 'https://placehold.co/400x300/efebe9/333?text=Floor+Cleaner', badge: 'Disinfectant' },
+      { id: 'cl4', name: 'Dish Wash Bar', price: 45, desc: 'Lemon-scented, cuts grease', img: 'https://placehold.co/400x300/efebe9/333?text=Dish+Wash', badge: 'Lemon' },
+      { id: 'cl5', name: 'Scrub Pad (6 pcs)', price: 60, desc: 'Steel + sponge dual pad', img: 'https://placehold.co/400x300/efebe9/333?text=Scrub+Pad', badge: 'Pack' }
+   ]},
+   // ── ELECTRONICS ──
+   mobile: { title: 'Mobile & Accessories', type: 'regular', category: 'Electronics', mainCat: 'electronics', items: [
+      { id: 'mb1', name: 'Budget Smartphone (4G)', price: 7999, desc: '4GB RAM, 64GB storage, dual SIM', img: 'https://placehold.co/400x300/e8eaf6/333?text=Smartphone', badge: 'Value' },
+      { id: 'mb2', name: 'Feature Phone', price: 1299, desc: 'Keypad phone, long battery', img: 'https://placehold.co/400x300/e8eaf6/333?text=Feature+Phone', badge: 'Basic' },
+      { id: 'mb3', name: 'Mobile Back Cover', price: 149, desc: 'Silicon/TPU, all models', img: 'https://placehold.co/400x300/e8eaf6/333?text=Mobile+Cover', badge: 'Protect' },
+      { id: 'mb4', name: 'USB Charger 20W', price: 349, desc: 'Fast charging, Type-C', img: 'https://placehold.co/400x300/e8eaf6/333?text=Charger', badge: 'Fast Charge' },
+      { id: 'mb5', name: 'Wired Earphones', price: 249, desc: 'Bass boost, in-ear, with mic', img: 'https://placehold.co/400x300/e8eaf6/333?text=Earphones', badge: 'Bass' },
+      { id: 'mb6', name: 'Powerbank 10000 mAh', price: 899, desc: 'Dual USB, LED indicator', img: 'https://placehold.co/400x300/e8eaf6/333?text=Powerbank', badge: '10000mAh' }
+   ]},
+   appliances: { title: 'Home Appliances', type: 'regular', category: 'Electronics', mainCat: 'electronics', items: [
+      { id: 'ap1', name: 'Ceiling Fan (48")', price: 1899, desc: '3-blade, BEE 5-star rated', img: 'https://placehold.co/400x300/e8eaf6/333?text=Ceiling+Fan', badge: 'Energy Star' },
+      { id: 'ap2', name: 'Table Fan (12")', price: 999, desc: '3-speed, 360° rotation', img: 'https://placehold.co/400x300/e8eaf6/333?text=Table+Fan', badge: 'Compact' },
+      { id: 'ap3', name: 'Mixer Grinder (500 W)', price: 2499, desc: '3 jars, stainless steel blade', img: 'https://placehold.co/400x300/e8eaf6/333?text=Mixer+Grinder', badge: 'Powerful' },
+      { id: 'ap4', name: 'Electric Iron (1000 W)', price: 699, desc: 'Steam iron, non-stick soleplate', img: 'https://placehold.co/400x300/e8eaf6/333?text=Electric+Iron', badge: 'Steam' },
+      { id: 'ap5', name: 'Electric Kettle (1.5 L)', price: 599, desc: 'Auto shut-off, boil-dry protection', img: 'https://placehold.co/400x300/e8eaf6/333?text=Electric+Kettle', badge: 'Auto Off' }
+   ]},
+   electrical: { title: 'Electrical Items', type: 'regular', category: 'Electronics', mainCat: 'electronics', items: [
+      { id: 'ew1', name: 'LED Bulb 9W', price: 89, desc: 'Cool white, E27 base, 5-year warranty', img: 'https://placehold.co/400x300/e8eaf6/333?text=LED+Bulb', badge: 'Energy Saver' },
+      { id: 'ew2', name: 'LED Tube Light 20W (4 ft)', price: 249, desc: 'Bright white, slim design', img: 'https://placehold.co/400x300/e8eaf6/333?text=Tube+Light', badge: 'Bright' },
+      { id: 'ew3', name: 'Extension Board (4 plug)', price: 299, desc: '2 m cord, surge protection', img: 'https://placehold.co/400x300/e8eaf6/333?text=Extension+Board', badge: 'Surge Safe' },
+      { id: 'ew4', name: 'Voltage Stabilizer (2 kVA)', price: 1799, desc: 'For TV & fridge, auto cut-off', img: 'https://placehold.co/400x300/e8eaf6/333?text=Stabilizer', badge: 'Protection' }
+   ]},
+   // ── RELIGIOUS ──
+   pooja: { title: 'Pooja & Devotional', type: 'regular', category: 'Daily Needs', mainCat: 'dailyneeds', items: [
+      { id: 'pj1', name: 'Brass Diya Set (6 pcs)', price: 349, desc: 'Traditional oil lamp set', img: 'https://placehold.co/400x300/fff8e1/333?text=Brass+Diya', badge: 'Auspicious' },
+      { id: 'pj2', name: 'Agarbatti (100 sticks)', price: 65, desc: 'Sandalwood & rose fragrance', img: 'https://placehold.co/400x300/fff8e1/333?text=Agarbatti', badge: 'Fragrant' },
+      { id: 'pj3', name: 'Camphor Tablets (50 pcs)', price: 45, desc: 'Pure camphor for aarti', img: 'https://placehold.co/400x300/fff8e1/333?text=Camphor', badge: 'Pure' },
+      { id: 'pj4', name: 'Ganesha Idol (Brass, 4")', price: 599, desc: 'Handcrafted brass idol', img: 'https://placehold.co/400x300/fff8e1/333?text=Ganesha+Idol', badge: 'Handcrafted' },
+      { id: 'pj5', name: 'Pooja Thali Set', price: 449, desc: 'Steel thali with accessories', img: 'https://placehold.co/400x300/fff8e1/333?text=Pooja+Thali', badge: 'Complete' },
+      { id: 'pj6', name: 'Kumkum & Vibhuti Pack', price: 55, desc: 'Holy ash + kumkum combo', img: 'https://placehold.co/400x300/fff8e1/333?text=Kumkum+Vibhuti', badge: 'Devotional' }
+   ]},
+   festival: { title: 'Festival & Occasions', type: 'regular', category: 'Daily Needs', mainCat: 'dailyneeds', items: [
+      { id: 'fv1', name: 'LED String Lights (10 m)', price: 249, desc: 'Diwali lights, multi-color', img: 'https://placehold.co/400x300/fff8e1/333?text=String+Lights', badge: 'Festive' },
+      { id: 'fv2', name: 'Rangoli Colors (12 shades)', price: 120, desc: 'Bright, non-toxic powder', img: 'https://placehold.co/400x300/fff8e1/333?text=Rangoli+Colors', badge: 'Vibrant' },
+      { id: 'fv3', name: 'Flower Garland (2 m)', price: 80, desc: 'Marigold & rose, artificial', img: 'https://placehold.co/400x300/fff8e1/333?text=Garland', badge: 'Decoration' },
+      { id: 'fv4', name: 'Floating Diyas (10 pcs)', price: 99, desc: 'Clay diyas for water festival', img: 'https://placehold.co/400x300/fff8e1/333?text=Floating+Diyas', badge: 'Traditional' }
+   ]},
+   flowers: { title: 'Flowers', type: 'regular', category: 'Daily Needs', mainCat: 'flowers', items: [
+      { id: 'fl1', name: 'Jasmine Garland (1 m)', price: 30, desc: 'Fresh mallipoo, fragrant', img: 'https://placehold.co/400x300/f9fbe7/333?text=Jasmine', badge: 'Fresh' },
+      { id: 'fl2', name: 'Marigold Garland (2 m)', price: 50, desc: 'Bright saamanthi, ideal for pooja', img: 'https://placehold.co/400x300/fff9c4/333?text=Marigold', badge: 'Pooja' },
+      { id: 'fl3', name: 'Rose Bunch (10 stems)', price: 80, desc: 'Mixed colours, long-stemmed', img: 'https://placehold.co/400x300/fce4ec/333?text=Roses', badge: 'Gift' },
+      { id: 'fl4', name: 'Lotus Flowers (5 pcs)', price: 60, desc: 'Fresh pink lotus for abhishekam', img: 'https://placehold.co/400x300/fce4ec/333?text=Lotus', badge: 'Sacred' },
+      { id: 'fl5', name: 'Chrysanthemum Bunch', price: 40, desc: 'Vennila sevanthi, temple favourite', img: 'https://placehold.co/400x300/fffde7/333?text=Chrysanthemum', badge: 'Temple' },
+      { id: 'fl6', name: 'Mixed Flower Basket', price: 150, desc: 'Seasonal mix for home & pooja', img: 'https://placehold.co/400x300/f3e5f5/333?text=Flower+Basket', badge: 'Seasonal' },
+      { id: 'fl7', name: 'Tulsi Plants (pot)', price: 35, desc: 'Holy basil, fresh potted plant', img: 'https://placehold.co/400x300/e8f5e9/333?text=Tulsi+Plant', badge: 'Holy' },
+      { id: 'fl8', name: 'Banana Leaves (pack of 10)', price: 25, desc: 'Fresh leaves for serving & pooja', img: 'https://placehold.co/400x300/e8f5e9/333?text=Banana+Leaves', badge: 'Natural' }
+   ]},
+   // ── HEALTH & BEAUTY ──
+   medicines: { title: 'Medicines & First Aid', type: 'regular', category: 'Health', mainCat: 'health', items: [
+      { id: 'md1', name: 'Paracetamol 500mg (10 tabs)', price: 15, desc: 'Fever & pain relief', img: 'https://placehold.co/400x300/e0f2f1/333?text=Paracetamol', badge: 'OTC' },
+      { id: 'md2', name: 'Antacid Tablets (strip)', price: 25, desc: 'For acidity & heartburn', img: 'https://placehold.co/400x300/e0f2f1/333?text=Antacid', badge: 'Relief' },
+      { id: 'md3', name: 'Cough Syrup (100 ml)', price: 75, desc: 'Dry & wet cough relief', img: 'https://placehold.co/400x300/e0f2f1/333?text=Cough+Syrup', badge: 'OTC' },
+      { id: 'md4', name: 'First Aid Kit', price: 349, desc: 'Band-aid, antiseptic, bandage', img: 'https://placehold.co/400x300/e0f2f1/333?text=First+Aid+Kit', badge: 'Complete' },
+      { id: 'md5', name: 'Antiseptic Cream (20 g)', price: 55, desc: 'For cuts, wounds, burns', img: 'https://placehold.co/400x300/e0f2f1/333?text=Antiseptic+Cream', badge: 'Healing' },
+      { id: 'md6', name: 'Vitamin C Tablets (30 tabs)', price: 120, desc: '500mg, immunity support', img: 'https://placehold.co/400x300/e0f2f1/333?text=Vitamin+C', badge: 'Immunity' }
+   ]},
+   personalcare: { title: 'Personal Care', type: 'regular', category: 'Health', mainCat: 'health', items: [
+      { id: 'pc1', name: 'Bathing Soap (4 bars)', price: 95, desc: 'Moisturising, aloe vera', img: 'https://placehold.co/400x300/e0f2f1/333?text=Soap', badge: 'Moisturising' },
+      { id: 'pc2', name: 'Shampoo (400 ml)', price: 175, desc: 'Anti-dandruff / hair fall control', img: 'https://placehold.co/400x300/e0f2f1/333?text=Shampoo', badge: 'Anti-Dandruff' },
+      { id: 'pc3', name: 'Toothpaste (200 g)', price: 89, desc: 'Fluoride, cavity protection', img: 'https://placehold.co/400x300/e0f2f1/333?text=Toothpaste', badge: 'Protection' },
+      { id: 'pc4', name: 'Coconut Hair Oil (200 ml)', price: 110, desc: 'Pure cold-pressed, 100% natural', img: 'https://placehold.co/400x300/e0f2f1/333?text=Hair+Oil', badge: 'Natural' },
+      { id: 'pc5', name: 'Face Moisturiser (50 ml)', price: 149, desc: 'SPF 15, light non-greasy', img: 'https://placehold.co/400x300/e0f2f1/333?text=Face+Cream', badge: 'SPF 15' },
+      { id: 'pc6', name: 'Dettol Antiseptic (100 ml)', price: 85, desc: 'Multi-use liquid antiseptic', img: 'https://placehold.co/400x300/e0f2f1/333?text=Dettol', badge: 'Trusted' }
+   ]},
+   // ── STATIONERY ──
+   books: { title: 'Books', type: 'regular', category: 'Stationery', mainCat: 'stationery', items: [
+      { id: 'bk1', name: 'Lined Notebook A4 (5 pcs)', price: 95, desc: '200 pages, ruled, durable cover', img: 'https://placehold.co/400x300/efebe9/333?text=Notebook', badge: 'Pack' },
+      { id: 'bk2', name: 'Drawing Book (50 pages)', price: 55, desc: 'A3 size, thick cartridge paper', img: 'https://placehold.co/400x300/efebe9/333?text=Drawing+Book', badge: 'A3' },
+      { id: 'bk3', name: 'English Dictionary', price: 199, desc: 'Oxford pocket dictionary', img: 'https://placehold.co/400x300/efebe9/333?text=Dictionary', badge: 'Reference' },
+      { id: 'bk4', name: 'Story Book (Tamil/English)', price: 149, desc: 'Children\'s illustrated story book', img: 'https://placehold.co/400x300/efebe9/333?text=Story+Book', badge: 'Kids' }
+   ]},
+   schoolsupplies: { title: 'School Supplies', type: 'regular', category: 'Stationery', mainCat: 'stationery', items: [
+      { id: 'ss1', name: 'Pen Pack (10 pcs)', price: 45, desc: 'Ball point, blue / black', img: 'https://placehold.co/400x300/efebe9/333?text=Pen+Pack', badge: 'Smooth' },
+      { id: 'ss2', name: 'Pencil Pack (12 pcs)', price: 35, desc: 'HB grade, pre-sharpened', img: 'https://placehold.co/400x300/efebe9/333?text=Pencil+Pack', badge: 'HB' },
+      { id: 'ss3', name: 'Geometry Box', price: 120, desc: 'Compass, protractor, scale & more', img: 'https://placehold.co/400x300/efebe9/333?text=Geometry+Box', badge: 'Complete' },
+      { id: 'ss4', name: 'Color Pencils (24 shades)', price: 99, desc: 'Smooth blend, vibrant colors', img: 'https://placehold.co/400x300/efebe9/333?text=Color+Pencils', badge: '24 Colors' },
+      { id: 'ss5', name: 'School Bag (medium)', price: 499, desc: 'Water-resistant, padded back', img: 'https://placehold.co/400x300/efebe9/333?text=School+Bag', badge: 'Ergonomic' }
+   ]},
+   // ── SPORTS & GAMES ──
+   games: { title: 'Sports & Games', type: 'regular', category: 'Entertainment', mainCat: 'entertainment', items: [
+      { id: 'gm1', name: 'Carrom Board (full size)', price: 1499, desc: '29"×29", polished striker', img: 'https://placehold.co/400x300/fce4ec/333?text=Carrom+Board', badge: 'Family' },
+      { id: 'gm2', name: 'Chess Set', price: 349, desc: 'Wooden board with pieces', img: 'https://placehold.co/400x300/fce4ec/333?text=Chess+Set', badge: 'Classic' },
+      { id: 'gm3', name: 'Cricket Bat (Kashmir willow)', price: 799, desc: 'Full size, grade 3 willow', img: 'https://placehold.co/400x300/fce4ec/333?text=Cricket+Bat', badge: 'Sport' },
+      { id: 'gm4', name: 'Football (size 5)', price: 499, desc: 'PU leather, match quality', img: 'https://placehold.co/400x300/fce4ec/333?text=Football', badge: 'Outdoor' },
+      { id: 'gm5', name: 'Badminton Set (4 rackets)', price: 899, desc: '4 rackets + 3 shuttlecocks', img: 'https://placehold.co/400x300/fce4ec/333?text=Badminton', badge: 'Set' },
+      { id: 'gm6', name: 'Ludo & Snake-Ladder (2-in-1)', price: 199, desc: 'Rollable mat, includes dice', img: 'https://placehold.co/400x300/fce4ec/333?text=Ludo', badge: 'Family Fun' }
+   ]}
 };
 
 // ── IMAGE OVERRIDES (verified Unsplash CDN photo IDs only) ──
@@ -1373,6 +1635,21 @@ Object.entries(products).forEach(([, cat]) => {
       }
    });
 })();
+
+// ── MAIN CATEGORY DEFINITIONS ──
+const MAIN_CATS = {
+   dailyneeds:    { label: '🛒 Daily Needs',    icon: '🛒', keys: ['groceries','vegetables','dairy','sweets','cola','juice','energyDrink','sodaWater','milk','pooja','festival'] },
+   flowers:       { label: '🌸 Flowers',         icon: '🌸', keys: ['flowers'] },
+   home:          { label: '🏠 Home & Living',   icon: '🏠', keys: ['sofa','diningTable','wardrobe','bedFrame','whiteMarble','blackMarble','italianMarble','granite','hardwood','vinyl','ceramicTiles','laminate','wallArt','curtains','lighting','rugs'] },
+   construction:  { label: '🏗️ Construction',   icon: '🏗️', keys: ['redBricks','flybricks','concreteBricks','cement','paint','plumbing','doors','electricals'] },
+   clothing:      { label: '👕 Clothing',        icon: '👕', keys: ['menswear','womenswear','kidswear','textiles','hairClips','earrings','bangles','necklaces'] },
+   agriculture:   { label: '🌾 Agriculture',     icon: '🌾', keys: ['gardenSoil','cococpeat','fertilizer','seeds','farmtools','irrigation'] },
+   kitchen:       { label: '🍳 Kitchen',         icon: '🍳', keys: ['utensils','plastic','cleaning'] },
+   electronics:   { label: '💡 Electronics',     icon: '💡', keys: ['mobile','appliances','electrical'] },
+   health:        { label: '💊 Health & Beauty', icon: '💊', keys: ['medicines','personalcare'] },
+   stationery:    { label: '📚 Stationery',      icon: '📚', keys: ['books','schoolsupplies'] },
+   entertainment: { label: '🎮 Entertainment',   icon: '🎮', keys: ['toysAnimals','toysVehicles','toysCustom','games'] }
+};
 
 // ── ALL ITEMS FLAT LIST (for search) ──
 function getAllItems() {
@@ -1834,23 +2111,102 @@ function catClick(cat) {
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    const el = document.getElementById('cat-' + cat);
    if (el) el.classList.add('active');
-   const categoryMap = {
-      furniture: 'Furniture',
-      marbles: 'Marbles',
-      flooring: 'Flooring',
-      decor: 'Decor',
-      drinks: 'Cool Drinks',
-      milk: 'Milk',
-      bricks: 'Bricks',
-      soil: 'Soil',
-      toys: '3D Toys',
-      fancy: 'Fancy Items'
-   };
    if (cat === 'all') {
       showAllProducts();
-   } else if (categoryMap[cat]) {
-      showByCategory(categoryMap[cat]);
+   } else if (MAIN_CATS[cat]) {
+      // Single sub-category main cat (e.g. flowers) — go straight to products
+      if (MAIN_CATS[cat].keys.length === 1) {
+         showProducts(MAIN_CATS[cat].keys[0]);
+      } else {
+         showMainCategory(cat);
+      }
    }
+}
+
+// Show the sub-category selection grid for a main category
+function showMainCategory(mainCatKey) {
+   const mc = MAIN_CATS[mainCatKey];
+   if (!mc) return;
+   document.getElementById('heroSection').classList.add('hidden');
+   const ps = document.getElementById('productsSection');
+   ps.classList.remove('hidden');
+   document.getElementById('productTitle').textContent = mc.label;
+   const grid = document.getElementById('productsGrid');
+   grid.innerHTML = `
+      <div class="subcat-grid" id="subcatGrid">
+         ${mc.keys.map(k => {
+            const cat = products[k];
+            if (!cat) return '';
+            const count = cat.items.length;
+            return `
+            <div class="subcat-card" onclick="showProductsForSubCat('${k}','${mainCatKey}')">
+               <div class="subcat-icon">${getCatIcon(k)}</div>
+               <div class="subcat-label">${cat.title}</div>
+               <div class="subcat-count">${count} items</div>
+            </div>`;
+         }).join('')}
+         <div class="subcat-card subcat-card-all" onclick="showProductsByMainCat('${mainCatKey}')">
+            <div class="subcat-icon">🛍️</div>
+            <div class="subcat-label">View All</div>
+            <div class="subcat-count">${mc.keys.reduce((s,k)=>s+(products[k]?products[k].items.length:0),0)} items</div>
+         </div>
+      </div>`;
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Show products for one sub-category, with back button to the parent main category
+function showProductsForSubCat(catKey, parentMainCatKey) {
+   showProducts(catKey);
+   // Override the Back button to go back to the sub-category grid
+   const backBtn = document.querySelector('.btn-back');
+   if (backBtn && parentMainCatKey) {
+      backBtn.onclick = () => showMainCategory(parentMainCatKey);
+   }
+}
+
+// Show all products across an entire main category
+function showProductsByMainCat(mainCatKey) {
+   const mc = MAIN_CATS[mainCatKey];
+   if (!mc) return;
+   document.getElementById('heroSection').classList.add('hidden');
+   const ps = document.getElementById('productsSection');
+   ps.classList.remove('hidden');
+   document.getElementById('productTitle').textContent = mc.label + ' — All';
+   const grid = document.getElementById('productsGrid');
+   grid.innerHTML = '';
+   mc.keys.forEach(k => {
+      const catData = products[k];
+      if (!catData) return;
+      catData.items.forEach(item => renderCard({ ...item, type: catData.type }, k, grid));
+   });
+   const backBtn = document.querySelector('.btn-back');
+   if (backBtn) backBtn.onclick = () => showMainCategory(mainCatKey);
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Return a fitting icon emoji for a product sub-category key
+function getCatIcon(key) {
+   const icons = {
+      sofa:'🛋️', diningTable:'🍽️', wardrobe:'🚪', bedFrame:'🛏️',
+      whiteMarble:'🪨', blackMarble:'🪨', italianMarble:'🪨', granite:'🪨',
+      hardwood:'🪵', vinyl:'🟫', ceramicTiles:'🔲', laminate:'🟫',
+      wallArt:'🎨', curtains:'🪟', lighting:'💡', rugs:'🧶',
+      cola:'🥤', juice:'🧃', energyDrink:'⚡', sodaWater:'💧', milk:'🥛',
+      groceries:'🌾', vegetables:'🥦', dairy:'🧀', sweets:'🍬',
+      pooja:'🪔', festival:'🎉', flowers:'🌸',
+      redBricks:'🧱', flybricks:'🧱', concreteBricks:'🧱',
+      cement:'🏗️', paint:'🖌️', plumbing:'🔧', doors:'🚪', electricals:'⚡',
+      menswear:'👔', womenswear:'👗', kidswear:'👕', textiles:'🧵',
+      hairClips:'💇', earrings:'💍', bangles:'💫', necklaces:'📿',
+      gardenSoil:'🌱', cococpeat:'🌿', fertilizer:'🌻',
+      seeds:'🌰', farmtools:'⛏️', irrigation:'💦',
+      utensils:'🍳', plastic:'🪣', cleaning:'🧹',
+      mobile:'📱', appliances:'🏠', electrical:'🔌',
+      medicines:'💊', personalcare:'🧴',
+      books:'📖', schoolsupplies:'✏️',
+      toysAnimals:'🦁', toysVehicles:'🚗', toysCustom:'🖨️', games:'🎮'
+   };
+   return icons[key] || '📦';
 }
 
 function showToast(msg) {

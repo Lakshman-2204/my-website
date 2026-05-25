@@ -2125,32 +2125,34 @@ function catClick(cat) {
 
 // Show the sub-category selection grid for a main category
 function showMainCategory(mainCatKey) {
-   const mc = MAIN_CATS[mainCatKey];
+   var mc = MAIN_CATS[mainCatKey];
    if (!mc) return;
    document.getElementById('heroSection').classList.add('hidden');
-   const ps = document.getElementById('productsSection');
-   ps.classList.remove('hidden');
+   document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = mc.label;
-   const grid = document.getElementById('productsGrid');
-   grid.innerHTML = `
-      <div class="subcat-grid" id="subcatGrid">
-         ${mc.keys.map(k => {
-            const cat = products[k];
-            if (!cat) return '';
-            const count = cat.items.length;
-            return `
-            <div class="subcat-card" onclick="showProductsForSubCat('${k}','${mainCatKey}')">
-               <div class="subcat-icon">${getCatIcon(k)}</div>
-               <div class="subcat-label">${cat.title}</div>
-               <div class="subcat-count">${count} items</div>
-            </div>`;
-         }).join('')}
-         <div class="subcat-card subcat-card-all" onclick="showProductsByMainCat('${mainCatKey}')">
-            <div class="subcat-icon">🛍️</div>
-            <div class="subcat-label">View All</div>
-            <div class="subcat-count">${mc.keys.reduce((s,k)=>s+(products[k]?products[k].items.length:0),0)} items</div>
-         </div>
-      </div>`;
+   var grid = document.getElementById('productsGrid');
+
+   var totalItems = 0;
+   var cards = '';
+   for (var i = 0; i < mc.keys.length; i++) {
+      var k = mc.keys[i];
+      var catData = products[k];
+      if (!catData) continue;
+      var count = catData.items.length;
+      totalItems += count;
+      cards += '<div class="subcat-card" onclick="showProductsForSubCat(\'' + k + '\',\'' + mainCatKey + '\')">' +
+               '<div class="subcat-icon">' + getCatIcon(k) + '</div>' +
+               '<div class="subcat-label">' + catData.title + '</div>' +
+               '<div class="subcat-count">' + count + ' items</div>' +
+               '</div>';
+   }
+   cards += '<div class="subcat-card subcat-card-all" onclick="showProductsByMainCat(\'' + mainCatKey + '\')">' +
+            '<div class="subcat-icon">🛍️</div>' +
+            '<div class="subcat-label">View All</div>' +
+            '<div class="subcat-count">' + totalItems + ' items</div>' +
+            '</div>';
+
+   grid.innerHTML = '<div class="subcat-grid">' + cards + '</div>';
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

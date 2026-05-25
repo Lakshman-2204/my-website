@@ -35,12 +35,7 @@
                   👤 <span id="welcomeUser">Account</span> ▾
                   <div class="user-dropdown" id="userDropdown">
                      <div class="user-dropdown-header" id="userDropdownName"></div>
-                     <div class="user-dropdown-item" onclick="alert('My Profile — coming soon')">👤 My Profile</div>
-                     <div class="user-dropdown-item" onclick="alert('Orders — coming soon')">📦 Orders</div>
-                     <div class="user-dropdown-item" onclick="alert('Saved Cards & Wallets — coming soon')">💳 Saved Cards & Wallets</div>
-                     <div class="user-dropdown-item" onclick="alert('Saved Addresses — coming soon')">📍 Saved Addresses</div>
-                     <div class="user-dropdown-item" onclick="alert('Wishlist — coming soon')">❤️ Wishlist</div>
-                     <div class="user-dropdown-item" onclick="alert('Notifications — coming soon')">🔔 Notifications</div>
+                     <div id="dynamicMenuItems"></div>
                      <div class="user-dropdown-item hidden" id="adminPanelLink" onclick="window.location='admin.html'">⚙️ Admin Panel</div>
                      <div class="user-dropdown-divider"></div>
                      <div class="user-dropdown-item user-dropdown-logout" onclick="logout()">🚪 Logout</div>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8"/>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>My Profile — MyStore</title>
+      <link rel="stylesheet" href="style.css"/>
+   </head>
+   <body class="profile-page">
+
+      <!-- HEADER -->
+      <div class="profile-header">
+         <div class="profile-brand" onclick="window.location='home.html'">🛍️ MyStore</div>
+         <button class="profile-back-btn" onclick="window.location='home.html'">← Back to Store</button>
+      </div>
+
+      <!-- TABS -->
+      <div class="profile-tabs">
+         <button class="profile-tab active" id="ptab-info-btn"      onclick="switchProfileTab('info')">👤 Profile Info</button>
+         <button class="profile-tab"        id="ptab-addresses-btn" onclick="switchProfileTab('addresses')">📍 Addresses</button>
+         <button class="profile-tab"        id="ptab-orders-btn"    onclick="switchProfileTab('orders')">📦 My Orders</button>
+      </div>
+
+      <!-- PROFILE INFO TAB -->
+      <div id="ptab-info" class="profile-content">
+         <div class="profile-card">
+            <div class="profile-card-header">👤 Personal Information</div>
+            <div class="profile-card-body">
+               <div class="profile-field">
+                  <label>Full Name</label>
+                  <input type="text" id="prof-name" placeholder="Your full name"/>
+               </div>
+               <div class="profile-field">
+                  <label>Gender</label>
+                  <select id="prof-gender">
+                     <option value="">Select gender</option>
+                     <option value="Male">Male</option>
+                     <option value="Female">Female</option>
+                     <option value="Other">Other</option>
+                     <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+               </div>
+               <div class="profile-field">
+                  <label>Email ID <span class="prof-readonly-tag">cannot be changed</span></label>
+                  <input type="email" id="prof-email" readonly/>
+               </div>
+               <div class="profile-field">
+                  <label>Phone Number</label>
+                  <input type="tel" id="prof-phone" placeholder="+91 98765 43210"/>
+               </div>
+               <button class="profile-save-btn" onclick="saveProfileInfo()">💾 Save Changes</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- ADDRESSES TAB -->
+      <div id="ptab-addresses" class="profile-content hidden">
+         <div class="profile-card">
+            <div class="profile-card-header">
+               📍 Saved Addresses
+               <button class="profile-add-addr-btn" onclick="openAddressModal()">➕ Add New Address</button>
+            </div>
+            <div class="profile-card-body" id="addressList">
+               <p class="prof-empty">No saved addresses yet.</p>
+            </div>
+         </div>
+      </div>
+
+      <!-- ORDERS TAB -->
+      <div id="ptab-orders" class="profile-content hidden">
+         <div class="profile-card">
+            <div class="profile-card-header">📦 My Orders</div>
+            <div class="profile-card-body" id="ordersList">
+               <p class="prof-empty">No orders placed yet.</p>
+            </div>
+         </div>
+      </div>
+
+      <!-- ADDRESS MODAL -->
+      <div class="addr-modal-overlay hidden" id="addressModal" onclick="handleAddrOverlayClick(event)">
+         <div class="addr-modal">
+            <div class="addr-modal-header">
+               <h3 id="addrModalTitle">Add New Address</h3>
+               <button onclick="closeAddressModal()">✕</button>
+            </div>
+            <div class="addr-modal-body">
+               <div class="profile-field">
+                  <label>Full Name</label>
+                  <input type="text" id="addr-name" placeholder="Recipient name"/>
+               </div>
+               <div class="profile-field">
+                  <label>Phone</label>
+                  <input type="tel" id="addr-phone" placeholder="+91 98765 43210"/>
+               </div>
+               <div class="profile-field">
+                  <label>Address Line</label>
+                  <textarea id="addr-line" rows="2" placeholder="House / Flat no., Street, Area"></textarea>
+               </div>
+               <div class="addr-row">
+                  <div class="profile-field">
+                     <label>City</label>
+                     <input type="text" id="addr-city" placeholder="City"/>
+                  </div>
+                  <div class="profile-field">
+                     <label>State</label>
+                     <input type="text" id="addr-state" placeholder="State"/>
+                  </div>
+               </div>
+               <div class="profile-field">
+                  <label>PIN Code</label>
+                  <input type="text" id="addr-pin" placeholder="123456" maxlength="6"/>
+               </div>
+            </div>
+            <div class="addr-modal-footer">
+               <button class="addr-save-btn" onclick="saveAddress()">💾 Save Address</button>
+               <button class="addr-cancel-btn" onclick="closeAddressModal()">Cancel</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- TOAST -->
+      <div class="toast hidden" id="profileToast"></div>
+
+      <script src="script.js"></script>
+      <script>initProfile();</script>
+   </body>
+</html>

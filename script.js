@@ -1742,6 +1742,23 @@ function processPayment(method) {
    const txn = 'TXN' + Math.random().toString(36).substring(2, 10).toUpperCase();
    document.getElementById('successMsg').textContent =
       `Paid ${amount} via ${method} · Transaction ID: ${txn}`;
+
+   // Save order to localStorage
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   if (user) {
+      const total = parseFloat(amount.replace(/[₹,]/g, '')) || 0;
+      const order = {
+         orderId: 'ORD-' + Date.now(),
+         date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+         items: cart.map(c => ({ name: c.name, qty: c.qty, price: c.price })),
+         total,
+         method,
+         status: 'Confirmed'
+      };
+      const orders = JSON.parse(localStorage.getItem('orders_' + user.email) || '[]');
+      orders.push(order);
+      localStorage.setItem('orders_' + user.email, JSON.stringify(orders));
+   }
 }
 
 function paymentDone() {
@@ -2163,6 +2180,15 @@ function switchAdminTab(tab) {
 // ── ADMIN SETTINGS ──
 const SETTINGS_KEY = 'adminSettings';
 
+const DEFAULT_MENU_ITEMS = [
+   { icon: '👤', label: 'My Profile',           url: 'profile.html' },
+   { icon: '📦', label: 'Orders',               url: 'profile.html?tab=orders' },
+   { icon: '💳', label: 'Saved Cards & Wallets', url: '' },
+   { icon: '📍', label: 'Saved Addresses',       url: 'profile.html?tab=addresses' },
+   { icon: '❤️', label: 'Wishlist',              url: '' },
+   { icon: '🔔', label: 'Notifications',         url: '' }
+];
+
 function getAdminSettings() {
    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
 }
@@ -2186,6 +2212,49 @@ function loadSettingsForm() {
    setVal('set-address',        s.address       || '');
    setVal('set-freeDeliveryAbove', s.freeDeliveryAbove !== undefined ? s.freeDeliveryAbove : '');
    setVal('set-deliveryCharge',   s.deliveryCharge    !== undefined ? s.deliveryCharge    : '');
+   renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
+}
+
+// ── MENU ITEMS MANAGER ──
+let _menuItems = [];
+
+function renderMenuItemsAdmin(items) {
+   _menuItems = items.map(i => ({ ...i }));
+   const list = document.getElementById('menuItemsList');
+   if (!list) return;
+   list.innerHTML = '';
+   _menuItems.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'menu-item-row';
+      row.innerHTML = `
+         <input class="menu-icon-input"  type="text" value="${item.icon}"  placeholder="👤" title="Emoji icon"
+                oninput="_menuItems[${idx}].icon=this.value"/>
+         <input class="menu-label-input" type="text" value="${item.label}" placeholder="Label"
+                oninput="_menuItems[${idx}].label=this.value"/>
+         <input class="menu-url-input"   type="text" value="${item.url}"   placeholder="URL (leave blank = coming soon)"
+                oninput="_menuItems[${idx}].url=this.value"/>
+         <button class="menu-move-btn" onclick="moveMenuItem(${idx},-1)" title="Move up">▲</button>
+         <button class="menu-move-btn" onclick="moveMenuItem(${idx}, 1)" title="Move down">▼</button>
+         <button class="menu-del-btn"  onclick="deleteMenuItem(${idx})">🗑️</button>`;
+      list.appendChild(row);
+   });
+}
+
+function addMenuItem() {
+   _menuItems.push({ icon: '⭐', label: 'New Item', url: '' });
+   renderMenuItemsAdmin(_menuItems);
+}
+
+function deleteMenuItem(idx) {
+   _menuItems.splice(idx, 1);
+   renderMenuItemsAdmin(_menuItems);
+}
+
+function moveMenuItem(idx, dir) {
+   const to = idx + dir;
+   if (to < 0 || to >= _menuItems.length) return;
+   [_menuItems[idx], _menuItems[to]] = [_menuItems[to], _menuItems[idx]];
+   renderMenuItemsAdmin(_menuItems);
 }
 
 function setVal(id, val)     { const el = document.getElementById(id); if (el) el.value   = val; }
@@ -2216,7 +2285,8 @@ function saveAllSettings() {
       contactEmail:          document.getElementById('set-contactEmail').value.trim(),
       address:               document.getElementById('set-address').value.trim(),
       freeDeliveryAbove:     parseFloat(document.getElementById('set-freeDeliveryAbove').value) || 0,
-      deliveryCharge:        parseFloat(document.getElementById('set-deliveryCharge').value)    || 0
+      deliveryCharge:        parseFloat(document.getElementById('set-deliveryCharge').value)    || 0,
+      menuItems:             _menuItems
    };
    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
    showAdminToast('✅ Settings saved! Refresh the store to see changes.');
@@ -2225,6 +2295,19 @@ function saveAllSettings() {
 // ── APPLY SITE SETTINGS (called on home.html) ──
 function loadSiteSettings() {
    const s = getAdminSettings();
+
+   // Always render menu items (use defaults if no settings saved yet)
+   const menuContainer = document.getElementById('dynamicMenuItems');
+   if (menuContainer) {
+      const items = (s.menuItems && s.menuItems.length) ? s.menuItems : DEFAULT_MENU_ITEMS;
+      menuContainer.innerHTML = items.map(item => {
+         const action = item.url
+            ? `window.location='${item.url}'`
+            : `alert('${item.label} — coming soon')`;
+         return `<div class="user-dropdown-item" onclick="${action}">${item.icon} ${item.label}</div>`;
+      }).join('');
+   }
+
    if (!s || !Object.keys(s).length) return;
 
    // Store name
@@ -2254,4 +2337,142 @@ function loadSiteSettings() {
 
    // Delivery charge in cart footer
    window._adminSettings = s;
+}
+
+// ── PROFILE PAGE ──
+function initProfile() {
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   if (!user) { window.location.href = 'login.html'; return; }
+   document.getElementById('prof-name').value   = user.name   || '';
+   document.getElementById('prof-email').value  = user.email  || '';
+   document.getElementById('prof-gender').value = user.gender || '';
+   document.getElementById('prof-phone').value  = user.phone  || '';
+   const params = new URLSearchParams(window.location.search);
+   switchProfileTab(params.get('tab') || 'info');
+}
+
+function switchProfileTab(tab) {
+   ['info', 'addresses', 'orders'].forEach(t => {
+      document.getElementById('ptab-' + t).classList.toggle('hidden', t !== tab);
+      document.getElementById('ptab-' + t + '-btn').classList.toggle('active', t === tab);
+   });
+   if (tab === 'addresses') renderAddresses();
+   if (tab === 'orders')    renderOrders();
+}
+
+function saveProfileInfo() {
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   if (!user) return;
+   user.name   = document.getElementById('prof-name').value.trim();
+   user.gender = document.getElementById('prof-gender').value;
+   user.phone  = document.getElementById('prof-phone').value.trim();
+   const users = getUsers();
+   const idx = users.findIndex(u => u.email === user.email);
+   if (idx !== -1) { users[idx].name = user.name; users[idx].gender = user.gender; users[idx].phone = user.phone; saveUsers(users); }
+   localStorage.setItem('loggedInUser', JSON.stringify(user));
+   showProfileToast('✅ Profile updated!');
+}
+
+// ── ADDRESSES ──
+let _editAddrIdx = -1;
+
+function getAddresses(email) { return JSON.parse(localStorage.getItem('addresses_' + email) || '[]'); }
+function saveAddressesData(email, arr) { localStorage.setItem('addresses_' + email, JSON.stringify(arr)); }
+
+function renderAddresses() {
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const list = document.getElementById('addressList');
+   const addrs = getAddresses(user.email);
+   if (!addrs.length) { list.innerHTML = '<p class="prof-empty">No saved addresses yet.</p>'; return; }
+   list.innerHTML = addrs.map((a, i) => `
+      <div class="addr-card">
+         <div class="addr-card-info">
+            <div class="addr-card-name">${a.name}${a.phone ? ' · ' + a.phone : ''}</div>
+            <div class="addr-card-line">${a.line}</div>
+            <div class="addr-card-line">${a.city}${a.state ? ', ' + a.state : ''} — ${a.pin}</div>
+         </div>
+         <div class="addr-card-actions">
+            <button class="addr-edit-btn" onclick="openAddressModal(${i})">✏️ Edit</button>
+            <button class="addr-del-btn"  onclick="deleteAddress(${i})">🗑️ Delete</button>
+         </div>
+      </div>`).join('');
+}
+
+function openAddressModal(idx) {
+   _editAddrIdx = (idx !== undefined && idx >= 0) ? idx : -1;
+   document.getElementById('addrModalTitle').textContent = _editAddrIdx >= 0 ? '✏️ Edit Address' : '➕ Add New Address';
+   if (_editAddrIdx >= 0) {
+      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      const a = getAddresses(user.email)[_editAddrIdx];
+      document.getElementById('addr-name').value  = a.name  || '';
+      document.getElementById('addr-phone').value = a.phone || '';
+      document.getElementById('addr-line').value  = a.line  || '';
+      document.getElementById('addr-city').value  = a.city  || '';
+      document.getElementById('addr-state').value = a.state || '';
+      document.getElementById('addr-pin').value   = a.pin   || '';
+   } else {
+      ['addr-name','addr-phone','addr-line','addr-city','addr-state','addr-pin'].forEach(id => document.getElementById(id).value = '');
+   }
+   document.getElementById('addressModal').classList.remove('hidden');
+}
+
+function closeAddressModal() { document.getElementById('addressModal').classList.add('hidden'); _editAddrIdx = -1; }
+function handleAddrOverlayClick(e) { if (e.target.id === 'addressModal') closeAddressModal(); }
+
+function saveAddress() {
+   const name  = document.getElementById('addr-name').value.trim();
+   const phone = document.getElementById('addr-phone').value.trim();
+   const line  = document.getElementById('addr-line').value.trim();
+   const city  = document.getElementById('addr-city').value.trim();
+   const state = document.getElementById('addr-state').value.trim();
+   const pin   = document.getElementById('addr-pin').value.trim();
+   if (!name || !line || !city || !pin) { alert('Please fill Name, Address, City and PIN.'); return; }
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const addrs = getAddresses(user.email);
+   const addr  = { name, phone, line, city, state, pin };
+   if (_editAddrIdx >= 0) addrs[_editAddrIdx] = addr; else addrs.push(addr);
+   saveAddressesData(user.email, addrs);
+   closeAddressModal();
+   renderAddresses();
+   showProfileToast(_editAddrIdx >= 0 ? '✅ Address updated!' : '✅ Address saved!');
+}
+
+function deleteAddress(idx) {
+   if (!confirm('Delete this address?')) return;
+   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const addrs = getAddresses(user.email);
+   addrs.splice(idx, 1);
+   saveAddressesData(user.email, addrs);
+   renderAddresses();
+   showProfileToast('🗑️ Address deleted.');
+}
+
+// ── ORDERS ──
+function renderOrders() {
+   const user   = JSON.parse(localStorage.getItem('loggedInUser'));
+   const orders = JSON.parse(localStorage.getItem('orders_' + user.email) || '[]');
+   const list   = document.getElementById('ordersList');
+   if (!orders.length) { list.innerHTML = '<p class="prof-empty">No orders placed yet.</p>'; return; }
+   list.innerHTML = orders.slice().reverse().map(o => `
+      <div class="order-card">
+         <div class="order-card-header">
+            <div><span class="order-id">${o.orderId}</span> <span class="order-date">${o.date}</span></div>
+            <span class="order-badge">${o.status}</span>
+         </div>
+         <div class="order-items">
+            ${o.items.map(i => `<div class="order-item"><span>${i.name} × ${i.qty}</span><span>₹${(i.price * i.qty).toLocaleString('en-IN')}</span></div>`).join('')}
+         </div>
+         <div class="order-footer">
+            <span>Paid via ${o.method}</span>
+            <span class="order-total">Total: ₹${o.total.toLocaleString('en-IN')}</span>
+         </div>
+      </div>`).join('');
+}
+
+function showProfileToast(msg) {
+   const t = document.getElementById('profileToast');
+   if (!t) return;
+   t.textContent = msg;
+   t.classList.remove('hidden');
+   setTimeout(() => t.classList.add('hidden'), 2800);
 }

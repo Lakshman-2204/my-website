@@ -1926,34 +1926,86 @@ function addToCart(itemId, catKey) {
 
 // ── CART UI ──
 function updateCartUI() {
-   const totalItems = cart.reduce((s, c) => s + c.qty, 0);
-   const totalCost = cart.reduce((s, c) => s + c.price * c.qty, 0);
+   var totalItems = cart.reduce(function(s, c) { return s + c.qty; }, 0);
+   var totalCost  = cart.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
 
-   document.getElementById('cartBadge').textContent = totalItems;
+   document.getElementById('cartBadge').textContent     = totalItems;
    document.getElementById('cartTotalItems').textContent = totalItems;
-   document.getElementById('cartTotalCost').textContent = '₹' + totalCost.toLocaleString('en-IN');
+   document.getElementById('cartTotalCost').textContent  = '₹' + totalCost.toLocaleString('en-IN');
 
-   const el = document.getElementById('cartItems');
+   var el = document.getElementById('cartItems');
+   if (!el) return;
+   el.innerHTML = '';
+
    if (cart.length === 0) {
-      el.innerHTML = '<div class="cart-empty"> Your cart is empty</div>';
+      el.innerHTML = '<div class="cart-empty">Your cart is empty</div>';
       return;
    }
-   el.innerHTML = cart.map(c => `
- <div class="cart-item">
- <img src="${c.img}" alt="${c.name}"/>
- <div class="cart-item-info">
- <div class="cart-item-name">${c.name}</div>
- <div class="cart-item-price">₹${c.price.toLocaleString('en-IN')} each</div>
- <div class="cart-item-qty">
- <button class="cart-qty-btn" onclick="changeCartQty('${c.id}',-1)">−</button>
- <span style="font-size:0.88rem;font-weight:bold">${c.qty}</span>
- <button class="cart-qty-btn" onclick="changeCartQty('${c.id}',1)">+</button>
- <span style="font-size:0.82rem;color:#888;margin-left:4px">= ₹${(c.price*c.qty).toLocaleString('en-IN')}</span>
- </div>
- </div>
- <button class="cart-item-remove" onclick="removeFromCart('${c.id}')" title="Remove">🗑️</button>
- </div>
- `).join('');
+
+   cart.forEach(function(c) {
+      // wrapper
+      var row = document.createElement('div');
+      row.className = 'cart-item';
+
+      // product image
+      var img = document.createElement('img');
+      img.src = c.img;
+      img.alt = c.name;
+
+      // info block
+      var info = document.createElement('div');
+      info.className = 'cart-item-info';
+
+      var nameEl = document.createElement('div');
+      nameEl.className = 'cart-item-name';
+      nameEl.textContent = c.name;
+
+      var priceEl = document.createElement('div');
+      priceEl.className = 'cart-item-price';
+      priceEl.textContent = '₹' + c.price.toLocaleString('en-IN') + ' each';
+
+      var qtyRow = document.createElement('div');
+      qtyRow.className = 'cart-item-qty';
+
+      var minusBtn = document.createElement('button');
+      minusBtn.className = 'cart-qty-btn';
+      minusBtn.textContent = '−';
+      minusBtn.onclick = function() { changeCartQty(c.id, -1); };
+
+      var qtySpan = document.createElement('span');
+      qtySpan.style.cssText = 'font-size:0.88rem;font-weight:bold';
+      qtySpan.textContent = c.qty;
+
+      var plusBtn = document.createElement('button');
+      plusBtn.className = 'cart-qty-btn';
+      plusBtn.textContent = '+';
+      plusBtn.onclick = function() { changeCartQty(c.id, 1); };
+
+      var subtotalSpan = document.createElement('span');
+      subtotalSpan.style.cssText = 'font-size:0.82rem;color:#888;margin-left:4px';
+      subtotalSpan.textContent = '= ₹' + (c.price * c.qty).toLocaleString('en-IN');
+
+      qtyRow.appendChild(minusBtn);
+      qtyRow.appendChild(qtySpan);
+      qtyRow.appendChild(plusBtn);
+      qtyRow.appendChild(subtotalSpan);
+
+      info.appendChild(nameEl);
+      info.appendChild(priceEl);
+      info.appendChild(qtyRow);
+
+      // remove button
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'cart-item-remove';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove item';
+      removeBtn.onclick = function() { removeFromCart(c.id); };
+
+      row.appendChild(img);
+      row.appendChild(info);
+      row.appendChild(removeBtn);
+      el.appendChild(row);
+   });
 }
 
 function changeCartQty(id, delta) {

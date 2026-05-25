@@ -1050,11 +1050,13 @@ body {
 }
 
 .cart-item-remove {
-	background: none;
-	border: none;
-	font-size: 1.15rem;
+	background: #fdecea;
+	border: 1px solid #f5c6c2;
+	color: #c0392b;
+	font-size: 0.95rem;
+	font-weight: 700;
 	cursor: pointer;
-	padding: 4px 6px;
+	padding: 4px 9px;
 	border-radius: 6px;
 	line-height: 1;
 	transition: background 0.15s;
@@ -1063,7 +1065,9 @@ body {
 }
 
 .cart-item-remove:hover {
-	background: #fde8e8;
+	background: #e74c3c;
+	color: white;
+	border-color: #e74c3c;
 }
 
 .cart-footer {

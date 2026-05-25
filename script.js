@@ -1951,7 +1951,7 @@ function updateCartUI() {
  <span style="font-size:0.82rem;color:#888;margin-left:4px">= ₹${(c.price*c.qty).toLocaleString('en-IN')}</span>
  </div>
  </div>
- <button class="cart-item-remove" onclick="removeFromCart('${c.id}')"> </button>
+ <button class="cart-item-remove" onclick="removeFromCart('${c.id}')" title="Remove">🗑️</button>
  </div>
  `).join('');
 }

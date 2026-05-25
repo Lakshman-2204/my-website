@@ -1052,11 +1052,18 @@ body {
 .cart-item-remove {
 	background: none;
 	border: none;
-	color: #e74c3c;
-	font-size: 1.1rem;
+	font-size: 1.15rem;
 	cursor: pointer;
-	padding: 0;
-	margin-top: 2px;
+	padding: 4px 6px;
+	border-radius: 6px;
+	line-height: 1;
+	transition: background 0.15s;
+	flex-shrink: 0;
+	align-self: center;
+}
+
+.cart-item-remove:hover {
+	background: #fde8e8;
 }
 
 .cart-footer {

@@ -2255,4 +2255,3 @@ function loadSiteSettings() {
    // Delivery charge in cart footer
    window._adminSettings = s;
 }
-}

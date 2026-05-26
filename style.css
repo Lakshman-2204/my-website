@@ -269,6 +269,7 @@ body {
 	display: flex;
 	align-items: center;
 	gap: 24px;
+	margin-left: auto;
 }
 
 .header-user {
@@ -4251,4 +4252,116 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	color: #5d4037;
 }
 .admin-store-filter-banner button:hover { background: #efebe9; }
+
+/* ══════════════════════════════════════════════════════
+   STORE PICKER MODAL (multi-store add to cart)
+══════════════════════════════════════════════════════ */
+.stp-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0,0,0,0.55);
+	z-index: 5000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+}
+.stp-overlay.hidden { display: none; }
+
+.stp-modal {
+	background: #fff;
+	border-radius: 16px;
+	width: 100%;
+	max-width: 440px;
+	overflow: hidden;
+	box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+
+.stp-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 18px;
+	background: #1a1a2e;
+	color: #fff;
+}
+.stp-title {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.stp-title img {
+	width: 48px;
+	height: 48px;
+	border-radius: 8px;
+	object-fit: cover;
+	background: #333;
+}
+.stp-header button {
+	background: none;
+	border: none;
+	color: #fff;
+	font-size: 1.2rem;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.stp-body {
+	padding: 12px 0;
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
+.sp-store-option {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 18px;
+	border-bottom: 1px solid #f0f0f0;
+	transition: background 0.1s;
+}
+.sp-store-option:last-child { border-bottom: none; }
+.sp-store-option:hover { background: #f9f9f9; }
+
+.sp-store-option img {
+	width: 56px;
+	height: 56px;
+	border-radius: 8px;
+	object-fit: cover;
+	flex-shrink: 0;
+}
+.sp-store-option-info { flex: 1; min-width: 0; }
+.sp-store-option-name {
+	font-weight: 700;
+	font-size: 0.88rem;
+	color: #1a1a2e;
+	margin-bottom: 2px;
+}
+.sp-store-option-desc {
+	font-size: 0.78rem;
+	color: #888;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-bottom: 4px;
+}
+.sp-store-option-price {
+	font-size: 1rem;
+	font-weight: 700;
+	color: #e65100;
+}
+.sp-store-add-btn {
+	background: #1a1a2e;
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+	padding: 9px 14px;
+	font-size: 0.82rem;
+	font-weight: 700;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background 0.15s;
+	flex-shrink: 0;
+}
+.sp-store-add-btn:hover { background: #2d2d70; }
 

@@ -274,6 +274,23 @@
             </div>
          </div>
       </div>
+      <!-- STORE PICKER MODAL -->
+      <div class="stp-overlay hidden" id="storePickerOverlay" onclick="if(event.target===this)closeStorePicker()">
+         <div class="stp-modal">
+            <div class="stp-header">
+               <div class="stp-title">
+                  <img id="spItemImg" src="" onerror="this.style.display='none'"/>
+                  <div>
+                     <div style="font-size:0.78rem;color:#888;margin-bottom:2px">Available in multiple stores</div>
+                     <div id="spItemName" style="font-weight:700;font-size:1rem;color:#1a1a2e"></div>
+                  </div>
+               </div>
+               <button onclick="closeStorePicker()">✕</button>
+            </div>
+            <div class="stp-body" id="spStoresList"></div>
+         </div>
+      </div>
+
       <!-- TOAST -->
       <div class="toast hidden" id="toast"></div>
       <script src="script.js"></script>

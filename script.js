@@ -1641,8 +1641,9 @@ Object.entries(products).forEach(([, cat]) => {
 // Bumping version forces re-seed on all browsers that had a stale flag.
 // Products are always written so they survive partial localStorage clears.
 (function seedDemoStores() {
-   if (localStorage.getItem('demoSeed_v2')) return;
-   localStorage.removeItem('demoSeed_v1'); // clean up old flag
+   if (localStorage.getItem('demoSeed_v3')) return;
+   localStorage.removeItem('demoSeed_v1');
+   localStorage.removeItem('demoSeed_v2');
 
    var users = JSON.parse(localStorage.getItem('users') || '[]');
 
@@ -1661,7 +1662,8 @@ Object.entries(products).forEach(([, cat]) => {
             { id: 'sharma_009', catKey: 'vegetables', name: 'Onions 2kg',               price:  55, desc: 'Fresh red onions from farm',                 img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
             { id: 'sharma_010', catKey: 'vegetables', name: 'Potatoes 2kg',             price:  60, desc: 'Farm fresh potatoes',                        img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
             { id: 'sharma_011', catKey: 'vegetables', name: 'Fresh Carrots 500g',       price:  30, desc: 'Crunchy orange carrots',                     img: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400', badge: 'Fresh' },
-            { id: 'sharma_012', catKey: 'vegetables', name: 'Green Chillies 250g',      price:  18, desc: 'Fresh spicy green chillies',                 img: 'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=400', badge: 'Spicy' }
+            { id: 'sharma_012', catKey: 'vegetables', name: 'Green Chillies 250g',      price:  18, desc: 'Fresh spicy green chillies',                 img: 'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=400', badge: 'Spicy' },
+            { id: 'sharma_013', catKey: 'vegetables', name: 'Fresh Tomatoes 1kg',       price:  35, desc: 'Ripe red tomatoes from farm',                  img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Fresh' }
          ]
       },
       {
@@ -1678,7 +1680,8 @@ Object.entries(products).forEach(([, cat]) => {
             { id: 'kapoor_009', catKey: 'vegetables', name: 'Spinach (Palak) 500g',       price:  25, desc: 'Fresh tender green spinach leaves',      img: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=400', badge: 'Fresh' },
             { id: 'kapoor_010', catKey: 'vegetables', name: 'Mixed Capsicum 500g',        price:  65, desc: 'Red, green & yellow capsicum mix',       img: 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=400', badge: 'Fresh' },
             { id: 'kapoor_011', catKey: 'vegetables', name: 'Cabbage 1 piece',            price:  30, desc: 'Fresh tender cabbage head',              img: 'https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=400', badge: 'Fresh' },
-            { id: 'kapoor_012', catKey: 'vegetables', name: 'Brinjal (Baingan) 500g',     price:  28, desc: 'Fresh purple brinjal',                  img: 'https://images.unsplash.com/photo-1634467524884-897d0af5e104?w=400', badge: 'Fresh' }
+            { id: 'kapoor_012', catKey: 'vegetables', name: 'Brinjal (Baingan) 500g',     price:  28, desc: 'Fresh purple brinjal',                  img: 'https://images.unsplash.com/photo-1634467524884-897d0af5e104?w=400', badge: 'Fresh' },
+            { id: 'kapoor_013', catKey: 'vegetables', name: 'Fresh Tomatoes 1kg',         price:  30, desc: 'Juicy tomatoes, daily fresh stock',         img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Daily Stock' }
          ]
       },
       {
@@ -1714,7 +1717,7 @@ Object.entries(products).forEach(([, cat]) => {
       localStorage.setItem('myProducts_' + s.email, JSON.stringify(s.products));
    });
    localStorage.setItem('users', JSON.stringify(users));
-   localStorage.setItem('demoSeed_v2', '1');
+   localStorage.setItem('demoSeed_v3', '1');
 })();
 
 // Load store-owner products from myProducts_${email} for each store-owner user
@@ -1847,8 +1850,7 @@ function doSearch() {
 
    const grid = document.getElementById('productsGrid');
    grid.innerHTML = '';
-   // Group search results by store so customer can see which store each result is from
-   renderItemsByStore(results, null, null, grid);
+   results.forEach(item => renderCard(item, item.catKey, grid));
 }
 
 // Close search dropdown on outside click
@@ -1884,7 +1886,7 @@ function showAllProducts() {
       divider.textContent = ' ' + groupName;
       grid.appendChild(divider);
       cats.forEach(({ catKey, catData }) => {
-         renderItemsByStore(catData.items, catKey, catData.type, grid);
+         catData.items.forEach(item => renderCard({ ...item, type: catData.type }, catKey, grid));
       });
    });
 
@@ -1941,7 +1943,7 @@ function showProducts(category) {
    const grid = document.getElementById('productsGrid');
    grid.style.display = '';
    grid.innerHTML = '';
-   renderItemsByStore(data.items, category, data.type, grid);
+   data.items.forEach(item => renderCard({ ...item, type: data.type }, category, grid));
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2011,44 +2013,99 @@ function updateMilkPrice(id, pricePerLitre) {
 
 // ── ADD TO CART ──
 function addToCart(itemId, catKey) {
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { showToast('Please login to add items to cart.'); return; }
+
    const data = products[catKey];
-   const item = data.items.find(i => i.id === itemId);
+   const item = data && data.items.find(i => i.id === itemId);
    if (!item) return;
 
-   const isMilk = data.type === 'milk';
+   // Check if same product name exists in other stores
+   const nameLower = item.name.toLowerCase().trim();
+   const alternatives = [];
+   Object.entries(products).forEach(([ck, cd]) => {
+      cd.items.forEach(it => {
+         if (it.id !== itemId && it.name.toLowerCase().trim() === nameLower) {
+            alternatives.push(Object.assign({}, it, { catKey: ck, type: cd.type }));
+         }
+      });
+   });
+
+   if (alternatives.length > 0) {
+      // Show store picker — let user choose which store
+      openStorePicker(Object.assign({}, item, { catKey, type: data.type }), alternatives);
+      return;
+   }
+
+   doAddToCart(item, catKey);
+}
+
+function doAddToCart(item, catKey) {
+   const data = products[catKey];
+   const isMilk = (item.type || (data && data.type)) === 'milk';
    let qty, unitPrice, label, cartId;
 
    if (isMilk) {
-      const litreEl = document.getElementById('litre_' + itemId);
+      const litreEl = document.getElementById('litre_' + item.id);
       const litres = parseFloat(litreEl ? litreEl.value : 1);
       unitPrice = Math.round(item.pricePerLitre * litres);
       qty = 1;
-      label = `${item.name} (${litres}L)`;
-      cartId = itemId + '_' + litres;
+      label = item.name + ' (' + litres + 'L)';
+      cartId = item.id + '_' + litres;
    } else {
-      qty = pageQty[itemId] || 1;
+      qty = pageQty[item.id] || 1;
       unitPrice = item.price;
       label = item.name;
-      cartId = itemId;
+      cartId = item.id;
    }
 
    const existing = cart.find(c => c.id === cartId);
    if (existing) {
       existing.qty += qty;
    } else {
-      cart.push({
-         id: cartId,
-         name: label,
-         price: unitPrice,
-         qty,
-         img: item.img,
-         storeId: item.storeId || null,
-         storeName: item.storeName || null
-      });
+      cart.push({ id: cartId, name: label, price: unitPrice, qty, img: item.img,
+                  storeId: item.storeId || null, storeName: item.storeName || null });
    }
-
    updateCartUI();
-   showToast(` "${label}" added to cart!`);
+   showToast('"' + label + '" added to cart!');
+}
+
+// ── STORE PICKER MODAL ──
+function openStorePicker(clickedItem, alternatives) {
+   var all = [clickedItem].concat(alternatives);
+   var s = getAdminSettings();
+
+   document.getElementById('spItemName').textContent = clickedItem.name;
+   document.getElementById('spItemImg').src = clickedItem.img;
+
+   document.getElementById('spStoresList').innerHTML = all.map(function(it) {
+      var storeName = it.storeId ? (it.storeName || getStoreName(it.storeId)) : (s.storeName || 'MyStore');
+      var price = it.price ? '₹' + it.price.toLocaleString('en-IN') : '';
+      return '<div class="sp-store-option">' +
+                '<img src="' + it.img + '" onerror="this.src=\'https://placehold.co/60x60?text=Item\'"/>' +
+                '<div class="sp-store-option-info">' +
+                   '<div class="sp-store-option-name">🏪 ' + storeName + '</div>' +
+                   '<div class="sp-store-option-desc">' + (it.desc || '') + '</div>' +
+                   '<div class="sp-store-option-price">' + price + '</div>' +
+                '</div>' +
+                '<button class="sp-store-add-btn" onclick="pickStore(\'' + it.id + '\',\'' + it.catKey + '\')">Add to Cart</button>' +
+             '</div>';
+   }).join('');
+
+   var overlay = document.getElementById('storePickerOverlay');
+   if (overlay) overlay.classList.remove('hidden');
+}
+
+function pickStore(itemId, catKey) {
+   closeStorePicker();
+   const data = products[catKey];
+   const item = data && data.items.find(i => i.id === itemId);
+   if (item) doAddToCart(Object.assign({}, item, { type: data.type }), catKey);
+}
+
+function closeStorePicker() {
+   var overlay = document.getElementById('storePickerOverlay');
+   if (overlay) overlay.classList.add('hidden');
 }
 
 // ── CART UI ──
@@ -2415,7 +2472,7 @@ function showByCategory(groupName) {
    grid.innerHTML = '';
    Object.entries(products).forEach(([catKey, catData]) => {
       if (catData.category === groupName) {
-         renderItemsByStore(catData.items, catKey, catData.type, grid);
+         catData.items.forEach(item => renderCard({ ...item, type: catData.type }, catKey, grid));
       }
    });
    window.scrollTo({
@@ -2565,35 +2622,72 @@ function showStoreProducts(storeId, storeName) {
    document.getElementById('productTitle').textContent = '🏪 ' + storeName;
 
    var grid = document.getElementById('productsGrid');
-   grid.style.display = '';
+   grid.style.display = 'block';
    grid.innerHTML = '';
 
-   var hasItems = false;
-   // Group by category so the store view is organised
+   // Collect categories that have items in this store, in order
+   var storeCats = [];
    Object.entries(products).forEach(function([catKey, catData]) {
       var storeItems = catData.items.filter(function(item) {
-         var itemStoreId = item.storeId || null;
-         return storeId === null ? itemStoreId === null : itemStoreId === storeId;
+         var s = item.storeId || null;
+         return storeId === null ? s === null : s === storeId;
       });
-      if (storeItems.length === 0) return;
-
-      // Category section header inside the store
-      var catHeader = document.createElement('div');
-      catHeader.className = 'section-divider';
-      catHeader.textContent = getCatIcon(catKey) + ' ' + catData.title;
-      grid.appendChild(catHeader);
-
-      storeItems.forEach(function(item) {
-         renderCard(Object.assign({}, item, { type: catData.type }), catKey, grid);
-      });
-      hasItems = true;
+      if (storeItems.length > 0) storeCats.push({ catKey: catKey, catData: catData, items: storeItems });
    });
 
-   if (!hasItems) {
+   if (storeCats.length === 0) {
       grid.innerHTML = '<p style="color:#888;text-align:center;padding:60px">No products in this store yet.</p>';
+      return;
    }
 
+   // Build sidebar
+   var sidebarHTML = storeCats.map(function(c, i) {
+      return '<div class="subcat-sidebar-item' + (i === 0 ? ' active' : '') + '" ' +
+             'id="storeSidebar_' + c.catKey + '" ' +
+             'data-catkey="' + c.catKey + '" ' +
+             'onclick="switchStoreCat(this, \'' + (storeId ? storeId.replace(/'/g,"\\'") : '__platform__') + '\')">' +
+             '<span class="subcat-sidebar-icon">' + getCatIcon(c.catKey) + '</span>' +
+             '<span>' + c.catData.title + ' <span style="font-size:0.75rem;opacity:0.7">(' + c.items.length + ')</span></span>' +
+             '</div>';
+   }).join('');
+
+   // Build initial product panel (first category)
+   var first = storeCats[0];
+   var initialHTML = buildStoreCatPanel(storeId, first.catKey, first.items, first.catData);
+
+   grid.innerHTML =
+      '<div class="subcat-layout">' +
+         '<div class="subcat-sidebar">' + sidebarHTML + '</div>' +
+         '<div class="subcat-products-panel" id="storeProductsPanel">' + initialHTML + '</div>' +
+      '</div>';
+
    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function buildStoreCatPanel(storeId, catKey, items, catData) {
+   var resolved = catData || products[catKey];
+   if (!resolved) return '';
+   var temp = document.createElement('div');
+   items.forEach(function(item) {
+      renderCard(Object.assign({}, item, { type: resolved.type }), catKey, temp);
+   });
+   return '<div class="subcat-panel-title">' + resolved.title + '</div>' +
+          '<div class="compact-grid">' + temp.innerHTML + '</div>';
+}
+
+function switchStoreCat(el, storeIdArg) {
+   var storeId = storeIdArg === '__platform__' ? null : storeIdArg;
+   var catKey  = el.dataset.catkey;
+   var catData = products[catKey];
+   if (!catData) return;
+   var items = catData.items.filter(function(item) {
+      var s = item.storeId || null;
+      return storeId === null ? s === null : s === storeId;
+   });
+   var panel = document.getElementById('storeProductsPanel');
+   if (panel) panel.innerHTML = buildStoreCatPanel(storeId, catKey, items, catData);
+   document.querySelectorAll('#productsGrid .subcat-sidebar-item').forEach(function(x) { x.classList.remove('active'); });
+   el.classList.add('active');
 }
 
 // Show the two-panel layout: sidebar of sub-categories + products on the right
@@ -2636,7 +2730,7 @@ function buildCompactProducts(catKey) {
    var catData = products[catKey];
    if (!catData) return '<p style="color:#999;padding:1rem">No products found.</p>';
    var tempContainer = document.createElement('div');
-   renderItemsByStore(catData.items, catKey, catData.type, tempContainer);
+   catData.items.forEach(function(item) { renderCard(Object.assign({}, item, { type: catData.type }), catKey, tempContainer); });
    return '<div class="subcat-panel-title">' + catData.title + '</div>' +
           '<div class="compact-grid">' + tempContainer.innerHTML + '</div>';
 }
@@ -2678,7 +2772,7 @@ function showProductsByMainCat(mainCatKey) {
    mc.keys.forEach(k => {
       const catData = products[k];
       if (!catData) return;
-      renderItemsByStore(catData.items, k, catData.type, grid);
+      catData.items.forEach(item => renderCard({ ...item, type: catData.type }, k, grid));
    });
    const backBtn = document.querySelector('.btn-back');
    if (backBtn) backBtn.onclick = () => showMainCategory(mainCatKey);

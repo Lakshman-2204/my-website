@@ -1617,13 +1617,16 @@ Object.entries(products).forEach(([, cat]) => {
       cat.items.forEach(item => {
          const o = ov[item.id];
          if (!o) return;
-         if (o.img)  item.img  = o.img;
-         if (o.name) item.name = o.name;
-         if (o.desc) item.desc = o.desc;
+         if (o.img)   item.img   = o.img;
+         if (o.name)  item.name  = o.name;
+         if (o.desc)  item.desc  = o.desc;
+         if (o.badge) item.badge = o.badge;
          if (o.price !== undefined) {
             if (cat.type === 'milk') item.pricePerLitre = o.price;
             else item.price = o.price;
          }
+         if (o.variants && o.variants.length > 0) item.variants = o.variants;
+         else if (o.hasOwnProperty('variants') && !o.variants) delete item.variants;
          if (o.storeId)   item.storeId   = o.storeId;
          if (o.storeName) item.storeName = o.storeName;
       });
@@ -2238,6 +2241,313 @@ function closeStorePicker() {
    if (overlay) overlay.classList.add('hidden');
 }
 
+// ══════════════════════════════════════════════
+// ── BOOK APPOINTMENT ──
+// ══════════════════════════════════════════════
+
+const APPOINTMENT_CATS = [
+   { key: 'hospitals', icon: '🏥', label: 'Hospitals',    desc: 'Multi-speciality hospitals & medical centres' },
+   { key: 'clinics',   icon: '🩺', label: 'Clinics',      desc: 'General physician & specialist clinics' },
+   { key: 'dental',    icon: '🦷', label: 'Dental',       desc: 'Dental care, braces & oral surgery' },
+   { key: 'labs',      icon: '🔬', label: 'Diagnostics',  desc: 'Blood tests, scans & health check-ups' },
+];
+
+const appointmentProviders = {
+   hospitals: [
+      { id: 'h001', name: 'City General Hospital',    tagline: 'Multi-speciality care since 1985',       address: '12, Hospital Road, Main Area',     phone: '+91 94400 12345',
+        doctors: [
+           { id: 'd001', name: 'Dr. Priya Sharma',  speciality: 'General Medicine', qual: 'MBBS, MD',         exp: '12 yrs', fee: 500, days: [1,2,3,4,5],   slots: ['09:00 AM','10:00 AM','11:00 AM','02:00 PM','03:00 PM','04:00 PM'] },
+           { id: 'd002', name: 'Dr. Arjun Mehta',   speciality: 'Cardiology',       qual: 'MBBS, MD, DM',     exp: '18 yrs', fee: 800, days: [1,2,4,5],     slots: ['10:00 AM','11:00 AM','03:00 PM','04:00 PM'] },
+           { id: 'd003', name: 'Dr. Sunita Rao',    speciality: 'Paediatrics',      qual: 'MBBS, DCH',        exp: '8 yrs',  fee: 400, days: [1,2,3,4,5,6], slots: ['09:00 AM','10:00 AM','11:00 AM','04:00 PM','05:00 PM'] },
+        ]
+      },
+      { id: 'h002', name: 'Sunrise Medical Centre', tagline: 'Advanced surgery & diagnostics',           address: '45, Health Nagar, West Side',      phone: '+91 93300 54321',
+        doctors: [
+           { id: 'd004', name: 'Dr. Ramesh Nair',   speciality: 'Orthopaedics',     qual: 'MBBS, MS (Ortho)', exp: '20 yrs', fee: 700, days: [1,3,5],       slots: ['10:00 AM','11:00 AM','02:00 PM','03:00 PM'] },
+           { id: 'd005', name: 'Dr. Kavitha Iyer',  speciality: 'Gynaecology',      qual: 'MBBS, MS, DGO',    exp: '15 yrs', fee: 600, days: [1,2,3,4,5],   slots: ['09:00 AM','11:00 AM','02:00 PM','04:00 PM'] },
+        ]
+      },
+      { id: 'h003', name: 'Apollo Wellness Hospital', tagline: 'Trusted care, modern facilities',        address: '78, Apollo Street, East City',     phone: '+91 91100 78901',
+        doctors: [
+           { id: 'd009', name: 'Dr. Vinod Chandra', speciality: 'Neurology',        qual: 'MBBS, MD, DM',     exp: '22 yrs', fee: 900, days: [2,3,4,5],     slots: ['10:00 AM','11:00 AM','02:00 PM'] },
+           { id: 'd010', name: 'Dr. Ananya Singh',  speciality: 'Dermatology',      qual: 'MBBS, MD (Derm)',  exp: '10 yrs', fee: 550, days: [1,2,3,4,5],   slots: ['10:00 AM','11:00 AM','12:00 PM','03:00 PM','04:00 PM'] },
+        ]
+      },
+   ],
+   clinics: [
+      { id: 'c001', name: 'HealthFirst Clinic',     tagline: 'Quick consultations, trusted care',        address: '7, Market Street, Central',        phone: '+91 99000 11122',
+        doctors: [
+           { id: 'd006', name: 'Dr. Vikram Patel',  speciality: 'General Physician', qual: 'MBBS',            exp: '6 yrs',  fee: 250, days: [1,2,3,4,5,6], slots: ['09:00 AM','10:00 AM','11:00 AM','12:00 PM','04:00 PM','05:00 PM','06:00 PM'] },
+        ]
+      },
+      { id: 'c002', name: 'MediCare Family Clinic', tagline: 'Your neighbourhood health partner',        address: '15, Green Lane, Residency Area',   phone: '+91 98222 44556',
+        doctors: [
+           { id: 'd011', name: 'Dr. Supriya Joshi', speciality: 'Family Medicine',   qual: 'MBBS, MRCGP',     exp: '11 yrs', fee: 300, days: [1,2,3,4,5],   slots: ['09:00 AM','10:00 AM','11:00 AM','05:00 PM','06:00 PM'] },
+           { id: 'd012', name: 'Dr. Karthik Raj',   speciality: 'Internal Medicine', qual: 'MBBS, MD',        exp: '9 yrs',  fee: 350, days: [2,3,4,5,6],   slots: ['10:00 AM','11:00 AM','12:00 PM','04:00 PM'] },
+        ]
+      },
+   ],
+   dental: [
+      { id: 'dent001', name: 'SmileCare Dental Studio', tagline: 'Complete oral care & cosmetic dentistry', address: '22, Park Road, Main Square', phone: '+91 98001 33344',
+        doctors: [
+           { id: 'd007', name: 'Dr. Neha Gupta',    speciality: 'Cosmetic Dentistry', qual: 'BDS, MDS',        exp: '9 yrs',  fee: 300, days: [1,2,3,4,5,6], slots: ['10:00 AM','11:00 AM','12:00 PM','02:00 PM','03:00 PM','04:00 PM','05:00 PM'] },
+        ]
+      },
+      { id: 'dent002', name: 'Pearl Dental Clinic',     tagline: 'Braces, implants & root canals',           address: '33, Temple Road, Old Town',  phone: '+91 97003 22211',
+        doctors: [
+           { id: 'd013', name: 'Dr. Arun Menon',    speciality: 'Orthodontics',       qual: 'BDS, MDS (Ortho)', exp: '13 yrs', fee: 350, days: [1,2,3,5,6],   slots: ['10:00 AM','11:00 AM','02:00 PM','03:00 PM','04:00 PM'] },
+        ]
+      },
+   ],
+   labs: [
+      { id: 'lab001', name: 'DiagnoPlus Laboratories', tagline: 'Accurate results, fast turnaround',      address: '88, Science Park, Tech Area',      phone: '+91 97002 55566',
+        doctors: [
+           { id: 'd008', name: 'Dr. Suresh Babu',   speciality: 'Pathology',          qual: 'MBBS, MD (Path)', exp: '14 yrs', fee: 200, days: [1,2,3,4,5,6], slots: ['08:00 AM','09:00 AM','10:00 AM','11:00 AM','12:00 PM'] },
+        ]
+      },
+   ],
+};
+
+var _aptBooking = {}; // current booking state
+
+function showBookAppointment() {
+   document.getElementById('heroSection').classList.add('hidden');
+   document.getElementById('productsSection').classList.add('hidden');
+   document.getElementById('appointmentSection').classList.remove('hidden');
+   var aptBtn = document.querySelector('.header-apt-btn');
+   if (aptBtn) aptBtn.classList.add('active');
+   var storesBtn = document.querySelector('.header-stores-btn');
+   if (storesBtn) storesBtn.classList.remove('active');
+   document.querySelectorAll('.cat-item').forEach(function(c) { c.classList.remove('active'); });
+   renderAptCategories();
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderAptCategories() {
+   document.getElementById('aptSectionTitle').textContent = '📅 Book Appointment';
+   var content = document.getElementById('aptContent');
+   content.innerHTML =
+      '<div class="apt-cats-grid">' +
+         APPOINTMENT_CATS.map(function(cat) {
+            var count = (appointmentProviders[cat.key] || []).length;
+            return '<div class="apt-cat-card" onclick="showAptCategory(\'' + cat.key + '\')">' +
+                      '<div class="apt-cat-icon">' + cat.icon + '</div>' +
+                      '<div class="apt-cat-label">' + cat.label + '</div>' +
+                      '<div class="apt-cat-desc">' + cat.desc + '</div>' +
+                      '<div class="apt-cat-count">' + count + ' available</div>' +
+                   '</div>';
+         }).join('') +
+      '</div>';
+}
+
+function showAptCategory(catKey) {
+   var catInfo = APPOINTMENT_CATS.find(function(c) { return c.key === catKey; });
+   if (!catInfo) return;
+   document.getElementById('aptSectionTitle').textContent = catInfo.icon + ' ' + catInfo.label;
+   var providers = appointmentProviders[catKey] || [];
+   var content = document.getElementById('aptContent');
+   content.innerHTML =
+      '<button class="apt-back-btn" onclick="renderAptCategories()">← All Categories</button>' +
+      '<div class="apt-providers-grid">' +
+         providers.map(function(p) {
+            return '<div class="apt-provider-card">' +
+                      '<div class="apt-provider-top">' +
+                         '<div class="apt-provider-icon">' + catInfo.icon + '</div>' +
+                         '<div>' +
+                            '<div class="apt-provider-name">' + p.name + '</div>' +
+                            '<div class="apt-provider-tagline">' + p.tagline + '</div>' +
+                         '</div>' +
+                      '</div>' +
+                      '<div class="apt-provider-meta">📍 ' + p.address + '</div>' +
+                      '<div class="apt-provider-meta">📞 ' + p.phone + '</div>' +
+                      '<div class="apt-provider-footer">' +
+                         '<span>' + p.doctors.length + ' doctor' + (p.doctors.length !== 1 ? 's' : '') + '</span>' +
+                         '<button class="apt-view-btn" onclick="showAptDoctors(\'' + p.id + '\',\'' + catKey + '\')">View Doctors →</button>' +
+                      '</div>' +
+                   '</div>';
+         }).join('') +
+      '</div>';
+}
+
+function showAptDoctors(providerId, catKey) {
+   var catInfo  = APPOINTMENT_CATS.find(function(c) { return c.key === catKey; });
+   var provider = (appointmentProviders[catKey] || []).find(function(p) { return p.id === providerId; });
+   if (!provider) return;
+   document.getElementById('aptSectionTitle').textContent = provider.name;
+   var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+   var content = document.getElementById('aptContent');
+   content.innerHTML =
+      '<button class="apt-back-btn" onclick="showAptCategory(\'' + catKey + '\')">← ' + catInfo.label + ' List</button>' +
+      '<div class="apt-provider-info-bar">' +
+         '<span>📍 ' + provider.address + '</span>' +
+         '<span>📞 ' + provider.phone + '</span>' +
+      '</div>' +
+      '<div class="apt-doctors-list">' +
+         provider.doctors.map(function(doc) {
+            var initials = doc.name.replace(/Dr\.\s*/i,'').split(' ').map(function(w){return w[0];}).join('').substring(0,2).toUpperCase();
+            var dayStr   = doc.days.map(function(d) { return DAY_NAMES[d]; }).join(', ');
+            return '<div class="apt-doctor-card">' +
+                      '<div class="apt-doctor-avatar">' + initials + '</div>' +
+                      '<div class="apt-doctor-info">' +
+                         '<div class="apt-doctor-name">' + doc.name + '</div>' +
+                         '<div class="apt-doctor-spec">' + doc.speciality + '</div>' +
+                         '<div class="apt-doctor-qual">' + doc.qual + ' &middot; ' + doc.exp + '</div>' +
+                         '<div class="apt-doctor-days">📅 ' + dayStr + '</div>' +
+                      '</div>' +
+                      '<div class="apt-doctor-right">' +
+                         '<div class="apt-doctor-fee">₹' + doc.fee + '<span>/visit</span></div>' +
+                         '<button class="apt-book-btn" onclick="openAptBooking(\'' + provider.id + '\',\'' + doc.id + '\',\'' + catKey + '\')">Book</button>' +
+                      '</div>' +
+                   '</div>';
+         }).join('') +
+      '</div>';
+}
+
+function openAptBooking(providerId, doctorId, catKey) {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { showToast('Please login to book an appointment.'); return; }
+
+   var provider = (appointmentProviders[catKey] || []).find(function(p) { return p.id === providerId; });
+   var doctor   = provider && provider.doctors.find(function(d) { return d.id === doctorId; });
+   if (!provider || !doctor) return;
+
+   _aptBooking = { providerId: providerId, doctorId: doctorId, catKey: catKey, selectedDate: null, selectedSlot: null };
+
+   // Pre-fill patient details from user profile
+   var users    = JSON.parse(localStorage.getItem('users') || '[]');
+   var userData = users.find(function(u) { return u.email === user.email; }) || {};
+
+   document.getElementById('aptBookModalDoc').textContent = doctor.name;
+   document.getElementById('aptBookModalSpec').textContent = doctor.speciality + ' · ' + provider.name;
+   document.getElementById('aptBookModalFee').textContent  = '₹' + doctor.fee + ' consultation fee';
+   document.getElementById('aptPatientName').value   = userData.name  || '';
+   document.getElementById('aptPatientPhone').value  = userData.phone || '';
+   document.getElementById('aptPatientReason').value = '';
+   document.getElementById('aptSlotSection').classList.add('hidden');
+   document.getElementById('aptConfirmBtn').disabled = true;
+
+   // Build next-14-days date buttons filtered by doctor's available days
+   var today   = new Date();
+   var MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+   var DAY_LAB = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+   var datesHtml = '';
+   for (var i = 0; i < 14; i++) {
+      var d   = new Date(today);
+      d.setDate(today.getDate() + i);
+      if (doctor.days.indexOf(d.getDay()) === -1) continue;
+      var ds  = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      var lbl = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : DAY_LAB[d.getDay()];
+      datesHtml += '<button class="apt-date-btn" data-date="' + ds + '" onclick="selectAptDate(this,\'' + ds + '\')">' +
+                      '<span class="apt-date-day">' + lbl + '</span>' +
+                      '<span class="apt-date-num">' + d.getDate() + ' ' + MONTHS[d.getMonth()] + '</span>' +
+                   '</button>';
+   }
+   document.getElementById('aptDateButtons').innerHTML = datesHtml ||
+      '<p style="color:#999;font-size:0.85rem;padding:8px 0">No dates available in the next 14 days.</p>';
+
+   document.getElementById('aptBookModal').classList.remove('hidden');
+}
+
+function selectAptDate(btn, dateStr) {
+   btn.closest('.apt-date-scroll').querySelectorAll('.apt-date-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   _aptBooking.selectedDate = dateStr;
+   _aptBooking.selectedSlot = null;
+   document.getElementById('aptConfirmBtn').disabled = true;
+
+   var provider = (appointmentProviders[_aptBooking.catKey] || []).find(function(p) { return p.id === _aptBooking.providerId; });
+   var doctor   = provider && provider.doctors.find(function(d) { return d.id === _aptBooking.doctorId; });
+   if (!doctor) return;
+
+   document.getElementById('aptSlotButtons').innerHTML = doctor.slots.map(function(slot) {
+      return '<button class="apt-slot-btn" onclick="selectAptSlot(this,\'' + slot + '\')">' + slot + '</button>';
+   }).join('');
+   document.getElementById('aptSlotSection').classList.remove('hidden');
+}
+
+function selectAptSlot(btn, slot) {
+   btn.closest('.apt-slots-grid').querySelectorAll('.apt-slot-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   _aptBooking.selectedSlot = slot;
+   document.getElementById('aptConfirmBtn').disabled = false;
+}
+
+function confirmAptBooking() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { showToast('Please login.'); return; }
+
+   var patientName  = document.getElementById('aptPatientName').value.trim();
+   var patientPhone = document.getElementById('aptPatientPhone').value.trim();
+   if (!patientName || !patientPhone) { alert('Please fill in patient name and phone number.'); return; }
+   if (!_aptBooking.selectedDate || !_aptBooking.selectedSlot) { alert('Please select a date and time slot.'); return; }
+
+   var provider = (appointmentProviders[_aptBooking.catKey] || []).find(function(p) { return p.id === _aptBooking.providerId; });
+   var doctor   = provider && provider.doctors.find(function(d) { return d.id === _aptBooking.doctorId; });
+
+   var aptId = 'APT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+   var appointment = {
+      id:              aptId,
+      catKey:          _aptBooking.catKey,
+      providerName:    provider.name,
+      providerAddress: provider.address,
+      providerPhone:   provider.phone,
+      doctorName:      doctor.name,
+      speciality:      doctor.speciality,
+      date:            _aptBooking.selectedDate,
+      slot:            _aptBooking.selectedSlot,
+      patientName:     patientName,
+      patientPhone:    patientPhone,
+      reason:          document.getElementById('aptPatientReason').value.trim(),
+      fee:             doctor.fee,
+      status:          'confirmed',
+      bookedAt:        new Date().toISOString()
+   };
+
+   var key          = 'appointments_' + user.email;
+   var appointments = JSON.parse(localStorage.getItem(key) || '[]');
+   appointments.unshift(appointment);
+   localStorage.setItem(key, JSON.stringify(appointments));
+
+   closeAptBookModal();
+   showAptConfirmation(appointment);
+}
+
+function showAptConfirmation(apt) {
+   var dateObj   = new Date(apt.date + 'T00:00:00');
+   var MONTHS    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+   var DAY_FULL  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+   var dateLabel = DAY_FULL[dateObj.getDay()] + ', ' + dateObj.getDate() + ' ' + MONTHS[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
+   document.getElementById('aptDoneDetails').innerHTML =
+      '<div class="apt-done-id">Appointment ID: ' + apt.id + '</div>' +
+      '<div class="apt-done-rows">' +
+         row('Doctor',   apt.doctorName) +
+         row('Hospital', apt.providerName) +
+         row('Date',     dateLabel) +
+         row('Time',     apt.slot) +
+         row('Patient',  apt.patientName) +
+         row('Phone',    apt.patientPhone) +
+         (apt.reason ? row('Reason', apt.reason) : '') +
+         row('Fee',      '₹' + apt.fee) +
+      '</div>';
+   document.getElementById('aptDoneOverlay').classList.remove('hidden');
+
+   function row(label, value) {
+      return '<div class="apt-done-row"><span>' + label + '</span><span>' + value + '</span></div>';
+   }
+}
+
+function closeAptBookModal() {
+   document.getElementById('aptBookModal').classList.add('hidden');
+}
+
+function closeAptDoneModal() {
+   document.getElementById('aptDoneOverlay').classList.add('hidden');
+}
+
+function handleAptOverlayClick(event) {
+   if (event.target === event.currentTarget) closeAptBookModal();
+}
+
 // ── CART UI ──
 function updateCartUI() {
    var totalItems = cart.reduce(function(s, c) { return s + c.qty; }, 0);
@@ -2594,15 +2904,16 @@ function goDashboard() {
 function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
+   var aptSec = document.getElementById('appointmentSection');
+   if (aptSec) aptSec.classList.add('hidden');
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    const allCat = document.getElementById('cat-all');
    if (allCat) allCat.classList.add('active');
    var storesBtn = document.querySelector('.header-stores-btn');
    if (storesBtn) storesBtn.classList.remove('active');
-   window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-   });
+   var aptBtn = document.querySelector('.header-apt-btn');
+   if (aptBtn) aptBtn.classList.remove('active');
+   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function showByCategory(groupName) {
@@ -4026,12 +4337,23 @@ function renderAdminGrid(filterStoreId) {
             if (!itemMatches(item)) return;
             var isCustom = item.id.startsWith('custom_');
             var o = ov[item.id] || {};
-            var displayImg   = o.img  || item.img;
-            var displayName  = o.name || item.name;
-            var rawPrice     = o.price !== undefined ? o.price : (item.price || item.pricePerLitre || 0);
-            var displayPrice = rawPrice.toLocaleString('en-IN');
-            var displayDesc  = o.desc || item.desc || '';
-            var modified     = !isCustom && !!ov[item.id];
+            var displayImg  = o.img  || item.img;
+            var displayName = o.name || item.name;
+            var displayDesc = o.desc || item.desc || '';
+            var modified    = !isCustom && !!ov[item.id];
+            // Resolve variants: override > item's own
+            var currentVars = (o.variants && o.variants.length) ? o.variants
+                            : (item.variants && item.variants.length) ? item.variants : null;
+            var displayPrice;
+            if (currentVars) {
+               var prices = currentVars.map(function(v) { return v.price; });
+               var minP = Math.min.apply(null, prices), maxP = Math.max.apply(null, prices);
+               displayPrice = '₹' + minP.toLocaleString('en-IN') + (minP !== maxP ? ' – ₹' + maxP.toLocaleString('en-IN') : '') +
+                              ' <span style="font-size:0.75rem;color:#888">(' + currentVars.length + ' sizes)</span>';
+            } else {
+               var rawPrice = o.price !== undefined ? o.price : (item.price || item.pricePerLitre || 0);
+               displayPrice = '₹' + rawPrice.toLocaleString('en-IN');
+            }
 
             var card = document.createElement('div');
             card.className = 'admin-product-card' + (modified ? ' modified' : '') + (isCustom ? ' custom' : '');
@@ -4046,7 +4368,7 @@ function renderAdminGrid(filterStoreId) {
                              '</div>' +
                              '<div class="admin-card-info">' +
                                 '<div class="admin-card-name">' + displayName + '</div>' +
-                                '<div class="admin-card-price">&#8377;' + displayPrice + '</div>' +
+                                '<div class="admin-card-price">' + displayPrice + '</div>' +
                                 '<div class="admin-card-desc">' + displayDesc + '</div>' +
                              '</div>' +
                              '<div class="admin-card-actions">' +
@@ -4132,25 +4454,42 @@ function openEditModal(itemId, catKey) {
    const cat  = products[catKey];
    const item = cat.items.find(i => i.id === itemId);
    if (!item) return;
-   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
-   const o  = ov[itemId] || {};
-   _editId  = itemId;
-   document.getElementById('modalTitle').textContent  = 'Edit: ' + item.name;
-   document.getElementById('modalImgUrl').value  = o.img  || item.img;
-   document.getElementById('modalName').value    = o.name || item.name;
-   document.getElementById('modalPrice').value   = o.price !== undefined ? o.price : (item.price || item.pricePerLitre);
-   document.getElementById('modalDesc').value    = o.desc || item.desc;
+   const ov       = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   const o        = ov[itemId] || {};
+   _editId        = itemId;
+
+   // Resolve current variants: override takes priority over item's own
+   const currentVariants = o.variants || item.variants || null;
+   const hasVars          = currentVariants && currentVariants.length > 0;
+
+   document.getElementById('modalTitle').textContent = 'Edit: ' + (o.name || item.name);
+   document.getElementById('modalImgUrl').value  = o.img  || item.img  || '';
+   document.getElementById('modalName').value    = o.name || item.name || '';
+   document.getElementById('modalDesc').value    = o.desc || item.desc || '';
    document.getElementById('modalBadge').value   = o.badge || item.badge || '';
-   document.getElementById('modalPreviewImg').src = o.img  || item.img;
+   document.getElementById('modalPreviewImg').src = o.img  || item.img  || '';
    document.getElementById('catSelectRow').classList.add('hidden');
    document.getElementById('badgeRow').classList.remove('hidden');
    document.getElementById('adminBtnSave').textContent  = '💾 Save Changes';
    document.getElementById('adminBtnReset').classList.remove('hidden');
-   // Hide variants toggle in edit mode (variants not editable after creation)
-   document.getElementById('variantsToggleRow').classList.add('hidden');
-   document.getElementById('variantsSectionRow').classList.add('hidden');
-   document.getElementById('modalHasVariants').checked = false;
-   document.getElementById('modalPriceRow').classList.remove('hidden');
+
+   // Variants vs plain price
+   document.getElementById('variantsToggleRow').classList.add('hidden'); // toggle hidden in edit mode
+   document.getElementById('variantsList').innerHTML = '';
+   if (hasVars) {
+      // Show variants section pre-populated; hide price field
+      document.getElementById('modalHasVariants').checked = true;
+      document.getElementById('modalPriceRow').classList.add('hidden');
+      document.getElementById('variantsSectionRow').classList.remove('hidden');
+      currentVariants.forEach(function(v) { addVariantRow(v.label, v.price); });
+      document.getElementById('modalPrice').value = '';
+   } else {
+      document.getElementById('modalHasVariants').checked = false;
+      document.getElementById('variantsSectionRow').classList.add('hidden');
+      document.getElementById('modalPriceRow').classList.remove('hidden');
+      document.getElementById('modalPrice').value = o.price !== undefined ? o.price : (item.price || item.pricePerLitre || '');
+   }
+
    populateStoreOwnerDropdown(o.storeId || item.storeId || '');
    document.getElementById('editModal').classList.remove('hidden');
 }
@@ -4163,20 +4502,49 @@ function previewModalImg() {
 function saveProductEdit() {
    if (_addMode) { saveNewProduct(); return; }
    if (!_editId) return;
+
+   const isVariantMode = document.getElementById('modalHasVariants').checked;
+   let price, variants;
+   if (isVariantMode) {
+      variants = getVariantsFromModal();
+      if (variants.length === 0) { alert('Please add at least one variant.'); return; }
+      price = variants[0].price;
+   } else {
+      price = parseFloat(document.getElementById('modalPrice').value);
+      if (isNaN(price)) { alert('Price is required.'); return; }
+   }
+
    const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
-   var sel = document.getElementById('modalStoreOwner');
+   var sel       = document.getElementById('modalStoreOwner');
    var storeId   = sel ? sel.value : '';
    var storeName = storeId ? getStoreName(storeId) : '';
    ov[_editId] = {
       img:       document.getElementById('modalImgUrl').value.trim(),
       name:      document.getElementById('modalName').value.trim(),
-      price:     parseFloat(document.getElementById('modalPrice').value),
+      price:     price,
+      variants:  isVariantMode ? variants : undefined,
       desc:      document.getElementById('modalDesc').value.trim(),
       badge:     document.getElementById('modalBadge').value.trim(),
       storeId:   storeId,
       storeName: storeName
    };
    localStorage.setItem('adminProductOverrides', JSON.stringify(ov));
+
+   // Apply override immediately to in-memory products so store updates without reload
+   Object.values(products).forEach(function(cat) {
+      var it = cat.items.find(function(i) { return i.id === _editId; });
+      if (!it) return;
+      var o = ov[_editId];
+      if (o.img)      it.img      = o.img;
+      if (o.name)     it.name     = o.name;
+      if (o.desc)     it.desc     = o.desc;
+      if (o.badge)    it.badge    = o.badge;
+      it.price    = o.price;
+      if (isVariantMode) it.variants = o.variants;
+      else               delete it.variants;
+      if (o.storeId)   it.storeId   = o.storeId;
+      if (o.storeName) it.storeName = o.storeName;
+   });
    closeEditModal();
    renderAdminGrid();
    showAdminToast('✅ Saved! Changes will appear in the store.');

@@ -31,6 +31,7 @@
                <div class="search-dropdown" id="searchDropdown"></div>
             </div>
             <button class="header-stores-btn" onclick="catClick('stores')">🏪 Stores</button>
+            <button class="header-apt-btn" onclick="showBookAppointment()">📅 Appointments</button>
             <div class="header-actions">
                <button class="header-dashboard-btn" id="headerDashboardBtn" onclick="goDashboard()" title="My Dashboard">🏠</button>
                <div class="header-user" onclick="toggleUserMenu(event)">
@@ -289,6 +290,69 @@
                <button onclick="closeStorePicker()">✕</button>
             </div>
             <div class="stp-body" id="spStoresList"></div>
+         </div>
+      </div>
+
+      <!-- APPOINTMENT SECTION -->
+      <div class="apt-section hidden" id="appointmentSection">
+         <div class="apt-section-header">
+            <h2 id="aptSectionTitle">Book Appointment</h2>
+            <button class="btn-back" onclick="goHome()">← Back to Home</button>
+         </div>
+         <div id="aptContent"></div>
+      </div>
+
+      <!-- APPOINTMENT BOOKING MODAL -->
+      <div class="apt-modal-overlay hidden" id="aptBookModal" onclick="handleAptOverlayClick(event)">
+         <div class="apt-modal">
+            <div class="apt-modal-header">
+               <div>
+                  <div id="aptBookModalDoc" style="font-weight:700;font-size:1rem;color:#1a1a2e"></div>
+                  <div id="aptBookModalSpec" style="font-size:0.82rem;color:#555;margin-top:2px"></div>
+                  <div id="aptBookModalFee" style="font-size:0.82rem;color:#1a73e8;font-weight:600;margin-top:2px"></div>
+               </div>
+               <button onclick="closeAptBookModal()">✕</button>
+            </div>
+            <div class="apt-modal-body">
+               <div class="apt-form-label">Select Date</div>
+               <div class="apt-date-scroll" id="aptDateButtons"></div>
+               <div class="hidden" id="aptSlotSection">
+                  <div class="apt-form-label" style="margin-top:14px">Select Time Slot</div>
+                  <div class="apt-slots-grid" id="aptSlotButtons"></div>
+               </div>
+               <div class="apt-form-label" style="margin-top:14px">Patient Details</div>
+               <div class="apt-field">
+                  <label>Full Name</label>
+                  <input type="text" id="aptPatientName" placeholder="Patient's full name"/>
+               </div>
+               <div class="apt-field">
+                  <label>Phone Number</label>
+                  <input type="tel" id="aptPatientPhone" placeholder="+91 98765 43210"/>
+               </div>
+               <div class="apt-field">
+                  <label>Reason / Symptoms <small style="font-weight:400;color:#aaa">(optional)</small></label>
+                  <textarea id="aptPatientReason" rows="2" placeholder="e.g. Fever, follow-up, routine check-up…"></textarea>
+               </div>
+            </div>
+            <div class="apt-modal-footer">
+               <button class="apt-confirm-btn" id="aptConfirmBtn" onclick="confirmAptBooking()" disabled>✅ Confirm Appointment</button>
+               <button class="apt-cancel-btn" onclick="closeAptBookModal()">Cancel</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- APPOINTMENT CONFIRMATION MODAL -->
+      <div class="apt-done-overlay hidden" id="aptDoneOverlay">
+         <div class="apt-done-modal">
+            <div class="apt-done-top">
+               <div class="apt-done-icon">📅</div>
+               <h2>Appointment Confirmed!</h2>
+               <p>Your appointment has been booked successfully.</p>
+            </div>
+            <div id="aptDoneDetails"></div>
+            <div class="apt-done-actions">
+               <button class="apt-done-close-btn" onclick="closeAptDoneModal()">✅ Done</button>
+            </div>
          </div>
       </div>
 

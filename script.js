@@ -1637,9 +1637,12 @@ Object.entries(products).forEach(([, cat]) => {
       }
    });
 })();
-// ── DEMO STORE SEED (runs once, guards with a version key) ──
+// ── DEMO STORE SEED ──
+// Bumping version forces re-seed on all browsers that had a stale flag.
+// Products are always written so they survive partial localStorage clears.
 (function seedDemoStores() {
-   if (localStorage.getItem('demoSeed_v1')) return;
+   if (localStorage.getItem('demoSeed_v2')) return;
+   localStorage.removeItem('demoSeed_v1'); // clean up old flag
 
    var users = JSON.parse(localStorage.getItem('users') || '[]');
 
@@ -1698,13 +1701,20 @@ Object.entries(products).forEach(([, cat]) => {
    ];
 
    stores.forEach(function(s) {
+      // Add user account if not present
       if (!users.find(function(u) { return u.email === s.email; })) {
          users.push({ email: s.email, name: s.name, storeName: s.storeName, role: 'storeowner', password: 'demo1234', blocked: false });
+      } else {
+         // Ensure existing account has the right storeName and role
+         var idx = users.findIndex(function(u) { return u.email === s.email; });
+         users[idx].storeName = s.storeName;
+         users[idx].role = 'storeowner';
       }
+      // Always write products so they're available even after partial clears
       localStorage.setItem('myProducts_' + s.email, JSON.stringify(s.products));
    });
    localStorage.setItem('users', JSON.stringify(users));
-   localStorage.setItem('demoSeed_v1', '1');
+   localStorage.setItem('demoSeed_v2', '1');
 })();
 
 // Load store-owner products from myProducts_${email} for each store-owner user

@@ -20,8 +20,9 @@
       <!-- TAB NAV -->
       <div class="admin-tabs">
          <button class="admin-tab active" id="tab-products-btn" onclick="switchAdminTab('products')">🛍️ Products</button>
+         <button class="admin-tab" id="tab-stores-btn"   onclick="switchAdminTab('stores')">🏪 Stores</button>
          <button class="admin-tab" id="tab-settings-btn" onclick="switchAdminTab('settings')">⚙️ Settings</button>
-         <button class="admin-tab" id="tab-users-btn" onclick="switchAdminTab('users')">👥 Users</button>
+         <button class="admin-tab" id="tab-users-btn"    onclick="switchAdminTab('users')">👥 Users</button>
       </div>
 
       <!-- PRODUCTS TAB -->
@@ -227,6 +228,21 @@
          </div>
       </div>
 
+      <!-- STORES TAB -->
+      <div id="tab-stores" class="hidden">
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>🏪 Stores Overview</h1>
+                  <p>All registered stores and their product &amp; order stats.</p>
+               </div>
+            </div>
+         </div>
+         <div class="admin-stores-content" id="adminStoresContent">
+            <p style="color:#999;text-align:center;padding:40px">Loading stores…</p>
+         </div>
+      </div>
+
       <!-- USER DETAIL MODAL -->
       <div class="udm-overlay hidden" id="userDetailModal" onclick="handleUserDetailOverlayClick(event)">
          <div class="udm-modal">
@@ -294,6 +310,12 @@
                <div class="modal-field hidden" id="catSelectRow">
                   <label>Category</label>
                   <select id="modalCatKey" class="modal-select"></select>
+               </div>
+               <div class="modal-field" id="storeOwnerRow">
+                  <label>Store Owner <small style="font-weight:400;text-transform:none">(which store sells this?)</small></label>
+                  <select id="modalStoreOwner" class="modal-select">
+                     <option value="">Platform Store (admin-managed)</option>
+                  </select>
                </div>
                <div class="modal-field">
                   <label>Image URL</label>

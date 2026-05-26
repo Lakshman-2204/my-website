@@ -1623,6 +1623,8 @@ Object.entries(products).forEach(([, cat]) => {
             if (cat.type === 'milk') item.pricePerLitre = o.price;
             else item.price = o.price;
          }
+         if (o.storeId)   item.storeId   = o.storeId;
+         if (o.storeName) item.storeName = o.storeName;
       });
    });
 })();
@@ -1631,8 +1633,26 @@ Object.entries(products).forEach(([, cat]) => {
    const newItems = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
    newItems.forEach(ni => {
       if (products[ni.catKey] && !products[ni.catKey].items.find(i => i.id === ni.id)) {
-         products[ni.catKey].items.push({ id: ni.id, name: ni.name, price: ni.price, desc: ni.desc, img: ni.img, badge: ni.badge || 'New' });
+         products[ni.catKey].items.push({ id: ni.id, name: ni.name, price: ni.price, desc: ni.desc, img: ni.img, badge: ni.badge || 'New', storeId: ni.storeId || null, storeName: ni.storeName || null });
       }
+   });
+})();
+// Load store-owner products from myProducts_${email} for each store-owner user
+(function () {
+   var users = JSON.parse(localStorage.getItem('users') || '[]');
+   users.forEach(function(u) {
+      if (u.role !== 'storeowner') return;
+      var storeProds = JSON.parse(localStorage.getItem('myProducts_' + u.email) || '[]');
+      var storeName  = u.storeName || u.name;
+      storeProds.forEach(function(p) {
+         if (!products[p.catKey]) return;
+         if (products[p.catKey].items.find(function(i) { return i.id === p.id; })) return;
+         products[p.catKey].items.push({
+            id: p.id, name: p.name, price: p.price, desc: p.desc,
+            img: p.img, badge: p.badge || 'New',
+            storeId: u.email, storeName: storeName
+         });
+      });
    });
 })();
 
@@ -1747,7 +1767,8 @@ function doSearch() {
 
    const grid = document.getElementById('productsGrid');
    grid.innerHTML = '';
-   results.forEach(item => renderCard(item, item.catKey, grid));
+   // Group search results by store so customer can see which store each result is from
+   renderItemsByStore(results, null, null, grid);
 }
 
 // Close search dropdown on outside click
@@ -1782,20 +1803,49 @@ function showAllProducts() {
       divider.className = 'section-divider';
       divider.textContent = ' ' + groupName;
       grid.appendChild(divider);
-      cats.forEach(({
-         catKey,
-         catData
-      }) => {
-         catData.items.forEach(item => renderCard({
-            ...item,
-            type: catData.type
-         }, catKey, grid));
+      cats.forEach(({ catKey, catData }) => {
+         renderItemsByStore(catData.items, catKey, catData.type, grid);
       });
    });
 
    window.scrollTo({
       top: 0,
       behavior: 'smooth'
+   });
+}
+
+// ── GROUP ITEMS BY STORE (used in all category views) ──
+// When a category has products from multiple stores, renders each store's
+// items under its own header divider. Single-store categories render plainly.
+function renderItemsByStore(items, catKey, catType, container) {
+   var groups    = {};
+   var groupKeys = [];
+   items.forEach(function(item) {
+      var key = item.storeId || '__platform__';
+      if (!groups[key]) {
+         groups[key] = { storeId: item.storeId || null, storeName: item.storeId ? (item.storeName || getStoreName(item.storeId)) : null, items: [] };
+         groupKeys.push(key);
+      }
+      groups[key].items.push(item);
+   });
+
+   var isMultiStore = groupKeys.length > 1;
+
+   groupKeys.forEach(function(key) {
+      var grp = groups[key];
+      if (isMultiStore) {
+         var label  = grp.storeName || (getAdminSettings().storeName || 'MyStore');
+         var hdr    = document.createElement('div');
+         hdr.className   = 'store-section-divider';
+         hdr.innerHTML   = '<span class="store-section-icon">🏪</span>' + label +
+                           '<button class="store-section-browse-btn" onclick="showStoreProducts(' +
+                              (grp.storeId ? '\'' + grp.storeId + '\'' : 'null') + ',\'' + label.replace(/'/g,"\\'") + '\')">See all →</button>';
+         container.appendChild(hdr);
+      }
+      grp.items.forEach(function(item) {
+         var itemCatKey = item.catKey || catKey;
+         renderCard(Object.assign({}, item, { type: catType || item.type }), itemCatKey, container);
+      });
    });
 }
 
@@ -1811,14 +1861,8 @@ function showProducts(category) {
    const grid = document.getElementById('productsGrid');
    grid.style.display = '';
    grid.innerHTML = '';
-   data.items.forEach(item => renderCard({
-      ...item,
-      type: data.type
-   }, category, grid));
-   window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-   });
+   renderItemsByStore(data.items, category, data.type, grid);
+   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ── RENDER SINGLE CARD ──
@@ -1847,6 +1891,7 @@ function renderCard(item, catKey, grid) {
  <span class="badge">${item.badge}</span>
  <div class="product-name">${item.name}</div>
  <div class="product-desc">${item.desc}</div>
+ ${item.storeId ? `<div class="store-badge">🏪 ${item.storeName || getStoreName(item.storeId)}</div>` : ''}
  ${isMilk ? `
  <div class="litre-selector">
  <label>Select Litres:</label>
@@ -1916,7 +1961,9 @@ function addToCart(itemId, catKey) {
          name: label,
          price: unitPrice,
          qty,
-         img: item.img
+         img: item.img,
+         storeId: item.storeId || null,
+         storeName: item.storeName || null
       });
    }
 
@@ -1942,69 +1989,91 @@ function updateCartUI() {
       return;
    }
 
+   // Group cart by store
+   var groups = {};
+   var groupKeys = [];
    cart.forEach(function(c) {
-      // wrapper
-      var row = document.createElement('div');
-      row.className = 'cart-item';
+      var key = c.storeId || '__platform__';
+      if (!groups[key]) {
+         groups[key] = { storeName: c.storeName || getStoreName(c.storeId), items: [] };
+         groupKeys.push(key);
+      }
+      groups[key].items.push(c);
+   });
+   var multiStore = groupKeys.length > 1;
 
-      // product image
-      var img = document.createElement('img');
-      img.src = c.img;
-      img.alt = c.name;
+   groupKeys.forEach(function(key) {
+      var grp = groups[key];
+      if (multiStore) {
+         var hdr = document.createElement('div');
+         hdr.className = 'cart-store-header';
+         hdr.textContent = '🏪 ' + grp.storeName;
+         el.appendChild(hdr);
+      }
+      grp.items.forEach(function(c) {
+         // wrapper
+         var row = document.createElement('div');
+         row.className = 'cart-item';
 
-      // info block
-      var info = document.createElement('div');
-      info.className = 'cart-item-info';
+         // product image
+         var img = document.createElement('img');
+         img.src = c.img;
+         img.alt = c.name;
 
-      var nameEl = document.createElement('div');
-      nameEl.className = 'cart-item-name';
-      nameEl.textContent = c.name;
+         // info block
+         var info = document.createElement('div');
+         info.className = 'cart-item-info';
 
-      var priceEl = document.createElement('div');
-      priceEl.className = 'cart-item-price';
-      priceEl.textContent = '₹' + c.price.toLocaleString('en-IN') + ' each';
+         var nameEl = document.createElement('div');
+         nameEl.className = 'cart-item-name';
+         nameEl.textContent = c.name;
 
-      var qtyRow = document.createElement('div');
-      qtyRow.className = 'cart-item-qty';
+         var priceEl = document.createElement('div');
+         priceEl.className = 'cart-item-price';
+         priceEl.textContent = '₹' + c.price.toLocaleString('en-IN') + ' each';
 
-      var minusBtn = document.createElement('button');
-      minusBtn.className = 'cart-qty-btn';
-      minusBtn.textContent = '−';
-      minusBtn.onclick = function() { changeCartQty(c.id, -1); };
+         var qtyRow = document.createElement('div');
+         qtyRow.className = 'cart-item-qty';
 
-      var qtySpan = document.createElement('span');
-      qtySpan.style.cssText = 'font-size:0.88rem;font-weight:bold';
-      qtySpan.textContent = c.qty;
+         var minusBtn = document.createElement('button');
+         minusBtn.className = 'cart-qty-btn';
+         minusBtn.textContent = '−';
+         minusBtn.onclick = (function(cid) { return function() { changeCartQty(cid, -1); }; })(c.id);
 
-      var plusBtn = document.createElement('button');
-      plusBtn.className = 'cart-qty-btn';
-      plusBtn.textContent = '+';
-      plusBtn.onclick = function() { changeCartQty(c.id, 1); };
+         var qtySpan = document.createElement('span');
+         qtySpan.style.cssText = 'font-size:0.88rem;font-weight:bold';
+         qtySpan.textContent = c.qty;
 
-      var subtotalSpan = document.createElement('span');
-      subtotalSpan.style.cssText = 'font-size:0.82rem;color:#888;margin-left:4px';
-      subtotalSpan.textContent = '= ₹' + (c.price * c.qty).toLocaleString('en-IN');
+         var plusBtn = document.createElement('button');
+         plusBtn.className = 'cart-qty-btn';
+         plusBtn.textContent = '+';
+         plusBtn.onclick = (function(cid) { return function() { changeCartQty(cid, 1); }; })(c.id);
 
-      qtyRow.appendChild(minusBtn);
-      qtyRow.appendChild(qtySpan);
-      qtyRow.appendChild(plusBtn);
-      qtyRow.appendChild(subtotalSpan);
+         var subtotalSpan = document.createElement('span');
+         subtotalSpan.style.cssText = 'font-size:0.82rem;color:#888;margin-left:4px';
+         subtotalSpan.textContent = '= ₹' + (c.price * c.qty).toLocaleString('en-IN');
 
-      info.appendChild(nameEl);
-      info.appendChild(priceEl);
-      info.appendChild(qtyRow);
+         qtyRow.appendChild(minusBtn);
+         qtyRow.appendChild(qtySpan);
+         qtyRow.appendChild(plusBtn);
+         qtyRow.appendChild(subtotalSpan);
 
-      // remove button
-      var removeBtn = document.createElement('button');
-      removeBtn.className = 'cart-item-remove';
-      removeBtn.textContent = '✕';
-      removeBtn.title = 'Remove item';
-      removeBtn.onclick = function() { removeFromCart(c.id); };
+         info.appendChild(nameEl);
+         info.appendChild(priceEl);
+         info.appendChild(qtyRow);
 
-      row.appendChild(img);
-      row.appendChild(info);
-      row.appendChild(removeBtn);
-      el.appendChild(row);
+         // remove button
+         var removeBtn = document.createElement('button');
+         removeBtn.className = 'cart-item-remove';
+         removeBtn.textContent = '✕';
+         removeBtn.title = 'Remove item';
+         removeBtn.onclick = (function(cid) { return function() { removeFromCart(cid); }; })(c.id);
+
+         row.appendChild(img);
+         row.appendChild(info);
+         row.appendChild(removeBtn);
+         el.appendChild(row);
+      });
    });
 }
 
@@ -2043,85 +2112,104 @@ function makeOrder() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { showToast('Please login to place an order.'); return; }
 
-   // Generate unique order ID: ORD-YYMMDD-XXXX
-   var now   = new Date();
-   var yy    = String(now.getFullYear()).slice(2);
-   var mm    = String(now.getMonth() + 1).padStart(2, '0');
-   var dd    = String(now.getDate()).padStart(2, '0');
-   var rand  = Math.random().toString(36).substring(2, 6).toUpperCase();
-   var orderId = 'ORD-' + yy + mm + dd + '-' + rand;
+   var now    = new Date();
+   var yy     = String(now.getFullYear()).slice(2);
+   var mm     = String(now.getMonth() + 1).padStart(2, '0');
+   var dd     = String(now.getDate()).padStart(2, '0');
+   var dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-   var total = cart.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
-   var dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric',
-                                                    hour: '2-digit', minute: '2-digit' });
-
-   // Save order to profile
-   var order = {
-      orderId:  orderId,
-      date:     dateStr,
-      items:    cart.map(function(c) { return { id: c.id, name: c.name, price: c.price, qty: c.qty, img: c.img }; }),
-      total:    total,
-      method:   'Pickup',
-      status:   'Pending Pickup'
-   };
-   var key = 'orders_' + user.email;
-   var orders = JSON.parse(localStorage.getItem(key) || '[]');
-   orders.unshift(order);
-   localStorage.setItem(key, JSON.stringify(orders));
-
-   // Also save to shared allOrders store for shop owner dashboard
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
-   allOrders.unshift({
-      orderId:       orderId,
-      date:          dateStr,
-      timestamp:     now.getTime(),
-      customerName:  user.name,
-      customerEmail: user.email,
-      customerPhone: user.phone || '',
-      items:         order.items,
-      total:         total,
-      status:        'Pending Pickup'
-   });
-   localStorage.setItem('allOrders', JSON.stringify(allOrders));
-
-   // Build confirmation UI
-   document.getElementById('orderIdDisplay').textContent   = orderId;
-   document.getElementById('orderDateDisplay').textContent = dateStr;
-   document.getElementById('orderTotalDisplay').textContent = '₹' + total.toLocaleString('en-IN');
-
-   var listEl = document.getElementById('orderItemsList');
-   listEl.innerHTML = '';
-   cart.forEach(function(c) {
-      var row = document.createElement('div');
-      row.className = 'order-item-row';
-      row.innerHTML = '<span class="oi-name">' + c.name + ' x' + c.qty + '</span>' +
-                      '<span class="oi-price">&#8377;' + (c.price * c.qty).toLocaleString('en-IN') + '</span>';
-      listEl.appendChild(row);
-   });
-
-   // Build WhatsApp share link
-   var st  = window._adminSettings || {};
-   var waNum = (st.whatsapp || st.phone || '').replace(/\D/g, '');
-   var msg = '*New Order — MyStore*\n' +
-             'Order ID: *' + orderId + '*\n' +
-             'Date: ' + dateStr + '\n' +
-             'Customer: ' + user.name + '\n\n' +
-             '*Items:*\n' +
-             cart.map(function(c) {
-                return '• ' + c.name + ' x' + c.qty + ' — ₹' + (c.price * c.qty).toLocaleString('en-IN');
-             }).join('\n') +
-             '\n\n*Total: ₹' + total.toLocaleString('en-IN') + '*\n\n' +
-             'Customer will collect & pay at shop.';
-   var waUrl = 'https://wa.me/' + waNum + '?text=' + encodeURIComponent(msg);
-   var waBtn = document.getElementById('orderWhatsappBtn');
-   if (waNum) {
-      waBtn.onclick = function() { window.open(waUrl, '_blank'); };
-      waBtn.style.display = '';
-   } else {
-      waBtn.style.display = 'none';
+   function genId() {
+      return 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
    }
 
-   // Show modal, clear cart
+   // Group cart by store
+   var groups = {};
+   var groupKeys = [];
+   cart.forEach(function(c) {
+      var key = c.storeId || '__platform__';
+      if (!groups[key]) {
+         groups[key] = { storeId: c.storeId || null, storeName: c.storeName || getStoreName(c.storeId), items: [] };
+         groupKeys.push(key);
+      }
+      groups[key].items.push(c);
+   });
+
+   var personalKey  = 'orders_' + user.email;
+   var personalOrds = JSON.parse(localStorage.getItem(personalKey) || '[]');
+   var allOrders    = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var createdOrders = [];
+
+   groupKeys.forEach(function(key) {
+      var grp     = groups[key];
+      var orderId = genId();
+      var total   = grp.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
+      var items   = grp.items.map(function(c) { return { id: c.id, name: c.name, price: c.price, qty: c.qty, img: c.img }; });
+
+      personalOrds.unshift({ orderId: orderId, date: dateStr, items: items, total: total, method: 'Pickup', status: 'Pending Pickup', storeId: grp.storeId, storeName: grp.storeName });
+      allOrders.unshift({
+         orderId: orderId, date: dateStr, timestamp: now.getTime(),
+         customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
+         items: items, total: total, status: 'Pending Pickup',
+         storeId: grp.storeId, storeName: grp.storeName
+      });
+      createdOrders.push({ orderId: orderId, storeName: grp.storeName, storeId: grp.storeId, items: items, total: total, date: dateStr });
+   });
+
+   localStorage.setItem(personalKey, JSON.stringify(personalOrds));
+   localStorage.setItem('allOrders', JSON.stringify(allOrders));
+
+   // Build confirmation modal
+   var grandTotal = createdOrders.reduce(function(s, o) { return s + o.total; }, 0);
+   var isMulti    = createdOrders.length > 1;
+
+   var confirmHtml = createdOrders.map(function(ord) {
+      var itemRows = ord.items.map(function(c) {
+         return '<div class="order-item-row"><span class="oi-name">' + c.name + ' \xd7' + c.qty + '</span><span class="oi-price">\u20b9' + (c.price * c.qty).toLocaleString('en-IN') + '</span></div>';
+      }).join('');
+      return '<div class="order-id-box">' +
+                (isMulti ? '<div class="order-store-label">🏪 ' + ord.storeName + '</div>' : '') +
+                '<div class="order-id-label">Order ID</div>' +
+                '<div class="order-id-value">' + ord.orderId + '</div>' +
+                '<div class="order-id-date">' + ord.date + '</div>' +
+                itemRows +
+                (isMulti ? '<div class="order-subtotal-row">Subtotal: \u20b9' + ord.total.toLocaleString('en-IN') + '</div>' : '') +
+             '</div>';
+   }).join('');
+
+   document.getElementById('ordersConfirmList').innerHTML = confirmHtml;
+   document.getElementById('orderTotalDisplay').textContent = '\u20b9' + grandTotal.toLocaleString('en-IN');
+   document.getElementById('orderSubtitle').textContent = isMulti
+      ? createdOrders.length + ' separate orders created — one per store.'
+      : 'Show this Order ID at the shop to collect your items.';
+
+   // WhatsApp share
+   var st = window._adminSettings || {};
+   var adminWa = (st.whatsapp || st.phone || '').replace(/\D/g, '');
+   var waBtn = document.getElementById('orderWhatsappBtn');
+   if (createdOrders.length === 1) {
+      var ord = createdOrders[0];
+      var waNum = adminWa;
+      var msg = '*New Order \u2014 ' + (ord.storeName || 'MyStore') + '*\n' +
+                'Order ID: *' + ord.orderId + '*\nDate: ' + ord.date + '\nCustomer: ' + user.name + '\n\n*Items:*\n' +
+                ord.items.map(function(c) { return '\u2022 ' + c.name + ' \xd7' + c.qty + ' \u2014 \u20b9' + (c.price * c.qty).toLocaleString('en-IN'); }).join('\n') +
+                '\n\n*Total: \u20b9' + ord.total.toLocaleString('en-IN') + '*\n\nCustomer will collect & pay at shop.';
+      if (waNum) {
+         waBtn.onclick = function() { window.open('https://wa.me/' + waNum + '?text=' + encodeURIComponent(msg), '_blank'); };
+         waBtn.classList.remove('hidden');
+      } else { waBtn.classList.add('hidden'); }
+   } else {
+      if (adminWa) {
+         var lines = createdOrders.map(function(ord) {
+            return '🏪 *' + ord.storeName + '*\n   Order: *' + ord.orderId + '*\n   ' +
+                   ord.items.map(function(c) { return c.name + ' \xd7' + c.qty; }).join(', ') +
+                   '\n   \u20b9' + ord.total.toLocaleString('en-IN');
+         }).join('\n\n');
+         var multiMsg = '*New Orders \u2014 Multiple Stores*\nCustomer: ' + user.name + '\nDate: ' + dateStr + '\n\n' + lines + '\n\n*Grand Total: \u20b9' + grandTotal.toLocaleString('en-IN') + '*';
+         waBtn.onclick = function() { window.open('https://wa.me/' + adminWa + '?text=' + encodeURIComponent(multiMsg), '_blank'); };
+         waBtn.classList.remove('hidden');
+      } else { waBtn.classList.add('hidden'); }
+   }
+
    cart = [];
    updateCartUI();
    closeCart();
@@ -2245,10 +2333,7 @@ function showByCategory(groupName) {
    grid.innerHTML = '';
    Object.entries(products).forEach(([catKey, catData]) => {
       if (catData.category === groupName) {
-         catData.items.forEach(item => renderCard({
-            ...item,
-            type: catData.type
-         }, catKey, grid));
+         renderItemsByStore(catData.items, catKey, catData.type, grid);
       }
    });
    window.scrollTo({
@@ -2263,6 +2348,8 @@ function catClick(cat) {
    if (el) el.classList.add('active');
    if (cat === 'all') {
       showAllProducts();
+   } else if (cat === 'stores') {
+      showStoresList();
    } else if (cat === 'contact') {
       showContactInfo();
    } else if (MAIN_CATS[cat]) {
@@ -2310,6 +2397,120 @@ function showContactInfo() {
       '</div>';
 }
 
+// ── STORES ──
+function showStoresList() {
+   document.getElementById('heroSection').classList.add('hidden');
+   document.getElementById('productsSection').classList.remove('hidden');
+   document.getElementById('productTitle').textContent = '🏪 All Stores';
+
+   var grid = document.getElementById('productsGrid');
+   grid.style.display = 'block';
+   grid.innerHTML = '';
+
+   var users      = getUsers();
+   var allOrders  = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var settings   = getAdminSettings();
+   var storeOwners = users.filter(function(u) { return u.role === 'storeowner' && !u.blocked; });
+
+   // Collect platform items (no storeId)
+   var platformItems = [];
+   Object.entries(products).forEach(function([catKey, cat]) {
+      cat.items.forEach(function(item) { if (!item.storeId) platformItems.push(Object.assign({}, item, { catKey: catKey })); });
+   });
+
+   var cards = '';
+
+   // Platform store card
+   if (platformItems.length > 0) {
+      var platformOrders = allOrders.filter(function(o) { return !o.storeId; }).length;
+      cards += buildStoreCard(null, settings.storeName || 'MyStore', '🏪 Official Platform Store', platformItems.length, platformOrders, platformItems);
+   }
+
+   // Store-owner cards
+   storeOwners.forEach(function(u) {
+      var storeItems = [];
+      Object.entries(products).forEach(function([catKey, cat]) {
+         cat.items.forEach(function(item) {
+            if (item.storeId === u.email) storeItems.push(Object.assign({}, item, { catKey: catKey }));
+         });
+      });
+      var storeOrders = allOrders.filter(function(o) { return o.storeId === u.email; }).length;
+      cards += buildStoreCard(u.email, u.storeName || u.name, u.name, storeItems.length, storeOrders, storeItems);
+   });
+
+   if (!cards) {
+      grid.innerHTML = '<p style="color:#888;text-align:center;padding:60px;font-size:1rem">No stores available yet. Store owners need to add products first.</p>';
+   } else {
+      var wrapper = document.createElement('div');
+      wrapper.className = 'stores-grid';
+      wrapper.innerHTML = cards;
+      grid.appendChild(wrapper);
+   }
+
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function buildStoreCard(storeId, storeName, ownerLabel, productCount, orderCount, items) {
+   var storeIdJs = storeId ? "'" + storeId.replace(/'/g, "\\'") + "'" : 'null';
+   var storeNameJs = storeName.replace(/'/g, "\\'");
+
+   // Up to 4 preview images
+   var previewImgs = items.slice(0, 4).map(function(item) {
+      return '<img src="' + item.img + '" alt="' + item.name.replace(/"/g, '') + '" onerror="this.src=\'https://placehold.co/100x100?text=Item\'"/>';
+   }).join('');
+   var previewClass = 'store-card-preview store-card-preview-' + Math.min(items.length, 4);
+
+   return '<div class="store-card" onclick="showStoreProducts(' + storeIdJs + ',\'' + storeNameJs + '\')">' +
+             '<div class="' + previewClass + '">' + previewImgs + '</div>' +
+             '<div class="store-card-body">' +
+                '<div class="store-card-name">' + storeName + '</div>' +
+                '<div class="store-card-meta">' + ownerLabel + '</div>' +
+                '<div class="store-card-stats">' +
+                   '<span>🛍️ ' + productCount + ' product' + (productCount !== 1 ? 's' : '') + '</span>' +
+                   '<span>📋 ' + orderCount + ' order' + (orderCount !== 1 ? 's' : '') + '</span>' +
+                '</div>' +
+                '<button class="store-card-btn">Browse Store →</button>' +
+             '</div>' +
+          '</div>';
+}
+
+function showStoreProducts(storeId, storeName) {
+   document.getElementById('heroSection').classList.add('hidden');
+   document.getElementById('productsSection').classList.remove('hidden');
+   document.getElementById('productTitle').textContent = '🏪 ' + storeName;
+
+   var grid = document.getElementById('productsGrid');
+   grid.style.display = '';
+   grid.innerHTML = '';
+
+   var hasItems = false;
+   // Group by category so the store view is organised
+   Object.entries(products).forEach(function([catKey, catData]) {
+      var storeItems = catData.items.filter(function(item) {
+         var itemStoreId = item.storeId || null;
+         return storeId === null ? itemStoreId === null : itemStoreId === storeId;
+      });
+      if (storeItems.length === 0) return;
+
+      // Category section header inside the store
+      var catHeader = document.createElement('div');
+      catHeader.className = 'section-divider';
+      catHeader.textContent = getCatIcon(catKey) + ' ' + catData.title;
+      grid.appendChild(catHeader);
+
+      storeItems.forEach(function(item) {
+         renderCard(Object.assign({}, item, { type: catData.type }), catKey, grid);
+      });
+      hasItems = true;
+   });
+
+   if (!hasItems) {
+      grid.innerHTML = '<p style="color:#888;text-align:center;padding:60px">No products in this store yet.</p>';
+   }
+
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 // Show the two-panel layout: sidebar of sub-categories + products on the right
 function showMainCategory(mainCatKey) {
    var mc = MAIN_CATS[mainCatKey];
@@ -2350,9 +2551,7 @@ function buildCompactProducts(catKey) {
    var catData = products[catKey];
    if (!catData) return '<p style="color:#999;padding:1rem">No products found.</p>';
    var tempContainer = document.createElement('div');
-   for (var i = 0; i < catData.items.length; i++) {
-      renderCard(Object.assign({}, catData.items[i], { type: catData.type }), catKey, tempContainer);
-   }
+   renderItemsByStore(catData.items, catKey, catData.type, tempContainer);
    return '<div class="subcat-panel-title">' + catData.title + '</div>' +
           '<div class="compact-grid">' + tempContainer.innerHTML + '</div>';
 }
@@ -2394,7 +2593,7 @@ function showProductsByMainCat(mainCatKey) {
    mc.keys.forEach(k => {
       const catData = products[k];
       if (!catData) return;
-      catData.items.forEach(item => renderCard({ ...item, type: catData.type }, k, grid));
+      renderItemsByStore(catData.items, k, catData.type, grid);
    });
    const backBtn = document.querySelector('.btn-back');
    if (backBtn) backBtn.onclick = () => showMainCategory(mainCatKey);
@@ -2514,6 +2713,12 @@ function isBlocked(email) {
    const users = getUsers();
    const u = users.find(function(x) { return x.email.toLowerCase() === email.toLowerCase(); });
    return u && u.blocked === true;
+}
+
+function getStoreName(storeId) {
+   if (!storeId) return (getAdminSettings().storeName) || 'MyStore';
+   var u = getUsers().find(function(x) { return x.email === storeId; });
+   return (u && (u.storeName || u.name)) || storeId;
 }
 
 // ── ADMIN: USER MANAGEMENT ──
@@ -2702,6 +2907,7 @@ function showUserDetail(email) {
                       '<div>' +
                          '<div class="udm-order-id">' + o.orderId + '</div>' +
                          '<div class="udm-order-date">' + o.date + '</div>' +
+                         (o.storeName ? '<div class="udm-order-store">🏪 ' + o.storeName + '</div>' : '') +
                       '</div>' +
                       '<div style="text-align:right">' +
                          '<span class="order-badge ' + cls + '">' + o.status + '</span>' +
@@ -2890,6 +3096,7 @@ function checkShopOwnerLogin() {
    if (storeBtn && isAdmin(user.email)) storeBtn.classList.remove('hidden');
    loadSiteSettings();
    renderShopDashboard();
+   switchShopTab('orders');
    // Auto-refresh if admin enabled it
    var s = getAdminSettings();
    if (s.autoRefreshOrders) {
@@ -2901,6 +3108,12 @@ function renderShopDashboard(filterStatus) {
    var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
    var list = document.getElementById('shopOrderList');
    if (!list) return;
+
+   // Filter to store-owner's own orders if not admin
+   var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (loggedUser && !isAdmin(loggedUser.email)) {
+      allOrders = allOrders.filter(function(o) { return o.storeId === loggedUser.email; });
+   }
 
    // Update stats
    var pending   = allOrders.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
@@ -2985,6 +3198,13 @@ function updateOrderStatus(orderId, newStatus) {
          personalOrder.status = newStatus;
          localStorage.setItem(personalKey, JSON.stringify(personalOrders));
       }
+      // If called from admin user detail modal, refresh it
+      var udmModal = document.getElementById('userDetailModal');
+      if (udmModal && !udmModal.classList.contains('hidden')) {
+         var emailVal = document.getElementById('udm-email-val');
+         if (emailVal) showUserDetail(emailVal.value);
+         return;
+      }
    }
    var activeTab = document.querySelector('.shop-tab.active');
    var filterStatus = activeTab ? activeTab.dataset.filter : null;
@@ -2994,7 +3214,12 @@ function updateOrderStatus(orderId, newStatus) {
 function lookupOrder() {
    var val = document.getElementById('shopSearchInput').value.trim().toUpperCase();
    if (!val) { renderShopDashboard(); return; }
+   var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   // Restrict to this store owner's orders (admins see all)
+   if (loggedUser && !isAdmin(loggedUser.email)) {
+      allOrders = allOrders.filter(function(o) { return o.storeId === loggedUser.email; });
+   }
    var filtered = allOrders.filter(function(o) { return o.orderId.toUpperCase().includes(val); });
    document.querySelectorAll('.shop-tab').forEach(function(t) { t.classList.remove('active'); });
    var list = document.getElementById('shopOrderList');
@@ -3008,6 +3233,105 @@ function lookupOrder() {
    localStorage.setItem('allOrders', JSON.stringify(filtered));
    renderShopDashboard();
    localStorage.setItem('allOrders', backup);
+}
+
+// ── SHOP OWNER: PRODUCT MANAGEMENT ──
+function getMyProducts(email) { return JSON.parse(localStorage.getItem('myProducts_' + email) || '[]'); }
+function saveMyProducts(email, arr) { localStorage.setItem('myProducts_' + email, JSON.stringify(arr)); }
+
+function renderStoreOwnerProducts() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) return;
+   var prods = getMyProducts(user.email);
+   var container = document.getElementById('shopProductList');
+   if (!container) return;
+   if (!prods.length) {
+      container.innerHTML = '<p class="shop-empty">No products yet. Click \u2795 Add Product to get started.</p>';
+      return;
+   }
+   container.innerHTML = prods.map(function(p, idx) {
+      return '<div class="shop-prod-card">' +
+                '<img src="' + p.img + '" onerror="this.src=\'https://placehold.co/60x60?text=Item\'"/>' +
+                '<div class="shop-prod-info">' +
+                   '<div class="shop-prod-name">' + p.name + '</div>' +
+                   '<div class="shop-prod-meta">\u20b9' + (p.price || 0).toLocaleString('en-IN') + ' \xb7 ' + (p.desc || '') + '</div>' +
+                '</div>' +
+                '<div class="shop-prod-actions">' +
+                   '<button onclick="openStoreProductModal(' + idx + ')">\u270f\ufe0f</button>' +
+                   '<button onclick="deleteStoreProduct(' + idx + ')">\ud83d\uddd1</button>' +
+                '</div>' +
+             '</div>';
+   }).join('');
+}
+
+var _editProdIdx = -1;
+
+function openStoreProductModal(idx) {
+   _editProdIdx = idx;
+   var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var prods = getMyProducts(user.email);
+   var p = idx >= 0 ? prods[idx] : null;
+   document.getElementById('sp-modal-title').textContent = p ? 'Edit Product' : 'Add Product';
+   document.getElementById('sp-name').value  = p ? p.name  : '';
+   document.getElementById('sp-price').value = p ? p.price : '';
+   document.getElementById('sp-desc').value  = p ? p.desc  : '';
+   document.getElementById('sp-img').value   = p ? p.img   : '';
+   document.getElementById('sp-badge').value = p ? (p.badge || '') : '';
+   document.getElementById('sp-catkey').value = p ? p.catKey : Object.keys(products)[0];
+   previewStoreProductImg();
+   document.getElementById('shopProductModal').classList.remove('hidden');
+}
+
+function previewStoreProductImg() {
+   var url = document.getElementById('sp-img').value.trim();
+   var prev = document.getElementById('sp-img-preview');
+   if (prev) prev.src = url || 'https://placehold.co/200x120?text=Preview';
+}
+
+function closeStoreProductModal() {
+   document.getElementById('shopProductModal').classList.add('hidden');
+   _editProdIdx = -1;
+}
+
+function saveStoreProduct() {
+   var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var name  = document.getElementById('sp-name').value.trim();
+   var price = parseFloat(document.getElementById('sp-price').value) || 0;
+   var desc  = document.getElementById('sp-desc').value.trim();
+   var img   = document.getElementById('sp-img').value.trim() || 'https://placehold.co/400x300?text=Product';
+   var badge = document.getElementById('sp-badge').value.trim() || 'New';
+   var catKey = document.getElementById('sp-catkey').value;
+   if (!name) { alert('Product name is required.'); return; }
+   var prods = getMyProducts(user.email);
+   var entry = { id: 'sp_' + user.email.split('@')[0] + '_' + Date.now(), name: name, price: price, desc: desc, img: img, badge: badge, catKey: catKey };
+   if (_editProdIdx >= 0) {
+      entry.id = prods[_editProdIdx].id; // preserve existing ID
+      prods[_editProdIdx] = entry;
+   } else {
+      prods.push(entry);
+   }
+   saveMyProducts(user.email, prods);
+   closeStoreProductModal();
+   renderStoreOwnerProducts();
+}
+
+function deleteStoreProduct(idx) {
+   if (!confirm('Delete this product?')) return;
+   var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var prods = getMyProducts(user.email);
+   prods.splice(idx, 1);
+   saveMyProducts(user.email, prods);
+   renderStoreOwnerProducts();
+}
+
+function switchShopTab(tab) {
+   ['orders', 'products'].forEach(function(t) {
+      var panel = document.getElementById('shop-panel-' + t);
+      var btn   = document.getElementById('shop-tab-' + t);
+      if (panel) panel.classList.toggle('hidden', t !== tab);
+      if (btn)   btn.classList.toggle('active',   t === tab);
+   });
+   if (tab === 'products') renderStoreOwnerProducts();
 }
 
 function logout() {
@@ -3041,6 +3365,89 @@ if (document.getElementById('heroGreeting')) {
    if (_cat) { localStorage.removeItem('_openCat'); setTimeout(() => showProducts(_cat), 50); }
 }
 
+// ── ADMIN STORES TAB ──
+function renderAdminStores() {
+   var container = document.getElementById('adminStoresContent');
+   if (!container) return;
+
+   var users     = getUsers();
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var settings  = getAdminSettings();
+   var storeOwners = users.filter(function(u) { return u.role === 'storeowner'; });
+
+   // Platform products
+   var platformItems = [];
+   Object.entries(products).forEach(function([catKey, cat]) {
+      cat.items.forEach(function(item) { if (!item.storeId) platformItems.push(item); });
+   });
+   var platformOrders = allOrders.filter(function(o) { return !o.storeId; });
+   var platformRevenue = platformOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+
+   var html = '<div class="admin-stores-grid">';
+
+   // Platform store card
+   html += buildAdminStoreCard(null, settings.storeName || 'MyStore', '(Platform — admin managed)', platformItems.length, platformOrders.length, platformRevenue, false);
+
+   // Store-owner cards
+   storeOwners.forEach(function(u) {
+      var storeItems = [];
+      Object.entries(products).forEach(function([catKey, cat]) {
+         cat.items.forEach(function(item) { if (item.storeId === u.email) storeItems.push(item); });
+      });
+      var storeOrders  = allOrders.filter(function(o) { return o.storeId === u.email; });
+      var storeRevenue = storeOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+      html += buildAdminStoreCard(u.email, u.storeName || u.name, u.email, storeItems.length, storeOrders.length, storeRevenue, u.blocked);
+   });
+
+   html += '</div>';
+
+   if (storeOwners.length === 0 && platformItems.length === 0) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No stores or products yet.</p>';
+   } else {
+      container.innerHTML = html;
+   }
+}
+
+function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, orderCount, revenue, isBlocked) {
+   var storeIdJs   = storeId ? "'" + storeId.replace(/'/g, "\\'") + "'" : 'null';
+   var storeNameJs = storeName.replace(/'/g, "\\'");
+
+   // Preview images
+   var previewItems = [];
+   Object.entries(products).forEach(function([catKey, cat]) {
+      cat.items.forEach(function(item) {
+         var match = storeId === null ? !item.storeId : item.storeId === storeId;
+         if (match && previewItems.length < 4) previewItems.push(item);
+      });
+   });
+   var previewHtml = previewItems.map(function(item) {
+      return '<img src="' + item.img + '" alt="" onerror="this.src=\'https://placehold.co/80x80?text=Item\'"/>';
+   }).join('');
+   var previewClass = 'store-card-preview store-card-preview-' + Math.min(previewItems.length, 4);
+
+   var blockedBadge = isBlocked ? '<span class="um-badge um-badge-blocked" style="margin-left:8px">Blocked</span>' : '';
+
+   return '<div class="admin-store-card">' +
+             '<div class="' + previewClass + '">' + previewHtml + '</div>' +
+             '<div class="admin-store-card-body">' +
+                '<div class="admin-store-card-name">' + storeName + blockedBadge + '</div>' +
+                '<div class="admin-store-card-owner">' + ownerLabel + '</div>' +
+                '<div class="admin-store-card-stats">' +
+                   '<div class="admin-store-stat"><div class="admin-store-stat-num">' + productCount + '</div><div class="admin-store-stat-label">Products</div></div>' +
+                   '<div class="admin-store-stat"><div class="admin-store-stat-num">' + orderCount + '</div><div class="admin-store-stat-label">Orders</div></div>' +
+                   '<div class="admin-store-stat"><div class="admin-store-stat-num">₹' + revenue.toLocaleString('en-IN') + '</div><div class="admin-store-stat-label">Revenue</div></div>' +
+                '</div>' +
+                '<button class="admin-store-view-btn" onclick="switchAdminTab(\'products\');filterAdminProductsByStore(' + storeIdJs + ',\'' + storeNameJs + '\')">🛍️ View Products</button>' +
+             '</div>' +
+          '</div>';
+}
+
+function filterAdminProductsByStore(storeId, storeName) {
+   var titleEl = document.querySelector('#tab-products .admin-page-title h1');
+   if (titleEl) titleEl.textContent = '⚙️ ' + storeName + ' — Products';
+   renderAdminGrid(storeId);
+}
+
 // ── ADMIN PANEL ──
 let _editId = null;
 let _addMode = false;
@@ -3057,20 +3464,44 @@ function initAdmin() {
    if (txtPicker) txtPicker.addEventListener('input', () => { document.getElementById('set-announcementTextColorHex').value = txtPicker.value; });
 }
 
-function renderAdminGrid() {
+function renderAdminGrid(filterStoreId) {
    var ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
    var container = document.getElementById('adminContent');
    container.innerHTML = '';
+
+   // Restore title when no filter
+   if (filterStoreId === undefined) {
+      var titleEl = document.querySelector('#tab-products .admin-page-title h1');
+      if (titleEl) titleEl.textContent = '⚙️ Product Manager';
+   }
+
+   // Store filter banner
+   if (filterStoreId !== undefined) {
+      var storeLabelName = filterStoreId === null ? (getAdminSettings().storeName || 'MyStore') : getStoreName(filterStoreId);
+      var banner = document.createElement('div');
+      banner.className = 'admin-store-filter-banner';
+      banner.innerHTML = '🏪 Showing products for: <strong>' + storeLabelName + '</strong> &nbsp;' +
+                         '<button onclick="renderAdminGrid()">✕ Clear Filter</button>';
+      container.appendChild(banner);
+   }
 
    // Render grouped by main category
    Object.entries(MAIN_CATS).forEach(function(entry) {
       var mcKey = entry[0];
       var mc    = entry[1];
 
-      // Count total items in this main category
+      // When filtering, count only matching items
       var totalItems = mc.keys.reduce(function(sum, k) {
-         return sum + (products[k] ? products[k].items.length : 0);
+         var cat = products[k];
+         if (!cat) return sum;
+         if (filterStoreId !== undefined) {
+            return sum + cat.items.filter(function(item) {
+               return filterStoreId === null ? !item.storeId : item.storeId === filterStoreId;
+            }).length;
+         }
+         return sum + cat.items.length;
       }, 0);
+      if (filterStoreId !== undefined && totalItems === 0) return; // skip empty groups when filtering
 
       var group = document.createElement('div');
       group.className = 'admin-maincat-group';
@@ -3105,6 +3536,11 @@ function renderAdminGrid() {
          grid.className = 'admin-product-grid';
 
          catData.items.forEach(function(item) {
+            // Skip items that don't match store filter
+            if (filterStoreId !== undefined) {
+               var itemStore = item.storeId || null;
+               if (filterStoreId === null ? itemStore !== null : itemStore !== filterStoreId) return;
+            }
             var isCustom = item.id.startsWith('custom_');
             var o = ov[item.id] || {};
             var displayImg   = o.img  || item.img;
@@ -3137,12 +3573,26 @@ function renderAdminGrid() {
             grid.appendChild(card);
          });
 
+         // Skip empty sections when filtering
+         if (filterStoreId !== undefined && grid.children.length === 0) return;
          section.appendChild(grid);
          group.appendChild(section);
       });
 
+      if (filterStoreId !== undefined && group.querySelectorAll('.admin-product-card').length === 0) return;
       container.appendChild(group);
    });
+}
+
+function populateStoreOwnerDropdown(currentStoreId) {
+   var sel = document.getElementById('modalStoreOwner');
+   if (!sel) return;
+   var owners = getUsers().filter(function(u) { return u.role === 'storeowner' && !isAdmin(u.email); });
+   sel.innerHTML = '<option value="">Platform Store (no specific owner)</option>' +
+      owners.map(function(u) {
+         var sn = u.storeName || u.name;
+         return '<option value="' + u.email + '"' + (currentStoreId === u.email ? ' selected' : '') + '>' + sn + ' (' + u.email + ')</option>';
+      }).join('');
 }
 
 function openAddModal(catKey) {
@@ -3180,6 +3630,7 @@ function openAddModal(catKey) {
    document.getElementById('badgeRow').classList.remove('hidden');
    document.getElementById('adminBtnSave').textContent = '➕ Add Product';
    document.getElementById('adminBtnReset').classList.add('hidden');
+   populateStoreOwnerDropdown('');
    document.getElementById('editModal').classList.remove('hidden');
 }
 
@@ -3202,6 +3653,7 @@ function openEditModal(itemId, catKey) {
    document.getElementById('badgeRow').classList.remove('hidden');
    document.getElementById('adminBtnSave').textContent  = '💾 Save Changes';
    document.getElementById('adminBtnReset').classList.remove('hidden');
+   populateStoreOwnerDropdown(o.storeId || item.storeId || '');
    document.getElementById('editModal').classList.remove('hidden');
 }
 
@@ -3214,12 +3666,17 @@ function saveProductEdit() {
    if (_addMode) { saveNewProduct(); return; }
    if (!_editId) return;
    const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   var sel = document.getElementById('modalStoreOwner');
+   var storeId   = sel ? sel.value : '';
+   var storeName = storeId ? getStoreName(storeId) : '';
    ov[_editId] = {
-      img:   document.getElementById('modalImgUrl').value.trim(),
-      name:  document.getElementById('modalName').value.trim(),
-      price: parseFloat(document.getElementById('modalPrice').value),
-      desc:  document.getElementById('modalDesc').value.trim(),
-      badge: document.getElementById('modalBadge').value.trim()
+      img:       document.getElementById('modalImgUrl').value.trim(),
+      name:      document.getElementById('modalName').value.trim(),
+      price:     parseFloat(document.getElementById('modalPrice').value),
+      desc:      document.getElementById('modalDesc').value.trim(),
+      badge:     document.getElementById('modalBadge').value.trim(),
+      storeId:   storeId,
+      storeName: storeName
    };
    localStorage.setItem('adminProductOverrides', JSON.stringify(ov));
    closeEditModal();
@@ -3231,14 +3688,19 @@ function saveNewProduct() {
    const name  = document.getElementById('modalName').value.trim();
    const price = parseFloat(document.getElementById('modalPrice').value);
    if (!name || isNaN(price)) { alert('Name and Price are required.'); return; }
+   var selOwner  = document.getElementById('modalStoreOwner');
+   var storeId   = selOwner ? selOwner.value : '';
+   var storeName = storeId ? getStoreName(storeId) : '';
    const newItem = {
-      id:     'custom_' + Date.now(),
-      catKey: document.getElementById('modalCatKey').value,
+      id:        'custom_' + Date.now(),
+      catKey:    document.getElementById('modalCatKey').value,
       name,
       price,
-      desc:  document.getElementById('modalDesc').value.trim(),
-      img:   document.getElementById('modalImgUrl').value.trim() || 'https://placehold.co/400x300?text=No+Image',
-      badge: document.getElementById('modalBadge').value.trim() || 'New'
+      desc:      document.getElementById('modalDesc').value.trim(),
+      img:       document.getElementById('modalImgUrl').value.trim() || 'https://placehold.co/400x300?text=No+Image',
+      badge:     document.getElementById('modalBadge').value.trim() || 'New',
+      storeId:   storeId || null,
+      storeName: storeName || null
    };
    const items = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
    items.push(newItem);
@@ -3287,7 +3749,7 @@ function showAdminToast(msg) {
 
 // ── ADMIN TABS ──
 function switchAdminTab(tab) {
-   ['products', 'settings', 'users'].forEach(function(t) {
+   ['products', 'stores', 'settings', 'users'].forEach(function(t) {
       var el  = document.getElementById('tab-' + t);
       var btn = document.getElementById('tab-' + t + '-btn');
       if (el)  el.classList.toggle('hidden', t !== tab);
@@ -3295,6 +3757,7 @@ function switchAdminTab(tab) {
    });
    if (tab === 'settings') loadSettingsForm();
    if (tab === 'users')    renderUserList('all');
+   if (tab === 'stores')   renderAdminStores();
 }
 
 // ── ADMIN SETTINGS ──
@@ -3500,6 +3963,13 @@ function initProfile() {
    document.getElementById('prof-email').value  = user.email  || '';
    document.getElementById('prof-gender').value = user.gender || '';
    document.getElementById('prof-phone').value  = user.phone  || '';
+   var storeNameRow = document.getElementById('prof-storename-row');
+   if (storeNameRow) {
+      if (user.role === 'storeowner' || isAdmin(user.email)) {
+         storeNameRow.classList.remove('hidden');
+         document.getElementById('prof-storename').value = user.storeName || '';
+      }
+   }
    const params = new URLSearchParams(window.location.search);
    switchProfileTab(params.get('tab') || 'info');
 }
@@ -3521,9 +3991,17 @@ function saveProfileInfo() {
    user.name   = document.getElementById('prof-name').value.trim();
    user.gender = document.getElementById('prof-gender').value;
    user.phone  = document.getElementById('prof-phone').value.trim();
+   var storeNameEl = document.getElementById('prof-storename');
+   if (storeNameEl) { user.storeName = storeNameEl.value.trim(); }
    const users = getUsers();
    const idx = users.findIndex(u => u.email === user.email);
-   if (idx !== -1) { users[idx].name = user.name; users[idx].gender = user.gender; users[idx].phone = user.phone; saveUsers(users); }
+   if (idx !== -1) {
+      users[idx].name = user.name;
+      users[idx].gender = user.gender;
+      users[idx].phone = user.phone;
+      if (storeNameEl) users[idx].storeName = user.storeName;
+      saveUsers(users);
+   }
    sessionStorage.setItem('loggedInUser', JSON.stringify(user));
    showProfileToast('✅ Profile updated!');
 }
@@ -3650,6 +4128,7 @@ function renderOrders() {
             <div><span class="order-id">${o.orderId}</span> <span class="order-date">${o.date}</span></div>
             <span class="order-badge ${cls}">${liveStatus}</span>
          </div>
+         ${o.storeName ? `<div class="order-store-tag">🏪 ${o.storeName}</div>` : ''}
          <div class="order-items">
             ${o.items.map(i => `<div class="order-item"><span>${i.name} × ${i.qty}</span><span>₹${(i.price * i.qty).toLocaleString('en-IN')}</span></div>`).join('')}
          </div>

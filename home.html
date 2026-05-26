@@ -98,6 +98,10 @@
                <div class="cat-icon">🎮</div>
                <span>Entertainment</span>
             </div>
+            <div class="cat-item" id="cat-stores" onclick="catClick('stores')">
+               <div class="cat-icon">🏪</div>
+               <span>Stores</span>
+            </div>
             <div class="cat-item" id="cat-contact" onclick="catClick('contact')">
                <div class="cat-icon">📞</div>
                <span>Contact</span>
@@ -259,20 +263,15 @@
             <div class="order-modal-top">
                <div class="order-success-icon">✅</div>
                <h2>Order Placed!</h2>
-               <p class="order-subtitle">Show this Order ID at the shop to collect your items.</p>
+               <p class="order-subtitle" id="orderSubtitle">Show this Order ID at the shop to collect your items.</p>
             </div>
-            <div class="order-id-box">
-               <div class="order-id-label">Order ID</div>
-               <div class="order-id-value" id="orderIdDisplay"></div>
-               <div class="order-id-date" id="orderDateDisplay"></div>
-            </div>
-            <div class="order-items-list" id="orderItemsList"></div>
+            <div id="ordersConfirmList"></div>
             <div class="order-total-row">
-               <span>Total Amount</span>
+               <span>Grand Total</span>
                <span id="orderTotalDisplay"></span>
             </div>
             <div class="order-actions">
-               <button class="order-btn-whatsapp" id="orderWhatsappBtn">📲 Share on WhatsApp</button>
+               <button class="order-btn-whatsapp hidden" id="orderWhatsappBtn">📲 Share on WhatsApp</button>
                <button class="order-btn-view" onclick="window.location='profile.html?tab=orders'">📦 View My Orders</button>
                <button class="order-btn-continue" onclick="closeOrderModal()">🛍️ Continue Shopping</button>
             </div>

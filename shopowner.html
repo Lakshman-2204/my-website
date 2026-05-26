@@ -21,8 +21,17 @@
       </div>
    </div>
 
-   <!-- INTERNAL SHOP ANNOUNCEMENT (admin-controlled, not visible to customers) -->
+   <!-- Internal shop announcement (admin-controlled) -->
    <div class="announcement-bar hidden" id="shopAnnouncementBar"></div>
+
+   <!-- TOP-LEVEL TABS: Orders / My Products -->
+   <div class="shop-main-tabs">
+      <button class="shop-main-tab active" id="shop-tab-orders"   onclick="switchShopTab('orders')">📋 Orders</button>
+      <button class="shop-main-tab"        id="shop-tab-products" onclick="switchShopTab('products')">🛍️ My Products <button class="shop-add-prod-btn" onclick="event.stopPropagation();openStoreProductModal(-1)">➕ Add</button></button>
+   </div>
+
+   <!-- ORDERS PANEL -->
+   <div id="shop-panel-orders">
 
    <!-- STATS BAR -->
    <div class="shop-stats-bar">
@@ -57,6 +66,54 @@
    <!-- ORDER LIST -->
    <div class="shop-order-list" id="shopOrderList">
       <div class="shop-empty">No orders yet. Waiting for customers to place orders.</div>
+   </div>
+
+   </div><!-- /shop-panel-orders -->
+
+   <!-- PRODUCTS PANEL -->
+   <div id="shop-panel-products" class="hidden">
+      <div class="shop-prods-header">
+         <h3>My Products</h3>
+         <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Product</button>
+      </div>
+      <div id="shopProductList" class="shop-product-list"></div>
+   </div>
+
+   <!-- ADD/EDIT PRODUCT MODAL -->
+   <div class="sp-modal-overlay hidden" id="shopProductModal" onclick="if(event.target===this)closeStoreProductModal()">
+      <div class="sp-modal">
+         <div class="sp-modal-header">
+            <h3 id="sp-modal-title">Add Product</h3>
+            <button onclick="closeStoreProductModal()">✕</button>
+         </div>
+         <div class="sp-modal-body">
+            <img id="sp-img-preview" src="https://placehold.co/200x120?text=Preview" style="width:100%;border-radius:8px;margin-bottom:12px;object-fit:cover;max-height:140px"/>
+            <div class="sp-field"><label>Image URL</label><input type="text" id="sp-img" placeholder="https://..." oninput="previewStoreProductImg()"/></div>
+            <div class="sp-field"><label>Product Name</label><input type="text" id="sp-name" placeholder="Product name"/></div>
+            <div class="sp-field"><label>Price (₹)</label><input type="number" id="sp-price" placeholder="0" min="0"/></div>
+            <div class="sp-field"><label>Description</label><input type="text" id="sp-desc" placeholder="Short description"/></div>
+            <div class="sp-field"><label>Badge</label><input type="text" id="sp-badge" placeholder="New, Hot, Sale..."/></div>
+            <div class="sp-field">
+               <label>Category</label>
+               <select id="sp-catkey">
+                  <option value="groceries">Daily Needs — Groceries</option>
+                  <option value="vegetables">Daily Needs — Vegetables</option>
+                  <option value="dairy">Daily Needs — Dairy</option>
+                  <option value="flowers">Flowers</option>
+                  <option value="sofa">Home — Sofas</option>
+                  <option value="clothing">Clothing</option>
+                  <option value="electronics">Electronics</option>
+                  <option value="medicines">Health</option>
+                  <option value="utensils">Kitchen</option>
+                  <option value="stationery">Stationery</option>
+               </select>
+            </div>
+         </div>
+         <div class="sp-modal-footer">
+            <button class="sp-btn-save" onclick="saveStoreProduct()">💾 Save Product</button>
+            <button class="sp-btn-cancel" onclick="closeStoreProductModal()">Cancel</button>
+         </div>
+      </div>
    </div>
 
    <script src="script.js"></script>

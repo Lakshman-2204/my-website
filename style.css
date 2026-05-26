@@ -4365,3 +4365,51 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 }
 .sp-store-add-btn:hover { background: #2d2d70; }
 
+/* ── Store List Panel (Stores page: right-panel header + category tabs) ── */
+.store-list-panel-header {
+   padding: 14px 18px 10px;
+   border-bottom: 2px solid #e8eaf6;
+   margin-bottom: 4px;
+}
+.store-list-panel-name {
+   font-size: 1.05rem;
+   font-weight: 700;
+   color: #1a1a2e;
+}
+.store-subcat-tabs {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+   padding: 12px 16px;
+   border-bottom: 1px solid #f0f0f0;
+   background: #fafafa;
+}
+.store-subcat-tab {
+   background: #fff;
+   border: 1.5px solid #ddd;
+   border-radius: 20px;
+   padding: 6px 14px;
+   font-size: 0.82rem;
+   font-weight: 600;
+   color: #444;
+   cursor: pointer;
+   transition: all 0.15s;
+   white-space: nowrap;
+}
+.store-subcat-tab:hover {
+   border-color: #ff6f00;
+   color: #ff6f00;
+   background: #fff8f0;
+}
+.store-subcat-tab.active {
+   background: #1a1a2e;
+   border-color: #1a1a2e;
+   color: #fff;
+}
+.store-tab-count {
+   font-size: 0.75rem;
+   font-weight: 400;
+   opacity: 0.75;
+   margin-left: 2px;
+}
+

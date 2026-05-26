@@ -26,10 +26,11 @@
          <div class="header-middle">
             <div class="search-box-wide">
                <span class="search-icon-sym">🔍</span>
-               <input type="search" id="searchInput" placeholder="Search for Products, Brands and More"
+               <input type="search" id="searchInput" placeholder="Search products, brands..."
                   oninput="liveSearch()" onkeydown="if(event.key==='Enter') doSearch()" autocomplete="off" name="store-search"/>
                <div class="search-dropdown" id="searchDropdown"></div>
             </div>
+            <button class="header-stores-btn" onclick="catClick('stores')">🏪 Stores</button>
             <div class="header-actions">
                <div class="header-user" onclick="toggleUserMenu(event)">
                   👤 <span id="welcomeUser">Account</span> ▾
@@ -97,10 +98,6 @@
             <div class="cat-item" id="cat-entertainment" onclick="catClick('entertainment')">
                <div class="cat-icon">🎮</div>
                <span>Entertainment</span>
-            </div>
-            <div class="cat-item" id="cat-stores" onclick="catClick('stores')">
-               <div class="cat-icon">🏪</div>
-               <span>Stores</span>
             </div>
             <div class="cat-item" id="cat-contact" onclick="catClick('contact')">
                <div class="cat-icon">📞</div>

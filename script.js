@@ -1637,6 +1637,76 @@ Object.entries(products).forEach(([, cat]) => {
       }
    });
 })();
+// ── DEMO STORE SEED (runs once, guards with a version key) ──
+(function seedDemoStores() {
+   if (localStorage.getItem('demoSeed_v1')) return;
+
+   var users = JSON.parse(localStorage.getItem('users') || '[]');
+
+   var stores = [
+      {
+         email: 'sharma@mystore.demo', name: 'Sharma Ji', storeName: 'Sharma General Stores',
+         products: [
+            { id: 'sharma_001', catKey: 'groceries',  name: 'Basmati Rice 5kg',        price: 285, desc: 'Premium long grain basmati rice',          img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400', badge: 'Best Seller' },
+            { id: 'sharma_002', catKey: 'groceries',  name: 'Chakki Atta 10kg',         price: 340, desc: 'Fresh stone-ground whole wheat flour',      img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400', badge: 'Fresh' },
+            { id: 'sharma_003', catKey: 'groceries',  name: 'Refined Sunflower Oil 5L', price: 620, desc: 'Pure refined sunflower cooking oil',         img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400', badge: 'Popular' },
+            { id: 'sharma_004', catKey: 'groceries',  name: 'Sugar 5kg',                price: 220, desc: 'Fine grain white sugar',                    img: 'https://images.unsplash.com/photo-1609501676725-7186f017a4b7?w=400', badge: 'Daily Need' },
+            { id: 'sharma_005', catKey: 'groceries',  name: 'Tata Salt 1kg',            price:  22, desc: 'Iodized vacuum evaporated salt',             img: 'https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=400', badge: 'Essential' },
+            { id: 'sharma_006', catKey: 'groceries',  name: 'Tata Tea Premium 500g',    price: 210, desc: 'Strong CTC leaf tea blend',                  img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400', badge: 'Popular' },
+            { id: 'sharma_007', catKey: 'groceries',  name: 'Ariel Detergent 2kg',      price: 375, desc: 'Advanced washing powder',                   img: 'https://images.unsplash.com/photo-1585515320310-259814833e62?w=400', badge: 'Home' },
+            { id: 'sharma_008', catKey: 'vegetables', name: 'Fresh Tomatoes 1kg',       price:  35, desc: 'Farm fresh ripe red tomatoes',               img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Fresh' },
+            { id: 'sharma_009', catKey: 'vegetables', name: 'Onions 2kg',               price:  55, desc: 'Fresh red onions from farm',                 img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
+            { id: 'sharma_010', catKey: 'vegetables', name: 'Potatoes 2kg',             price:  60, desc: 'Farm fresh potatoes',                        img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
+            { id: 'sharma_011', catKey: 'vegetables', name: 'Fresh Carrots 500g',       price:  30, desc: 'Crunchy orange carrots',                     img: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400', badge: 'Fresh' },
+            { id: 'sharma_012', catKey: 'vegetables', name: 'Green Chillies 250g',      price:  18, desc: 'Fresh spicy green chillies',                 img: 'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=400', badge: 'Spicy' }
+         ]
+      },
+      {
+         email: 'kapoor@mystore.demo', name: 'Kapoor Ji', storeName: 'Kapoor General Stores',
+         products: [
+            { id: 'kapoor_001', catKey: 'groceries',  name: 'Parle-G Biscuits 1kg',      price:  85, desc: 'Classic glucose biscuits family pack',   img: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400', badge: 'Popular' },
+            { id: 'kapoor_002', catKey: 'groceries',  name: 'Maggi Noodles Pack of 12',   price: 130, desc: '2-minute masala noodles',                img: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400', badge: 'Snack' },
+            { id: 'kapoor_003', catKey: 'groceries',  name: 'Amul Butter 500g',           price: 250, desc: 'Fresh pasteurised butter',               img: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400', badge: 'Fresh' },
+            { id: 'kapoor_004', catKey: 'groceries',  name: 'Whole Wheat Bread',          price:  45, desc: 'Soft sandwich bread loaf',               img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400', badge: 'Fresh' },
+            { id: 'kapoor_005', catKey: 'groceries',  name: 'Farm Fresh Eggs 12pcs',      price:  90, desc: 'White eggs, farm fresh',                 img: 'https://images.unsplash.com/photo-1587486913049-53fc88980cfc?w=400', badge: 'Daily Need' },
+            { id: 'kapoor_006', catKey: 'groceries',  name: "Lays Chips Variety Pack",    price: 150, desc: 'Assorted flavoured potato chips',        img: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400', badge: 'Snack' },
+            { id: 'kapoor_007', catKey: 'groceries',  name: 'Tropicana Orange Juice 1L',  price: 120, desc: '100% fruit juice, no added sugar',       img: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400', badge: 'Healthy' },
+            { id: 'kapoor_008', catKey: 'groceries',  name: 'Nescafé Classic 100g',       price: 245, desc: 'Instant coffee granules',                img: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400', badge: 'Morning Must' },
+            { id: 'kapoor_009', catKey: 'vegetables', name: 'Spinach (Palak) 500g',       price:  25, desc: 'Fresh tender green spinach leaves',      img: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=400', badge: 'Fresh' },
+            { id: 'kapoor_010', catKey: 'vegetables', name: 'Mixed Capsicum 500g',        price:  65, desc: 'Red, green & yellow capsicum mix',       img: 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=400', badge: 'Fresh' },
+            { id: 'kapoor_011', catKey: 'vegetables', name: 'Cabbage 1 piece',            price:  30, desc: 'Fresh tender cabbage head',              img: 'https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=400', badge: 'Fresh' },
+            { id: 'kapoor_012', catKey: 'vegetables', name: 'Brinjal (Baingan) 500g',     price:  28, desc: 'Fresh purple brinjal',                  img: 'https://images.unsplash.com/photo-1634467524884-897d0af5e104?w=400', badge: 'Fresh' }
+         ]
+      },
+      {
+         email: 'varma@mystore.demo', name: 'Varma Ji', storeName: 'Varma Electronics',
+         products: [
+            { id: 'varma_001', catKey: 'electronics', name: 'Boat Bassheads Earphones',   price: 299,  desc: 'Bass boost wired earphones with mic',       img: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400', badge: 'Popular' },
+            { id: 'varma_002', catKey: 'electronics', name: 'Power Bank 10000mAh',        price: 799,  desc: 'Fast charge portable power bank',            img: 'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400', badge: 'Must Have' },
+            { id: 'varma_003', catKey: 'electronics', name: 'USB-C Braided Cable 1m',     price: 149,  desc: 'Fast charge & data transfer cable',          img: 'https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=400', badge: 'Durable' },
+            { id: 'varma_004', catKey: 'electronics', name: 'LED Desk Lamp',              price: 450,  desc: 'Flexible neck energy saving LED lamp',       img: 'https://images.unsplash.com/photo-1540932239986-30128078f3c5?w=400', badge: 'Eco' },
+            { id: 'varma_005', catKey: 'electronics', name: 'Table Fan 400mm',            price: 1200, desc: 'Powerful 3-speed table fan',                 img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400', badge: 'Summer Must' },
+            { id: 'varma_006', catKey: 'electronics', name: '4-Socket Extension Board',   price: 350,  desc: 'With surge protection & master switch',     img: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=400', badge: 'Safety' },
+            { id: 'varma_007', catKey: 'electronics', name: 'Bluetooth Mini Speaker',     price: 599,  desc: 'Portable waterproof wireless speaker',       img: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400', badge: 'Hot' },
+            { id: 'varma_008', catKey: 'electronics', name: 'LED Bulb 9W Pack of 4',      price: 280,  desc: 'Cool white energy-efficient LED bulbs',      img: 'https://images.unsplash.com/photo-1555664424-778a1e5e1b48?w=400', badge: 'Eco' },
+            { id: 'varma_009', catKey: 'electronics', name: '18W Fast Charger Adapter',   price: 199,  desc: 'Universal USB fast charging wall adapter',   img: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400', badge: 'Fast Charge' },
+            { id: 'varma_010', catKey: 'electronics', name: 'Tempered Glass Screen Guard',price:  99,  desc: 'Universal tempered glass screen protector', img: 'https://images.unsplash.com/photo-1601972599720-36938d4ecd31?w=400', badge: 'Protect' },
+            { id: 'varma_011', catKey: 'electronics', name: 'Smart LED Strip 5m',         price: 499,  desc: 'RGB colour changing LED strip with remote',  img: 'https://images.unsplash.com/photo-1565814636199-ae8133055c1c?w=400', badge: 'Trendy' },
+            { id: 'varma_012', catKey: 'electronics', name: 'Wireless Mouse',             price: 349,  desc: '2.4GHz silent wireless optical mouse',       img: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400', badge: 'Work From Home' }
+         ]
+      }
+   ];
+
+   stores.forEach(function(s) {
+      if (!users.find(function(u) { return u.email === s.email; })) {
+         users.push({ email: s.email, name: s.name, storeName: s.storeName, role: 'storeowner', password: 'demo1234', blocked: false });
+      }
+      localStorage.setItem('myProducts_' + s.email, JSON.stringify(s.products));
+   });
+   localStorage.setItem('users', JSON.stringify(users));
+   localStorage.setItem('demoSeed_v1', '1');
+})();
+
 // Load store-owner products from myProducts_${email} for each store-owner user
 (function () {
    var users = JSON.parse(localStorage.getItem('users') || '[]');
@@ -2318,6 +2388,8 @@ function goHome() {
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    const allCat = document.getElementById('cat-all');
    if (allCat) allCat.classList.add('active');
+   var storesBtn = document.querySelector('.header-stores-btn');
+   if (storesBtn) storesBtn.classList.remove('active');
    window.scrollTo({
       top: 0,
       behavior: 'smooth'
@@ -2344,6 +2416,9 @@ function showByCategory(groupName) {
 
 function catClick(cat) {
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
+   // Stores is a header button, not a cat-item — toggle its active class separately
+   var storesBtn = document.querySelector('.header-stores-btn');
+   if (storesBtn) storesBtn.classList.toggle('active', cat === 'stores');
    const el = document.getElementById('cat-' + cat);
    if (el) el.classList.add('active');
    if (cat === 'all') {

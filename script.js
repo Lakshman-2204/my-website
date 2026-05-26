@@ -1641,10 +1641,11 @@ Object.entries(products).forEach(([, cat]) => {
 // Bumping version forces re-seed on all browsers that had a stale flag.
 // Products are always written so they survive partial localStorage clears.
 (function seedDemoStores() {
-   if (localStorage.getItem('demoSeed_v4')) return;
+   if (localStorage.getItem('demoSeed_v5')) return;
    localStorage.removeItem('demoSeed_v1');
    localStorage.removeItem('demoSeed_v2');
    localStorage.removeItem('demoSeed_v3');
+   localStorage.removeItem('demoSeed_v4');
 
    var users = JSON.parse(localStorage.getItem('users') || '[]');
 
@@ -1667,8 +1668,23 @@ Object.entries(products).forEach(([, cat]) => {
             { id: 'sharma_013', catKey: 'vegetables', name: 'Fresh Tomatoes 1kg',       price:  35, desc: 'Ripe red tomatoes from farm',                  img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Fresh' },
             { id: 'sharma_014', catKey: 'vegetables', name: 'Onions 1kg',               price:  28, desc: 'Fresh red onions',                               img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
             { id: 'sharma_015', catKey: 'vegetables', name: 'Potatoes 1kg',             price:  32, desc: 'Farm fresh potatoes',                            img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
-            { id: 'sharma_016', catKey: 'groceries',  name: 'Tata Salt 1kg',            price:  22, desc: 'Iodized vacuum evaporated salt',                 img: 'https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=400', badge: 'Essential' },
-            { id: 'sharma_017', catKey: 'groceries',  name: 'Amul Butter 500g',         price: 255, desc: 'Fresh pasteurised butter',                       img: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400', badge: 'Fresh' }
+            { id: 'sharma_016', catKey: 'groceries',  name: 'Tata Salt 1kg',            price:  22, desc: 'Iodized vacuum evaporated salt',                 img: '', badge: 'Essential' },
+            { id: 'sharma_017', catKey: 'groceries',  name: 'Amul Butter 500g',         price: 255, desc: 'Fresh pasteurised butter',                       img: '', badge: 'Fresh' },
+            { id: 'sharma_018', catKey: 'dairy',      name: 'Amul Milk 1L',             price:  28, desc: 'Full cream pasteurised milk',                    img: '', badge: 'Fresh' },
+            { id: 'sharma_019', catKey: 'dairy',      name: 'Amul Curd 500g',           price:  45, desc: 'Thick set natural curd',                         img: '', badge: 'Daily' },
+            { id: 'sharma_020', catKey: 'dairy',      name: 'Farm Eggs 12 pcs',         price:  88, desc: 'White eggs, farm fresh batch',                   img: '', badge: 'Fresh' },
+            { id: 'sharma_021', catKey: 'dairy',      name: 'Paneer 200g',              price:  72, desc: 'Soft fresh cottage cheese',                      img: '', badge: 'Fresh' },
+            { id: 'sharma_022', catKey: 'cola',       name: 'Thums Up 600ml',           price:  38, desc: 'Strong desi cola, chilled',                      img: '', badge: 'Desi Fav' },
+            { id: 'sharma_023', catKey: 'cola',       name: 'Coca Cola 600ml',          price:  38, desc: 'Classic refreshing cola',                        img: '', badge: 'Classic' },
+            { id: 'sharma_024', catKey: 'cola',       name: 'Limca 600ml',              price:  35, desc: 'Lemon-lime refreshing soda',                     img: '', badge: 'Refreshing' },
+            { id: 'sharma_025', catKey: 'juice',      name: 'Maaza Mango 600ml',        price:  42, desc: 'Smooth mango drink',                             img: '', badge: 'Popular' },
+            { id: 'sharma_026', catKey: 'juice',      name: 'Real Mixed Fruit 200ml',   price:  25, desc: 'Apple & guava blend',                            img: '', badge: 'Healthy' },
+            { id: 'sharma_027', catKey: 'energyDrink',name: 'Red Bull 250ml',           price: 118, desc: 'Original energy boost',                          img: '', badge: 'Popular' },
+            { id: 'sharma_028', catKey: 'energyDrink',name: 'Sting Energy 250ml',       price:  28, desc: 'Berry blast, affordable energy',                 img: '', badge: 'Budget' },
+            { id: 'sharma_029', catKey: 'sodaWater',  name: 'Bisleri Water 1L',         price:  20, desc: 'Pure packaged drinking water',                   img: '', badge: 'Essential' },
+            { id: 'sharma_030', catKey: 'sodaWater',  name: 'Sprite 600ml',             price:  35, desc: 'Lemon-lime fizz, refreshing',                    img: '', badge: 'Refreshing' },
+            { id: 'sharma_031', catKey: 'sweets',     name: 'Murukku 200g',             price:  52, desc: 'Crispy rice flour spiral snack',                 img: '', badge: 'Crunchy' },
+            { id: 'sharma_032', catKey: 'sweets',     name: 'Mixture 200g',             price:  55, desc: 'Classic crispy namkeen mix',                     img: '', badge: 'Crispy' }
          ]
       },
       {
@@ -1689,8 +1705,23 @@ Object.entries(products).forEach(([, cat]) => {
             { id: 'kapoor_013', catKey: 'vegetables', name: 'Fresh Tomatoes 1kg',         price:  30, desc: 'Juicy tomatoes, daily fresh stock',         img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Daily Stock' },
             { id: 'kapoor_014', catKey: 'vegetables', name: 'Onions 1kg',                 price:  25, desc: 'Fresh red onions',                            img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
             { id: 'kapoor_015', catKey: 'vegetables', name: 'Potatoes 1kg',               price:  29, desc: 'Farm fresh potatoes',                         img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
-            { id: 'kapoor_016', catKey: 'groceries',  name: 'Tata Salt 1kg',              price:  20, desc: 'Iodized vacuum evaporated salt',               img: 'https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=400', badge: 'Essential' },
-            { id: 'kapoor_017', catKey: 'groceries',  name: 'Amul Butter 500g',           price: 248, desc: 'Fresh pasteurised butter',                     img: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400', badge: 'Fresh' }
+            { id: 'kapoor_016', catKey: 'groceries',  name: 'Tata Salt 1kg',              price:  20, desc: 'Iodized vacuum evaporated salt',               img: '', badge: 'Essential' },
+            { id: 'kapoor_017', catKey: 'groceries',  name: 'Amul Butter 500g',           price: 248, desc: 'Fresh pasteurised butter',                     img: '', badge: 'Fresh' },
+            { id: 'kapoor_018', catKey: 'dairy',      name: 'Nandini Toned Milk 1L',      price:  26, desc: 'Fresh toned milk, daily delivery',             img: '', badge: 'Fresh' },
+            { id: 'kapoor_019', catKey: 'dairy',      name: 'Dahi 400g',                  price:  40, desc: 'Thick set curd, creamy texture',               img: '', badge: 'Daily' },
+            { id: 'kapoor_020', catKey: 'dairy',      name: 'Paneer 200g',                price:  68, desc: 'Soft cottage cheese, fresh batch',             img: '', badge: 'Fresh' },
+            { id: 'kapoor_021', catKey: 'dairy',      name: 'Cheese Slices 10pcs',        price: 108, desc: 'Processed cheese, melt-ready',                 img: '', badge: 'Tasty' },
+            { id: 'kapoor_022', catKey: 'cola',       name: 'Pepsi 600ml',                price:  36, desc: 'Bold cola flavour, chilled',                   img: '', badge: 'Popular' },
+            { id: 'kapoor_023', catKey: 'cola',       name: 'Sprite 600ml',               price:  36, desc: 'Clear lemon-lime soda',                        img: '', badge: 'Refreshing' },
+            { id: 'kapoor_024', catKey: 'cola',       name: 'Mountain Dew 600ml',         price:  36, desc: 'Citrus blast energy soda',                     img: '', badge: 'Trendy' },
+            { id: 'kapoor_025', catKey: 'juice',      name: 'Tropicana Orange 200ml',     price:  30, desc: '100% orange juice, no sugar added',            img: '', badge: 'Healthy' },
+            { id: 'kapoor_026', catKey: 'juice',      name: 'Real Guava Juice 200ml',     price:  25, desc: 'Guava nectar, refreshing',                     img: '', badge: 'Fresh' },
+            { id: 'kapoor_027', catKey: 'energyDrink',name: 'Monster Energy 500ml',       price: 145, desc: 'Extra strong energy drink',                    img: '', badge: 'Strong' },
+            { id: 'kapoor_028', catKey: 'energyDrink',name: 'Gatorade 500ml',             price:  95, desc: 'Sports electrolyte drink',                     img: '', badge: 'Sports' },
+            { id: 'kapoor_029', catKey: 'sodaWater',  name: 'Kinley Water 1L',            price:  20, desc: 'Pure packaged drinking water',                 img: '', badge: 'Essential' },
+            { id: 'kapoor_030', catKey: 'sodaWater',  name: 'Limca 600ml',                price:  35, desc: 'Lemon-lime soda, refreshing',                  img: '', badge: 'Refreshing' },
+            { id: 'kapoor_031', catKey: 'sweets',     name: 'Besan Ladoo 250g',           price: 110, desc: 'Ghee-roasted gram flour balls',                img: '', badge: 'Festive' },
+            { id: 'kapoor_032', catKey: 'sweets',     name: 'Namkeen Mix 200g',           price:  55, desc: 'Crispy assorted snack mix',                    img: '', badge: 'Crispy' }
          ]
       },
       {
@@ -1726,7 +1757,7 @@ Object.entries(products).forEach(([, cat]) => {
       localStorage.setItem('myProducts_' + s.email, JSON.stringify(s.products));
    });
    localStorage.setItem('users', JSON.stringify(users));
-   localStorage.setItem('demoSeed_v4', '1');
+   localStorage.setItem('demoSeed_v5', '1');
 })();
 
 // Load store-owner products from myProducts_${email} for each store-owner user
@@ -1968,43 +1999,60 @@ function renderCard(item, catKey, grid) {
    const wl = wlUser ? getWishlist(wlUser.email) : [];
    const inWL = wl.some(w => w.id === item.id);
 
+   // Short display name for the colored header (strip weight/quantity)
+   const shortName = item.name
+      .replace(/\s*\([^)]*\)/g, '')
+      .replace(/\s+\d[\d.]*\s*(kg|g|L|ml|pcs?|m|litre|litres)\s*$/i, '')
+      .trim();
+
+   // Per-category pastel background colour
+   const catBg = {
+      groceries:'#e8f5e9', vegetables:'#f1f8e9', dairy:'#fffde7',
+      sweets:'#fce4ec', cola:'#e3f2fd', juice:'#fff3e0',
+      energyDrink:'#f3e5f5', sodaWater:'#e0f7fa', milk:'#fff8e1',
+      electronics:'#e8eaf6', kitchen:'#fbe9e7', home:'#f3e5f5',
+      flowers:'#fce4ec', health:'#e8f5e9', stationery:'#ede7f6',
+      entertainment:'#e0f2f1', construction:'#fff3e0', agriculture:'#f1f8e9'
+   };
+   const topBg = catBg[catKey] || '#f5f5f5';
+
    const card = document.createElement('div');
    card.className = 'product-card';
    card.id = 'card_' + item.id;
    card.innerHTML = `
- <div class="card-img-wrap">
-   <img src="${item.img}" alt="${item.name}" loading="lazy"/>
-   <button class="wish-btn${inWL ? ' wished' : ''}" id="wish_${item.id}"
-           onclick="toggleWishlist('${item.id}','${catKey}',this)"
-           title="${inWL ? 'Remove from Wishlist' : 'Add to Wishlist'}">${inWL ? '❤️' : '🤍'}</button>
- </div>
- <div class="product-info">
- <span class="badge">${item.badge}</span>
- <div class="product-name">${item.name}</div>
- <div class="product-desc">${item.desc}</div>
- ${item.storeId ? `<div class="store-badge">🏪 ${item.storeName || getStoreName(item.storeId)}</div>` : ''}
- ${isMilk ? `
- <div class="litre-selector">
- <label>Select Litres:</label>
- <select class="litre-select" id="litre_${item.id}" onchange="updateMilkPrice('${item.id}', ${item.pricePerLitre})">
- <option value="0.5">0.5 Litre — ₹${Math.round(item.pricePerLitre*0.5)}</option>
- <option value="1" selected>1 Litre — ₹${item.pricePerLitre}</option>
- <option value="2">2 Litres — ₹${item.pricePerLitre*2}</option>
- <option value="3">3 Litres — ₹${item.pricePerLitre*3}</option>
- <option value="5">5 Litres — ₹${item.pricePerLitre*5}</option>
- </select>
- </div>` : `
- <div class="qty-controls">
- <button class="qty-btn" onclick="changeQty('${item.id}', -1)">−</button>
- <span class="qty-display" id="qty_${item.id}">${pageQty[item.id]}</span>
- <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
- </div>`}
- <div class="product-footer">
- <span class="product-price" id="price_${item.id}">${displayPrice}</span>
- <button class="btn-cart" onclick="addToCart('${item.id}','${catKey}')"> Add</button>
- </div>
- </div>
- `;
+<div class="card-color-top" style="background:${topBg}">
+  <div class="card-color-name">${shortName}</div>
+  <button class="wish-btn${inWL ? ' wished' : ''}" id="wish_${item.id}"
+          onclick="toggleWishlist('${item.id}','${catKey}',this)"
+          title="${inWL ? 'Remove from Wishlist' : 'Add to Wishlist'}">${inWL ? '❤️' : '🤍'}</button>
+</div>
+<div class="card-content">
+  <span class="badge">${item.badge}</span>
+  <div class="product-name">${item.name}</div>
+  <div class="product-desc">${item.desc}</div>
+  ${item.storeId ? `<div class="store-badge">🏪 ${item.storeName || getStoreName(item.storeId)}</div>` : ''}
+  ${isMilk ? `
+  <div class="litre-selector">
+  <label>Select Litres:</label>
+  <select class="litre-select" id="litre_${item.id}" onchange="updateMilkPrice('${item.id}', ${item.pricePerLitre})">
+  <option value="0.5">0.5 Litre — ₹${Math.round(item.pricePerLitre*0.5)}</option>
+  <option value="1" selected>1 Litre — ₹${item.pricePerLitre}</option>
+  <option value="2">2 Litres — ₹${item.pricePerLitre*2}</option>
+  <option value="3">3 Litres — ₹${item.pricePerLitre*3}</option>
+  <option value="5">5 Litres — ₹${item.pricePerLitre*5}</option>
+  </select>
+  </div>` : `
+  <div class="qty-controls">
+  <button class="qty-btn" onclick="changeQty('${item.id}', -1)">−</button>
+  <span class="qty-display" id="qty_${item.id}">${pageQty[item.id]}</span>
+  <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
+  </div>`}
+  <div class="product-footer">
+  <span class="product-price" id="price_${item.id}">${displayPrice}</span>
+  <button class="btn-cart" onclick="addToCart('${item.id}','${catKey}')">Add</button>
+  </div>
+</div>
+`;
    grid.appendChild(card);
 }
 
@@ -2313,12 +2361,16 @@ function makeOrder() {
          return '<div class="order-item-row"><span class="oi-name">' + c.name + ' \xd7' + c.qty + '</span><span class="oi-price">\u20b9' + (c.price * c.qty).toLocaleString('en-IN') + '</span></div>';
       }).join('');
       return '<div class="order-id-box">' +
-                (isMulti ? '<div class="order-store-label">🏪 ' + ord.storeName + '</div>' : '') +
-                '<div class="order-id-label">Order ID</div>' +
-                '<div class="order-id-value">' + ord.orderId + '</div>' +
-                '<div class="order-id-date">' + ord.date + '</div>' +
-                itemRows +
-                (isMulti ? '<div class="order-subtotal-row">Subtotal: \u20b9' + ord.total.toLocaleString('en-IN') + '</div>' : '') +
+                '<div class="order-id-header">' +
+                   (isMulti ? '<div class="order-store-label">🏪 ' + ord.storeName + '</div>' : '') +
+                   '<div class="order-id-label">Order ID</div>' +
+                   '<div class="order-id-value">' + ord.orderId + '</div>' +
+                   '<div class="order-id-date">' + ord.date + '</div>' +
+                '</div>' +
+                '<div class="order-id-items">' +
+                   itemRows +
+                   (isMulti ? '<div class="order-subtotal-row">Subtotal: \u20b9' + ord.total.toLocaleString('en-IN') + '</div>' : '') +
+                '</div>' +
              '</div>';
    }).join('');
 

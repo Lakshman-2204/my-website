@@ -1829,7 +1829,7 @@ function renderCard(item, catKey, grid) {
       `₹${item.pricePerLitre}/litre` :
       `₹${item.price.toLocaleString('en-IN')}`;
 
-   const wlUser = JSON.parse(localStorage.getItem('loggedInUser'));
+   const wlUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const wl = wlUser ? getWishlist(wlUser.email) : [];
    const inWL = wl.some(w => w.id === item.id);
 
@@ -2040,7 +2040,7 @@ function clearCart() {
 // ── MAKE ORDER (offline pickup) ──
 function makeOrder() {
    if (cart.length === 0) { showToast('Your cart is empty!'); return; }
-   var user = JSON.parse(localStorage.getItem('loggedInUser'));
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { showToast('Please login to place an order.'); return; }
 
    // Generate unique order ID: ORD-YYMMDD-XXXX
@@ -2180,7 +2180,7 @@ function processPayment(method) {
       `Paid ${amount} via ${method} · Transaction ID: ${txn}`;
 
    // Save order to localStorage
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (user) {
       const total = parseFloat(amount.replace(/[₹,]/g, '')) || 0;
       const order = {
@@ -2285,14 +2285,14 @@ function showContactInfo() {
    grid.style.display = 'block';
 
    const s = getAdminSettings() || {};
-   const phone    = s.phone        || '';
-   const whatsapp = s.whatsapp     || '';
-   const email    = s.contactEmail || '';
-   const address  = s.address      || '';
-   const storeName = s.storeName   || 'MyStore';
+   const phone     = s.phone        || '';
+   const whatsapp  = s.whatsapp     || '';
+   const email     = s.contactEmail || '';
+   const address   = s.address      || '';
+   const storeName = s.storeName    || 'MyStore';
 
    if (!phone && !whatsapp && !email && !address) {
-      grid.innerHTML = '<p style="color:#999;padding:40px;text-align:center;font-size:0.95rem">Contact information has not been set up yet. Please check back later.</p>';
+      grid.innerHTML = '<p style="color:#999;padding:40px;text-align:center;font-size:0.95rem">Contact information has not been set up yet.</p>';
       return;
    }
 
@@ -2300,7 +2300,7 @@ function showContactInfo() {
    if (phone)    rows += '<div class="contact-row"><div class="contact-icon">📞</div><div class="contact-detail"><div class="contact-label">Phone</div><a href="tel:' + phone.replace(/\s/g,'') + '" class="contact-val">' + phone + '</a></div></div>';
    if (whatsapp) rows += '<div class="contact-row"><div class="contact-icon">💬</div><div class="contact-detail"><div class="contact-label">WhatsApp</div><a href="https://wa.me/' + whatsapp.replace(/\D/g,'') + '" class="contact-val" target="_blank">' + whatsapp + '</a></div></div>';
    if (email)    rows += '<div class="contact-row"><div class="contact-icon">✉️</div><div class="contact-detail"><div class="contact-label">Email</div><a href="mailto:' + email + '" class="contact-val">' + email + '</a></div></div>';
-   if (address)  rows += '<div class="contact-row"><div class="contact-icon">📍</div><div class="contact-detail"><div class="contact-label">Store Address</div><div class="contact-val">' + address.replace(/\n/g, '<br>') + '</div></div></div>';
+   if (address)  rows += '<div class="contact-row"><div class="contact-icon">📍</div><div class="contact-detail"><div class="contact-label">Store Address</div><div class="contact-val">' + address.replace(/\n/g,'<br>') + '</div></div></div>';
 
    grid.innerHTML =
       '<div class="contact-info-panel">' +
@@ -2487,7 +2487,7 @@ function login() {
    const savedRole = localStorage.getItem('role_' + user.email);
    if (savedRole && !user.role) user.role = savedRole;
 
-   localStorage.setItem('loggedInUser', JSON.stringify(user));
+   sessionStorage.setItem('loggedInUser', JSON.stringify(user));
 
    // Admin → home.html (can access all pages via dropdown)
    if (isAdmin(user.email)) { window.location.href = 'home.html'; return; }
@@ -2615,9 +2615,9 @@ function blockUser(email) {
    var u = users.find(function(x) { return x.email === email; });
    if (u) { u.blocked = true; saveUsers(users); }
    // Force logout if this user is currently in session
-   var lu = JSON.parse(localStorage.getItem('loggedInUser') || 'null');
+   var lu = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
    if (lu && lu.email.toLowerCase() === email.toLowerCase()) {
-      localStorage.removeItem('loggedInUser');
+      sessionStorage.removeItem('loggedInUser');
    }
    showAdminToast('🚫 ' + email + ' has been blocked.');
    renderUserList(_currentUserFilter);
@@ -2645,9 +2645,9 @@ function deleteUser(email) {
    allOrders = allOrders.filter(function(o) { return o.userEmail !== email; });
    localStorage.setItem('allOrders', JSON.stringify(allOrders));
    // Force logout if this user is currently in session
-   var lu = JSON.parse(localStorage.getItem('loggedInUser') || 'null');
+   var lu = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
    if (lu && lu.email.toLowerCase() === email.toLowerCase()) {
-      localStorage.removeItem('loggedInUser');
+      sessionStorage.removeItem('loggedInUser');
    }
    showAdminToast('🗑 Account deleted: ' + email);
    renderUserList(_currentUserFilter);
@@ -2729,12 +2729,12 @@ function deleteUserFromDetail() {
 }
 
 function checkLogin() {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
 
    // Kick blocked users out immediately (admins can never be blocked)
    if (!isAdmin(user.email) && isBlocked(user.email)) {
-      localStorage.removeItem('loggedInUser');
+      sessionStorage.removeItem('loggedInUser');
       window.location.href = 'login.html';
       return;
    }
@@ -2768,12 +2768,12 @@ function showRoleSetupModal(user) {
 }
 
 function confirmRole(role) {
-   var user = JSON.parse(localStorage.getItem('loggedInUser'));
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) return;
    user.role = role;
    // Save role in its own key — survives seedAdmin() array rewrites
    localStorage.setItem('role_' + user.email, role);
-   localStorage.setItem('loggedInUser', JSON.stringify(user));
+   sessionStorage.setItem('loggedInUser', JSON.stringify(user));
    // Also update users array
    var users = getUsers();
    var u = users.find(function(x) { return x.email === user.email; });
@@ -2829,11 +2829,11 @@ document.addEventListener('click', function () {
 });
 
 function checkShopOwnerLogin() {
-   var user = JSON.parse(localStorage.getItem('loggedInUser'));
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
    // Kick blocked users out
    if (!isAdmin(user.email) && isBlocked(user.email)) {
-      localStorage.removeItem('loggedInUser');
+      sessionStorage.removeItem('loggedInUser');
       window.location.href = 'login.html';
       return;
    }
@@ -2844,7 +2844,6 @@ function checkShopOwnerLogin() {
    if (nameEl) nameEl.textContent = user.name;
    var storeBtn = document.getElementById('shopViewStoreBtn');
    if (storeBtn && isAdmin(user.email)) storeBtn.classList.remove('hidden');
-   // Apply admin settings to this page
    loadSiteSettings();
    renderShopDashboard();
    // Auto-refresh if admin enabled it
@@ -2960,7 +2959,7 @@ function lookupOrder() {
 }
 
 function logout() {
-   localStorage.removeItem('loggedInUser');
+   sessionStorage.removeItem('loggedInUser');
    window.location.href = 'login.html';
 }
 
@@ -2995,7 +2994,7 @@ let _editId = null;
 let _addMode = false;
 
 function initAdmin() {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user || !isAdmin(user.email)) { window.location.href = 'login.html'; return; }
    document.getElementById('adminUserName').textContent = user.name;
    renderAdminGrid();
@@ -3282,11 +3281,11 @@ function loadSettingsForm() {
    setVal('set-freeDeliveryAbove', s.freeDeliveryAbove !== undefined ? s.freeDeliveryAbove : '');
    setVal('set-deliveryCharge',   s.deliveryCharge    !== undefined ? s.deliveryCharge    : '');
    // Shop dashboard settings
-   setVal('set-dashboardTitle',       s.dashboardTitle       || '');
-   setChecked('set-showCustomerPhone',  !!s.showCustomerPhone);
-   setChecked('set-autoRefreshOrders',  !!s.autoRefreshOrders);
+   setVal('set-dashboardTitle',        s.dashboardTitle        || '');
+   setChecked('set-showCustomerPhone', !!s.showCustomerPhone);
+   setChecked('set-autoRefreshOrders', !!s.autoRefreshOrders);
    setChecked('set-shopAnnouncementOn', !!s.shopAnnouncementOn);
-   setVal('set-shopAnnouncementText', s.shopAnnouncementText || '');
+   setVal('set-shopAnnouncementText',  s.shopAnnouncementText  || '');
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
 }
 
@@ -3363,11 +3362,11 @@ function saveAllSettings() {
       deliveryCharge:        parseFloat(document.getElementById('set-deliveryCharge').value)    || 0,
       menuItems:             _menuItems,
       // Shop dashboard settings
-      dashboardTitle:        document.getElementById('set-dashboardTitle').value.trim(),
-      showCustomerPhone:     document.getElementById('set-showCustomerPhone').checked,
-      autoRefreshOrders:     document.getElementById('set-autoRefreshOrders').checked,
-      shopAnnouncementOn:    document.getElementById('set-shopAnnouncementOn').checked,
-      shopAnnouncementText:  document.getElementById('set-shopAnnouncementText').value.trim()
+      dashboardTitle:       document.getElementById('set-dashboardTitle').value.trim(),
+      showCustomerPhone:    document.getElementById('set-showCustomerPhone').checked,
+      autoRefreshOrders:    document.getElementById('set-autoRefreshOrders').checked,
+      shopAnnouncementOn:   document.getElementById('set-shopAnnouncementOn').checked,
+      shopAnnouncementText: document.getElementById('set-shopAnnouncementText').value.trim()
    };
    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
    showAdminToast('✅ Settings saved! Refresh the store to see changes.');
@@ -3428,9 +3427,7 @@ function loadSiteSettings() {
 
    // ── Shop dashboard settings (only apply on shopowner.html) ──
    var shopBrand = document.querySelector('.shop-brand');
-   if (shopBrand && s.dashboardTitle) {
-      shopBrand.textContent = '🏪 ' + s.dashboardTitle;
-   }
+   if (shopBrand && s.dashboardTitle) shopBrand.textContent = '🏪 ' + s.dashboardTitle;
 
    var shopBar = document.getElementById('shopAnnouncementBar');
    if (shopBar) {
@@ -3445,7 +3442,7 @@ function loadSiteSettings() {
 
 // ── PROFILE PAGE ──
 function initProfile() {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
    document.getElementById('prof-name').value   = user.name   || '';
    document.getElementById('prof-email').value  = user.email  || '';
@@ -3467,7 +3464,7 @@ function switchProfileTab(tab) {
 }
 
 function saveProfileInfo() {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) return;
    user.name   = document.getElementById('prof-name').value.trim();
    user.gender = document.getElementById('prof-gender').value;
@@ -3475,7 +3472,7 @@ function saveProfileInfo() {
    const users = getUsers();
    const idx = users.findIndex(u => u.email === user.email);
    if (idx !== -1) { users[idx].name = user.name; users[idx].gender = user.gender; users[idx].phone = user.phone; saveUsers(users); }
-   localStorage.setItem('loggedInUser', JSON.stringify(user));
+   sessionStorage.setItem('loggedInUser', JSON.stringify(user));
    showProfileToast('✅ Profile updated!');
 }
 
@@ -3486,7 +3483,7 @@ function getAddresses(email) { return JSON.parse(localStorage.getItem('addresses
 function saveAddressesData(email, arr) { localStorage.setItem('addresses_' + email, JSON.stringify(arr)); }
 
 function renderAddresses() {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const list = document.getElementById('addressList');
    const addrs = getAddresses(user.email);
    if (!addrs.length) { list.innerHTML = '<p class="prof-empty">No saved addresses yet.</p>'; return; }
@@ -3512,7 +3509,7 @@ function openAddressModal(idx) {
    _editAddrIdx = (idx !== undefined && idx >= 0) ? idx : -1;
    document.getElementById('addrModalTitle').textContent = _editAddrIdx >= 0 ? '✏️ Edit Address' : '➕ Add New Address';
    if (_editAddrIdx >= 0) {
-      const user = JSON.parse(localStorage.getItem('loggedInUser'));
+      const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
       const a = getAddresses(user.email)[_editAddrIdx];
       document.getElementById('addr-name').value  = a.name  || '';
       document.getElementById('addr-phone').value = a.phone || '';
@@ -3530,7 +3527,7 @@ function closeAddressModal() { document.getElementById('addressModal').classList
 function handleAddrOverlayClick(e) { if (e.target.id === 'addressModal') closeAddressModal(); }
 
 function setDefaultAddress(idx) {
-   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const addrs = getAddresses(user.email);
    addrs.forEach((a, i) => a.isDefault = (i === idx));
    saveAddressesData(user.email, addrs);
@@ -3546,7 +3543,7 @@ function saveAddress() {
    const state = document.getElementById('addr-state').value.trim();
    const pin   = document.getElementById('addr-pin').value.trim();
    if (!name || !line || !city || !pin) { alert('Please fill Name, Address, City and PIN.'); return; }
-   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const addrs = getAddresses(user.email);
    const isEdit = _editAddrIdx >= 0;
    // preserve existing isDefault when editing
@@ -3563,7 +3560,7 @@ function saveAddress() {
 
 function deleteAddress(idx) {
    if (!confirm('Delete this address?')) return;
-   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const addrs = getAddresses(user.email);
    const wasDefault = addrs[idx].isDefault;
    addrs.splice(idx, 1);
@@ -3576,7 +3573,7 @@ function deleteAddress(idx) {
 
 // ── ORDERS ──
 function renderOrders() {
-   const user   = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user   = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const orders = JSON.parse(localStorage.getItem('orders_' + user.email) || '[]');
    const list   = document.getElementById('ordersList');
    if (!orders.length) { list.innerHTML = '<p class="prof-empty">No orders placed yet.</p>'; return; }
@@ -3601,7 +3598,7 @@ function getWishlist(email)          { return JSON.parse(localStorage.getItem('w
 function saveWishlistData(email, arr) { localStorage.setItem('wishlist_' + email, JSON.stringify(arr)); }
 
 function toggleWishlist(itemId, catKey, btn) {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { alert('Please log in to use Wishlist.'); return; }
    const wl = getWishlist(user.email);
    const idx = wl.findIndex(w => w.id === itemId);
@@ -3620,7 +3617,7 @@ function toggleWishlist(itemId, catKey, btn) {
 }
 
 function renderWishlistTab() {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const wl   = user ? getWishlist(user.email) : [];
    const container = document.getElementById('wishlistItems');
    if (!wl.length) { container.innerHTML = '<p class="prof-empty">No items in wishlist yet.<br>Click 🤍 on any product to add it.</p>'; return; }
@@ -3640,7 +3637,7 @@ function renderWishlistTab() {
 }
 
 function removeFromWishlistTab(itemId) {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const wl   = getWishlist(user.email).filter(w => w.id !== itemId);
    saveWishlistData(user.email, wl);
    renderWishlistTab();
@@ -3684,7 +3681,7 @@ function formatExpiry(input) {
 }
 
 function renderCards() {
-   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const list  = document.getElementById('cardsList');
    const cards = getSavedCards(user.email);
    if (!cards.length) { list.innerHTML = '<p class="prof-empty">No saved cards yet.<br>Add a card to speed up checkout.</p>'; return; }
@@ -3714,7 +3711,7 @@ function saveCard() {
    const expiry = document.getElementById('card-expiry').value.trim();
    const name   = document.getElementById('card-name').value.trim();
    if (number.length < 12 || !expiry || !name) { alert('Please fill in Card Number, Expiry and Name.'); return; }
-   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const cards = getSavedCards(user.email);
    const last4 = number.slice(-4);
    const brand = getCardBrand(number);
@@ -3728,7 +3725,7 @@ function saveCard() {
 
 function deleteCard(idx) {
    if (!confirm('Remove this card?')) return;
-   const user  = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const cards = getSavedCards(user.email);
    cards.splice(idx, 1);
    saveCardsData(user.email, cards);
@@ -3740,7 +3737,7 @@ function deleteCard(idx) {
 let _selectedSavedCard = -1;
 
 function loadSavedCardsInPayment() {
-   const user = JSON.parse(localStorage.getItem('loggedInUser'));
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const container = document.getElementById('savedCardsInPayment');
    if (!container || !user) return;
    const cards = getSavedCards(user.email);
@@ -3776,5 +3773,5 @@ function selectSavedCard(idx) {
 function payWithSavedCard(idx) {
    const cvv = (document.getElementById('rp_cvv_' + idx).value || '').trim();
    if (cvv.length < 3) { alert('Please enter your CVV (3 or 4 digits).'); return; }
-   processPayment('Card (' + document.getElementById('rp_card_' + idx).querySelector('.card-brand-badge').textContent + ' •••• ' + getSavedCards(JSON.parse(localStorage.getItem('loggedInUser')).email)[idx].last4 + ')');
+   processPayment('Card (' + document.getElementById('rp_card_' + idx).querySelector('.card-brand-badge').textContent + ' •••• ' + getSavedCards(JSON.parse(sessionStorage.getItem('loggedInUser')).email)[idx].last4 + ')');
 }

@@ -2629,80 +2629,78 @@ function showStoresList() {
       return;
    }
 
-   // Left sidebar — store names
-   var sidebarHTML = storeList.map(function(s, i) {
-      return '<div class="subcat-sidebar-item' + (i === 0 ? ' active' : '') + '" ' +
-             'data-idx="' + i + '" onclick="switchStoreInList(this)">' +
-             '<span class="subcat-sidebar-icon">🏪</span>' +
-             '<span>' + s.name + '<br><span style="font-size:0.72rem;opacity:0.65;font-weight:400">' + s.count + ' products</span></span>' +
-             '</div>';
-   }).join('');
-
    window._storeListData = storeList;
 
-   // Right panel — first store's products
-   var firstPanel = buildStoreListPanel(storeList[0].storeId, storeList[0].name);
-
-   grid.innerHTML =
-      '<div class="subcat-layout">' +
-         '<div class="subcat-sidebar">' + sidebarHTML + '</div>' +
-         '<div class="subcat-products-panel" id="storeListPanel">' + firstPanel + '</div>' +
+   // Store selector tabs at the top, then subcat-layout below
+   var selectorHtml = '<div class="store-selector-tabs">' +
+      storeList.map(function(s, i) {
+         return '<button class="store-selector-tab' + (i === 0 ? ' active' : '') + '" ' +
+                'data-idx="' + i + '" onclick="switchStoreSelector(this)">' +
+                '🏪 ' + s.name +
+                '<span class="store-selector-count"> (' + s.count + ')</span>' +
+                '</button>';
+      }).join('') +
       '</div>';
 
+   grid.innerHTML = selectorHtml + buildStoreSubcatLayout(storeList[0].storeId);
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function switchStoreInList(el) {
-   document.querySelectorAll('#productsGrid .subcat-sidebar-item').forEach(function(x) { x.classList.remove('active'); });
-   el.classList.add('active');
-   var s = window._storeListData[parseInt(el.dataset.idx)];
-   var panel = document.getElementById('storeListPanel');
-   if (panel) panel.innerHTML = buildStoreListPanel(s.storeId, s.name);
+function switchStoreSelector(btn) {
+   var grid = document.getElementById('productsGrid');
+   grid.querySelectorAll('.store-selector-tab').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   var s = window._storeListData[parseInt(btn.dataset.idx)];
+   var old = grid.querySelector('.subcat-layout');
+   if (old) old.remove();
+   grid.insertAdjacentHTML('beforeend', buildStoreSubcatLayout(s.storeId));
 }
 
-// Builds the right-panel content for a store: category tabs + product grid
-function buildStoreListPanel(storeId, storeName) {
+function buildStoreSubcatLayout(storeId) {
    var storeCats = [];
    Object.entries(products).forEach(function([catKey, catData]) {
       var items = catData.items.filter(function(item) { return (item.storeId || null) === storeId; });
       if (items.length) storeCats.push({ catKey: catKey, catData: catData, items: items });
    });
-
    if (!storeCats.length) return '<p style="color:#888;padding:40px;text-align:center">No products in this store yet.</p>';
 
-   var storeIdAttr = storeId ? storeId.replace(/"/g, '') : '';
+   var storeIdAttr = storeId ? storeId.replace(/["']/g, '') : '';
 
-   var tabsHTML = storeCats.map(function(c, i) {
-      return '<button class="store-subcat-tab' + (i === 0 ? ' active' : '') + '" ' +
+   var sidebarHtml = storeCats.map(function(c, i) {
+      return '<div class="subcat-sidebar-item' + (i === 0 ? ' active' : '') + '" ' +
              'data-catkey="' + c.catKey + '" data-storeid="' + storeIdAttr + '" ' +
-             'onclick="switchStoreTab(this)">' +
-             getCatIcon(c.catKey) + ' ' + c.catData.title +
-             ' <span class="store-tab-count">(' + c.items.length + ')</span>' +
-             '</button>';
+             'onclick="switchStoreSubcat(this)">' +
+             '<span class="subcat-sidebar-icon">' + getCatIcon(c.catKey) + '</span>' +
+             '<span>' + c.catData.title + '</span>' +
+             '</div>';
    }).join('');
 
    var first = storeCats[0];
    var tmp = document.createElement('div');
+   tmp.className = 'products-grid';
    first.items.forEach(function(item) { renderCard(Object.assign({}, item, { type: first.catData.type }), first.catKey, tmp); });
 
-   return '<div class="store-list-panel-header">' +
-             '<span class="store-list-panel-name">🏪 ' + storeName + '</span>' +
-          '</div>' +
-          '<div class="store-subcat-tabs">' + tabsHTML + '</div>' +
-          '<div class="compact-grid" id="storeTabProducts">' + tmp.innerHTML + '</div>';
+   return '<div class="subcat-layout">' +
+             '<div class="subcat-sidebar">' + sidebarHtml + '</div>' +
+             '<div class="subcat-products-panel" id="storeSubcatPanel">' +
+                '<div class="subcat-panel-title">' + first.catData.title + '</div>' +
+                '<div class="products-grid">' + tmp.innerHTML + '</div>' +
+             '</div>' +
+          '</div>';
 }
 
-function switchStoreTab(btn) {
-   var catKey  = btn.dataset.catkey;
-   var storeId = btn.dataset.storeid || null;
+function switchStoreSubcat(el) {
+   el.closest('.subcat-sidebar').querySelectorAll('.subcat-sidebar-item').forEach(function(x) { x.classList.remove('active'); });
+   el.classList.add('active');
+   var catKey  = el.dataset.catkey;
+   var storeId = el.dataset.storeid || null;
    var catData = products[catKey];
    var items   = catData.items.filter(function(item) { return (item.storeId || null) === storeId; });
    var tmp = document.createElement('div');
+   tmp.className = 'products-grid';
    items.forEach(function(item) { renderCard(Object.assign({}, item, { type: catData.type }), catKey, tmp); });
-   var panel = document.getElementById('storeTabProducts');
-   if (panel) panel.innerHTML = tmp.innerHTML;
-   btn.closest('.store-subcat-tabs').querySelectorAll('.store-subcat-tab').forEach(function(b) { b.classList.remove('active'); });
-   btn.classList.add('active');
+   var panel = document.getElementById('storeSubcatPanel');
+   if (panel) panel.innerHTML = '<div class="subcat-panel-title">' + catData.title + '</div>' + tmp.outerHTML;
 }
 
 function buildStoreCard(storeId, storeName, ownerLabel, productCount, orderCount, items) {

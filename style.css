@@ -1252,39 +1252,42 @@ body {
 	overflow: hidden;
 	margin-bottom: 1.2rem;
 	border: 1px solid #e0e0e0;
+	background: #fff;
 }
 
 .order-id-header {
-	background: linear-gradient(135deg, #1a73e8, #1558b0);
-	color: white;
-	padding: 1rem 1.2rem;
-	text-align: center;
+	background: #f8f9ff;
+	border-left: 4px solid #1a73e8;
+	padding: 0.9rem 1.1rem;
+	text-align: left;
 }
 
 .order-id-items {
 	background: #fff;
-	padding: 0.5rem 1rem 0.6rem;
+	padding: 0.5rem 1rem 0.7rem;
+	border-top: 1px solid #eee;
 }
 
 .order-id-label {
-	font-size: 0.75rem;
-	opacity: 0.8;
+	font-size: 0.7rem;
+	color: #888;
 	text-transform: uppercase;
 	letter-spacing: 1px;
-	margin-bottom: 0.3rem;
+	margin-bottom: 0.2rem;
 }
 
 .order-id-value {
-	font-size: 1.6rem;
+	font-size: 1.35rem;
 	font-weight: 900;
-	letter-spacing: 2px;
+	letter-spacing: 1.5px;
 	font-family: monospace;
+	color: #1a1a2e;
 }
 
 .order-id-date {
-	font-size: 0.76rem;
-	opacity: 0.75;
-	margin-top: 0.3rem;
+	font-size: 0.74rem;
+	color: #888;
+	margin-top: 0.2rem;
 }
 
 .order-items-list {
@@ -3949,9 +3952,8 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 .order-store-label {
 	font-size: 0.82rem;
 	font-weight: 700;
-	color: #ffd54f;
+	color: #1a73e8;
 	margin-bottom: 4px;
-	letter-spacing: 0.3px;
 }
 .order-subtotal-row {
 	text-align: right;
@@ -4402,6 +4404,39 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	flex-shrink: 0;
 }
 .sp-store-add-btn:hover { background: #2d2d70; }
+
+/* ── Stores Page: top store selector tabs ── */
+.store-selector-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding-bottom: 16px;
+}
+.store-selector-tab {
+	background: #fff;
+	border: 2px solid #ddd;
+	border-radius: 24px;
+	padding: 8px 18px;
+	font-size: 0.88rem;
+	font-weight: 600;
+	color: #444;
+	cursor: pointer;
+	transition: all 0.15s;
+}
+.store-selector-tab:hover {
+	border-color: #1a1a2e;
+	color: #1a1a2e;
+}
+.store-selector-tab.active {
+	background: #1a1a2e;
+	border-color: #1a1a2e;
+	color: #fff;
+}
+.store-selector-count {
+	font-size: 0.75rem;
+	font-weight: 400;
+	opacity: 0.7;
+}
 
 /* ── Store List Panel (Stores page: right-panel header + category tabs) ── */
 .store-list-panel-header {

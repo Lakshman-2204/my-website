@@ -21,6 +21,7 @@
       <div class="admin-tabs">
          <button class="admin-tab active" id="tab-products-btn" onclick="switchAdminTab('products')">🛍️ Products</button>
          <button class="admin-tab" id="tab-settings-btn" onclick="switchAdminTab('settings')">⚙️ Settings</button>
+         <button class="admin-tab" id="tab-users-btn" onclick="switchAdminTab('users')">👥 Users</button>
       </div>
 
       <!-- PRODUCTS TAB -->
@@ -155,6 +156,87 @@
 
          </div><!-- /settings-content -->
       </div><!-- /tab-settings -->
+
+      <!-- USERS TAB -->
+      <div id="tab-users" class="hidden">
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>👥 User Management</h1>
+                  <p>View all registered users, block bad actors, or delete accounts. Admins are never shown here.</p>
+               </div>
+            </div>
+         </div>
+         <div class="um-content">
+            <!-- Stats -->
+            <div class="um-stats-bar" id="userStatsBar">
+               <span>👥 Total: <strong>—</strong></span>
+            </div>
+            <!-- Toolbar -->
+            <div class="um-toolbar">
+               <input type="search" class="um-search" id="userSearchInput" placeholder="🔍 Search by name or email…" oninput="renderUserList(_currentUserFilter)"/>
+               <div class="um-filter-tabs">
+                  <button class="um-filter-btn active" id="uf-all"         onclick="filterUsers('all')">All</button>
+                  <button class="um-filter-btn"        id="uf-customers"   onclick="filterUsers('customers')">Customers</button>
+                  <button class="um-filter-btn"        id="uf-storeowners" onclick="filterUsers('storeowners')">Store Owners</button>
+                  <button class="um-filter-btn"        id="uf-blocked"     onclick="filterUsers('blocked')">🚫 Blocked</button>
+               </div>
+            </div>
+            <!-- User list -->
+            <div class="um-user-list" id="userListContainer">
+               <p class="um-empty">Loading users…</p>
+            </div>
+         </div>
+      </div>
+
+      <!-- USER DETAIL MODAL -->
+      <div class="udm-overlay hidden" id="userDetailModal" onclick="handleUserDetailOverlayClick(event)">
+         <div class="udm-modal">
+            <div class="udm-header">
+               <h3>👤 User Profile</h3>
+               <button class="udm-close" onclick="closeUserDetailModal()">✕</button>
+            </div>
+            <div class="udm-body">
+               <div class="udm-avatar-row">
+                  <div class="udm-avatar-big" id="udm-avatar">?</div>
+                  <div class="udm-name-block">
+                     <div class="udm-uname" id="udm-name">—</div>
+                     <div class="udm-uemail" id="udm-email">—</div>
+                  </div>
+               </div>
+               <div class="udm-grid">
+                  <div class="udm-field">
+                     <label>Role</label>
+                     <span id="udm-role">—</span>
+                  </div>
+                  <div class="udm-field">
+                     <label>Status</label>
+                     <span id="udm-status">—</span>
+                  </div>
+                  <div class="udm-field">
+                     <label>Phone</label>
+                     <span id="udm-phone">—</span>
+                  </div>
+                  <div class="udm-field">
+                     <label>Gender</label>
+                     <span id="udm-gender">—</span>
+                  </div>
+                  <div class="udm-field">
+                     <label>Orders</label>
+                     <span id="udm-orders">—</span>
+                  </div>
+               </div>
+               <div class="udm-section-label">Saved Addresses</div>
+               <div id="udm-addresses"><span style="color:#999">—</span></div>
+            </div>
+            <div class="udm-footer">
+               <button class="udm-btn udm-btn-block"   id="udm-block-btn"   onclick="blockUserFromDetail()">🚫 Block</button>
+               <button class="udm-btn udm-btn-delete"                        onclick="deleteUserFromDetail()">🗑 Delete Account</button>
+            </div>
+            <!-- hidden field to carry email -->
+            <input type="hidden" id="udm-email-val"/>
+         </div>
+      </div>
 
       <!-- EDIT MODAL -->
       <div class="admin-modal-overlay hidden" id="editModal" onclick="handleModalOverlayClick(event)">

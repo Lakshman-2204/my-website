@@ -2808,6 +2808,331 @@ body {
 	.menu-url-input { display: none; }
 }
 
+/* ── ADMIN: USER MANAGEMENT ── */
+.um-content {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: 24px 24px 60px;
+}
+
+.um-toolbar {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	margin-bottom: 16px;
+	flex-wrap: wrap;
+}
+
+.um-search {
+	flex: 1;
+	min-width: 200px;
+	padding: 9px 14px;
+	border: 1.5px solid #ddd;
+	border-radius: 8px;
+	font-size: 0.9rem;
+	outline: none;
+}
+
+.um-search:focus { border-color: #2e7d32; }
+
+.um-filter-tabs {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.um-filter-btn {
+	padding: 7px 16px;
+	border: 1.5px solid #ddd;
+	border-radius: 20px;
+	background: #fff;
+	font-size: 0.83rem;
+	font-weight: 600;
+	cursor: pointer;
+	color: #555;
+	transition: all 0.15s;
+}
+
+.um-filter-btn:hover { border-color: #2e7d32; color: #2e7d32; }
+
+.um-filter-btn.active {
+	background: #2e7d32;
+	color: #fff;
+	border-color: #2e7d32;
+}
+
+.um-stats-bar {
+	display: flex;
+	gap: 20px;
+	background: #fff;
+	border-radius: 10px;
+	padding: 12px 20px;
+	margin-bottom: 18px;
+	box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+	font-size: 0.88rem;
+	color: #555;
+	flex-wrap: wrap;
+}
+
+.um-stats-bar span strong { color: #1a1a2e; }
+
+.um-user-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.um-user-card {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	background: #fff;
+	border-radius: 12px;
+	padding: 16px 20px;
+	box-shadow: 0 1px 8px rgba(0,0,0,0.07);
+	transition: box-shadow 0.15s;
+}
+
+.um-user-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+.um-card-blocked {
+	background: #fff8f8;
+	border-left: 4px solid #e53935;
+}
+
+.um-avatar {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #1a237e, #283593);
+	color: #fff;
+	font-size: 1.3rem;
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.um-user-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.um-user-name {
+	font-weight: 700;
+	font-size: 0.95rem;
+	color: #1a1a2e;
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	flex-wrap: wrap;
+}
+
+.um-user-email {
+	font-size: 0.83rem;
+	color: #666;
+	margin-top: 2px;
+}
+
+.um-user-meta {
+	font-size: 0.78rem;
+	color: #999;
+	margin-top: 3px;
+}
+
+.um-badge {
+	font-size: 0.7rem;
+	font-weight: 700;
+	padding: 2px 8px;
+	border-radius: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.badge-admin    { background: #7b1fa2; color: #fff; }
+.badge-owner    { background: #e65100; color: #fff; }
+.badge-customer { background: #1565c0; color: #fff; }
+
+.um-status {
+	font-size: 0.75rem;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 10px;
+}
+
+.status-active  { background: #e8f5e9; color: #2e7d32; }
+.status-blocked { background: #ffebee; color: #c62828; }
+
+.um-actions {
+	display: flex;
+	gap: 8px;
+	flex-shrink: 0;
+	flex-wrap: wrap;
+}
+
+.um-btn {
+	padding: 6px 12px;
+	border: none;
+	border-radius: 7px;
+	font-size: 0.8rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: opacity 0.15s;
+}
+
+.um-btn:hover { opacity: 0.82; }
+
+.um-btn-view   { background: #e3f2fd; color: #1565c0; }
+.um-btn-block  { background: #fff3e0; color: #e65100; }
+.um-btn-unblock{ background: #e8f5e9; color: #2e7d32; }
+.um-btn-delete { background: #ffebee; color: #c62828; }
+
+.um-empty {
+	text-align: center;
+	color: #999;
+	padding: 40px;
+	font-size: 0.92rem;
+}
+
+/* User Detail Modal */
+.udm-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0,0,0,0.5);
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+}
+
+.udm-overlay.hidden { display: none; }
+
+.udm-modal {
+	background: #fff;
+	border-radius: 16px;
+	width: 100%;
+	max-width: 500px;
+	box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+	overflow: hidden;
+}
+
+.udm-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 20px;
+	background: #1a1a2e;
+	color: #fff;
+}
+
+.udm-header h3 { font-size: 1rem; }
+
+.udm-close {
+	background: none;
+	border: none;
+	color: #fff;
+	font-size: 1.2rem;
+	cursor: pointer;
+	line-height: 1;
+}
+
+.udm-body { padding: 20px; }
+
+.udm-avatar-row {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin-bottom: 18px;
+}
+
+.udm-avatar-big {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #1a237e, #283593);
+	color: #fff;
+	font-size: 1.8rem;
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.udm-name-block { flex: 1; }
+.udm-name-block .udm-uname { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; }
+.udm-name-block .udm-uemail { font-size: 0.82rem; color: #777; margin-top: 2px; }
+
+.udm-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	margin-bottom: 14px;
+}
+
+.udm-field label {
+	font-size: 0.72rem;
+	font-weight: 700;
+	color: #999;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	display: block;
+	margin-bottom: 3px;
+}
+
+.udm-field span {
+	font-size: 0.88rem;
+	color: #222;
+	font-weight: 500;
+}
+
+.udm-section-label {
+	font-size: 0.72rem;
+	font-weight: 700;
+	color: #999;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-bottom: 6px;
+	margin-top: 14px;
+}
+
+.udm-addr-item {
+	font-size: 0.82rem;
+	color: #444;
+	padding: 5px 0;
+	border-bottom: 1px solid #f0f0f0;
+}
+
+.udm-footer {
+	display: flex;
+	gap: 10px;
+	padding: 14px 20px;
+	border-top: 1px solid #f0f0f0;
+	flex-wrap: wrap;
+}
+
+.udm-btn {
+	flex: 1;
+	padding: 9px 12px;
+	border: none;
+	border-radius: 8px;
+	font-size: 0.85rem;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.udm-btn-block  { background: #fff3e0; color: #e65100; }
+.udm-btn-unblock{ background: #e8f5e9; color: #2e7d32; }
+.udm-btn-delete { background: #ffebee; color: #c62828; }
+
+@media (max-width: 600px) {
+	.um-content { padding: 16px 12px 40px; }
+	.um-user-card { flex-wrap: wrap; }
+	.um-actions { width: 100%; justify-content: flex-end; }
+	.udm-grid { grid-template-columns: 1fr; }
+}
+
 /* ── PROFILE PAGE ── */
 .profile-page {
 	background: #f5f5f5;

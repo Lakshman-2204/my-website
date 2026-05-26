@@ -2422,19 +2422,35 @@ function signUp() {
    }
    users.push({ name, email, password, role });
    saveUsers(users);
+   // Save role separately so it survives any array operations
+   localStorage.setItem('role_' + email, role);
    alert('Account created! Please login.');
    window.location.href = 'login.html';
 }
 
 function login() {
-   const email    = document.getElementById('loginEmail').value.trim();
+   const email    = document.getElementById('loginEmail').value.trim().toLowerCase();
    const password = document.getElementById('loginPassword').value;
    const errorMsg = document.getElementById('loginError');
    const users    = getUsers();
-   const user     = users.find(u => u.email === email && u.password === password);
-   if (!user) { errorMsg.classList.remove('hidden'); return; }
+   const user     = users.find(u => u.email.toLowerCase() === email && u.password === password);
+   if (!user) { errorMsg.classList.remove('hidden'); errorMsg.textContent = '❌ Incorrect email or password.'; return; }
+
+   // Blocked check — admins cannot be blocked
+   if (user.blocked && !isAdmin(user.email)) {
+      errorMsg.textContent = '🚫 Your account has been blocked. Please contact the store admin.';
+      errorMsg.classList.remove('hidden');
+      return;
+   }
+
    errorMsg.classList.add('hidden');
+
+   // Merge in role from separate role store (survives seedAdmin rewrites)
+   const savedRole = localStorage.getItem('role_' + user.email);
+   if (savedRole && !user.role) user.role = savedRole;
+
    localStorage.setItem('loggedInUser', JSON.stringify(user));
+
    // Admin → home.html (can access all pages via dropdown)
    if (isAdmin(user.email)) { window.location.href = 'home.html'; return; }
    // Store owner → shopowner.html
@@ -2456,9 +2472,234 @@ function isStoreOwner(user) {
    return user && user.role === 'storeowner' && !isAdmin(user.email);
 }
 
+function isBlocked(email) {
+   const users = getUsers();
+   const u = users.find(function(x) { return x.email.toLowerCase() === email.toLowerCase(); });
+   return u && u.blocked === true;
+}
+
+// ── ADMIN: USER MANAGEMENT ──
+var _currentUserFilter = 'all';
+
+function filterUsers(filter) {
+   _currentUserFilter = filter;
+   renderUserList(filter);
+}
+
+function renderUserList(filter) {
+   filter = filter || 'all';
+   // Update filter tab active state
+   ['all', 'customers', 'storeowners', 'blocked'].forEach(function(f) {
+      var btn = document.getElementById('uf-' + f);
+      if (btn) btn.classList.toggle('active', f === filter);
+   });
+
+   var users = getUsers();
+   var container = document.getElementById('userListContainer');
+   if (!container) return;
+
+   // Exclude admin accounts from the list
+   var allNonAdmin = users.filter(function(u) { return !ADMIN_EMAILS.includes(u.email); });
+
+   // Stats
+   var activeCount  = allNonAdmin.filter(function(u) { return !u.blocked; }).length;
+   var blockedCount = allNonAdmin.filter(function(u) { return u.blocked; }).length;
+   var statsEl = document.getElementById('userStatsBar');
+   if (statsEl) {
+      statsEl.innerHTML =
+         '<span>👥 Total: <strong>' + allNonAdmin.length + '</strong></span>' +
+         '<span>✅ Active: <strong>' + activeCount + '</strong></span>' +
+         '<span>🚫 Blocked: <strong>' + blockedCount + '</strong></span>';
+   }
+
+   // Apply category filter
+   var filtered = allNonAdmin.slice();
+   if (filter === 'customers')   filtered = filtered.filter(function(u) { return u.role !== 'storeowner'; });
+   if (filter === 'storeowners') filtered = filtered.filter(function(u) { return u.role === 'storeowner'; });
+   if (filter === 'blocked')     filtered = filtered.filter(function(u) { return u.blocked; });
+
+   // Apply search
+   var searchEl = document.getElementById('userSearchInput');
+   var searchVal = searchEl ? searchEl.value.trim().toLowerCase() : '';
+   if (searchVal) {
+      filtered = filtered.filter(function(u) {
+         return u.email.toLowerCase().includes(searchVal) ||
+                (u.name && u.name.toLowerCase().includes(searchVal));
+      });
+   }
+
+   if (!filtered.length) {
+      container.innerHTML = '<p class="um-empty">No users found.</p>';
+      return;
+   }
+
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+
+   var html = '';
+   filtered.forEach(function(u) {
+      var initial    = (u.name || u.email).charAt(0).toUpperCase();
+      var roleLabel  = u.role === 'storeowner' ? 'Store Owner' : 'Customer';
+      var roleClass  = u.role === 'storeowner' ? 'badge-owner' : 'badge-customer';
+      var statusCls  = u.blocked ? 'status-blocked' : 'status-active';
+      var statusLbl  = u.blocked ? '🚫 Blocked' : '✅ Active';
+      var blockLbl   = u.blocked ? '✅ Unblock' : '🚫 Block';
+      var blockCls   = u.blocked ? 'um-btn-unblock' : 'um-btn-block';
+      var blockFn    = u.blocked ? 'unblockUser' : 'blockUser';
+      var orderCount = allOrders.filter(function(o) { return o.userEmail === u.email; }).length;
+      var meta       = orderCount + ' order' + (orderCount !== 1 ? 's' : '');
+      if (u.phone) meta += ' · ' + u.phone;
+
+      html +=
+         '<div class="um-user-card' + (u.blocked ? ' um-card-blocked' : '') + '">' +
+            '<div class="um-avatar">' + initial + '</div>' +
+            '<div class="um-user-info">' +
+               '<div class="um-user-name">' +
+                  (u.name || '(No name)') +
+                  ' <span class="um-badge ' + roleClass + '">' + roleLabel + '</span>' +
+                  ' <span class="um-status ' + statusCls + '">' + statusLbl + '</span>' +
+               '</div>' +
+               '<div class="um-user-email">' + u.email + '</div>' +
+               '<div class="um-user-meta">' + meta + '</div>' +
+            '</div>' +
+            '<div class="um-actions">' +
+               '<button class="um-btn um-btn-view"   onclick="showUserDetail(\'' + u.email + '\')">👁 Profile</button>' +
+               '<button class="um-btn ' + blockCls + '" onclick="' + blockFn + '(\'' + u.email + '\')">' + blockLbl + '</button>' +
+               '<button class="um-btn um-btn-delete" onclick="deleteUser(\'' + u.email + '\')">🗑 Delete</button>' +
+            '</div>' +
+         '</div>';
+   });
+   container.innerHTML = html;
+}
+
+function blockUser(email) {
+   if (!confirm('Block ' + email + '?\nThey will immediately lose access and cannot log in.')) return;
+   var users = getUsers();
+   var u = users.find(function(x) { return x.email === email; });
+   if (u) { u.blocked = true; saveUsers(users); }
+   // Force logout if this user is currently in session
+   var lu = JSON.parse(localStorage.getItem('loggedInUser') || 'null');
+   if (lu && lu.email.toLowerCase() === email.toLowerCase()) {
+      localStorage.removeItem('loggedInUser');
+   }
+   showAdminToast('🚫 ' + email + ' has been blocked.');
+   renderUserList(_currentUserFilter);
+}
+
+function unblockUser(email) {
+   if (!confirm('Unblock ' + email + '?\nThey will be able to log in again.')) return;
+   var users = getUsers();
+   var u = users.find(function(x) { return x.email === email; });
+   if (u) { u.blocked = false; saveUsers(users); }
+   showAdminToast('✅ ' + email + ' has been unblocked.');
+   renderUserList(_currentUserFilter);
+}
+
+function deleteUser(email) {
+   if (!confirm('Permanently delete the account for:\n' + email + '\n\nThis cannot be undone. All their data (addresses, orders) will also be removed.')) return;
+   var users = getUsers();
+   users = users.filter(function(u) { return u.email !== email; });
+   saveUsers(users);
+   localStorage.removeItem('role_' + email);
+   localStorage.removeItem('addresses_' + email);
+   localStorage.removeItem('orders_' + email);
+   // Remove their entries from the shared orders list
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   allOrders = allOrders.filter(function(o) { return o.userEmail !== email; });
+   localStorage.setItem('allOrders', JSON.stringify(allOrders));
+   // Force logout if this user is currently in session
+   var lu = JSON.parse(localStorage.getItem('loggedInUser') || 'null');
+   if (lu && lu.email.toLowerCase() === email.toLowerCase()) {
+      localStorage.removeItem('loggedInUser');
+   }
+   showAdminToast('🗑 Account deleted: ' + email);
+   renderUserList(_currentUserFilter);
+}
+
+function showUserDetail(email) {
+   var users  = getUsers();
+   var u = users.find(function(x) { return x.email === email; });
+   if (!u) return;
+
+   var addresses  = JSON.parse(localStorage.getItem('addresses_' + email) || '[]');
+   var allOrders  = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var orderCount = allOrders.filter(function(o) { return o.userEmail === email; }).length;
+
+   var roleLabel   = u.role === 'storeowner' ? 'Store Owner' : 'Customer';
+   var statusLabel = u.blocked ? '🚫 Blocked' : '✅ Active';
+   var initial     = (u.name || u.email).charAt(0).toUpperCase();
+
+   document.getElementById('udm-avatar').textContent  = initial;
+   document.getElementById('udm-name').textContent    = u.name   || '(No name)';
+   document.getElementById('udm-email').textContent   = u.email;
+   document.getElementById('udm-role').textContent    = roleLabel;
+   document.getElementById('udm-status').textContent  = statusLabel;
+   document.getElementById('udm-phone').textContent   = u.phone  || '—';
+   document.getElementById('udm-gender').textContent  = u.gender || '—';
+   document.getElementById('udm-orders').textContent  = orderCount + ' order' + (orderCount !== 1 ? 's' : '') + ' placed';
+
+   var addrEl = document.getElementById('udm-addresses');
+   if (addresses.length) {
+      addrEl.innerHTML = addresses.map(function(a) {
+         return '<div class="udm-addr-item">📍 ' + (a.name || '') + ', ' + (a.line || '') + ', ' + (a.city || '') + ' — ' + (a.pin || '') + '</div>';
+      }).join('');
+   } else {
+      addrEl.innerHTML = '<span style="color:#999">No saved addresses</span>';
+   }
+
+   // Swap block button label based on current state
+   var blockBtn = document.getElementById('udm-block-btn');
+   if (blockBtn) {
+      if (u.blocked) {
+         blockBtn.textContent = '✅ Unblock';
+         blockBtn.className   = 'udm-btn udm-btn-unblock';
+         blockBtn.onclick     = function() { unblockUserFromDetail(); };
+      } else {
+         blockBtn.textContent = '🚫 Block';
+         blockBtn.className   = 'udm-btn udm-btn-block';
+         blockBtn.onclick     = function() { blockUserFromDetail(); };
+      }
+   }
+
+   document.getElementById('udm-email-val').value = email;
+   document.getElementById('userDetailModal').classList.remove('hidden');
+}
+
+function closeUserDetailModal() {
+   document.getElementById('userDetailModal').classList.add('hidden');
+}
+
+function handleUserDetailOverlayClick(e) {
+   if (e.target.id === 'userDetailModal') closeUserDetailModal();
+}
+
+function blockUserFromDetail() {
+   var email = document.getElementById('udm-email-val').value;
+   closeUserDetailModal();
+   blockUser(email);
+}
+
+function unblockUserFromDetail() {
+   var email = document.getElementById('udm-email-val').value;
+   closeUserDetailModal();
+   unblockUser(email);
+}
+
+function deleteUserFromDetail() {
+   var email = document.getElementById('udm-email-val').value;
+   closeUserDetailModal();
+   deleteUser(email);
+}
+
 function checkLogin() {
    const user = JSON.parse(localStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
+
+   // Kick blocked users out immediately (admins can never be blocked)
+   if (!isAdmin(user.email) && isBlocked(user.email)) {
+      localStorage.removeItem('loggedInUser');
+      window.location.href = 'login.html';
+      return;
+   }
 
    // Accounts created before the role system have no role — ask once
    if (!user.role && !isAdmin(user.email)) {
@@ -2492,17 +2733,18 @@ function confirmRole(role) {
    var user = JSON.parse(localStorage.getItem('loggedInUser'));
    if (!user) return;
    user.role = role;
+   // Save role in its own key — survives seedAdmin() array rewrites
+   localStorage.setItem('role_' + user.email, role);
    localStorage.setItem('loggedInUser', JSON.stringify(user));
-   // also update in the users array
+   // Also update users array
    var users = getUsers();
    var u = users.find(function(x) { return x.email === user.email; });
    if (u) { u.role = role; saveUsers(users); }
-   // redirect
+   // Redirect based on role
    if (role === 'storeowner') {
       window.location.href = 'shopowner.html';
    } else {
-      // reload to continue normal checkLogin flow
-      window.location.reload();
+      window.location.href = 'home.html';
    }
 }
 
@@ -2551,6 +2793,12 @@ document.addEventListener('click', function () {
 function checkShopOwnerLogin() {
    var user = JSON.parse(localStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
+   // Kick blocked users out
+   if (!isAdmin(user.email) && isBlocked(user.email)) {
+      localStorage.removeItem('loggedInUser');
+      window.location.href = 'login.html';
+      return;
+   }
    if (!isAdmin(user.email) && !isStoreOwner(user)) {
       window.location.href = 'home.html'; return;
    }
@@ -2941,11 +3189,14 @@ function showAdminToast(msg) {
 
 // ── ADMIN TABS ──
 function switchAdminTab(tab) {
-   document.getElementById('tab-products').classList.toggle('hidden', tab !== 'products');
-   document.getElementById('tab-settings').classList.toggle('hidden', tab !== 'settings');
-   document.getElementById('tab-products-btn').classList.toggle('active', tab === 'products');
-   document.getElementById('tab-settings-btn').classList.toggle('active', tab === 'settings');
+   ['products', 'settings', 'users'].forEach(function(t) {
+      var el  = document.getElementById('tab-' + t);
+      var btn = document.getElementById('tab-' + t + '-btn');
+      if (el)  el.classList.toggle('hidden', t !== tab);
+      if (btn) btn.classList.toggle('active', t === tab);
+   });
    if (tab === 'settings') loadSettingsForm();
+   if (tab === 'users')    renderUserList('all');
 }
 
 // ── ADMIN SETTINGS ──

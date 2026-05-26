@@ -225,6 +225,24 @@ body {
 .header-stores-btn:hover  { background: #e65100; }
 .header-stores-btn.active { background: #bf360c; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
 
+/* Dashboard / Home icon button */
+.header-dashboard-btn {
+	background: transparent;
+	border: 1.5px solid rgba(255,255,255,0.4);
+	border-radius: 8px;
+	color: #fff;
+	font-size: 1.1rem;
+	padding: 6px 10px;
+	cursor: pointer;
+	line-height: 1;
+	transition: background 0.15s, border-color 0.15s;
+	flex-shrink: 0;
+}
+.header-dashboard-btn:hover {
+	background: rgba(255,255,255,0.15);
+	border-color: rgba(255,255,255,0.7);
+}
+
 .search-icon-sym {
 	padding: 0 14px;
 	font-size: 1rem;
@@ -2282,6 +2300,69 @@ body {
 }
 
 .admin-add-main-btn:hover { background: #1b5e20; }
+
+.admin-filter-bar {
+	max-width: 1400px;
+	margin: 0 auto;
+	padding: 0 24px 16px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-items: center;
+}
+.admin-filter-search {
+	position: relative;
+	flex: 1;
+	min-width: 200px;
+	max-width: 340px;
+}
+.admin-filter-search-icon {
+	position: absolute;
+	left: 10px;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 0.9rem;
+	pointer-events: none;
+}
+.admin-filter-search input {
+	width: 100%;
+	padding: 8px 12px 8px 32px;
+	border: 1.5px solid #ddd;
+	border-radius: 8px;
+	font-size: 0.88rem;
+	outline: none;
+	transition: border-color 0.15s;
+	box-sizing: border-box;
+}
+.admin-filter-search input:focus { border-color: #4a90e2; }
+.admin-filter-select {
+	padding: 8px 12px;
+	border: 1.5px solid #ddd;
+	border-radius: 8px;
+	font-size: 0.88rem;
+	background: #fff;
+	color: #333;
+	cursor: pointer;
+	outline: none;
+	min-width: 160px;
+	transition: border-color 0.15s;
+}
+.admin-filter-select:focus { border-color: #4a90e2; }
+.admin-filter-clear-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 8px 14px;
+	background: #fff0f0;
+	border: 1.5px solid #f44336;
+	border-radius: 8px;
+	color: #f44336;
+	font-size: 0.84rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+.admin-filter-clear-btn:hover { background: #fde8e8; }
 
 .admin-content {
 	max-width: 1400px;
@@ -4409,6 +4490,60 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	flex-shrink: 0;
 }
 .sp-store-add-btn:hover { background: #2d2d70; }
+
+/* ── Stores Page: store TYPE category tabs (General / Electronics / Medical…) ── */
+.store-type-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	padding-bottom: 18px;
+	border-bottom: 2px solid #f0f0f0;
+	margin-bottom: 18px;
+}
+.store-type-tab {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding: 12px 18px;
+	background: #fff;
+	border: 2px solid #e8e8e8;
+	border-radius: 14px;
+	cursor: pointer;
+	transition: all 0.15s;
+	min-width: 90px;
+}
+.store-type-tab:hover {
+	border-color: #1a1a2e;
+	background: #f5f7ff;
+}
+.store-type-tab.active {
+	background: #1a1a2e;
+	border-color: #1a1a2e;
+	color: #fff;
+}
+.store-type-icon {
+	font-size: 1.5rem;
+	line-height: 1;
+}
+.store-type-label {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: inherit;
+	text-align: center;
+	line-height: 1.2;
+}
+.store-type-count {
+	font-size: 0.68rem;
+	font-weight: 400;
+	opacity: 0.65;
+	background: rgba(0,0,0,0.07);
+	border-radius: 10px;
+	padding: 1px 6px;
+}
+.store-type-tab.active .store-type-count {
+	background: rgba(255,255,255,0.2);
+}
 
 /* ── Stores Page: top store selector tabs ── */
 .store-selector-tabs {

@@ -37,6 +37,20 @@
                <button class="admin-add-main-btn" onclick="openAddModal('groceries')">➕ Add New Product</button>
             </div>
          </div>
+         <!-- FILTER BAR -->
+         <div class="admin-filter-bar" id="adminFilterBar">
+            <div class="admin-filter-search">
+               <span class="admin-filter-search-icon">🔍</span>
+               <input type="search" id="adminSearchInput" placeholder="Search by product name…" oninput="renderAdminGrid()"/>
+            </div>
+            <select id="adminCatFilter" class="admin-filter-select" onchange="renderAdminGrid()">
+               <option value="">All Categories</option>
+            </select>
+            <select id="adminStoreFilter" class="admin-filter-select" onchange="renderAdminGrid()">
+               <option value="__all__">All Stores</option>
+            </select>
+            <button class="admin-filter-clear-btn" id="adminFilterClearBtn" onclick="clearAdminFilters()" style="display:none">✕ Clear</button>
+         </div>
          <!-- PRODUCT GRID (filled by JS) -->
          <div class="admin-content" id="adminContent"></div>
       </div>

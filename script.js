@@ -1641,18 +1641,14 @@ Object.entries(products).forEach(([, cat]) => {
 // Bumping version forces re-seed on all browsers that had a stale flag.
 // Products are always written so they survive partial localStorage clears.
 (function seedDemoStores() {
-   if (localStorage.getItem('demoSeed_v6')) return;
-   localStorage.removeItem('demoSeed_v1');
-   localStorage.removeItem('demoSeed_v2');
-   localStorage.removeItem('demoSeed_v3');
-   localStorage.removeItem('demoSeed_v4');
-   localStorage.removeItem('demoSeed_v5');
+   if (localStorage.getItem('demoSeed_v7')) return;
+   ['v1','v2','v3','v4','v5','v6'].forEach(function(v) { localStorage.removeItem('demoSeed_' + v); });
 
    var users = JSON.parse(localStorage.getItem('users') || '[]');
 
    var stores = [
       {
-         email: 'sharma@mystore.demo', name: 'Sharma Ji', storeName: 'Sharma General Stores',
+         email: 'sharma@mystore.demo', name: 'Sharma Ji', storeName: 'Sharma General Stores', storeType: 'general',
          products: [
             { id: 'sharma_001', catKey: 'groceries',  name: 'Basmati Rice 5kg',        price: 285, desc: 'Premium long grain basmati rice',          img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400', badge: 'Best Seller' },
             { id: 'sharma_002', catKey: 'groceries',  name: 'Chakki Atta 10kg',         price: 340, desc: 'Fresh stone-ground whole wheat flour',      img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400', badge: 'Fresh' },
@@ -1689,7 +1685,7 @@ Object.entries(products).forEach(([, cat]) => {
          ]
       },
       {
-         email: 'kapoor@mystore.demo', name: 'Kapoor Ji', storeName: 'Kapoor General Stores',
+         email: 'kapoor@mystore.demo', name: 'Kapoor Ji', storeName: 'Kapoor General Stores', storeType: 'general',
          products: [
             { id: 'kapoor_001', catKey: 'groceries',  name: 'Parle-G Biscuits 1kg',      price:  85, desc: 'Classic glucose biscuits family pack',   img: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400', badge: 'Popular' },
             { id: 'kapoor_002', catKey: 'groceries',  name: 'Maggi Noodles Pack of 12',   price: 130, desc: '2-minute masala noodles',                img: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400', badge: 'Snack' },
@@ -1726,7 +1722,7 @@ Object.entries(products).forEach(([, cat]) => {
          ]
       },
       {
-         email: 'varma@mystore.demo', name: 'Varma Ji', storeName: 'Varma Electronics',
+         email: 'varma@mystore.demo', name: 'Varma Ji', storeName: 'Varma Electronics', storeType: 'electronics',
          products: [
             { id: 'varma_001', catKey: 'electronics', name: 'Boat Bassheads Earphones',   price: 299,  desc: 'Bass boost wired earphones with mic',       img: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400', badge: 'Popular' },
             { id: 'varma_002', catKey: 'electronics', name: 'Power Bank 10000mAh',        price: 799,  desc: 'Fast charge portable power bank',            img: 'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400', badge: 'Must Have' },
@@ -1743,7 +1739,7 @@ Object.entries(products).forEach(([, cat]) => {
          ]
       },
       {
-         email: 'ram@mystore.demo', name: 'Ram', storeName: 'Ram Stores',
+         email: 'ram@mystore.demo', name: 'Ram', storeName: 'Ram Stores', storeType: 'general',
          products: [
             { id: 'ram_001', catKey: 'groceries',   name: 'Amul Gold Milk 1L',           price:  30,  desc: 'Full cream standardised milk',               img: '', badge: 'Daily' },
             { id: 'ram_002', catKey: 'groceries',   name: 'Bournvita 500g',               price: 230,  desc: 'Chocolate malt health drink',                img: '', badge: 'Popular' },
@@ -1776,18 +1772,18 @@ Object.entries(products).forEach(([, cat]) => {
    stores.forEach(function(s) {
       // Add user account if not present
       if (!users.find(function(u) { return u.email === s.email; })) {
-         users.push({ email: s.email, name: s.name, storeName: s.storeName, role: 'storeowner', password: 'demo1234', blocked: false });
+         users.push({ email: s.email, name: s.name, storeName: s.storeName, storeType: s.storeType || 'general', role: 'storeowner', password: 'demo1234', blocked: false });
       } else {
-         // Ensure existing account has the right storeName and role
          var idx = users.findIndex(function(u) { return u.email === s.email; });
-         users[idx].storeName = s.storeName;
-         users[idx].role = 'storeowner';
+         users[idx].storeName  = s.storeName;
+         users[idx].storeType  = s.storeType || 'general';
+         users[idx].role       = 'storeowner';
       }
       // Always write products so they're available even after partial clears
       localStorage.setItem('myProducts_' + s.email, JSON.stringify(s.products));
    });
    localStorage.setItem('users', JSON.stringify(users));
-   localStorage.setItem('demoSeed_v6', '1');
+   localStorage.setItem('demoSeed_v7', '1');
 })();
 
 // Load store-owner products from myProducts_${email} for each store-owner user
@@ -1823,6 +1819,18 @@ const MAIN_CATS = {
    stationery:    { label: '📚 Stationery',      icon: '📚', keys: ['books','schoolsupplies'] },
    entertainment: { label: '🎮 Entertainment',   icon: '🎮', keys: ['toysAnimals','toysVehicles','toysCustom','games'] }
 };
+
+// ── STORE TYPE CATEGORIES ──
+const STORE_TYPES = [
+   { key: 'general',      icon: '🛒', label: 'General Store' },
+   { key: 'electronics',  icon: '💡', label: 'Electronics' },
+   { key: 'medical',      icon: '💊', label: 'Medical & Pharmacy' },
+   { key: 'food',         icon: '🍕', label: 'Food & Restaurant' },
+   { key: 'clothing',     icon: '👕', label: 'Clothing' },
+   { key: 'flowers',      icon: '🌸', label: 'Florist' },
+   { key: 'construction', icon: '🏗️', label: 'Hardware & Construction' },
+   { key: 'agriculture',  icon: '🌾', label: 'Agriculture' },
+];
 
 // ── ALL ITEMS FLAT LIST (for search) ──
 function getAllItems() {
@@ -2540,6 +2548,14 @@ function paymentDone() {
 }
 
 // ── NAVIGATION ──
+function goDashboard() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { goHome(); return; }
+   if (isAdmin(user.email)) { window.location.href = 'admin.html'; return; }
+   if (user.role === 'storeowner') { window.location.href = 'shopowner.html'; return; }
+   goHome();
+}
+
 function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
@@ -2651,7 +2667,7 @@ function showStoresList() {
       Object.values(products).forEach(function(cat) {
          cat.items.forEach(function(item) { if (item.storeId === u.email) count++; });
       });
-      storeList.push({ storeId: u.email, name: u.storeName || u.name, count: count });
+      storeList.push({ storeId: u.email, name: u.storeName || u.name, count: count, storeType: u.storeType || 'general' });
    });
 
    if (storeList.length === 0) {
@@ -2659,26 +2675,71 @@ function showStoresList() {
       return;
    }
 
-   window._storeListData = storeList;
+   // Build full store list with type info
+   window._allStoresData = storeList;
 
-   // Store selector tabs at the top, then subcat-layout below
-   var selectorHtml = '<div class="store-selector-tabs">' +
-      storeList.map(function(s, i) {
-         return '<button class="store-selector-tab' + (i === 0 ? ' active' : '') + '" ' +
-                'data-idx="' + i + '" onclick="switchStoreSelector(this)">' +
-                '🏪 ' + s.name +
-                '<span class="store-selector-count"> (' + s.count + ')</span>' +
-                '</button>';
-      }).join('') +
-      '</div>';
+   // Determine which store types have at least one store
+   var usedTypeKeys = storeList.reduce(function(acc, s) {
+      if (acc.indexOf(s.storeType) === -1) acc.push(s.storeType);
+      return acc;
+   }, []);
 
-   grid.innerHTML = selectorHtml + '<div id="storeContentArea">' + buildStoreSubcatLayout(storeList[0].storeId) + '</div>';
+   // Build store-type category tabs
+   var allTabHtml = '<button class="store-type-tab active" data-type="all" onclick="switchStoreType(this)">' +
+      '<span class="store-type-icon">🏪</span><span class="store-type-label">All Stores</span>' +
+      '<span class="store-type-count">' + storeList.length + '</span></button>';
+
+   var typeTabsHtml = STORE_TYPES.filter(function(t) { return usedTypeKeys.indexOf(t.key) !== -1; })
+      .map(function(t) {
+         var cnt = storeList.filter(function(s) { return s.storeType === t.key; }).length;
+         return '<button class="store-type-tab" data-type="' + t.key + '" onclick="switchStoreType(this)">' +
+                '<span class="store-type-icon">' + t.icon + '</span>' +
+                '<span class="store-type-label">' + t.label + '</span>' +
+                '<span class="store-type-count">' + cnt + '</span></button>';
+      }).join('');
+
+   grid.innerHTML = '<div class="store-type-tabs">' + allTabHtml + typeTabsHtml + '</div>' +
+                    '<div id="storeTypeContent"></div>';
+
+   renderStoreTypeContent('all');
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function switchStoreType(btn) {
+   document.querySelectorAll('.store-type-tab').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   renderStoreTypeContent(btn.dataset.type);
+}
+
+function renderStoreTypeContent(typeKey) {
+   var filtered = typeKey === 'all'
+      ? window._allStoresData
+      : window._allStoresData.filter(function(s) { return s.storeType === typeKey; });
+   var el = document.getElementById('storeTypeContent');
+   if (!el) return;
+
+   if (!filtered.length) {
+      el.innerHTML = '<p style="color:#888;padding:60px;text-align:center">No stores in this category yet.</p>';
+      return;
+   }
+
+   window._storeListData = filtered;
+
+   var selectorHtml = '<div class="store-selector-tabs">' +
+      filtered.map(function(s, i) {
+         return '<button class="store-selector-tab' + (i === 0 ? ' active' : '') + '" ' +
+                'data-idx="' + i + '" onclick="switchStoreSelector(this)">' +
+                '🏪 ' + s.name +
+                '<span class="store-selector-count"> (' + s.count + ')</span></button>';
+      }).join('') +
+      '</div>';
+
+   el.innerHTML = selectorHtml + '<div id="storeContentArea">' + buildStoreSubcatLayout(filtered[0].storeId) + '</div>';
+}
+
 function switchStoreSelector(btn) {
-   var grid = document.getElementById('productsGrid');
-   grid.querySelectorAll('.store-selector-tab').forEach(function(b) { b.classList.remove('active'); });
+   var tabs = btn.closest('.store-selector-tabs');
+   if (tabs) tabs.querySelectorAll('.store-selector-tab').forEach(function(b) { b.classList.remove('active'); });
    btn.classList.add('active');
    var s = window._storeListData[parseInt(btn.dataset.idx)];
    var area = document.getElementById('storeContentArea');
@@ -3775,6 +3836,7 @@ function initAdmin() {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user || !isAdmin(user.email)) { window.location.href = 'login.html'; return; }
    document.getElementById('adminUserName').textContent = user.name;
+   populateAdminFilterDropdowns();
    renderAdminGrid();
    // sync color pickers when user types in hex fields
    const bgPicker  = document.getElementById('set-announcementColor');
@@ -3783,18 +3845,76 @@ function initAdmin() {
    if (txtPicker) txtPicker.addEventListener('input', () => { document.getElementById('set-announcementTextColorHex').value = txtPicker.value; });
 }
 
+function populateAdminFilterDropdowns() {
+   // Category dropdown — grouped by main cat
+   var catSel = document.getElementById('adminCatFilter');
+   if (catSel && catSel.options.length <= 1) {
+      Object.entries(MAIN_CATS).forEach(function(entry) {
+         var mc = entry[1];
+         var grp = document.createElement('optgroup');
+         grp.label = mc.icon + ' ' + mc.label;
+         mc.keys.forEach(function(k) {
+            if (!products[k]) return;
+            var opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = getCatIcon(k) + ' ' + products[k].title;
+            grp.appendChild(opt);
+         });
+         catSel.appendChild(grp);
+      });
+   }
+   // Store dropdown
+   var storeSel = document.getElementById('adminStoreFilter');
+   if (storeSel && storeSel.options.length <= 1) {
+      var opt = document.createElement('option');
+      opt.value = '__platform__';
+      opt.textContent = '🏠 Platform Store';
+      storeSel.appendChild(opt);
+      getUsers().filter(function(u) { return u.role === 'storeowner' && !u.blocked; }).forEach(function(u) {
+         var o = document.createElement('option');
+         o.value = u.email;
+         o.textContent = '🏪 ' + (u.storeName || u.name);
+         storeSel.appendChild(o);
+      });
+   }
+}
+
+function clearAdminFilters() {
+   var s = document.getElementById('adminSearchInput');
+   var c = document.getElementById('adminCatFilter');
+   var t = document.getElementById('adminStoreFilter');
+   if (s) s.value = '';
+   if (c) c.value = '';
+   if (t) t.value = '__all__';
+   renderAdminGrid();
+}
+
 function renderAdminGrid(filterStoreId) {
    var ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
    var container = document.getElementById('adminContent');
    container.innerHTML = '';
 
-   // Restore title when no filter
-   if (filterStoreId === undefined) {
-      var titleEl = document.querySelector('#tab-products .admin-page-title h1');
-      if (titleEl) titleEl.textContent = '⚙️ Product Manager';
+   // Read filter bar values (if present on page)
+   var searchQ   = (document.getElementById('adminSearchInput')  || {}).value || '';
+   var catFilter = (document.getElementById('adminCatFilter')     || {}).value || '';
+   var storeDropVal = (document.getElementById('adminStoreFilter') || {}).value || '__all__';
+
+   // Determine effective storeId filter:
+   // 1. If called with an explicit filterStoreId arg (from Stores tab), use that
+   // 2. Otherwise use the dropdown
+   var effectiveStore; // undefined = no filter
+   if (filterStoreId !== undefined) {
+      effectiveStore = filterStoreId; // null = platform, string = store email
+   } else if (storeDropVal !== '__all__') {
+      effectiveStore = storeDropVal === '__platform__' ? null : storeDropVal;
    }
 
-   // Store filter banner
+   // Show/hide clear button
+   var clearBtn = document.getElementById('adminFilterClearBtn');
+   var hasFilter = searchQ || catFilter || storeDropVal !== '__all__';
+   if (clearBtn) clearBtn.style.display = hasFilter ? 'inline-flex' : 'none';
+
+   // Store filter banner (when coming from Stores tab)
    if (filterStoreId !== undefined) {
       var storeLabelName = filterStoreId === null ? (getAdminSettings().storeName || 'MyStore') : getStoreName(filterStoreId);
       var banner = document.createElement('div');
@@ -3804,23 +3924,36 @@ function renderAdminGrid(filterStoreId) {
       container.appendChild(banner);
    }
 
+   var searchLower = searchQ.toLowerCase().trim();
+
+   // Helper: does item pass all active filters?
+   function itemMatches(item) {
+      if (searchLower && item.name.toLowerCase().indexOf(searchLower) === -1) return false;
+      if (effectiveStore !== undefined) {
+         var sid = item.storeId || null;
+         if (effectiveStore === null && sid !== null) return false;
+         if (effectiveStore !== null && sid !== effectiveStore) return false;
+      }
+      return true;
+   }
+
+   var anyResults = false;
+
    // Render grouped by main category
    Object.entries(MAIN_CATS).forEach(function(entry) {
       var mcKey = entry[0];
       var mc    = entry[1];
 
-      // When filtering, count only matching items
-      var totalItems = mc.keys.reduce(function(sum, k) {
+      // Respect category dropdown filter
+      var keysToRender = catFilter ? mc.keys.filter(function(k) { return k === catFilter; }) : mc.keys;
+      if (!keysToRender.length) return;
+
+      var totalItems = keysToRender.reduce(function(sum, k) {
          var cat = products[k];
          if (!cat) return sum;
-         if (filterStoreId !== undefined) {
-            return sum + cat.items.filter(function(item) {
-               return filterStoreId === null ? !item.storeId : item.storeId === filterStoreId;
-            }).length;
-         }
-         return sum + cat.items.length;
+         return sum + cat.items.filter(itemMatches).length;
       }, 0);
-      if (filterStoreId !== undefined && totalItems === 0) return; // skip empty groups when filtering
+      if (totalItems === 0) return; // skip empty groups
 
       var group = document.createElement('div');
       group.className = 'admin-maincat-group';
@@ -3834,7 +3967,7 @@ function renderAdminGrid(filterStoreId) {
       group.appendChild(mcHeader);
 
       // Sub-category sections
-      mc.keys.forEach(function(catKey) {
+      keysToRender.forEach(function(catKey) {
          var catData = products[catKey];
          if (!catData) return;
 
@@ -3855,11 +3988,7 @@ function renderAdminGrid(filterStoreId) {
          grid.className = 'admin-product-grid';
 
          catData.items.forEach(function(item) {
-            // Skip items that don't match store filter
-            if (filterStoreId !== undefined) {
-               var itemStore = item.storeId || null;
-               if (filterStoreId === null ? itemStore !== null : itemStore !== filterStoreId) return;
-            }
+            if (!itemMatches(item)) return;
             var isCustom = item.id.startsWith('custom_');
             var o = ov[item.id] || {};
             var displayImg   = o.img  || item.img;
@@ -3892,15 +4021,19 @@ function renderAdminGrid(filterStoreId) {
             grid.appendChild(card);
          });
 
-         // Skip empty sections when filtering
-         if (filterStoreId !== undefined && grid.children.length === 0) return;
+         if (grid.children.length === 0) return; // skip empty sections
          section.appendChild(grid);
          group.appendChild(section);
+         anyResults = true;
       });
 
-      if (filterStoreId !== undefined && group.querySelectorAll('.admin-product-card').length === 0) return;
+      if (group.querySelectorAll('.admin-product-card').length === 0) return;
       container.appendChild(group);
    });
+
+   if (!anyResults && container.children.length === 0) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px;font-size:0.95rem">No products match your filters.</p>';
+   }
 }
 
 function populateStoreOwnerDropdown(currentStoreId) {
@@ -4024,6 +4157,14 @@ function saveNewProduct() {
    const items = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
    items.push(newItem);
    localStorage.setItem('adminNewItems', JSON.stringify(items));
+   // Also push into in-memory products so it appears immediately without reload
+   if (products[newItem.catKey] && !products[newItem.catKey].items.find(function(i) { return i.id === newItem.id; })) {
+      products[newItem.catKey].items.push({
+         id: newItem.id, name: newItem.name, price: newItem.price,
+         desc: newItem.desc, img: newItem.img, badge: newItem.badge || 'New',
+         storeId: newItem.storeId || null, storeName: newItem.storeName || null
+      });
+   }
    closeEditModal();
    renderAdminGrid();
    showAdminToast('✅ New product added to store!');
@@ -4034,6 +4175,10 @@ function deleteCustomProduct(id) {
    let items = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
    items = items.filter(i => i.id !== id);
    localStorage.setItem('adminNewItems', JSON.stringify(items));
+   // Remove from in-memory products immediately
+   Object.values(products).forEach(function(cat) {
+      cat.items = cat.items.filter(function(i) { return i.id !== id; });
+   });
    renderAdminGrid();
    showAdminToast('🗑️ Product deleted.');
 }

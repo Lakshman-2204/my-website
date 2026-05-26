@@ -1,5 +1,6 @@
 let cart = [];
-const pageQty = {};
+const pageQty     = {};
+const pageVariant = {}; // itemId -> selected variant index
 
 const products = {
    sofa: {
@@ -1633,7 +1634,7 @@ Object.entries(products).forEach(([, cat]) => {
    const newItems = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
    newItems.forEach(ni => {
       if (products[ni.catKey] && !products[ni.catKey].items.find(i => i.id === ni.id)) {
-         products[ni.catKey].items.push({ id: ni.id, name: ni.name, price: ni.price, desc: ni.desc, img: ni.img, badge: ni.badge || 'New', storeId: ni.storeId || null, storeName: ni.storeName || null });
+         products[ni.catKey].items.push({ id: ni.id, name: ni.name, price: ni.price, desc: ni.desc, img: ni.img, badge: ni.badge || 'New', storeId: ni.storeId || null, storeName: ni.storeName || null, variants: ni.variants || undefined });
       }
    });
 })();
@@ -2028,10 +2029,14 @@ function showProducts(category) {
 // ── RENDER SINGLE CARD ──
 function renderCard(item, catKey, grid) {
    pageQty[item.id] = pageQty[item.id] || 1;
-   const isMilk = item.type === 'milk';
-   const displayPrice = isMilk ?
-      `₹${item.pricePerLitre}/litre` :
-      `₹${item.price.toLocaleString('en-IN')}`;
+   const isMilk       = item.type === 'milk';
+   const hasVariants  = !isMilk && item.variants && item.variants.length > 0;
+   if (hasVariants && pageVariant[item.id] === undefined) pageVariant[item.id] = 0;
+   const displayPrice = isMilk
+      ? `₹${item.pricePerLitre}/litre`
+      : hasVariants
+         ? `₹${item.variants[pageVariant[item.id]].price.toLocaleString('en-IN')}`
+         : `₹${item.price.toLocaleString('en-IN')}`;
 
    const wlUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const wl = wlUser ? getWishlist(wlUser.email) : [];
@@ -2079,6 +2084,14 @@ function renderCard(item, catKey, grid) {
   <option value="3">3 Litres — ₹${item.pricePerLitre*3}</option>
   <option value="5">5 Litres — ₹${item.pricePerLitre*5}</option>
   </select>
+  </div>` : hasVariants ? `
+  <div class="variant-selector" id="variants_${item.id}">
+  ${item.variants.map((v, i) => `<button class="variant-btn${pageVariant[item.id]===i?' active':''}" onclick="selectVariant('${item.id}',${i})">${v.label}</button>`).join('')}
+  </div>
+  <div class="qty-controls">
+  <button class="qty-btn" onclick="changeQty('${item.id}', -1)">−</button>
+  <span class="qty-display" id="qty_${item.id}">${pageQty[item.id]}</span>
+  <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
   </div>` : `
   <div class="qty-controls">
   <button class="qty-btn" onclick="changeQty('${item.id}', -1)">−</button>
@@ -2104,6 +2117,25 @@ function changeQty(id, delta) {
 function updateMilkPrice(id, pricePerLitre) {
    const litres = parseFloat(document.getElementById('litre_' + id).value);
    document.getElementById('price_' + id).textContent = `₹${Math.round(pricePerLitre * litres)}`;
+}
+
+function selectVariant(itemId, variantIdx) {
+   pageVariant[itemId] = variantIdx;
+   var container = document.getElementById('variants_' + itemId);
+   if (container) {
+      container.querySelectorAll('.variant-btn').forEach(function(btn, i) {
+         btn.classList.toggle('active', i === variantIdx);
+      });
+   }
+   // Find item and update price display
+   var item = null;
+   Object.values(products).forEach(function(cat) {
+      if (!item) item = cat.items.find(function(i) { return i.id === itemId; });
+   });
+   if (item && item.variants && item.variants[variantIdx]) {
+      var priceEl = document.getElementById('price_' + itemId);
+      if (priceEl) priceEl.textContent = '₹' + item.variants[variantIdx].price.toLocaleString('en-IN');
+   }
 }
 
 // ── ADD TO CART ──
@@ -2147,6 +2179,13 @@ function doAddToCart(item, catKey) {
       qty = 1;
       label = item.name + ' (' + litres + 'L)';
       cartId = item.id + '_' + litres;
+   } else if (item.variants && item.variants.length > 0) {
+      const variantIdx = pageVariant[item.id] || 0;
+      const variant    = item.variants[variantIdx];
+      qty       = pageQty[item.id] || 1;
+      unitPrice = variant.price;
+      label     = item.name + ' (' + variant.label + ')';
+      cartId    = item.id + '_v_' + variant.label.replace(/\s+/g, '_');
    } else {
       qty = pageQty[item.id] || 1;
       unitPrice = item.price;
@@ -4082,6 +4121,12 @@ function openAddModal(catKey) {
    document.getElementById('badgeRow').classList.remove('hidden');
    document.getElementById('adminBtnSave').textContent = '➕ Add Product';
    document.getElementById('adminBtnReset').classList.add('hidden');
+   // Reset variants UI
+   document.getElementById('variantsToggleRow').classList.remove('hidden');
+   document.getElementById('modalHasVariants').checked = false;
+   document.getElementById('variantsSectionRow').classList.add('hidden');
+   document.getElementById('variantsList').innerHTML = '';
+   document.getElementById('modalPriceRow').classList.remove('hidden');
    populateStoreOwnerDropdown('');
    document.getElementById('editModal').classList.remove('hidden');
 }
@@ -4105,6 +4150,11 @@ function openEditModal(itemId, catKey) {
    document.getElementById('badgeRow').classList.remove('hidden');
    document.getElementById('adminBtnSave').textContent  = '💾 Save Changes';
    document.getElementById('adminBtnReset').classList.remove('hidden');
+   // Hide variants toggle in edit mode (variants not editable after creation)
+   document.getElementById('variantsToggleRow').classList.add('hidden');
+   document.getElementById('variantsSectionRow').classList.add('hidden');
+   document.getElementById('modalHasVariants').checked = false;
+   document.getElementById('modalPriceRow').classList.remove('hidden');
    populateStoreOwnerDropdown(o.storeId || item.storeId || '');
    document.getElementById('editModal').classList.remove('hidden');
 }
@@ -4136,18 +4186,78 @@ function saveProductEdit() {
    showAdminToast('✅ Saved! Changes will appear in the store.');
 }
 
+// ── VARIANTS HELPERS (admin modal) ──
+function toggleVariantsSection() {
+   var checked = document.getElementById('modalHasVariants').checked;
+   document.getElementById('variantsSectionRow').classList.toggle('hidden', !checked);
+   document.getElementById('modalPriceRow').classList.toggle('hidden', checked);
+   if (checked && document.getElementById('variantsList').children.length === 0) {
+      addVariantRow();
+   }
+}
+
+function addVariantRow(lbl, prc) {
+   var list = document.getElementById('variantsList');
+   var row  = document.createElement('div');
+   row.className = 'variant-input-row';
+   row.innerHTML =
+      '<input type="text"   class="variant-label-input" placeholder="e.g. 1kg, 500g, Small" value="' + (lbl || '') + '"/>' +
+      '<input type="number" class="variant-price-input" placeholder="₹ Price" min="0" value="' + (prc !== undefined ? prc : '') + '"/>' +
+      '<button type="button" class="variant-remove-btn" onclick="this.closest(\'.variant-input-row\').remove()">✕</button>';
+   list.appendChild(row);
+}
+
+function getVariantsFromModal() {
+   var rows     = document.querySelectorAll('#variantsList .variant-input-row');
+   var variants = [];
+   rows.forEach(function(row) {
+      var lbl = row.querySelector('.variant-label-input').value.trim();
+      var prc = parseFloat(row.querySelector('.variant-price-input').value);
+      if (lbl && !isNaN(prc) && prc >= 0) variants.push({ label: lbl, price: prc });
+   });
+   return variants;
+}
+
 function saveNewProduct() {
-   const name  = document.getElementById('modalName').value.trim();
-   const price = parseFloat(document.getElementById('modalPrice').value);
-   if (!name || isNaN(price)) { alert('Name and Price are required.'); return; }
+   const name = document.getElementById('modalName').value.trim();
+   if (!name) { alert('Product Name is required.'); return; }
+
+   const hasVariants = document.getElementById('modalHasVariants').checked;
+   let price, variants;
+   if (hasVariants) {
+      variants = getVariantsFromModal();
+      if (variants.length === 0) { alert('Please add at least one variant with a label and price.'); return; }
+      price = variants[0].price;
+   } else {
+      price = parseFloat(document.getElementById('modalPrice').value);
+      if (isNaN(price)) { alert('Price is required.'); return; }
+   }
+
+   const catKey = document.getElementById('modalCatKey').value;
+   const nameLower = name.toLowerCase();
+
+   // Case-insensitive duplicate check within the same category
+   if (products[catKey]) {
+      const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+      const duplicate = products[catKey].items.find(function(i) {
+         var displayName = (ov[i.id] && ov[i.id].name) ? ov[i.id].name : i.name;
+         return displayName.toLowerCase() === nameLower;
+      });
+      if (duplicate) {
+         const ov_name = (ov[duplicate.id] && ov[duplicate.id].name) ? ov[duplicate.id].name : duplicate.name;
+         if (!confirm('"' + ov_name + '" already exists in this category.\n\nAdd anyway as a separate item?')) return;
+      }
+   }
+
    var selOwner  = document.getElementById('modalStoreOwner');
    var storeId   = selOwner ? selOwner.value : '';
    var storeName = storeId ? getStoreName(storeId) : '';
    const newItem = {
       id:        'custom_' + Date.now(),
-      catKey:    document.getElementById('modalCatKey').value,
+      catKey:    catKey,
       name,
       price,
+      variants:  hasVariants ? variants : undefined,
       desc:      document.getElementById('modalDesc').value.trim(),
       img:       document.getElementById('modalImgUrl').value.trim() || 'https://placehold.co/400x300?text=No+Image',
       badge:     document.getElementById('modalBadge').value.trim() || 'New',
@@ -4161,6 +4271,7 @@ function saveNewProduct() {
    if (products[newItem.catKey] && !products[newItem.catKey].items.find(function(i) { return i.id === newItem.id; })) {
       products[newItem.catKey].items.push({
          id: newItem.id, name: newItem.name, price: newItem.price,
+         variants: newItem.variants || undefined,
          desc: newItem.desc, img: newItem.img, badge: newItem.badge || 'New',
          storeId: newItem.storeId || null, storeName: newItem.storeName || null
       });

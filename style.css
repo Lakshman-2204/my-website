@@ -4626,3 +4626,102 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
    margin-left: 2px;
 }
 
+
+/* ── PRODUCT VARIANT SELECTOR (product cards) ── */
+.variant-selector {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   margin: 6px 0 4px;
+}
+.variant-btn {
+   padding: 4px 10px;
+   border: 1.5px solid #ccc;
+   border-radius: 20px;
+   background: #fff;
+   color: #444;
+   font-size: 0.78rem;
+   font-weight: 500;
+   cursor: pointer;
+   transition: all 0.15s;
+   line-height: 1.4;
+}
+.variant-btn:hover {
+   border-color: #ff6f00;
+   color: #ff6f00;
+}
+.variant-btn.active {
+   background: #1a1a2e;
+   border-color: #1a1a2e;
+   color: #fff;
+}
+
+/* ── VARIANT INPUT ROWS (admin add-product modal) ── */
+.modal-toggle-row {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   cursor: pointer;
+   font-size: 0.88rem;
+   color: #333;
+}
+.modal-toggle-row input[type="checkbox"] {
+   width: 16px;
+   height: 16px;
+   accent-color: #1a1a2e;
+   cursor: pointer;
+   flex-shrink: 0;
+}
+.variant-input-row {
+   display: grid;
+   grid-template-columns: 1fr 1fr auto;
+   gap: 8px;
+   align-items: center;
+   margin-bottom: 8px;
+}
+.variant-label-input,
+.variant-price-input {
+   padding: 8px 10px;
+   border: 1.5px solid #e0e0e0;
+   border-radius: 8px;
+   font-size: 0.88rem;
+   color: #333;
+   background: #fafafa;
+   outline: none;
+   width: 100%;
+   box-sizing: border-box;
+}
+.variant-label-input:focus,
+.variant-price-input:focus {
+   border-color: #1a1a2e;
+   background: #fff;
+}
+.variant-remove-btn {
+   background: #fce4ec;
+   border: none;
+   border-radius: 6px;
+   color: #c62828;
+   font-size: 0.85rem;
+   padding: 6px 10px;
+   cursor: pointer;
+   font-weight: 700;
+}
+.variant-remove-btn:hover {
+   background: #ef9a9a;
+}
+.modal-add-variant-btn {
+   margin-top: 6px;
+   background: #e8f5e9;
+   border: 1.5px dashed #66bb6a;
+   border-radius: 8px;
+   color: #2e7d32;
+   font-size: 0.85rem;
+   padding: 7px 14px;
+   cursor: pointer;
+   font-weight: 600;
+   width: 100%;
+   transition: background 0.15s;
+}
+.modal-add-variant-btn:hover {
+   background: #c8e6c9;
+}

@@ -340,9 +340,22 @@
                   <label>Product Name</label>
                   <input type="text" id="modalName" placeholder="Product name"/>
                </div>
-               <div class="modal-field">
+               <!-- Variants toggle (Add mode only) -->
+               <div class="modal-field" id="variantsToggleRow">
+                  <label class="modal-toggle-row">
+                     <input type="checkbox" id="modalHasVariants" onchange="toggleVariantsSection()"/>
+                     <span>This product has variants (different sizes / weights)</span>
+                  </label>
+               </div>
+               <div class="modal-field" id="modalPriceRow">
                   <label>Price (₹)</label>
                   <input type="number" id="modalPrice" placeholder="0" min="0"/>
+               </div>
+               <!-- Variants section -->
+               <div class="modal-field hidden" id="variantsSectionRow">
+                  <label>Variants <small style="font-weight:400;text-transform:none">(add each size with its price)</small></label>
+                  <div id="variantsList"></div>
+                  <button type="button" class="modal-add-variant-btn" onclick="addVariantRow()">➕ Add Variant</button>
                </div>
                <div class="modal-field">
                   <label>Description</label>

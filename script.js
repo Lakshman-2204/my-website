@@ -1331,17 +1331,17 @@ const products = {
    }
    // ── DAILY NEEDS ──
    ,groceries: { title: 'Groceries', type: 'regular', category: 'Groceries', mainCat: 'dailyneeds', items: [
-      { id: 'gr1', name: 'Basmati Rice (5 kg)', price: 349, desc: 'Long grain, premium quality', img: 'https://placehold.co/400x300/e8f5e9/333?text=Basmati+Rice', badge: 'Popular' },
-      { id: 'gr2', name: 'Wheat Flour (5 kg)', price: 199, desc: 'Chakki fresh atta', img: 'https://placehold.co/400x300/e8f5e9/333?text=Wheat+Flour', badge: 'Fresh' },
-      { id: 'gr3', name: 'Refined Cooking Oil (1 L)', price: 145, desc: 'Sunflower oil, refined', img: 'https://placehold.co/400x300/e8f5e9/333?text=Cooking+Oil', badge: 'Daily Use' },
-      { id: 'gr4', name: 'Sugar (1 kg)', price: 55, desc: 'White granulated sugar', img: 'https://placehold.co/400x300/e8f5e9/333?text=Sugar', badge: 'Essential' },
-      { id: 'gr5', name: 'Toor Dal (1 kg)', price: 129, desc: 'Split pigeon peas', img: 'https://placehold.co/400x300/e8f5e9/333?text=Toor+Dal', badge: 'Protein' },
-      { id: 'gr6', name: 'Tea Leaves (500 g)', price: 189, desc: 'Assam CTC blend', img: 'https://placehold.co/400x300/e8f5e9/333?text=Tea+Leaves', badge: 'Premium' }
+      { id: 'gr1', name: 'Basmati Rice', price: 75, variants: [{label:'1 kg',price:75},{label:'5 kg',price:349},{label:'10 kg',price:680}], desc: 'Long grain, premium quality', img: 'https://placehold.co/400x300/e8f5e9/333?text=Basmati+Rice', badge: 'Popular' },
+      { id: 'gr2', name: 'Wheat Flour', price: 45, variants: [{label:'1 kg',price:45},{label:'5 kg',price:199},{label:'10 kg',price:380}], desc: 'Chakki fresh atta', img: 'https://placehold.co/400x300/e8f5e9/333?text=Wheat+Flour', badge: 'Fresh' },
+      { id: 'gr3', name: 'Refined Cooking Oil', price: 145, variants: [{label:'1 L',price:145},{label:'2 L',price:280},{label:'5 L',price:680}], desc: 'Sunflower oil, refined', img: 'https://placehold.co/400x300/e8f5e9/333?text=Cooking+Oil', badge: 'Daily Use' },
+      { id: 'gr4', name: 'Sugar', price: 55, variants: [{label:'1 kg',price:55},{label:'5 kg',price:250},{label:'10 kg',price:485}], desc: 'White granulated sugar', img: 'https://placehold.co/400x300/e8f5e9/333?text=Sugar', badge: 'Essential' },
+      { id: 'gr5', name: 'Toor Dal', price: 129, variants: [{label:'500 g',price:67},{label:'1 kg',price:129},{label:'2 kg',price:250}], desc: 'Split pigeon peas', img: 'https://placehold.co/400x300/e8f5e9/333?text=Toor+Dal', badge: 'Protein' },
+      { id: 'gr6', name: 'Tea Leaves', price: 99, variants: [{label:'250 g',price:99},{label:'500 g',price:189},{label:'1 kg',price:369}], desc: 'Assam CTC blend', img: 'https://placehold.co/400x300/e8f5e9/333?text=Tea+Leaves', badge: 'Premium' }
    ]},
    vegetables: { title: 'Vegetables & Fruits', type: 'regular', category: 'Daily Needs', mainCat: 'dailyneeds', items: [
-      { id: 'vg1', name: 'Potatoes (1 kg)', price: 30, desc: 'Farm fresh, washed', img: 'https://placehold.co/400x300/f1f8e9/333?text=Potatoes', badge: 'Fresh' },
-      { id: 'vg2', name: 'Tomatoes (1 kg)', price: 40, desc: 'Ripe, juicy tomatoes', img: 'https://placehold.co/400x300/f1f8e9/333?text=Tomatoes', badge: 'Fresh' },
-      { id: 'vg3', name: 'Onions (1 kg)', price: 35, desc: 'Red onions, farm direct', img: 'https://placehold.co/400x300/f1f8e9/333?text=Onions', badge: 'Essential' },
+      { id: 'vg1', name: 'Potatoes', price: 30, variants: [{label:'500 g',price:16},{label:'1 kg',price:30},{label:'2 kg',price:58}], desc: 'Farm fresh, washed', img: 'https://placehold.co/400x300/f1f8e9/333?text=Potatoes', badge: 'Fresh' },
+      { id: 'vg2', name: 'Tomatoes', price: 40, variants: [{label:'500 g',price:22},{label:'1 kg',price:40},{label:'2 kg',price:76}], desc: 'Ripe, juicy tomatoes', img: 'https://placehold.co/400x300/f1f8e9/333?text=Tomatoes', badge: 'Fresh' },
+      { id: 'vg3', name: 'Onions', price: 35, variants: [{label:'500 g',price:19},{label:'1 kg',price:35},{label:'2 kg',price:66}], desc: 'Red onions, farm direct', img: 'https://placehold.co/400x300/f1f8e9/333?text=Onions', badge: 'Essential' },
       { id: 'vg4', name: 'Banana (12 pcs)', price: 60, desc: 'Nendran / Robusta variety', img: 'https://placehold.co/400x300/f1f8e9/333?text=Bananas', badge: 'Daily' },
       { id: 'vg5', name: 'Mixed Vegetables (1 kg)', price: 55, desc: 'Carrot, beans, peas, capsicum', img: 'https://placehold.co/400x300/f1f8e9/333?text=Mixed+Vegetables', badge: 'Combo' },
       { id: 'vg6', name: 'Green Chilli (250 g)', price: 25, desc: 'Spicy farm-fresh chillies', img: 'https://placehold.co/400x300/f1f8e9/333?text=Chilli', badge: 'Hot' }
@@ -1642,8 +1642,8 @@ Object.entries(products).forEach(([, cat]) => {
 // Bumping version forces re-seed on all browsers that had a stale flag.
 // Products are always written so they survive partial localStorage clears.
 (function seedDemoStores() {
-   if (localStorage.getItem('demoSeed_v7')) return;
-   ['v1','v2','v3','v4','v5','v6'].forEach(function(v) { localStorage.removeItem('demoSeed_' + v); });
+   if (localStorage.getItem('demoSeed_v8')) return;
+   ['v1','v2','v3','v4','v5','v6','v7'].forEach(function(v) { localStorage.removeItem('demoSeed_' + v); });
 
    var users = JSON.parse(localStorage.getItem('users') || '[]');
 
@@ -1651,75 +1651,70 @@ Object.entries(products).forEach(([, cat]) => {
       {
          email: 'sharma@mystore.demo', name: 'Sharma Ji', storeName: 'Sharma General Stores', storeType: 'general',
          products: [
-            { id: 'sharma_001', catKey: 'groceries',  name: 'Basmati Rice 5kg',        price: 285, desc: 'Premium long grain basmati rice',          img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400', badge: 'Best Seller' },
-            { id: 'sharma_002', catKey: 'groceries',  name: 'Chakki Atta 10kg',         price: 340, desc: 'Fresh stone-ground whole wheat flour',      img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400', badge: 'Fresh' },
-            { id: 'sharma_003', catKey: 'groceries',  name: 'Refined Sunflower Oil 5L', price: 620, desc: 'Pure refined sunflower cooking oil',         img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400', badge: 'Popular' },
-            { id: 'sharma_004', catKey: 'groceries',  name: 'Sugar 5kg',                price: 220, desc: 'Fine grain white sugar',                    img: 'https://images.unsplash.com/photo-1609501676725-7186f017a4b7?w=400', badge: 'Daily Need' },
-            { id: 'sharma_005', catKey: 'groceries',  name: 'Tata Salt 1kg',            price:  22, desc: 'Iodized vacuum evaporated salt',             img: 'https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=400', badge: 'Essential' },
-            { id: 'sharma_006', catKey: 'groceries',  name: 'Tata Tea Premium 500g',    price: 210, desc: 'Strong CTC leaf tea blend',                  img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400', badge: 'Popular' },
-            { id: 'sharma_007', catKey: 'groceries',  name: 'Ariel Detergent 2kg',      price: 375, desc: 'Advanced washing powder',                   img: 'https://images.unsplash.com/photo-1585515320310-259814833e62?w=400', badge: 'Home' },
-            { id: 'sharma_008', catKey: 'vegetables', name: 'Fresh Tomatoes 1kg',       price:  35, desc: 'Farm fresh ripe red tomatoes',               img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Fresh' },
-            { id: 'sharma_009', catKey: 'vegetables', name: 'Onions 2kg',               price:  55, desc: 'Fresh red onions from farm',                 img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
-            { id: 'sharma_010', catKey: 'vegetables', name: 'Potatoes 2kg',             price:  60, desc: 'Farm fresh potatoes',                        img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
-            { id: 'sharma_011', catKey: 'vegetables', name: 'Fresh Carrots 500g',       price:  30, desc: 'Crunchy orange carrots',                     img: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400', badge: 'Fresh' },
-            { id: 'sharma_012', catKey: 'vegetables', name: 'Green Chillies 250g',      price:  18, desc: 'Fresh spicy green chillies',                 img: 'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=400', badge: 'Spicy' },
-            { id: 'sharma_013', catKey: 'vegetables', name: 'Fresh Tomatoes 1kg',       price:  35, desc: 'Ripe red tomatoes from farm',                  img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Fresh' },
-            { id: 'sharma_014', catKey: 'vegetables', name: 'Onions 1kg',               price:  28, desc: 'Fresh red onions',                               img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
-            { id: 'sharma_015', catKey: 'vegetables', name: 'Potatoes 1kg',             price:  32, desc: 'Farm fresh potatoes',                            img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
-            { id: 'sharma_016', catKey: 'groceries',  name: 'Tata Salt 1kg',            price:  22, desc: 'Iodized vacuum evaporated salt',                 img: '', badge: 'Essential' },
-            { id: 'sharma_017', catKey: 'groceries',  name: 'Amul Butter 500g',         price: 255, desc: 'Fresh pasteurised butter',                       img: '', badge: 'Fresh' },
-            { id: 'sharma_018', catKey: 'dairy',      name: 'Amul Milk 1L',             price:  28, desc: 'Full cream pasteurised milk',                    img: '', badge: 'Fresh' },
-            { id: 'sharma_019', catKey: 'dairy',      name: 'Amul Curd 500g',           price:  45, desc: 'Thick set natural curd',                         img: '', badge: 'Daily' },
-            { id: 'sharma_020', catKey: 'dairy',      name: 'Farm Eggs 12 pcs',         price:  88, desc: 'White eggs, farm fresh batch',                   img: '', badge: 'Fresh' },
-            { id: 'sharma_021', catKey: 'dairy',      name: 'Paneer 200g',              price:  72, desc: 'Soft fresh cottage cheese',                      img: '', badge: 'Fresh' },
-            { id: 'sharma_022', catKey: 'cola',       name: 'Thums Up 600ml',           price:  38, desc: 'Strong desi cola, chilled',                      img: '', badge: 'Desi Fav' },
-            { id: 'sharma_023', catKey: 'cola',       name: 'Coca Cola 600ml',          price:  38, desc: 'Classic refreshing cola',                        img: '', badge: 'Classic' },
-            { id: 'sharma_024', catKey: 'cola',       name: 'Limca 600ml',              price:  35, desc: 'Lemon-lime refreshing soda',                     img: '', badge: 'Refreshing' },
-            { id: 'sharma_025', catKey: 'juice',      name: 'Maaza Mango 600ml',        price:  42, desc: 'Smooth mango drink',                             img: '', badge: 'Popular' },
-            { id: 'sharma_026', catKey: 'juice',      name: 'Real Mixed Fruit 200ml',   price:  25, desc: 'Apple & guava blend',                            img: '', badge: 'Healthy' },
-            { id: 'sharma_027', catKey: 'energyDrink',name: 'Red Bull 250ml',           price: 118, desc: 'Original energy boost',                          img: '', badge: 'Popular' },
-            { id: 'sharma_028', catKey: 'energyDrink',name: 'Sting Energy 250ml',       price:  28, desc: 'Berry blast, affordable energy',                 img: '', badge: 'Budget' },
-            { id: 'sharma_029', catKey: 'sodaWater',  name: 'Bisleri Water 1L',         price:  20, desc: 'Pure packaged drinking water',                   img: '', badge: 'Essential' },
-            { id: 'sharma_030', catKey: 'sodaWater',  name: 'Sprite 600ml',             price:  35, desc: 'Lemon-lime fizz, refreshing',                    img: '', badge: 'Refreshing' },
-            { id: 'sharma_031', catKey: 'sweets',     name: 'Murukku 200g',             price:  52, desc: 'Crispy rice flour spiral snack',                 img: '', badge: 'Crunchy' },
-            { id: 'sharma_032', catKey: 'sweets',     name: 'Mixture 200g',             price:  55, desc: 'Classic crispy namkeen mix',                     img: '', badge: 'Crispy' }
+            { id: 'sharma_001', catKey: 'groceries',  name: 'Basmati Rice',        price: 60,  variants: [{label:'1 kg',price:60},{label:'5 kg',price:285},{label:'10 kg',price:550}], desc: 'Premium long grain basmati rice',     img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400', badge: 'Best Seller' },
+            { id: 'sharma_002', catKey: 'groceries',  name: 'Chakki Atta',         price: 42,  variants: [{label:'1 kg',price:42},{label:'5 kg',price:180},{label:'10 kg',price:340}], desc: 'Fresh stone-ground whole wheat flour', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400', badge: 'Fresh' },
+            { id: 'sharma_003', catKey: 'groceries',  name: 'Sunflower Oil',       price: 130, variants: [{label:'1 L',price:130},{label:'2 L',price:250},{label:'5 L',price:620}],    desc: 'Pure refined sunflower cooking oil',   img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400', badge: 'Popular' },
+            { id: 'sharma_004', catKey: 'groceries',  name: 'Sugar',               price: 48,  variants: [{label:'1 kg',price:48},{label:'5 kg',price:220}],                           desc: 'Fine grain white sugar',               img: 'https://images.unsplash.com/photo-1609501676725-7186f017a4b7?w=400', badge: 'Daily Need' },
+            { id: 'sharma_005', catKey: 'groceries',  name: 'Tata Salt',           price: 22,  variants: [{label:'1 kg',price:22},{label:'2 kg',price:42}],                            desc: 'Iodized vacuum evaporated salt',       img: 'https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=400', badge: 'Essential' },
+            { id: 'sharma_006', catKey: 'groceries',  name: 'Tata Tea Premium',    price: 110, variants: [{label:'250 g',price:110},{label:'500 g',price:210},{label:'1 kg',price:400}],desc: 'Strong CTC leaf tea blend',            img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400', badge: 'Popular' },
+            { id: 'sharma_007', catKey: 'groceries',  name: 'Ariel Detergent',     price: 199, variants: [{label:'1 kg',price:199},{label:'2 kg',price:375}],                          desc: 'Advanced washing powder',              img: 'https://images.unsplash.com/photo-1585515320310-259814833e62?w=400', badge: 'Home' },
+            { id: 'sharma_008', catKey: 'vegetables', name: 'Fresh Tomatoes',      price: 20,  variants: [{label:'500 g',price:20},{label:'1 kg',price:35},{label:'2 kg',price:65}],   desc: 'Farm fresh ripe red tomatoes',         img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Fresh' },
+            { id: 'sharma_009', catKey: 'vegetables', name: 'Fresh Onions',        price: 28,  variants: [{label:'1 kg',price:28},{label:'2 kg',price:55}],                            desc: 'Fresh red onions from farm',           img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
+            { id: 'sharma_010', catKey: 'vegetables', name: 'Fresh Potatoes',      price: 32,  variants: [{label:'1 kg',price:32},{label:'2 kg',price:60}],                            desc: 'Farm fresh potatoes',                  img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
+            { id: 'sharma_011', catKey: 'vegetables', name: 'Fresh Carrots',       price: 18,  variants: [{label:'250 g',price:18},{label:'500 g',price:30}],                          desc: 'Crunchy orange carrots',               img: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400', badge: 'Fresh' },
+            { id: 'sharma_012', catKey: 'vegetables', name: 'Green Chillies',      price: 10,  variants: [{label:'100 g',price:10},{label:'250 g',price:18}],                          desc: 'Fresh spicy green chillies',           img: 'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=400', badge: 'Spicy' },
+            { id: 'sharma_017', catKey: 'groceries',  name: 'Amul Butter',         price: 60,  variants: [{label:'100 g',price:60},{label:'500 g',price:255}],                         desc: 'Fresh pasteurised butter',             img: '', badge: 'Fresh' },
+            { id: 'sharma_018', catKey: 'dairy',      name: 'Amul Milk',           price: 16,  variants: [{label:'500 ml',price:16},{label:'1 L',price:28},{label:'2 L',price:54}],    desc: 'Full cream pasteurised milk',          img: '', badge: 'Fresh' },
+            { id: 'sharma_019', catKey: 'dairy',      name: 'Amul Curd',           price: 25,  variants: [{label:'200 g',price:25},{label:'400 g',price:42},{label:'500 g',price:50}], desc: 'Thick set natural curd',               img: '', badge: 'Daily' },
+            { id: 'sharma_020', catKey: 'dairy',      name: 'Farm Eggs',           price: 88,  variants: [{label:'6 pcs',price:46},{label:'12 pcs',price:88},{label:'30 pcs',price:210}],desc:'White eggs, farm fresh batch',         img: '', badge: 'Fresh' },
+            { id: 'sharma_021', catKey: 'dairy',      name: 'Paneer',              price: 72,  variants: [{label:'200 g',price:72},{label:'400 g',price:140}],                         desc: 'Soft fresh cottage cheese',            img: '', badge: 'Fresh' },
+            { id: 'sharma_022', catKey: 'cola',       name: 'Thums Up',            price: 22,  variants: [{label:'250 ml',price:22},{label:'600 ml',price:38},{label:'2 L',price:89}], desc: 'Strong desi cola, chilled',            img: '', badge: 'Desi Fav' },
+            { id: 'sharma_023', catKey: 'cola',       name: 'Coca Cola',           price: 22,  variants: [{label:'250 ml',price:22},{label:'600 ml',price:38},{label:'2 L',price:85}], desc: 'Classic refreshing cola',              img: '', badge: 'Classic' },
+            { id: 'sharma_024', catKey: 'cola',       name: 'Limca',               price: 20,  variants: [{label:'250 ml',price:20},{label:'600 ml',price:35}],                        desc: 'Lemon-lime refreshing soda',           img: '', badge: 'Refreshing' },
+            { id: 'sharma_025', catKey: 'juice',      name: 'Maaza Mango',         price: 20,  variants: [{label:'200 ml',price:20},{label:'600 ml',price:42}],                        desc: 'Smooth mango drink',                   img: '', badge: 'Popular' },
+            { id: 'sharma_026', catKey: 'juice',      name: 'Real Mixed Fruit',    price: 25,  variants: [{label:'200 ml',price:25},{label:'1 L',price:110}],                          desc: 'Apple & guava blend',                  img: '', badge: 'Healthy' },
+            { id: 'sharma_027', catKey: 'energyDrink',name: 'Red Bull',            price: 118, variants: [{label:'250 ml',price:118},{label:'473 ml',price:195}],                      desc: 'Original energy boost',                img: '', badge: 'Popular' },
+            { id: 'sharma_028', catKey: 'energyDrink',name: 'Sting Energy',        price: 28,  variants: [{label:'250 ml',price:28},{label:'500 ml',price:50}],                        desc: 'Berry blast, affordable energy',       img: '', badge: 'Budget' },
+            { id: 'sharma_029', catKey: 'sodaWater',  name: 'Bisleri Water',       price: 10,  variants: [{label:'500 ml',price:10},{label:'1 L',price:20},{label:'2 L',price:38}],    desc: 'Pure packaged drinking water',         img: '', badge: 'Essential' },
+            { id: 'sharma_030', catKey: 'sodaWater',  name: 'Sprite',              price: 20,  variants: [{label:'250 ml',price:20},{label:'600 ml',price:35},{label:'2 L',price:80}], desc: 'Lemon-lime fizz, refreshing',          img: '', badge: 'Refreshing' },
+            { id: 'sharma_031', catKey: 'sweets',     name: 'Murukku',             price: 30,  variants: [{label:'100 g',price:30},{label:'200 g',price:52}],                          desc: 'Crispy rice flour spiral snack',       img: '', badge: 'Crunchy' },
+            { id: 'sharma_032', catKey: 'sweets',     name: 'Mixture',             price: 30,  variants: [{label:'100 g',price:30},{label:'200 g',price:55}],                          desc: 'Classic crispy namkeen mix',           img: '', badge: 'Crispy' }
          ]
       },
       {
          email: 'kapoor@mystore.demo', name: 'Kapoor Ji', storeName: 'Kapoor General Stores', storeType: 'general',
          products: [
-            { id: 'kapoor_001', catKey: 'groceries',  name: 'Parle-G Biscuits 1kg',      price:  85, desc: 'Classic glucose biscuits family pack',   img: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400', badge: 'Popular' },
-            { id: 'kapoor_002', catKey: 'groceries',  name: 'Maggi Noodles Pack of 12',   price: 130, desc: '2-minute masala noodles',                img: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400', badge: 'Snack' },
-            { id: 'kapoor_003', catKey: 'groceries',  name: 'Amul Butter 500g',           price: 250, desc: 'Fresh pasteurised butter',               img: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400', badge: 'Fresh' },
-            { id: 'kapoor_004', catKey: 'groceries',  name: 'Whole Wheat Bread',          price:  45, desc: 'Soft sandwich bread loaf',               img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400', badge: 'Fresh' },
-            { id: 'kapoor_005', catKey: 'groceries',  name: 'Farm Fresh Eggs 12pcs',      price:  90, desc: 'White eggs, farm fresh',                 img: 'https://images.unsplash.com/photo-1587486913049-53fc88980cfc?w=400', badge: 'Daily Need' },
-            { id: 'kapoor_006', catKey: 'groceries',  name: "Lays Chips Variety Pack",    price: 150, desc: 'Assorted flavoured potato chips',        img: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400', badge: 'Snack' },
-            { id: 'kapoor_007', catKey: 'groceries',  name: 'Tropicana Orange Juice 1L',  price: 120, desc: '100% fruit juice, no added sugar',       img: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400', badge: 'Healthy' },
-            { id: 'kapoor_008', catKey: 'groceries',  name: 'Nescafé Classic 100g',       price: 245, desc: 'Instant coffee granules',                img: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400', badge: 'Morning Must' },
-            { id: 'kapoor_009', catKey: 'vegetables', name: 'Spinach (Palak) 500g',       price:  25, desc: 'Fresh tender green spinach leaves',      img: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=400', badge: 'Fresh' },
-            { id: 'kapoor_010', catKey: 'vegetables', name: 'Mixed Capsicum 500g',        price:  65, desc: 'Red, green & yellow capsicum mix',       img: 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=400', badge: 'Fresh' },
-            { id: 'kapoor_011', catKey: 'vegetables', name: 'Cabbage 1 piece',            price:  30, desc: 'Fresh tender cabbage head',              img: 'https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=400', badge: 'Fresh' },
-            { id: 'kapoor_012', catKey: 'vegetables', name: 'Brinjal (Baingan) 500g',     price:  28, desc: 'Fresh purple brinjal',                  img: 'https://images.unsplash.com/photo-1634467524884-897d0af5e104?w=400', badge: 'Fresh' },
-            { id: 'kapoor_013', catKey: 'vegetables', name: 'Fresh Tomatoes 1kg',         price:  30, desc: 'Juicy tomatoes, daily fresh stock',         img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Daily Stock' },
-            { id: 'kapoor_014', catKey: 'vegetables', name: 'Onions 1kg',                 price:  25, desc: 'Fresh red onions',                            img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
-            { id: 'kapoor_015', catKey: 'vegetables', name: 'Potatoes 1kg',               price:  29, desc: 'Farm fresh potatoes',                         img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
-            { id: 'kapoor_016', catKey: 'groceries',  name: 'Tata Salt 1kg',              price:  20, desc: 'Iodized vacuum evaporated salt',               img: '', badge: 'Essential' },
-            { id: 'kapoor_017', catKey: 'groceries',  name: 'Amul Butter 500g',           price: 248, desc: 'Fresh pasteurised butter',                     img: '', badge: 'Fresh' },
-            { id: 'kapoor_018', catKey: 'dairy',      name: 'Nandini Toned Milk 1L',      price:  26, desc: 'Fresh toned milk, daily delivery',             img: '', badge: 'Fresh' },
-            { id: 'kapoor_019', catKey: 'dairy',      name: 'Dahi 400g',                  price:  40, desc: 'Thick set curd, creamy texture',               img: '', badge: 'Daily' },
-            { id: 'kapoor_020', catKey: 'dairy',      name: 'Paneer 200g',                price:  68, desc: 'Soft cottage cheese, fresh batch',             img: '', badge: 'Fresh' },
-            { id: 'kapoor_021', catKey: 'dairy',      name: 'Cheese Slices 10pcs',        price: 108, desc: 'Processed cheese, melt-ready',                 img: '', badge: 'Tasty' },
-            { id: 'kapoor_022', catKey: 'cola',       name: 'Pepsi 600ml',                price:  36, desc: 'Bold cola flavour, chilled',                   img: '', badge: 'Popular' },
-            { id: 'kapoor_023', catKey: 'cola',       name: 'Sprite 600ml',               price:  36, desc: 'Clear lemon-lime soda',                        img: '', badge: 'Refreshing' },
-            { id: 'kapoor_024', catKey: 'cola',       name: 'Mountain Dew 600ml',         price:  36, desc: 'Citrus blast energy soda',                     img: '', badge: 'Trendy' },
-            { id: 'kapoor_025', catKey: 'juice',      name: 'Tropicana Orange 200ml',     price:  30, desc: '100% orange juice, no sugar added',            img: '', badge: 'Healthy' },
-            { id: 'kapoor_026', catKey: 'juice',      name: 'Real Guava Juice 200ml',     price:  25, desc: 'Guava nectar, refreshing',                     img: '', badge: 'Fresh' },
-            { id: 'kapoor_027', catKey: 'energyDrink',name: 'Monster Energy 500ml',       price: 145, desc: 'Extra strong energy drink',                    img: '', badge: 'Strong' },
-            { id: 'kapoor_028', catKey: 'energyDrink',name: 'Gatorade 500ml',             price:  95, desc: 'Sports electrolyte drink',                     img: '', badge: 'Sports' },
-            { id: 'kapoor_029', catKey: 'sodaWater',  name: 'Kinley Water 1L',            price:  20, desc: 'Pure packaged drinking water',                 img: '', badge: 'Essential' },
-            { id: 'kapoor_030', catKey: 'sodaWater',  name: 'Limca 600ml',                price:  35, desc: 'Lemon-lime soda, refreshing',                  img: '', badge: 'Refreshing' },
-            { id: 'kapoor_031', catKey: 'sweets',     name: 'Besan Ladoo 250g',           price: 110, desc: 'Ghee-roasted gram flour balls',                img: '', badge: 'Festive' },
-            { id: 'kapoor_032', catKey: 'sweets',     name: 'Namkeen Mix 200g',           price:  55, desc: 'Crispy assorted snack mix',                    img: '', badge: 'Crispy' }
+            { id: 'kapoor_001', catKey: 'groceries',  name: 'Parle-G Biscuits',     price:  40, variants: [{label:'200 g',price:40},{label:'500 g',price:85},{label:'1 kg',price:160}], desc: 'Classic glucose biscuits',         img: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400', badge: 'Popular' },
+            { id: 'kapoor_002', catKey: 'groceries',  name: 'Maggi Noodles',        price:  14, variants: [{label:'1 pack',price:14},{label:'4 pack',price:52},{label:'12 pack',price:130}],desc:'2-minute masala noodles',        img: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400', badge: 'Snack' },
+            { id: 'kapoor_003', catKey: 'groceries',  name: 'Amul Butter',          price:  62, variants: [{label:'100 g',price:62},{label:'500 g',price:250}],                           desc: 'Fresh pasteurised butter',         img: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400', badge: 'Fresh' },
+            { id: 'kapoor_004', catKey: 'groceries',  name: 'Whole Wheat Bread',    price:  45, desc: 'Soft sandwich bread loaf',                                                          img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400', badge: 'Fresh' },
+            { id: 'kapoor_005', catKey: 'groceries',  name: 'Farm Fresh Eggs',      price:  46, variants: [{label:'6 pcs',price:46},{label:'12 pcs',price:90},{label:'30 pcs',price:215}],  desc: 'White eggs, farm fresh',          img: 'https://images.unsplash.com/photo-1587486913049-53fc88980cfc?w=400', badge: 'Daily Need' },
+            { id: 'kapoor_006', catKey: 'groceries',  name: 'Lays Chips',           price:  20, variants: [{label:'1 pack',price:20},{label:'3 pack',price:55},{label:'Variety Pack',price:150}],desc:'Flavoured potato chips',    img: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400', badge: 'Snack' },
+            { id: 'kapoor_007', catKey: 'groceries',  name: 'Tropicana Orange',     price:  30, variants: [{label:'200 ml',price:30},{label:'1 L',price:120}],                              desc: '100% fruit juice, no added sugar', img: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400', badge: 'Healthy' },
+            { id: 'kapoor_008', catKey: 'groceries',  name: 'Nescafé Classic',      price: 245, variants: [{label:'100 g',price:245},{label:'200 g',price:460}],                           desc: 'Instant coffee granules',          img: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400', badge: 'Morning Must' },
+            { id: 'kapoor_009', catKey: 'vegetables', name: 'Spinach (Palak)',      price:  14, variants: [{label:'250 g',price:14},{label:'500 g',price:25}],                              desc: 'Fresh tender green spinach leaves',img: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=400', badge: 'Fresh' },
+            { id: 'kapoor_010', catKey: 'vegetables', name: 'Mixed Capsicum',       price:  35, variants: [{label:'250 g',price:35},{label:'500 g',price:65}],                              desc: 'Red, green & yellow capsicum mix', img: 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=400', badge: 'Fresh' },
+            { id: 'kapoor_011', catKey: 'vegetables', name: 'Fresh Cabbage',        price:  30, desc: 'Fresh tender cabbage head',                                                          img: 'https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=400', badge: 'Fresh' },
+            { id: 'kapoor_012', catKey: 'vegetables', name: 'Brinjal (Baingan)',    price:  16, variants: [{label:'250 g',price:16},{label:'500 g',price:28}],                              desc: 'Fresh purple brinjal',             img: 'https://images.unsplash.com/photo-1634467524884-897d0af5e104?w=400', badge: 'Fresh' },
+            { id: 'kapoor_013', catKey: 'vegetables', name: 'Fresh Tomatoes',       price:  16, variants: [{label:'500 g',price:16},{label:'1 kg',price:30},{label:'2 kg',price:56}],      desc: 'Juicy tomatoes, daily fresh stock',img: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400', badge: 'Daily Stock' },
+            { id: 'kapoor_014', catKey: 'vegetables', name: 'Onions',               price:  13, variants: [{label:'500 g',price:13},{label:'1 kg',price:25},{label:'2 kg',price:48}],      desc: 'Fresh red onions',                 img: 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=400', badge: 'Daily Need' },
+            { id: 'kapoor_015', catKey: 'vegetables', name: 'Potatoes',             price:  15, variants: [{label:'500 g',price:15},{label:'1 kg',price:29},{label:'2 kg',price:55}],      desc: 'Farm fresh potatoes',              img: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400', badge: 'Daily Need' },
+            { id: 'kapoor_016', catKey: 'groceries',  name: 'Tata Salt',            price:  20, variants: [{label:'1 kg',price:20},{label:'2 kg',price:38}],                               desc: 'Iodized vacuum evaporated salt',   img: '', badge: 'Essential' },
+            { id: 'kapoor_018', catKey: 'dairy',      name: 'Nandini Toned Milk',   price:  14, variants: [{label:'500 ml',price:14},{label:'1 L',price:26},{label:'2 L',price:50}],       desc: 'Fresh toned milk, daily delivery', img: '', badge: 'Fresh' },
+            { id: 'kapoor_019', catKey: 'dairy',      name: 'Dahi',                 price:  22, variants: [{label:'200 g',price:22},{label:'400 g',price:40},{label:'1 kg',price:95}],     desc: 'Thick set curd, creamy texture',   img: '', badge: 'Daily' },
+            { id: 'kapoor_020', catKey: 'dairy',      name: 'Paneer',               price:  68, variants: [{label:'200 g',price:68},{label:'400 g',price:130}],                            desc: 'Soft cottage cheese, fresh batch', img: '', badge: 'Fresh' },
+            { id: 'kapoor_021', catKey: 'dairy',      name: 'Cheese Slices',        price:  58, variants: [{label:'5 pcs',price:58},{label:'10 pcs',price:108}],                           desc: 'Processed cheese, melt-ready',     img: '', badge: 'Tasty' },
+            { id: 'kapoor_022', catKey: 'cola',       name: 'Pepsi',                price:  20, variants: [{label:'250 ml',price:20},{label:'600 ml',price:36},{label:'2 L',price:85}],    desc: 'Bold cola flavour, chilled',       img: '', badge: 'Popular' },
+            { id: 'kapoor_023', catKey: 'cola',       name: 'Sprite',               price:  20, variants: [{label:'250 ml',price:20},{label:'600 ml',price:36},{label:'2 L',price:80}],    desc: 'Clear lemon-lime soda',            img: '', badge: 'Refreshing' },
+            { id: 'kapoor_024', catKey: 'cola',       name: 'Mountain Dew',         price:  20, variants: [{label:'250 ml',price:20},{label:'600 ml',price:36}],                           desc: 'Citrus blast energy soda',         img: '', badge: 'Trendy' },
+            { id: 'kapoor_025', catKey: 'juice',      name: 'Tropicana Orange',     price:  30, variants: [{label:'200 ml',price:30},{label:'1 L',price:120}],                             desc: '100% orange juice, no sugar added',img: '', badge: 'Healthy' },
+            { id: 'kapoor_026', catKey: 'juice',      name: 'Real Guava Juice',     price:  25, variants: [{label:'200 ml',price:25},{label:'1 L',price:108}],                             desc: 'Guava nectar, refreshing',         img: '', badge: 'Fresh' },
+            { id: 'kapoor_027', catKey: 'energyDrink',name: 'Monster Energy',       price: 145, variants: [{label:'250 ml',price:89},{label:'500 ml',price:145}],                          desc: 'Extra strong energy drink',        img: '', badge: 'Strong' },
+            { id: 'kapoor_028', catKey: 'energyDrink',name: 'Gatorade',             price:  55, variants: [{label:'250 ml',price:55},{label:'500 ml',price:95}],                           desc: 'Sports electrolyte drink',         img: '', badge: 'Sports' },
+            { id: 'kapoor_029', catKey: 'sodaWater',  name: 'Kinley Water',         price:  10, variants: [{label:'500 ml',price:10},{label:'1 L',price:20}],                              desc: 'Pure packaged drinking water',     img: '', badge: 'Essential' },
+            { id: 'kapoor_030', catKey: 'sodaWater',  name: 'Limca',                price:  20, variants: [{label:'250 ml',price:20},{label:'600 ml',price:35}],                           desc: 'Lemon-lime soda, refreshing',      img: '', badge: 'Refreshing' },
+            { id: 'kapoor_031', catKey: 'sweets',     name: 'Besan Ladoo',          price:  55, variants: [{label:'100 g',price:55},{label:'250 g',price:110}],                            desc: 'Ghee-roasted gram flour balls',    img: '', badge: 'Festive' },
+            { id: 'kapoor_032', catKey: 'sweets',     name: 'Namkeen Mix',          price:  28, variants: [{label:'100 g',price:28},{label:'200 g',price:55}],                             desc: 'Crispy assorted snack mix',        img: '', badge: 'Crispy' }
          ]
       },
       {
@@ -1784,7 +1779,7 @@ Object.entries(products).forEach(([, cat]) => {
       localStorage.setItem('myProducts_' + s.email, JSON.stringify(s.products));
    });
    localStorage.setItem('users', JSON.stringify(users));
-   localStorage.setItem('demoSeed_v7', '1');
+   localStorage.setItem('demoSeed_v8', '1');
 })();
 
 // Load store-owner products from myProducts_${email} for each store-owner user
@@ -1800,7 +1795,8 @@ Object.entries(products).forEach(([, cat]) => {
          products[p.catKey].items.push({
             id: p.id, name: p.name, price: p.price, desc: p.desc,
             img: p.img, badge: p.badge || 'New',
-            storeId: u.email, storeName: storeName
+            storeId: u.email, storeName: storeName,
+            variants: p.variants || undefined
          });
       });
    });

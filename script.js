@@ -1641,11 +1641,12 @@ Object.entries(products).forEach(([, cat]) => {
 // Bumping version forces re-seed on all browsers that had a stale flag.
 // Products are always written so they survive partial localStorage clears.
 (function seedDemoStores() {
-   if (localStorage.getItem('demoSeed_v5')) return;
+   if (localStorage.getItem('demoSeed_v6')) return;
    localStorage.removeItem('demoSeed_v1');
    localStorage.removeItem('demoSeed_v2');
    localStorage.removeItem('demoSeed_v3');
    localStorage.removeItem('demoSeed_v4');
+   localStorage.removeItem('demoSeed_v5');
 
    var users = JSON.parse(localStorage.getItem('users') || '[]');
 
@@ -1738,7 +1739,36 @@ Object.entries(products).forEach(([, cat]) => {
             { id: 'varma_009', catKey: 'electronics', name: '18W Fast Charger Adapter',   price: 199,  desc: 'Universal USB fast charging wall adapter',   img: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400', badge: 'Fast Charge' },
             { id: 'varma_010', catKey: 'electronics', name: 'Tempered Glass Screen Guard',price:  99,  desc: 'Universal tempered glass screen protector', img: 'https://images.unsplash.com/photo-1601972599720-36938d4ecd31?w=400', badge: 'Protect' },
             { id: 'varma_011', catKey: 'electronics', name: 'Smart LED Strip 5m',         price: 499,  desc: 'RGB colour changing LED strip with remote',  img: 'https://images.unsplash.com/photo-1565814636199-ae8133055c1c?w=400', badge: 'Trendy' },
-            { id: 'varma_012', catKey: 'electronics', name: 'Wireless Mouse',             price: 349,  desc: '2.4GHz silent wireless optical mouse',       img: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400', badge: 'Work From Home' }
+            { id: 'varma_012', catKey: 'electronics', name: 'Wireless Mouse',             price: 349,  desc: '2.4GHz silent wireless optical mouse',       img: '', badge: 'Work From Home' }
+         ]
+      },
+      {
+         email: 'ram@mystore.demo', name: 'Ram', storeName: 'Ram Stores',
+         products: [
+            { id: 'ram_001', catKey: 'groceries',   name: 'Amul Gold Milk 1L',           price:  30,  desc: 'Full cream standardised milk',               img: '', badge: 'Daily' },
+            { id: 'ram_002', catKey: 'groceries',   name: 'Bournvita 500g',               price: 230,  desc: 'Chocolate malt health drink',                img: '', badge: 'Popular' },
+            { id: 'ram_003', catKey: 'groceries',   name: 'Horlicks 500g',                price: 275,  desc: 'Malted milk health drink',                   img: '', badge: 'Health' },
+            { id: 'ram_004', catKey: 'groceries',   name: 'Nescafe Gold 100g',            price: 285,  desc: 'Premium instant coffee granules',            img: '', badge: 'Premium' },
+            { id: 'ram_005', catKey: 'groceries',   name: 'Complan 500g',                 price: 295,  desc: 'Complete planned food nutrition drink',      img: '', badge: 'Nutrition' },
+            { id: 'ram_006', catKey: 'groceries',   name: 'Surf Excel 2kg',               price: 310,  desc: 'Advanced stain removal detergent',           img: '', badge: 'Home' },
+            { id: 'ram_007', catKey: 'vegetables',  name: 'Fresh Coriander 100g',         price:  15,  desc: 'Fresh green coriander leaves',               img: '', badge: 'Fresh' },
+            { id: 'ram_008', catKey: 'vegetables',  name: 'Ginger 100g',                  price:  22,  desc: 'Fresh ginger root, aromatic',                img: '', badge: 'Fresh' },
+            { id: 'ram_009', catKey: 'vegetables',  name: 'Garlic 100g',                  price:  35,  desc: 'Fresh garlic bulbs',                         img: '', badge: 'Essential' },
+            { id: 'ram_010', catKey: 'vegetables',  name: 'Lemons 6 pcs',                 price:  30,  desc: 'Fresh juicy lemons',                         img: '', badge: 'Fresh' },
+            { id: 'ram_011', catKey: 'vegetables',  name: 'Fresh Peas 250g',              price:  38,  desc: 'Tender green peas, farm fresh',              img: '', badge: 'Seasonal' },
+            { id: 'ram_012', catKey: 'vegetables',  name: 'Curry Leaves 50g',             price:  10,  desc: 'Fresh fragrant curry leaves',                img: '', badge: 'Aromatic' },
+            { id: 'ram_013', catKey: 'dairy',       name: 'Amul Ghee 500ml',              price: 300,  desc: 'Pure cow ghee, rich aroma',                  img: '', badge: 'Pure' },
+            { id: 'ram_014', catKey: 'dairy',       name: 'Amul Paneer 400g',             price: 140,  desc: 'Soft fresh cottage cheese block',            img: '', badge: 'Fresh' },
+            { id: 'ram_015', catKey: 'dairy',       name: 'Amul Cheese Slices 200g',      price:  95,  desc: 'Processed cheese slices, 10 pieces',         img: '', badge: 'Tasty' },
+            { id: 'ram_016', catKey: 'dairy',       name: 'Britannia Bread 400g',         price:  45,  desc: 'Soft sandwich bread loaf',                   img: '', badge: 'Fresh' },
+            { id: 'ram_017', catKey: 'sweets',      name: 'Kaju Katli 250g',              price: 280,  desc: 'Premium cashew barfi, festive pack',         img: '', badge: 'Premium' },
+            { id: 'ram_018', catKey: 'sweets',      name: 'Soan Papdi 250g',              price: 120,  desc: 'Flaky cardamom sweet, box pack',             img: '', badge: 'Classic' },
+            { id: 'ram_019', catKey: 'cola',        name: 'Coca Cola 600ml',              price:  38,  desc: 'Classic refreshing cola drink',              img: '', badge: 'Chilled' },
+            { id: 'ram_020', catKey: 'cola',        name: 'Pepsi 600ml',                  price:  36,  desc: 'Bold refreshing cola flavour',               img: '', badge: 'Popular' },
+            { id: 'ram_021', catKey: 'juice',       name: 'Frooti Mango 200ml',           price:  20,  desc: 'Fresh & juicy mango drink',                  img: '', badge: 'Kids Fav' },
+            { id: 'ram_022', catKey: 'juice',       name: 'Tropicana Mixed Fruit 1L',     price: 125,  desc: 'Mixed fruit juice blend',                    img: '', badge: 'Healthy' },
+            { id: 'ram_023', catKey: 'sodaWater',   name: 'Bisleri Water 500ml',          price:  15,  desc: 'Pure packaged drinking water',               img: '', badge: 'Essential' },
+            { id: 'ram_024', catKey: 'sodaWater',   name: 'Aquafina 1L',                  price:  20,  desc: 'Purified drinking water',                    img: '', badge: 'Pure' }
          ]
       }
    ];
@@ -1757,7 +1787,7 @@ Object.entries(products).forEach(([, cat]) => {
       localStorage.setItem('myProducts_' + s.email, JSON.stringify(s.products));
    });
    localStorage.setItem('users', JSON.stringify(users));
-   localStorage.setItem('demoSeed_v5', '1');
+   localStorage.setItem('demoSeed_v6', '1');
 })();
 
 // Load store-owner products from myProducts_${email} for each store-owner user
@@ -2642,7 +2672,7 @@ function showStoresList() {
       }).join('') +
       '</div>';
 
-   grid.innerHTML = selectorHtml + buildStoreSubcatLayout(storeList[0].storeId);
+   grid.innerHTML = selectorHtml + '<div id="storeContentArea">' + buildStoreSubcatLayout(storeList[0].storeId) + '</div>';
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2651,9 +2681,8 @@ function switchStoreSelector(btn) {
    grid.querySelectorAll('.store-selector-tab').forEach(function(b) { b.classList.remove('active'); });
    btn.classList.add('active');
    var s = window._storeListData[parseInt(btn.dataset.idx)];
-   var old = grid.querySelector('.subcat-layout');
-   if (old) old.remove();
-   grid.insertAdjacentHTML('beforeend', buildStoreSubcatLayout(s.storeId));
+   var area = document.getElementById('storeContentArea');
+   if (area) area.innerHTML = buildStoreSubcatLayout(s.storeId);
 }
 
 function buildStoreSubcatLayout(storeId) {

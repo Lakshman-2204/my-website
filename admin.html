@@ -231,10 +231,6 @@
       <div class="udm-overlay hidden" id="userDetailModal" onclick="handleUserDetailOverlayClick(event)">
          <div class="udm-modal">
             <div class="udm-header">
-               <h3>👤 User Profile</h3>
-               <button class="udm-close" onclick="closeUserDetailModal()">✕</button>
-            </div>
-            <div class="udm-body">
                <div class="udm-avatar-row">
                   <div class="udm-avatar-big" id="udm-avatar">?</div>
                   <div class="udm-name-block">
@@ -242,6 +238,15 @@
                      <div class="udm-uemail" id="udm-email">—</div>
                   </div>
                </div>
+               <button class="udm-close" onclick="closeUserDetailModal()">✕</button>
+            </div>
+            <!-- Modal Tabs -->
+            <div class="udm-tabs">
+               <button class="udm-tab active" id="udm-tab-profile" onclick="switchUdmTab('profile')">👤 Profile</button>
+               <button class="udm-tab"        id="udm-tab-orders"  onclick="switchUdmTab('orders')">📦 Orders <span id="udm-orders-count"></span></button>
+            </div>
+            <!-- Profile Panel -->
+            <div class="udm-body" id="udm-panel-profile">
                <div class="udm-grid">
                   <div class="udm-field">
                      <label>Role</label>
@@ -259,19 +264,18 @@
                      <label>Gender</label>
                      <span id="udm-gender">—</span>
                   </div>
-                  <div class="udm-field">
-                     <label>Orders</label>
-                     <span id="udm-orders">—</span>
-                  </div>
                </div>
                <div class="udm-section-label">Saved Addresses</div>
                <div id="udm-addresses"><span style="color:#999">—</span></div>
             </div>
-            <div class="udm-footer">
-               <button class="udm-btn udm-btn-block"   id="udm-block-btn"   onclick="blockUserFromDetail()">🚫 Block</button>
-               <button class="udm-btn udm-btn-delete"                        onclick="deleteUserFromDetail()">🗑 Delete Account</button>
+            <!-- Orders Panel -->
+            <div class="udm-body udm-orders-body hidden" id="udm-panel-orders">
+               <div id="udm-orders-list"></div>
             </div>
-            <!-- hidden field to carry email -->
+            <div class="udm-footer">
+               <button class="udm-btn udm-btn-block"  id="udm-block-btn" onclick="blockUserFromDetail()">🚫 Block</button>
+               <button class="udm-btn udm-btn-delete"                    onclick="deleteUserFromDetail()">🗑 Delete Account</button>
+            </div>
             <input type="hidden" id="udm-email-val"/>
          </div>
       </div>

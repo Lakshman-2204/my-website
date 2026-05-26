@@ -2654,37 +2654,71 @@ function deleteUser(email) {
 }
 
 function showUserDetail(email) {
-   var users  = getUsers();
+   var users = getUsers();
    var u = users.find(function(x) { return x.email === email; });
    if (!u) return;
 
-   var addresses  = JSON.parse(localStorage.getItem('addresses_' + email) || '[]');
-   var allOrders  = JSON.parse(localStorage.getItem('allOrders') || '[]');
-   var orderCount = allOrders.filter(function(o) { return o.userEmail === email; }).length;
+   var addresses = JSON.parse(localStorage.getItem('addresses_' + email) || '[]');
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var userOrders = allOrders.filter(function(o) { return o.customerEmail === email; });
 
    var roleLabel   = u.role === 'storeowner' ? 'Store Owner' : 'Customer';
    var statusLabel = u.blocked ? '🚫 Blocked' : '✅ Active';
    var initial     = (u.name || u.email).charAt(0).toUpperCase();
 
-   document.getElementById('udm-avatar').textContent  = initial;
-   document.getElementById('udm-name').textContent    = u.name   || '(No name)';
-   document.getElementById('udm-email').textContent   = u.email;
-   document.getElementById('udm-role').textContent    = roleLabel;
-   document.getElementById('udm-status').textContent  = statusLabel;
-   document.getElementById('udm-phone').textContent   = u.phone  || '—';
-   document.getElementById('udm-gender').textContent  = u.gender || '—';
-   document.getElementById('udm-orders').textContent  = orderCount + ' order' + (orderCount !== 1 ? 's' : '') + ' placed';
+   // ── Profile tab ──
+   document.getElementById('udm-avatar').textContent = initial;
+   document.getElementById('udm-name').textContent   = u.name  || '(No name)';
+   document.getElementById('udm-email').textContent  = u.email;
+   document.getElementById('udm-role').textContent   = roleLabel;
+   document.getElementById('udm-status').textContent = statusLabel;
+   document.getElementById('udm-phone').textContent  = u.phone  || '—';
+   document.getElementById('udm-gender').textContent = u.gender || '—';
+   document.getElementById('udm-orders-count').textContent = userOrders.length + ' order' + (userOrders.length !== 1 ? 's' : '');
 
    var addrEl = document.getElementById('udm-addresses');
-   if (addresses.length) {
-      addrEl.innerHTML = addresses.map(function(a) {
-         return '<div class="udm-addr-item">📍 ' + (a.name || '') + ', ' + (a.line || '') + ', ' + (a.city || '') + ' — ' + (a.pin || '') + '</div>';
-      }).join('');
+   addrEl.innerHTML = addresses.length
+      ? addresses.map(function(a) {
+            return '<div class="udm-addr-item">📍 ' + (a.name || '') + ', ' + (a.line || '') + ', ' + (a.city || '') + ' — ' + (a.pin || '') + '</div>';
+         }).join('')
+      : '<span style="color:#999">No saved addresses</span>';
+
+   // ── Orders tab ──
+   var ordersEl = document.getElementById('udm-orders-list');
+   if (!userOrders.length) {
+      ordersEl.innerHTML = '<p style="color:#999;text-align:center;padding:20px;font-size:0.88rem">No orders placed yet.</p>';
    } else {
-      addrEl.innerHTML = '<span style="color:#999">No saved addresses</span>';
+      ordersEl.innerHTML = userOrders.map(function(o) {
+         var cls = orderStatusClass(o.status);
+         var itemsHtml = o.items.map(function(i) {
+            return '<div class="udm-order-item">' +
+                      '<img src="' + i.img + '" onerror="this.src=\'https://placehold.co/40x40?text=Item\'"/>' +
+                      '<span>' + i.name + ' × ' + i.qty + '</span>' +
+                      '<span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span>' +
+                   '</div>';
+         }).join('');
+         return '<div class="udm-order-card">' +
+                   '<div class="udm-order-header">' +
+                      '<div>' +
+                         '<div class="udm-order-id">' + o.orderId + '</div>' +
+                         '<div class="udm-order-date">' + o.date + '</div>' +
+                      '</div>' +
+                      '<div style="text-align:right">' +
+                         '<span class="order-badge ' + cls + '">' + o.status + '</span>' +
+                         '<div class="udm-order-total">₹' + o.total.toLocaleString('en-IN') + '</div>' +
+                      '</div>' +
+                   '</div>' +
+                   '<div class="udm-order-items">' + itemsHtml + '</div>' +
+                   '<div class="udm-order-actions">' +
+                      (o.status === 'Pending Pickup' ? '<button class="shop-btn-ready" style="font-size:0.8rem;padding:5px 12px" onclick="updateOrderStatus(\'' + o.orderId + '\',\'Ready\')">✅ Mark Ready</button>' : '') +
+                      (o.status === 'Ready' ? '<button class="shop-btn-complete" style="font-size:0.8rem;padding:5px 12px" onclick="updateOrderStatus(\'' + o.orderId + '\',\'Completed\')">🏁 Mark Completed</button>' : '') +
+                      (o.status === 'Completed' ? '<span style="color:#2e7d32;font-size:0.82rem">✔ Collected by customer</span>' : '') +
+                   '</div>' +
+                '</div>';
+      }).join('');
    }
 
-   // Swap block button label based on current state
+   // Block button
    var blockBtn = document.getElementById('udm-block-btn');
    if (blockBtn) {
       if (u.blocked) {
@@ -2699,7 +2733,17 @@ function showUserDetail(email) {
    }
 
    document.getElementById('udm-email-val').value = email;
+   switchUdmTab('profile');
    document.getElementById('userDetailModal').classList.remove('hidden');
+}
+
+function switchUdmTab(tab) {
+   ['profile', 'orders'].forEach(function(t) {
+      var panel = document.getElementById('udm-panel-' + t);
+      var btn   = document.getElementById('udm-tab-' + t);
+      if (panel) panel.classList.toggle('hidden', t !== tab);
+      if (btn)   btn.classList.toggle('active',   t === tab);
+   });
 }
 
 function closeUserDetailModal() {
@@ -2933,6 +2977,14 @@ function updateOrderStatus(orderId, newStatus) {
    if (order) {
       order.status = newStatus;
       localStorage.setItem('allOrders', JSON.stringify(allOrders));
+      // Sync status to customer's personal order store so their profile page shows latest
+      var personalKey = 'orders_' + order.customerEmail;
+      var personalOrders = JSON.parse(localStorage.getItem(personalKey) || '[]');
+      var personalOrder = personalOrders.find(function(o) { return o.orderId === orderId; });
+      if (personalOrder) {
+         personalOrder.status = newStatus;
+         localStorage.setItem(personalKey, JSON.stringify(personalOrders));
+      }
    }
    var activeTab = document.querySelector('.shop-tab.active');
    var filterStatus = activeTab ? activeTab.dataset.filter : null;
@@ -3572,25 +3624,41 @@ function deleteAddress(idx) {
 }
 
 // ── ORDERS ──
+function orderStatusClass(status) {
+   if (status === 'Ready')     return 'badge-ready';
+   if (status === 'Completed') return 'badge-completed';
+   return 'badge-pending';
+}
+
 function renderOrders() {
    const user   = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const orders = JSON.parse(localStorage.getItem('orders_' + user.email) || '[]');
    const list   = document.getElementById('ordersList');
    if (!orders.length) { list.innerHTML = '<p class="prof-empty">No orders placed yet.</p>'; return; }
-   list.innerHTML = orders.slice().reverse().map(o => `
+
+   // Build a live status map from allOrders (shop owner updates land here first)
+   const allOrders  = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   const statusMap  = {};
+   allOrders.forEach(o => { statusMap[o.orderId] = o.status; });
+
+   list.innerHTML = orders.slice().reverse().map(o => {
+      const liveStatus = statusMap[o.orderId] || o.status || 'Pending Pickup';
+      const cls = orderStatusClass(liveStatus);
+      return `
       <div class="order-card">
          <div class="order-card-header">
             <div><span class="order-id">${o.orderId}</span> <span class="order-date">${o.date}</span></div>
-            <span class="order-badge">${o.status}</span>
+            <span class="order-badge ${cls}">${liveStatus}</span>
          </div>
          <div class="order-items">
             ${o.items.map(i => `<div class="order-item"><span>${i.name} × ${i.qty}</span><span>₹${(i.price * i.qty).toLocaleString('en-IN')}</span></div>`).join('')}
          </div>
          <div class="order-footer">
-            <span>Paid via ${o.method}</span>
+            <span>${o.method === 'Pickup' ? '🛍️ Pickup at store' : 'Paid via ' + o.method}</span>
             <span class="order-total">Total: ₹${o.total.toLocaleString('en-IN')}</span>
          </div>
-      </div>`).join('');
+      </div>`;
+   }).join('');
 }
 
 // ── WISHLIST ──

@@ -10,9 +10,11 @@
 
       <!-- HEADER -->
       <div class="profile-header">
-         <div class="profile-brand" onclick="window.location='home.html'">🛍️ MyStore</div>
+         <div class="profile-brand" onclick="window.location='home.html'">🛍️ <span class="brand-name">MyStore</span></div>
          <button class="profile-back-btn" onclick="window.location='home.html'">← Back to Store</button>
       </div>
+      <!-- ANNOUNCEMENT BAR (same as home — controlled from Admin → Settings) -->
+      <div class="announcement-bar hidden" id="announcementBar"></div>
 
       <!-- TABS -->
       <div class="profile-tabs">
@@ -179,6 +181,9 @@
       <div class="toast hidden" id="profileToast"></div>
 
       <script src="script.js"></script>
-      <script>initProfile();</script>
+      <script>
+         loadSiteSettings();
+         initProfile();
+      </script>
    </body>
 </html>

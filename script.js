@@ -2077,6 +2077,7 @@ function makeOrder() {
       timestamp:     now.getTime(),
       customerName:  user.name,
       customerEmail: user.email,
+      customerPhone: user.phone || '',
       items:         order.items,
       total:         total,
       status:        'Pending Pickup'
@@ -2262,6 +2263,8 @@ function catClick(cat) {
    if (el) el.classList.add('active');
    if (cat === 'all') {
       showAllProducts();
+   } else if (cat === 'contact') {
+      showContactInfo();
    } else if (MAIN_CATS[cat]) {
       // Single sub-category main cat (e.g. flowers) — go straight to products
       if (MAIN_CATS[cat].keys.length === 1) {
@@ -2270,6 +2273,41 @@ function catClick(cat) {
          showMainCategory(cat);
       }
    }
+}
+
+function showContactInfo() {
+   document.getElementById('heroSection').classList.add('hidden');
+   const section = document.getElementById('productsSection');
+   section.classList.remove('hidden');
+   document.getElementById('productTitle').textContent = '📞 Contact & Support';
+
+   const grid = document.getElementById('productsGrid');
+   grid.style.display = 'block';
+
+   const s = getAdminSettings() || {};
+   const phone    = s.phone        || '';
+   const whatsapp = s.whatsapp     || '';
+   const email    = s.contactEmail || '';
+   const address  = s.address      || '';
+   const storeName = s.storeName   || 'MyStore';
+
+   if (!phone && !whatsapp && !email && !address) {
+      grid.innerHTML = '<p style="color:#999;padding:40px;text-align:center;font-size:0.95rem">Contact information has not been set up yet. Please check back later.</p>';
+      return;
+   }
+
+   var rows = '';
+   if (phone)    rows += '<div class="contact-row"><div class="contact-icon">📞</div><div class="contact-detail"><div class="contact-label">Phone</div><a href="tel:' + phone.replace(/\s/g,'') + '" class="contact-val">' + phone + '</a></div></div>';
+   if (whatsapp) rows += '<div class="contact-row"><div class="contact-icon">💬</div><div class="contact-detail"><div class="contact-label">WhatsApp</div><a href="https://wa.me/' + whatsapp.replace(/\D/g,'') + '" class="contact-val" target="_blank">' + whatsapp + '</a></div></div>';
+   if (email)    rows += '<div class="contact-row"><div class="contact-icon">✉️</div><div class="contact-detail"><div class="contact-label">Email</div><a href="mailto:' + email + '" class="contact-val">' + email + '</a></div></div>';
+   if (address)  rows += '<div class="contact-row"><div class="contact-icon">📍</div><div class="contact-detail"><div class="contact-label">Store Address</div><div class="contact-val">' + address.replace(/\n/g, '<br>') + '</div></div></div>';
+
+   grid.innerHTML =
+      '<div class="contact-info-panel">' +
+         '<div class="contact-store-name">' + storeName + '</div>' +
+         '<p class="contact-tagline">We\'re happy to help. Reach us through any of the channels below.</p>' +
+         rows +
+      '</div>';
 }
 
 // Show the two-panel layout: sidebar of sub-categories + products on the right
@@ -2806,7 +2844,14 @@ function checkShopOwnerLogin() {
    if (nameEl) nameEl.textContent = user.name;
    var storeBtn = document.getElementById('shopViewStoreBtn');
    if (storeBtn && isAdmin(user.email)) storeBtn.classList.remove('hidden');
+   // Apply admin settings to this page
+   loadSiteSettings();
    renderShopDashboard();
+   // Auto-refresh if admin enabled it
+   var s = getAdminSettings();
+   if (s.autoRefreshOrders) {
+      setInterval(function() { renderShopDashboard(window._shopCurrentFilter); }, 30000);
+   }
 }
 
 function renderShopDashboard(filterStatus) {
@@ -2860,7 +2905,9 @@ function renderShopDashboard(filterStatus) {
          '<div class="shop-order-header">' +
             '<div>' +
                '<div class="shop-order-id">' + order.orderId + '</div>' +
-               '<div class="shop-order-meta">' + order.customerName + ' &nbsp;·&nbsp; ' + order.date + '</div>' +
+               '<div class="shop-order-meta">' + order.customerName +
+                  (((window._adminSettings || {}).showCustomerPhone && order.customerPhone) ? ' &nbsp;·&nbsp; 📞 ' + order.customerPhone : '') +
+                  ' &nbsp;·&nbsp; ' + order.date + '</div>' +
             '</div>' +
             '<div class="shop-order-right">' +
                '<span class="shop-status-badge ' + statusClass + '">' + order.status + '</span>' +
@@ -3234,6 +3281,12 @@ function loadSettingsForm() {
    setVal('set-address',        s.address       || '');
    setVal('set-freeDeliveryAbove', s.freeDeliveryAbove !== undefined ? s.freeDeliveryAbove : '');
    setVal('set-deliveryCharge',   s.deliveryCharge    !== undefined ? s.deliveryCharge    : '');
+   // Shop dashboard settings
+   setVal('set-dashboardTitle',       s.dashboardTitle       || '');
+   setChecked('set-showCustomerPhone',  !!s.showCustomerPhone);
+   setChecked('set-autoRefreshOrders',  !!s.autoRefreshOrders);
+   setChecked('set-shopAnnouncementOn', !!s.shopAnnouncementOn);
+   setVal('set-shopAnnouncementText', s.shopAnnouncementText || '');
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
 }
 
@@ -3308,7 +3361,13 @@ function saveAllSettings() {
       address:               document.getElementById('set-address').value.trim(),
       freeDeliveryAbove:     parseFloat(document.getElementById('set-freeDeliveryAbove').value) || 0,
       deliveryCharge:        parseFloat(document.getElementById('set-deliveryCharge').value)    || 0,
-      menuItems:             _menuItems
+      menuItems:             _menuItems,
+      // Shop dashboard settings
+      dashboardTitle:        document.getElementById('set-dashboardTitle').value.trim(),
+      showCustomerPhone:     document.getElementById('set-showCustomerPhone').checked,
+      autoRefreshOrders:     document.getElementById('set-autoRefreshOrders').checked,
+      shopAnnouncementOn:    document.getElementById('set-shopAnnouncementOn').checked,
+      shopAnnouncementText:  document.getElementById('set-shopAnnouncementText').value.trim()
    };
    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
    showAdminToast('✅ Settings saved! Refresh the store to see changes.');
@@ -3366,6 +3425,22 @@ function loadSiteSettings() {
 
    // Delivery charge in cart footer
    window._adminSettings = s;
+
+   // ── Shop dashboard settings (only apply on shopowner.html) ──
+   var shopBrand = document.querySelector('.shop-brand');
+   if (shopBrand && s.dashboardTitle) {
+      shopBrand.textContent = '🏪 ' + s.dashboardTitle;
+   }
+
+   var shopBar = document.getElementById('shopAnnouncementBar');
+   if (shopBar) {
+      if (s.shopAnnouncementOn && s.shopAnnouncementText) {
+         shopBar.textContent = s.shopAnnouncementText;
+         shopBar.classList.remove('hidden');
+      } else {
+         shopBar.classList.add('hidden');
+      }
+   }
 }
 
 // ── PROFILE PAGE ──

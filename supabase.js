@@ -1,0 +1,341 @@
+// ═══════════════════════════════════════════════════════
+//  supabase.js — Database layer for MyStore
+//  Replaces all localStorage data operations with Supabase
+// ═══════════════════════════════════════════════════════
+
+const SUPABASE_URL = 'https://ucajlkv1ekczflbsnzhw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_lnv0yTSC_hld4HC_ms_9xw_pXvkraeR';
+
+const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── Field mappers ────────────────────────────────────────
+function _userFromDB(r) {
+   if (!r) return null;
+   return { id: r.id, name: r.name, email: r.email, password: r.password,
+            role: r.role || 'customer', phone: r.phone || '',
+            storeName: r.store_name || '', storeType: r.store_type || '',
+            blocked: r.blocked || false, isAdmin: r.is_admin || false,
+            gender: r.gender || '' };
+}
+function _userToDB(u) {
+   return { name: u.name, email: (u.email || '').toLowerCase(),
+            password: u.password || '', role: u.role || 'customer',
+            phone: u.phone || '', store_name: u.storeName || '',
+            store_type: u.storeType || '', blocked: u.blocked || false,
+            is_admin: u.isAdmin || false, gender: u.gender || '' };
+}
+function _orderFromDB(r) {
+   if (!r) return null;
+   return { orderId: r.order_id, order_id: r.order_id,
+            date: r.date, timestamp: r.timestamp,
+            customerName: r.customer_name, customerEmail: r.customer_email,
+            customerPhone: r.customer_phone, items: r.items,
+            total: r.total, status: r.status, method: r.method,
+            storeId: r.store_id, storeName: r.store_name };
+}
+function _orderToDB(o) {
+   return { order_id: o.orderId || o.order_id,
+            customer_name: o.customerName || '', customer_email: o.customerEmail || '',
+            customer_phone: o.customerPhone || '', date: o.date || '',
+            timestamp: o.timestamp || 0, items: o.items || [],
+            total: o.total || 0, status: o.status || 'Pending Pickup',
+            method: o.method || 'Pickup',
+            store_id: o.storeId || null, store_name: o.storeName || '' };
+}
+
+window.AppDB = {
+
+   // ── USERS ────────────────────────────────────────────
+   async getUsers() {
+      const { data, error } = await _sb.from('users').select('*').order('created_at');
+      if (error) { console.error('getUsers:', error.message); return []; }
+      return (data || []).map(_userFromDB);
+   },
+
+   async getUserByEmail(email) {
+      const { data, error } = await _sb.from('users').select('*')
+         .eq('email', email.toLowerCase()).maybeSingle();
+      if (error) { console.error('getUserByEmail:', error.message); return null; }
+      return _userFromDB(data);
+   },
+
+   async upsertUser(user) {
+      const row = _userToDB(user);
+      const { error } = await _sb.from('users').upsert(row, { onConflict: 'email' });
+      if (error) { console.error('upsertUser:', error.message); return false; }
+      return true;
+   },
+
+   async updateUser(email, updates) {
+      const row = _userToDB({ ...updates, email });
+      const { error } = await _sb.from('users').update(row).eq('email', email.toLowerCase());
+      if (error) { console.error('updateUser:', error.message); return false; }
+      return true;
+   },
+
+   async deleteUserByEmail(email) {
+      const { error } = await _sb.from('users').delete().eq('email', email.toLowerCase());
+      if (error) { console.error('deleteUserByEmail:', error.message); return false; }
+      return true;
+   },
+
+   // ── PRODUCTS ─────────────────────────────────────────
+   async getStoreProducts(storeId) {
+      const { data, error } = await _sb.from('products').select('*').eq('store_id', storeId);
+      if (error) { console.error('getStoreProducts:', error.message); return []; }
+      return data || [];
+   },
+
+   async getAllStoreProducts() {
+      const { data, error } = await _sb.from('products').select('*');
+      if (error) { console.error('getAllStoreProducts:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertProduct(product) {
+      const { error } = await _sb.from('products').upsert(product, { onConflict: 'id' });
+      if (error) { console.error('upsertProduct:', error.message); return false; }
+      return true;
+   },
+
+   async deleteProduct(id) {
+      const { error } = await _sb.from('products').delete().eq('id', id);
+      if (error) { console.error('deleteProduct:', error.message); return false; }
+      return true;
+   },
+
+   async deleteStoreProducts(storeId) {
+      const { error } = await _sb.from('products').delete().eq('store_id', storeId);
+      if (error) { console.error('deleteStoreProducts:', error.message); return false; }
+      return true;
+   },
+
+   // ── PRODUCT OVERRIDES ────────────────────────────────
+   async getProductOverrides() {
+      const { data, error } = await _sb.from('product_overrides').select('*');
+      if (error) { console.error('getProductOverrides:', error.message); return {}; }
+      // Convert to object keyed by item_id  (same shape as old adminProductOverrides)
+      const obj = {};
+      (data || []).forEach(function(r) {
+         obj[r.item_id] = {
+            name: r.name, price: r.price, desc: r.description,
+            badge: r.badge, img: r.image,
+            storeId: r.store_id, storeName: r.store_name,
+            variants: r.variants
+         };
+      });
+      return obj;
+   },
+
+   async upsertProductOverride(itemId, ov) {
+      const row = {
+         item_id:     itemId,
+         name:        ov.name        || null,
+         price:       ov.price       != null ? ov.price : null,
+         description: ov.desc        || null,
+         badge:       ov.badge       || null,
+         image:       ov.img         || null,
+         store_id:    ov.storeId     || null,
+         store_name:  ov.storeName   || null,
+         variants:    ov.variants    || null,
+         updated_at:  new Date().toISOString()
+      };
+      const { error } = await _sb.from('product_overrides').upsert(row, { onConflict: 'item_id' });
+      if (error) { console.error('upsertProductOverride:', error.message); return false; }
+      return true;
+   },
+
+   async deleteProductOverride(itemId) {
+      const { error } = await _sb.from('product_overrides').delete().eq('item_id', itemId);
+      if (error) { console.error('deleteProductOverride:', error.message); return false; }
+      return true;
+   },
+
+   async deleteStoreOverrides(storeId) {
+      const { error } = await _sb.from('product_overrides').delete().eq('store_id', storeId);
+      if (error) { console.error('deleteStoreOverrides:', error.message); return false; }
+      return true;
+   },
+
+   // ── ORDERS ───────────────────────────────────────────
+   async getAllOrders() {
+      const { data, error } = await _sb.from('orders').select('*')
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getAllOrders:', error.message); return []; }
+      return (data || []).map(_orderFromDB);
+   },
+
+   async getOrdersByCustomer(email) {
+      const { data, error } = await _sb.from('orders').select('*')
+         .eq('customer_email', email.toLowerCase())
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getOrdersByCustomer:', error.message); return []; }
+      return (data || []).map(_orderFromDB);
+   },
+
+   async getOrdersByStore(storeId) {
+      let q = _sb.from('orders').select('*').order('created_at', { ascending: false });
+      q = storeId === null ? q.is('store_id', null) : q.eq('store_id', storeId);
+      const { data, error } = await q;
+      if (error) { console.error('getOrdersByStore:', error.message); return []; }
+      return (data || []).map(_orderFromDB);
+   },
+
+   async insertOrder(order) {
+      const row = _orderToDB(order);
+      const { error } = await _sb.from('orders').insert(row);
+      if (error) { console.error('insertOrder:', error.message); return false; }
+      return true;
+   },
+
+   async updateOrderStatus(orderId, status) {
+      const { error } = await _sb.from('orders').update({ status }).eq('order_id', orderId);
+      if (error) { console.error('updateOrderStatus:', error.message); return false; }
+      return true;
+   },
+
+   async deleteCustomerOrders(email) {
+      const { error } = await _sb.from('orders').delete()
+         .eq('customer_email', email.toLowerCase());
+      if (error) { console.error('deleteCustomerOrders:', error.message); return false; }
+      return true;
+   },
+
+   // ── ADDRESSES ────────────────────────────────────────
+   async getAddresses(email) {
+      const { data, error } = await _sb.from('addresses').select('*')
+         .eq('user_email', email.toLowerCase()).order('created_at');
+      if (error) { console.error('getAddresses:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertAddress(address) {
+      const { error } = await _sb.from('addresses').upsert(address, { onConflict: 'id' });
+      if (error) { console.error('upsertAddress:', error.message); return false; }
+      return true;
+   },
+
+   async deleteAddress(id) {
+      const { error } = await _sb.from('addresses').delete().eq('id', id);
+      if (error) { console.error('deleteAddress:', error.message); return false; }
+      return true;
+   },
+
+   async deleteUserAddresses(email) {
+      const { error } = await _sb.from('addresses').delete().eq('user_email', email.toLowerCase());
+      if (error) { console.error('deleteUserAddresses:', error.message); return false; }
+      return true;
+   },
+
+   // ── CARDS ────────────────────────────────────────────
+   async getCards(email) {
+      const { data, error } = await _sb.from('cards').select('*')
+         .eq('user_email', email.toLowerCase()).order('created_at');
+      if (error) { console.error('getCards:', error.message); return []; }
+      // Map DB columns → app fields (id, last4, brand, expiry, name_on_card)
+      return (data || []).map(function(c) {
+         return {
+            id:          c.id,
+            user_email:  c.user_email,
+            last4:       c.last4 || '',
+            brand:       c.brand || '',
+            expiry:      c.expiry || '',
+            name_on_card: c.name_on_card || ''
+         };
+      });
+   },
+
+   async insertCard(card) {
+      // Only send columns that exist in the DB (after migrate.sql is run)
+      const row = {
+         id:           card.id           || undefined,
+         user_email:   card.user_email,
+         last4:        card.last4        || '',
+         brand:        card.brand        || '',
+         expiry:       card.expiry       || '',
+         name_on_card: card.name_on_card || card.nameOnCard || ''
+      };
+      const { error } = await _sb.from('cards').insert(row);
+      if (error) { console.error('insertCard:', error.message); return false; }
+      return true;
+   },
+
+   async deleteCard(id) {
+      const { error } = await _sb.from('cards').delete().eq('id', id);
+      if (error) { console.error('deleteCard:', error.message); return false; }
+      return true;
+   },
+
+   async deleteUserCards(email) {
+      const { error } = await _sb.from('cards').delete().eq('user_email', email.toLowerCase());
+      if (error) { console.error('deleteUserCards:', error.message); return false; }
+      return true;
+   },
+
+   // ── WISHLIST ─────────────────────────────────────────
+   async getWishlist(email) {
+      const { data, error } = await _sb.from('wishlist').select('item_id')
+         .eq('user_email', email.toLowerCase());
+      if (error) { console.error('getWishlist:', error.message); return []; }
+      return (data || []).map(function(r) { return r.item_id; });
+   },
+
+   async addToWishlist(email, itemId) {
+      const { error } = await _sb.from('wishlist')
+         .upsert({ user_email: email.toLowerCase(), item_id: itemId },
+                 { onConflict: 'user_email,item_id' });
+      if (error) { console.error('addToWishlist:', error.message); return false; }
+      return true;
+   },
+
+   async removeFromWishlist(email, itemId) {
+      const { error } = await _sb.from('wishlist').delete()
+         .eq('user_email', email.toLowerCase()).eq('item_id', itemId);
+      if (error) { console.error('removeFromWishlist:', error.message); return false; }
+      return true;
+   },
+
+   async deleteUserWishlist(email) {
+      const { error } = await _sb.from('wishlist').delete()
+         .eq('user_email', email.toLowerCase());
+      if (error) { console.error('deleteUserWishlist:', error.message); return false; }
+      return true;
+   },
+
+   // ── APPOINTMENTS ─────────────────────────────────────
+   async getAppointments(email) {
+      const { data, error } = await _sb.from('appointments').select('*')
+         .eq('user_email', email.toLowerCase())
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getAppointments:', error.message); return []; }
+      return data || [];
+   },
+
+   async insertAppointment(apt) {
+      const { error } = await _sb.from('appointments').insert(apt);
+      if (error) { console.error('insertAppointment:', error.message); return false; }
+      return true;
+   },
+
+   async deleteUserAppointments(email) {
+      const { error } = await _sb.from('appointments').delete()
+         .eq('user_email', email.toLowerCase());
+      if (error) { console.error('deleteUserAppointments:', error.message); return false; }
+      return true;
+   },
+
+   // ── SETTINGS ─────────────────────────────────────────
+   // Settings are stored as a JSONB blob in the 'data' column (see migrate.sql)
+   async getSettings() {
+      const { data, error } = await _sb.from('settings').select('data').eq('id', 1).maybeSingle();
+      if (error) { console.error('getSettings:', error.message); return {}; }
+      return (data && data.data) ? data.data : {};
+   },
+
+   async saveSettings(updates) {
+      const row = { id: 1, data: updates, updated_at: new Date().toISOString() };
+      const { error } = await _sb.from('settings').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('saveSettings:', error.message); return false; }
+      return true;
+   },
+};

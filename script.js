@@ -1610,42 +1610,11 @@ Object.entries(products).forEach(([, cat]) => {
       if (imageOverrides[item.id]) item.img = imageOverrides[item.id];
    });
 });
-// Apply admin product overrides saved via Admin Panel
-(function () {
-   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
-   Object.entries(products).forEach(([, cat]) => {
-      cat.items.forEach(item => {
-         const o = ov[item.id];
-         if (!o) return;
-         if (o.img)   item.img   = o.img;
-         if (o.name)  item.name  = o.name;
-         if (o.desc)  item.desc  = o.desc;
-         if (o.badge) item.badge = o.badge;
-         if (o.price !== undefined) {
-            if (cat.type === 'milk') item.pricePerLitre = o.price;
-            else item.price = o.price;
-         }
-         if (o.variants && o.variants.length > 0) item.variants = o.variants;
-         else if (o.hasOwnProperty('variants') && !o.variants) delete item.variants;
-         if (o.storeId)   item.storeId   = o.storeId;
-         if (o.storeName) item.storeName = o.storeName;
-      });
-   });
-})();
-// Load admin-added custom products
-(function () {
-   const newItems = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
-   newItems.forEach(ni => {
-      if (products[ni.catKey] && !products[ni.catKey].items.find(i => i.id === ni.id)) {
-         products[ni.catKey].items.push({ id: ni.id, name: ni.name, price: ni.price, desc: ni.desc, img: ni.img, badge: ni.badge || 'New', storeId: ni.storeId || null, storeName: ni.storeName || null, variants: ni.variants || undefined });
-      }
-   });
-})();
-// ── DEMO STORE SEED ──
-// Bumping version forces re-seed on all browsers that had a stale flag.
-// Products are always written so they survive partial localStorage clears.
-(function seedDemoStores() {
-   if (localStorage.getItem('demoSeed_v8')) return;
+// Product overrides and custom products are applied after initDB() via
+// _applyOverridesToProducts() and _applyStoreProdsToProducts() — no localStorage needed.
+// ── DEMO STORE SEED (disabled — all data lives in Supabase) ──
+(function seedDemoStores() { return; // disabled
+   if (false) {
    ['v1','v2','v3','v4','v5','v6','v7'].forEach(function(v) { localStorage.removeItem('demoSeed_' + v); });
 
    var users = JSON.parse(localStorage.getItem('users') || '[]');
@@ -1785,25 +1754,7 @@ Object.entries(products).forEach(([, cat]) => {
    localStorage.setItem('demoSeed_v8', '1');
 })();
 
-// Load store-owner products from myProducts_${email} for each store-owner user
-(function () {
-   var users = JSON.parse(localStorage.getItem('users') || '[]');
-   users.forEach(function(u) {
-      if (u.role !== 'storeowner') return;
-      var storeProds = JSON.parse(localStorage.getItem('myProducts_' + u.email) || '[]');
-      var storeName  = u.storeName || u.name;
-      storeProds.forEach(function(p) {
-         if (!products[p.catKey]) return;
-         if (products[p.catKey].items.find(function(i) { return i.id === p.id; })) return;
-         products[p.catKey].items.push({
-            id: p.id, name: p.name, price: p.price, desc: p.desc,
-            img: p.img, badge: p.badge || 'New',
-            storeId: u.email, storeName: storeName,
-            variants: p.variants || undefined
-         });
-      });
-   });
-})();
+// Store products are loaded from Supabase in initDB() → _applyStoreProdsToProducts()
 
 // ── MAIN CATEGORY DEFINITIONS ──
 const MAIN_CATS = {
@@ -2038,8 +1989,7 @@ function renderCard(item, catKey, grid) {
          : `₹${item.price.toLocaleString('en-IN')}`;
 
    const wlUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   const wl = wlUser ? getWishlist(wlUser.email) : [];
-   const inWL = wl.some(w => w.id === item.id);
+   const inWL = wlUser ? _db.wishlist.includes(item.id) : false;
 
    // Short display name for the colored header (strip weight/quantity)
    const shortName = item.name
@@ -2241,313 +2191,6 @@ function closeStorePicker() {
    if (overlay) overlay.classList.add('hidden');
 }
 
-// ══════════════════════════════════════════════
-// ── BOOK APPOINTMENT ──
-// ══════════════════════════════════════════════
-
-const APPOINTMENT_CATS = [
-   { key: 'hospitals', icon: '🏥', label: 'Hospitals',    desc: 'Multi-speciality hospitals & medical centres' },
-   { key: 'clinics',   icon: '🩺', label: 'Clinics',      desc: 'General physician & specialist clinics' },
-   { key: 'dental',    icon: '🦷', label: 'Dental',       desc: 'Dental care, braces & oral surgery' },
-   { key: 'labs',      icon: '🔬', label: 'Diagnostics',  desc: 'Blood tests, scans & health check-ups' },
-];
-
-const appointmentProviders = {
-   hospitals: [
-      { id: 'h001', name: 'City General Hospital',    tagline: 'Multi-speciality care since 1985',       address: '12, Hospital Road, Main Area',     phone: '+91 94400 12345',
-        doctors: [
-           { id: 'd001', name: 'Dr. Priya Sharma',  speciality: 'General Medicine', qual: 'MBBS, MD',         exp: '12 yrs', fee: 500, days: [1,2,3,4,5],   slots: ['09:00 AM','10:00 AM','11:00 AM','02:00 PM','03:00 PM','04:00 PM'] },
-           { id: 'd002', name: 'Dr. Arjun Mehta',   speciality: 'Cardiology',       qual: 'MBBS, MD, DM',     exp: '18 yrs', fee: 800, days: [1,2,4,5],     slots: ['10:00 AM','11:00 AM','03:00 PM','04:00 PM'] },
-           { id: 'd003', name: 'Dr. Sunita Rao',    speciality: 'Paediatrics',      qual: 'MBBS, DCH',        exp: '8 yrs',  fee: 400, days: [1,2,3,4,5,6], slots: ['09:00 AM','10:00 AM','11:00 AM','04:00 PM','05:00 PM'] },
-        ]
-      },
-      { id: 'h002', name: 'Sunrise Medical Centre', tagline: 'Advanced surgery & diagnostics',           address: '45, Health Nagar, West Side',      phone: '+91 93300 54321',
-        doctors: [
-           { id: 'd004', name: 'Dr. Ramesh Nair',   speciality: 'Orthopaedics',     qual: 'MBBS, MS (Ortho)', exp: '20 yrs', fee: 700, days: [1,3,5],       slots: ['10:00 AM','11:00 AM','02:00 PM','03:00 PM'] },
-           { id: 'd005', name: 'Dr. Kavitha Iyer',  speciality: 'Gynaecology',      qual: 'MBBS, MS, DGO',    exp: '15 yrs', fee: 600, days: [1,2,3,4,5],   slots: ['09:00 AM','11:00 AM','02:00 PM','04:00 PM'] },
-        ]
-      },
-      { id: 'h003', name: 'Apollo Wellness Hospital', tagline: 'Trusted care, modern facilities',        address: '78, Apollo Street, East City',     phone: '+91 91100 78901',
-        doctors: [
-           { id: 'd009', name: 'Dr. Vinod Chandra', speciality: 'Neurology',        qual: 'MBBS, MD, DM',     exp: '22 yrs', fee: 900, days: [2,3,4,5],     slots: ['10:00 AM','11:00 AM','02:00 PM'] },
-           { id: 'd010', name: 'Dr. Ananya Singh',  speciality: 'Dermatology',      qual: 'MBBS, MD (Derm)',  exp: '10 yrs', fee: 550, days: [1,2,3,4,5],   slots: ['10:00 AM','11:00 AM','12:00 PM','03:00 PM','04:00 PM'] },
-        ]
-      },
-   ],
-   clinics: [
-      { id: 'c001', name: 'HealthFirst Clinic',     tagline: 'Quick consultations, trusted care',        address: '7, Market Street, Central',        phone: '+91 99000 11122',
-        doctors: [
-           { id: 'd006', name: 'Dr. Vikram Patel',  speciality: 'General Physician', qual: 'MBBS',            exp: '6 yrs',  fee: 250, days: [1,2,3,4,5,6], slots: ['09:00 AM','10:00 AM','11:00 AM','12:00 PM','04:00 PM','05:00 PM','06:00 PM'] },
-        ]
-      },
-      { id: 'c002', name: 'MediCare Family Clinic', tagline: 'Your neighbourhood health partner',        address: '15, Green Lane, Residency Area',   phone: '+91 98222 44556',
-        doctors: [
-           { id: 'd011', name: 'Dr. Supriya Joshi', speciality: 'Family Medicine',   qual: 'MBBS, MRCGP',     exp: '11 yrs', fee: 300, days: [1,2,3,4,5],   slots: ['09:00 AM','10:00 AM','11:00 AM','05:00 PM','06:00 PM'] },
-           { id: 'd012', name: 'Dr. Karthik Raj',   speciality: 'Internal Medicine', qual: 'MBBS, MD',        exp: '9 yrs',  fee: 350, days: [2,3,4,5,6],   slots: ['10:00 AM','11:00 AM','12:00 PM','04:00 PM'] },
-        ]
-      },
-   ],
-   dental: [
-      { id: 'dent001', name: 'SmileCare Dental Studio', tagline: 'Complete oral care & cosmetic dentistry', address: '22, Park Road, Main Square', phone: '+91 98001 33344',
-        doctors: [
-           { id: 'd007', name: 'Dr. Neha Gupta',    speciality: 'Cosmetic Dentistry', qual: 'BDS, MDS',        exp: '9 yrs',  fee: 300, days: [1,2,3,4,5,6], slots: ['10:00 AM','11:00 AM','12:00 PM','02:00 PM','03:00 PM','04:00 PM','05:00 PM'] },
-        ]
-      },
-      { id: 'dent002', name: 'Pearl Dental Clinic',     tagline: 'Braces, implants & root canals',           address: '33, Temple Road, Old Town',  phone: '+91 97003 22211',
-        doctors: [
-           { id: 'd013', name: 'Dr. Arun Menon',    speciality: 'Orthodontics',       qual: 'BDS, MDS (Ortho)', exp: '13 yrs', fee: 350, days: [1,2,3,5,6],   slots: ['10:00 AM','11:00 AM','02:00 PM','03:00 PM','04:00 PM'] },
-        ]
-      },
-   ],
-   labs: [
-      { id: 'lab001', name: 'DiagnoPlus Laboratories', tagline: 'Accurate results, fast turnaround',      address: '88, Science Park, Tech Area',      phone: '+91 97002 55566',
-        doctors: [
-           { id: 'd008', name: 'Dr. Suresh Babu',   speciality: 'Pathology',          qual: 'MBBS, MD (Path)', exp: '14 yrs', fee: 200, days: [1,2,3,4,5,6], slots: ['08:00 AM','09:00 AM','10:00 AM','11:00 AM','12:00 PM'] },
-        ]
-      },
-   ],
-};
-
-var _aptBooking = {}; // current booking state
-
-function showBookAppointment() {
-   document.getElementById('heroSection').classList.add('hidden');
-   document.getElementById('productsSection').classList.add('hidden');
-   document.getElementById('appointmentSection').classList.remove('hidden');
-   var aptBtn = document.querySelector('.header-apt-btn');
-   if (aptBtn) aptBtn.classList.add('active');
-   var storesBtn = document.querySelector('.header-stores-btn');
-   if (storesBtn) storesBtn.classList.remove('active');
-   document.querySelectorAll('.cat-item').forEach(function(c) { c.classList.remove('active'); });
-   renderAptCategories();
-   window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function renderAptCategories() {
-   document.getElementById('aptSectionTitle').textContent = '📅 Book Appointment';
-   var content = document.getElementById('aptContent');
-   content.innerHTML =
-      '<div class="apt-cats-grid">' +
-         APPOINTMENT_CATS.map(function(cat) {
-            var count = (appointmentProviders[cat.key] || []).length;
-            return '<div class="apt-cat-card" onclick="showAptCategory(\'' + cat.key + '\')">' +
-                      '<div class="apt-cat-icon">' + cat.icon + '</div>' +
-                      '<div class="apt-cat-label">' + cat.label + '</div>' +
-                      '<div class="apt-cat-desc">' + cat.desc + '</div>' +
-                      '<div class="apt-cat-count">' + count + ' available</div>' +
-                   '</div>';
-         }).join('') +
-      '</div>';
-}
-
-function showAptCategory(catKey) {
-   var catInfo = APPOINTMENT_CATS.find(function(c) { return c.key === catKey; });
-   if (!catInfo) return;
-   document.getElementById('aptSectionTitle').textContent = catInfo.icon + ' ' + catInfo.label;
-   var providers = appointmentProviders[catKey] || [];
-   var content = document.getElementById('aptContent');
-   content.innerHTML =
-      '<button class="apt-back-btn" onclick="renderAptCategories()">← All Categories</button>' +
-      '<div class="apt-providers-grid">' +
-         providers.map(function(p) {
-            return '<div class="apt-provider-card">' +
-                      '<div class="apt-provider-top">' +
-                         '<div class="apt-provider-icon">' + catInfo.icon + '</div>' +
-                         '<div>' +
-                            '<div class="apt-provider-name">' + p.name + '</div>' +
-                            '<div class="apt-provider-tagline">' + p.tagline + '</div>' +
-                         '</div>' +
-                      '</div>' +
-                      '<div class="apt-provider-meta">📍 ' + p.address + '</div>' +
-                      '<div class="apt-provider-meta">📞 ' + p.phone + '</div>' +
-                      '<div class="apt-provider-footer">' +
-                         '<span>' + p.doctors.length + ' doctor' + (p.doctors.length !== 1 ? 's' : '') + '</span>' +
-                         '<button class="apt-view-btn" onclick="showAptDoctors(\'' + p.id + '\',\'' + catKey + '\')">View Doctors →</button>' +
-                      '</div>' +
-                   '</div>';
-         }).join('') +
-      '</div>';
-}
-
-function showAptDoctors(providerId, catKey) {
-   var catInfo  = APPOINTMENT_CATS.find(function(c) { return c.key === catKey; });
-   var provider = (appointmentProviders[catKey] || []).find(function(p) { return p.id === providerId; });
-   if (!provider) return;
-   document.getElementById('aptSectionTitle').textContent = provider.name;
-   var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-   var content = document.getElementById('aptContent');
-   content.innerHTML =
-      '<button class="apt-back-btn" onclick="showAptCategory(\'' + catKey + '\')">← ' + catInfo.label + ' List</button>' +
-      '<div class="apt-provider-info-bar">' +
-         '<span>📍 ' + provider.address + '</span>' +
-         '<span>📞 ' + provider.phone + '</span>' +
-      '</div>' +
-      '<div class="apt-doctors-list">' +
-         provider.doctors.map(function(doc) {
-            var initials = doc.name.replace(/Dr\.\s*/i,'').split(' ').map(function(w){return w[0];}).join('').substring(0,2).toUpperCase();
-            var dayStr   = doc.days.map(function(d) { return DAY_NAMES[d]; }).join(', ');
-            return '<div class="apt-doctor-card">' +
-                      '<div class="apt-doctor-avatar">' + initials + '</div>' +
-                      '<div class="apt-doctor-info">' +
-                         '<div class="apt-doctor-name">' + doc.name + '</div>' +
-                         '<div class="apt-doctor-spec">' + doc.speciality + '</div>' +
-                         '<div class="apt-doctor-qual">' + doc.qual + ' &middot; ' + doc.exp + '</div>' +
-                         '<div class="apt-doctor-days">📅 ' + dayStr + '</div>' +
-                      '</div>' +
-                      '<div class="apt-doctor-right">' +
-                         '<div class="apt-doctor-fee">₹' + doc.fee + '<span>/visit</span></div>' +
-                         '<button class="apt-book-btn" onclick="openAptBooking(\'' + provider.id + '\',\'' + doc.id + '\',\'' + catKey + '\')">Book</button>' +
-                      '</div>' +
-                   '</div>';
-         }).join('') +
-      '</div>';
-}
-
-function openAptBooking(providerId, doctorId, catKey) {
-   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   if (!user) { showToast('Please login to book an appointment.'); return; }
-
-   var provider = (appointmentProviders[catKey] || []).find(function(p) { return p.id === providerId; });
-   var doctor   = provider && provider.doctors.find(function(d) { return d.id === doctorId; });
-   if (!provider || !doctor) return;
-
-   _aptBooking = { providerId: providerId, doctorId: doctorId, catKey: catKey, selectedDate: null, selectedSlot: null };
-
-   // Pre-fill patient details from user profile
-   var users    = JSON.parse(localStorage.getItem('users') || '[]');
-   var userData = users.find(function(u) { return u.email === user.email; }) || {};
-
-   document.getElementById('aptBookModalDoc').textContent = doctor.name;
-   document.getElementById('aptBookModalSpec').textContent = doctor.speciality + ' · ' + provider.name;
-   document.getElementById('aptBookModalFee').textContent  = '₹' + doctor.fee + ' consultation fee';
-   document.getElementById('aptPatientName').value   = userData.name  || '';
-   document.getElementById('aptPatientPhone').value  = userData.phone || '';
-   document.getElementById('aptPatientReason').value = '';
-   document.getElementById('aptSlotSection').classList.add('hidden');
-   document.getElementById('aptConfirmBtn').disabled = true;
-
-   // Build next-14-days date buttons filtered by doctor's available days
-   var today   = new Date();
-   var MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-   var DAY_LAB = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-   var datesHtml = '';
-   for (var i = 0; i < 14; i++) {
-      var d   = new Date(today);
-      d.setDate(today.getDate() + i);
-      if (doctor.days.indexOf(d.getDay()) === -1) continue;
-      var ds  = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-      var lbl = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : DAY_LAB[d.getDay()];
-      datesHtml += '<button class="apt-date-btn" data-date="' + ds + '" onclick="selectAptDate(this,\'' + ds + '\')">' +
-                      '<span class="apt-date-day">' + lbl + '</span>' +
-                      '<span class="apt-date-num">' + d.getDate() + ' ' + MONTHS[d.getMonth()] + '</span>' +
-                   '</button>';
-   }
-   document.getElementById('aptDateButtons').innerHTML = datesHtml ||
-      '<p style="color:#999;font-size:0.85rem;padding:8px 0">No dates available in the next 14 days.</p>';
-
-   document.getElementById('aptBookModal').classList.remove('hidden');
-}
-
-function selectAptDate(btn, dateStr) {
-   btn.closest('.apt-date-scroll').querySelectorAll('.apt-date-btn').forEach(function(b) { b.classList.remove('active'); });
-   btn.classList.add('active');
-   _aptBooking.selectedDate = dateStr;
-   _aptBooking.selectedSlot = null;
-   document.getElementById('aptConfirmBtn').disabled = true;
-
-   var provider = (appointmentProviders[_aptBooking.catKey] || []).find(function(p) { return p.id === _aptBooking.providerId; });
-   var doctor   = provider && provider.doctors.find(function(d) { return d.id === _aptBooking.doctorId; });
-   if (!doctor) return;
-
-   document.getElementById('aptSlotButtons').innerHTML = doctor.slots.map(function(slot) {
-      return '<button class="apt-slot-btn" onclick="selectAptSlot(this,\'' + slot + '\')">' + slot + '</button>';
-   }).join('');
-   document.getElementById('aptSlotSection').classList.remove('hidden');
-}
-
-function selectAptSlot(btn, slot) {
-   btn.closest('.apt-slots-grid').querySelectorAll('.apt-slot-btn').forEach(function(b) { b.classList.remove('active'); });
-   btn.classList.add('active');
-   _aptBooking.selectedSlot = slot;
-   document.getElementById('aptConfirmBtn').disabled = false;
-}
-
-function confirmAptBooking() {
-   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   if (!user) { showToast('Please login.'); return; }
-
-   var patientName  = document.getElementById('aptPatientName').value.trim();
-   var patientPhone = document.getElementById('aptPatientPhone').value.trim();
-   if (!patientName || !patientPhone) { alert('Please fill in patient name and phone number.'); return; }
-   if (!_aptBooking.selectedDate || !_aptBooking.selectedSlot) { alert('Please select a date and time slot.'); return; }
-
-   var provider = (appointmentProviders[_aptBooking.catKey] || []).find(function(p) { return p.id === _aptBooking.providerId; });
-   var doctor   = provider && provider.doctors.find(function(d) { return d.id === _aptBooking.doctorId; });
-
-   var aptId = 'APT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-   var appointment = {
-      id:              aptId,
-      catKey:          _aptBooking.catKey,
-      providerName:    provider.name,
-      providerAddress: provider.address,
-      providerPhone:   provider.phone,
-      doctorName:      doctor.name,
-      speciality:      doctor.speciality,
-      date:            _aptBooking.selectedDate,
-      slot:            _aptBooking.selectedSlot,
-      patientName:     patientName,
-      patientPhone:    patientPhone,
-      reason:          document.getElementById('aptPatientReason').value.trim(),
-      fee:             doctor.fee,
-      status:          'confirmed',
-      bookedAt:        new Date().toISOString()
-   };
-
-   var key          = 'appointments_' + user.email;
-   var appointments = JSON.parse(localStorage.getItem(key) || '[]');
-   appointments.unshift(appointment);
-   localStorage.setItem(key, JSON.stringify(appointments));
-
-   closeAptBookModal();
-   showAptConfirmation(appointment);
-}
-
-function showAptConfirmation(apt) {
-   var dateObj   = new Date(apt.date + 'T00:00:00');
-   var MONTHS    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-   var DAY_FULL  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-   var dateLabel = DAY_FULL[dateObj.getDay()] + ', ' + dateObj.getDate() + ' ' + MONTHS[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
-   document.getElementById('aptDoneDetails').innerHTML =
-      '<div class="apt-done-id">Appointment ID: ' + apt.id + '</div>' +
-      '<div class="apt-done-rows">' +
-         row('Doctor',   apt.doctorName) +
-         row('Hospital', apt.providerName) +
-         row('Date',     dateLabel) +
-         row('Time',     apt.slot) +
-         row('Patient',  apt.patientName) +
-         row('Phone',    apt.patientPhone) +
-         (apt.reason ? row('Reason', apt.reason) : '') +
-         row('Fee',      '₹' + apt.fee) +
-      '</div>';
-   document.getElementById('aptDoneOverlay').classList.remove('hidden');
-
-   function row(label, value) {
-      return '<div class="apt-done-row"><span>' + label + '</span><span>' + value + '</span></div>';
-   }
-}
-
-function closeAptBookModal() {
-   document.getElementById('aptBookModal').classList.add('hidden');
-}
-
-function closeAptDoneModal() {
-   document.getElementById('aptDoneOverlay').classList.add('hidden');
-}
-
-function handleAptOverlayClick(event) {
-   if (event.target === event.currentTarget) closeAptBookModal();
-}
-
 // ── CART UI ──
 function updateCartUI() {
    var totalItems = cart.reduce(function(s, c) { return s + c.qty; }, 0);
@@ -2711,9 +2354,6 @@ function makeOrder() {
       groups[key].items.push(c);
    });
 
-   var personalKey  = 'orders_' + user.email;
-   var personalOrds = JSON.parse(localStorage.getItem(personalKey) || '[]');
-   var allOrders    = JSON.parse(localStorage.getItem('allOrders') || '[]');
    var createdOrders = [];
 
    groupKeys.forEach(function(key) {
@@ -2722,18 +2362,16 @@ function makeOrder() {
       var total   = grp.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
       var items   = grp.items.map(function(c) { return { id: c.id, name: c.name, price: c.price, qty: c.qty, img: c.img }; });
 
-      personalOrds.unshift({ orderId: orderId, date: dateStr, items: items, total: total, method: 'Pickup', status: 'Pending Pickup', storeId: grp.storeId, storeName: grp.storeName });
-      allOrders.unshift({
-         orderId: orderId, date: dateStr, timestamp: now.getTime(),
+      var newOrder = {
+         orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
          customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
          items: items, total: total, status: 'Pending Pickup',
          storeId: grp.storeId, storeName: grp.storeName
-      });
+      };
+      _db.orders.unshift(newOrder);
+      AppDB.insertOrder(newOrder);
       createdOrders.push({ orderId: orderId, storeName: grp.storeName, storeId: grp.storeId, items: items, total: total, date: dateStr });
    });
-
-   localStorage.setItem(personalKey, JSON.stringify(personalOrds));
-   localStorage.setItem('allOrders', JSON.stringify(allOrders));
 
    // Build confirmation modal
    var grandTotal = createdOrders.reduce(function(s, o) { return s + o.total; }, 0);
@@ -2848,19 +2486,25 @@ function processPayment(method) {
    document.getElementById('successMsg').textContent =
       `Paid ${amount} via ${method} · Transaction ID: ${txn}`;
 
-   // Save order to localStorage
+   // Save order to Supabase
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (user) {
       const total = parseFloat(amount.replace(/[₹,]/g, '')) || 0;
+      var now = new Date();
+      var yy  = String(now.getFullYear()).slice(2);
+      var mm  = String(now.getMonth() + 1).padStart(2, '0');
+      var dd  = String(now.getDate()).padStart(2, '0');
+      var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
       const order = {
-         orderId: 'ORD-' + Date.now(),
-         date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-         items: cart.map(c => ({ name: c.name, qty: c.qty, price: c.price })),
-         total, method, status: 'Confirmed'
+         orderId: orderId, order_id: orderId,
+         date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+         customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
+         items: cart.map(c => ({ id: c.id, name: c.name, qty: c.qty, price: c.price })),
+         total, method, status: 'Confirmed',
+         storeId: null, storeName: null
       };
-      const orders = JSON.parse(localStorage.getItem('orders_' + user.email) || '[]');
-      orders.push(order);
-      localStorage.setItem('orders_' + user.email, JSON.stringify(orders));
+      _db.orders.unshift(order);
+      AppDB.insertOrder(order);
 
       // Save new card if checkbox ticked
       if (method === 'Card') {
@@ -2874,8 +2518,10 @@ function processPayment(method) {
                const last4 = num.slice(-4);
                const brand = getCardBrand(num);
                if (!cards.some(c => c.last4 === last4 && c.expiry === exp)) {
-                  cards.push({ last4, expiry: exp, nameOnCard: name, brand });
-                  saveCardsData(user.email, cards);
+                  const newCard = { id: crypto.randomUUID(), last4, expiry: exp, nameOnCard: name, brand };
+                  cards.push(newCard);
+                  _db.cards = cards;
+                  AppDB.insertCard({ id: newCard.id, user_email: user.email, last4, expiry: exp, name_on_card: name, brand });
                }
             }
          }
@@ -2904,16 +2550,15 @@ function goDashboard() {
 function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
-   var aptSec = document.getElementById('appointmentSection');
-   if (aptSec) aptSec.classList.add('hidden');
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    const allCat = document.getElementById('cat-all');
    if (allCat) allCat.classList.add('active');
    var storesBtn = document.querySelector('.header-stores-btn');
    if (storesBtn) storesBtn.classList.remove('active');
-   var aptBtn = document.querySelector('.header-apt-btn');
-   if (aptBtn) aptBtn.classList.remove('active');
-   window.scrollTo({ top: 0, behavior: 'smooth' });
+   window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+   });
 }
 
 function showByCategory(groupName) {
@@ -3359,15 +3004,103 @@ function showToast(msg) {
 }
 
 // ── AUTH ──
-function getUsers() {
-   return JSON.parse(localStorage.getItem('users') || '[]');
+// ══════════════════════════════════════════════════════════
+//  SUPABASE DATA CACHE  — replaces all localStorage ops
+// ══════════════════════════════════════════════════════════
+var _db = { users: [], orders: [], settings: {}, overrides: {}, storeProducts: [], addresses: [], cards: [], wishlist: [] };
+var _dbReady = null;
+
+async function initDB() {
+   if (_dbReady) return _dbReady;
+   _dbReady = (async function () {
+      try {
+         var [users, orders, dbSettings, overrides, storeProds] = await Promise.all([
+            AppDB.getUsers(),
+            AppDB.getAllOrders(),
+            AppDB.getSettings(),
+            AppDB.getProductOverrides(),
+            AppDB.getAllStoreProducts()
+         ]);
+         _db.users         = users        || [];
+         _db.orders        = orders       || [];
+         _db.settings      = dbSettings   || {};
+         _db.overrides     = overrides    || {};
+         _db.storeProducts = storeProds   || [];
+         _applyOverridesToProducts();
+         _applyStoreProdsToProducts();
+      } catch (e) {
+         console.error('initDB error:', e);
+      }
+   })();
+   return _dbReady;
 }
+
+function _applyOverridesToProducts() {
+   var ov = _db.overrides;
+   Object.values(products).forEach(function(cat) {
+      cat.items.forEach(function(item) {
+         var o = ov[item.id];
+         if (!o) return;
+         if (o.img)   item.img   = o.img;
+         if (o.name)  item.name  = o.name;
+         if (o.desc)  item.desc  = o.desc;
+         if (o.badge) item.badge = o.badge;
+         if (o.price !== undefined) {
+            if (cat.type === 'milk') item.pricePerLitre = o.price;
+            else item.price = o.price;
+         }
+         if (o.variants && o.variants.length > 0) item.variants = o.variants;
+         else if (o.hasOwnProperty('variants') && !o.variants) delete item.variants;
+         if (o.storeId)   item.storeId   = o.storeId;
+         if (o.storeName) item.storeName = o.storeName;
+      });
+   });
+}
+
+function _applyStoreProdsToProducts() {
+   Object.values(products).forEach(function(cat) {
+      cat.items = cat.items.filter(function(i) { return !i.storeId; });
+   });
+   (_db.storeProducts || []).forEach(function(p) {
+      var cat = products[p.category];
+      if (!cat) return;
+      if (cat.items.find(function(i) { return i.id === p.id; })) return;
+      cat.items.push({
+         id: p.id, name: p.name, price: p.price || 0,
+         desc: p.description || '', img: p.image || '',
+         badge: p.badge || 'New',
+         storeId: p.store_id, storeName: p.store_name,
+         variants: p.variants || undefined
+      });
+   });
+}
+// ══════════════════════════════════════════════════════════
+
+async function loadUserData(email) {
+   if (!email) return;
+   var [addrs, cards, wl] = await Promise.all([
+      AppDB.getAddresses(email),
+      AppDB.getCards(email),
+      AppDB.getWishlist(email)
+   ]);
+   _db.addresses = (addrs || []).map(function(a) {
+      return { id: a.id, name: a.name, phone: a.phone || '', line: a.line, city: a.city, state: a.state || '', pin: a.pin, isDefault: a.is_default || false };
+   });
+   _db.cards = (cards || []).map(function(c) {
+      return { id: c.id, last4: c.last4 || '', brand: c.brand || '', expiry: c.expiry || '', nameOnCard: c.name_on_card || '' };
+   });
+   _db.wishlist = wl || [];
+}
+
+function getUsers() { return _db.users; }
 
 function saveUsers(users) {
-   localStorage.setItem('users', JSON.stringify(users));
+   _db.users = users;
+   users.forEach(function(u) { AppDB.upsertUser(u); });
 }
 
-function signUp() {
+async function signUp() {
+   await initDB();
    const name     = document.getElementById('signupName').value.trim();
    const email    = document.getElementById('signupEmail').value.trim();
    const password = document.getElementById('signupPassword').value;
@@ -3391,7 +3124,8 @@ function signUp() {
    window.location.href = 'login.html';
 }
 
-function login() {
+async function login() {
+   await initDB();
    const email    = document.getElementById('loginEmail').value.trim().toLowerCase();
    const password = document.getElementById('loginPassword').value;
    const errorMsg = document.getElementById('loginError');
@@ -3502,7 +3236,7 @@ function renderUserList(filter) {
       return;
    }
 
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var allOrders = _db.orders;
 
    var html = '';
    filtered.forEach(function(u) {
@@ -3564,23 +3298,41 @@ function unblockUser(email) {
 }
 
 function deleteUser(email) {
-   if (!confirm('Permanently delete the account for:\n' + email + '\n\nThis cannot be undone. All their data (addresses, orders) will also be removed.')) return;
-   var users = getUsers();
-   users = users.filter(function(u) { return u.email !== email; });
-   saveUsers(users);
-   localStorage.removeItem('role_' + email);
-   localStorage.removeItem('addresses_' + email);
-   localStorage.removeItem('orders_' + email);
-   // Remove their entries from the shared orders list
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
-   allOrders = allOrders.filter(function(o) { return o.userEmail !== email; });
-   localStorage.setItem('allOrders', JSON.stringify(allOrders));
-   // Force logout if this user is currently in session
-   var lu = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
-   if (lu && lu.email.toLowerCase() === email.toLowerCase()) {
-      sessionStorage.removeItem('loggedInUser');
+   var users  = getUsers();
+   var target = users.find(function(u) { return u.email === email; });
+   var isStore = target && target.role === 'storeowner';
+
+   var msg = 'Delete account for:\n' + email + '\n\n';
+   if (isStore) msg += 'This is a store owner. Their account will be removed but products are preserved — if re-admitted, all products restore automatically.\n\n';
+   msg += 'Personal data (addresses, orders, cards) will be cleared. This cannot be undone.';
+   if (!confirm(msg)) return;
+
+   // Remove from users list
+   _db.users = users.filter(function(u) { return u.email !== email; });
+   AppDB.deleteUserByEmail(email);
+
+   // Remove personal data from Supabase
+   AppDB.deleteUserAddresses(email);
+   AppDB.deleteCustomerOrders(email);
+   AppDB.deleteUserCards(email);
+   AppDB.deleteUserWishlist(email);
+   AppDB.deleteUserAppointments(email);
+
+   // Remove customer's orders from cache
+   _db.orders = _db.orders.filter(function(o) { return o.customerEmail !== email; });
+
+   // Remove in-memory store products (Supabase products preserved for re-admission)
+   if (isStore) {
+      Object.values(products).forEach(function(cat) {
+         cat.items = cat.items.filter(function(item) { return item.storeId !== email; });
+      });
    }
-   showAdminToast('🗑 Account deleted: ' + email);
+
+   // Force logout if currently in session
+   var lu = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
+   if (lu && lu.email.toLowerCase() === email.toLowerCase()) sessionStorage.removeItem('loggedInUser');
+
+   showAdminToast(isStore ? '🗑 Account removed (products preserved): ' + email : '🗑 Account deleted: ' + email);
    renderUserList(_currentUserFilter);
 }
 
@@ -3589,8 +3341,18 @@ function showUserDetail(email) {
    var u = users.find(function(x) { return x.email === email; });
    if (!u) return;
 
-   var addresses = JSON.parse(localStorage.getItem('addresses_' + email) || '[]');
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var addresses = _db.addresses.filter ? _db.addresses : [];
+   // Async-load this user's addresses for admin detail view
+   AppDB.getAddresses(email).then(function(data) {
+      addresses = (data || []).map(function(a) {
+         return { name: a.name, phone: a.phone, line: a.line, city: a.city, state: a.state, pin: a.pin, isDefault: a.is_default };
+      });
+      var addrEl2 = document.getElementById('udm-addresses');
+      if (addrEl2) addrEl2.innerHTML = addresses.length
+         ? addresses.map(function(a) { return '<div class="udm-addr-row">' + (a.isDefault ? '✅ ' : '') + a.name + ', ' + a.line + ', ' + a.city + ' — ' + a.pin + '</div>'; }).join('')
+         : '<span style="color:#aaa">No saved addresses</span>';
+   });
+   var allOrders = _db.orders;
    var userOrders = allOrders.filter(function(o) { return o.customerEmail === email; });
 
    var roleLabel   = u.role === 'storeowner' ? 'Store Owner' : 'Customer';
@@ -3785,12 +3547,17 @@ function seedAdmin() {
 function updateAddressDisplay(email) {
    const el = document.getElementById('headerAddress');
    if (!el) return;
-   const addresses = JSON.parse(localStorage.getItem('addresses_' + email) || '[]');
-   if (!addresses.length) {
-      el.innerHTML = '📍 <span>Add Address</span>';
-   } else {
-      const def = addresses.find(a => a.isDefault) || addresses[0];
+   // Use _db.addresses if already loaded (profile page), else fetch async
+   if (_db.addresses.length) {
+      const def = _db.addresses.find(a => a.isDefault) || _db.addresses[0];
       el.innerHTML = `🏠 <strong>HOME</strong> ${def.city || def.line} ›`;
+   } else {
+      AppDB.getAddresses(email).then(function(data) {
+         if (!data || !data.length) { el.innerHTML = '📍 <span>Add Address</span>'; return; }
+         const def = data.find(a => a.is_default) || data[0];
+         el.innerHTML = `🏠 <strong>HOME</strong> ${def.city || def.line} ›`;
+      });
+      el.innerHTML = '📍 <span>Add Address</span>';
    }
 }
 
@@ -3804,7 +3571,8 @@ document.addEventListener('click', function () {
    if (dd) dd.classList.remove('open');
 });
 
-function checkShopOwnerLogin() {
+async function checkShopOwnerLogin() {
+   await initDB();
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
    // Kick blocked users out
@@ -3831,7 +3599,7 @@ function checkShopOwnerLogin() {
 }
 
 function renderShopDashboard(filterStatus) {
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var allOrders = _db.orders;
    var list = document.getElementById('shopOrderList');
    if (!list) return;
 
@@ -3911,19 +3679,10 @@ function renderShopDashboard(filterStatus) {
 }
 
 function updateOrderStatus(orderId, newStatus) {
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
-   var order = allOrders.find(function(o) { return o.orderId === orderId; });
+   var order = _db.orders.find(function(o) { return o.orderId === orderId || o.order_id === orderId; });
    if (order) {
       order.status = newStatus;
-      localStorage.setItem('allOrders', JSON.stringify(allOrders));
-      // Sync status to customer's personal order store so their profile page shows latest
-      var personalKey = 'orders_' + order.customerEmail;
-      var personalOrders = JSON.parse(localStorage.getItem(personalKey) || '[]');
-      var personalOrder = personalOrders.find(function(o) { return o.orderId === orderId; });
-      if (personalOrder) {
-         personalOrder.status = newStatus;
-         localStorage.setItem(personalKey, JSON.stringify(personalOrders));
-      }
+      AppDB.updateOrderStatus(orderId, newStatus);
       // If called from admin user detail modal, refresh it
       var udmModal = document.getElementById('userDetailModal');
       if (udmModal && !udmModal.classList.contains('hidden')) {
@@ -3941,7 +3700,7 @@ function lookupOrder() {
    var val = document.getElementById('shopSearchInput').value.trim().toUpperCase();
    if (!val) { renderShopDashboard(); return; }
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var allOrders = _db.orders;
    // Restrict to this store owner's orders (admins see all)
    if (loggedUser && !isAdmin(loggedUser.email)) {
       allOrders = allOrders.filter(function(o) { return o.storeId === loggedUser.email; });
@@ -3954,16 +3713,36 @@ function lookupOrder() {
       return;
    }
    list.innerHTML = '';
-   // reuse renderShopDashboard logic inline by temporarily replacing allOrders
-   var backup = localStorage.getItem('allOrders');
-   localStorage.setItem('allOrders', JSON.stringify(filtered));
+   var _savedOrders = _db.orders;
+   _db.orders = filtered;
    renderShopDashboard();
-   localStorage.setItem('allOrders', backup);
+   _db.orders = _savedOrders;
 }
 
 // ── SHOP OWNER: PRODUCT MANAGEMENT ──
-function getMyProducts(email) { return JSON.parse(localStorage.getItem('myProducts_' + email) || '[]'); }
-function saveMyProducts(email, arr) { localStorage.setItem('myProducts_' + email, JSON.stringify(arr)); }
+function getMyProducts(email) {
+   return (_db.storeProducts || [])
+      .filter(function(p) { return p.store_id === email; })
+      .map(function(p) {
+         return { id: p.id, name: p.name, price: p.price, desc: p.description,
+                  img: p.image, badge: p.badge, catKey: p.category,
+                  variants: p.variants || undefined };
+      });
+}
+function saveMyProducts(email, arr) {
+   var user = (_db.users || []).find(function(u) { return u.email === email; }) || {};
+   var storeName = user.storeName || user.name || '';
+   var rows = arr.map(function(p) {
+      return { id: p.id, name: p.name, price: p.price || 0,
+               description: p.desc || '', image: p.img || '',
+               category: p.catKey, badge: p.badge || 'New',
+               store_id: email, store_name: storeName, variants: p.variants || null };
+   });
+   _db.storeProducts = (_db.storeProducts || []).filter(function(p) { return p.store_id !== email; }).concat(rows);
+   AppDB.deleteStoreProducts(email).then(function() {
+      rows.forEach(function(r) { AppDB.upsertProduct(r); });
+   });
+}
 
 function renderStoreOwnerProducts() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
@@ -4096,46 +3875,47 @@ function renderAdminStores() {
    var container = document.getElementById('adminStoresContent');
    if (!container) return;
 
-   var users       = getUsers();
-   var allOrders   = JSON.parse(localStorage.getItem('allOrders') || '[]');
-   var settings    = getAdminSettings();
+   var users     = getUsers();
+   var allOrders = _db.orders;
+   var settings  = getAdminSettings();
    var storeOwners = users.filter(function(u) { return u.role === 'storeowner'; });
 
-   // Platform products & orders
+   // Platform products
    var platformItems = [];
    Object.entries(products).forEach(function([catKey, cat]) {
       cat.items.forEach(function(item) { if (!item.storeId) platformItems.push(item); });
    });
    var platformOrders = allOrders.filter(function(o) { return !o.storeId; });
+   var platformRevenue = platformOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
 
    var html = '<div class="admin-stores-grid">';
-   html += buildAdminStoreCard(null, settings.storeName || 'MyStore', '(Platform — admin managed)', platformItems.length, platformOrders, false);
 
+   // Platform store card
+   html += buildAdminStoreCard(null, settings.storeName || 'MyStore', '(Platform — admin managed)', platformItems.length, platformOrders.length, platformRevenue, false);
+
+   // Store-owner cards
    storeOwners.forEach(function(u) {
       var storeItems = [];
       Object.entries(products).forEach(function([catKey, cat]) {
          cat.items.forEach(function(item) { if (item.storeId === u.email) storeItems.push(item); });
       });
-      var storeOrders = allOrders.filter(function(o) { return o.storeId === u.email; });
-      html += buildAdminStoreCard(u.email, u.storeName || u.name, u.email, storeItems.length, storeOrders, u.blocked);
+      var storeOrders  = allOrders.filter(function(o) { return o.storeId === u.email; });
+      var storeRevenue = storeOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+      html += buildAdminStoreCard(u.email, u.storeName || u.name, u.email, storeItems.length, storeOrders.length, storeRevenue, u.blocked);
    });
 
    html += '</div>';
-   container.innerHTML = (storeOwners.length === 0 && platformItems.length === 0)
-      ? '<p style="color:#999;text-align:center;padding:60px">No stores or products yet.</p>'
-      : html;
+
+   if (storeOwners.length === 0 && platformItems.length === 0) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No stores or products yet.</p>';
+   } else {
+      container.innerHTML = html;
+   }
 }
 
-function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, storeOrders, isBlocked) {
+function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, orderCount, revenue, isBlocked) {
    var storeIdJs   = storeId ? "'" + storeId.replace(/'/g, "\\'") + "'" : 'null';
    var storeNameJs = storeName.replace(/'/g, "\\'");
-   var ownerJs     = ownerLabel.replace(/'/g, "\\'");
-
-   var totalOrders     = storeOrders.length;
-   var completedOrders = storeOrders.filter(function(o) { return o.status === 'Completed'; });
-   var pendingOrders   = storeOrders.filter(function(o) { return o.status === 'Pending Pickup'; });
-   var readyOrders     = storeOrders.filter(function(o) { return o.status === 'Ready'; });
-   var billedRevenue   = completedOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
 
    // Preview images
    var previewItems = [];
@@ -4145,18 +3925,12 @@ function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, store
          if (match && previewItems.length < 4) previewItems.push(item);
       });
    });
-   var previewHtml  = previewItems.map(function(item) {
+   var previewHtml = previewItems.map(function(item) {
       return '<img src="' + item.img + '" alt="" onerror="this.src=\'https://placehold.co/80x80?text=Item\'"/>';
    }).join('');
    var previewClass = 'store-card-preview store-card-preview-' + Math.min(previewItems.length, 4);
-   var blockedBadge = isBlocked ? '<span class="um-badge um-badge-blocked" style="margin-left:8px">Blocked</span>' : '';
 
-   function stat(val, label, accent) {
-      return '<div class="admin-store-stat' + (accent ? ' ' + accent : '') + '">' +
-                '<div class="admin-store-stat-num">' + val + '</div>' +
-                '<div class="admin-store-stat-label">' + label + '</div>' +
-             '</div>';
-   }
+   var blockedBadge = isBlocked ? '<span class="um-badge um-badge-blocked" style="margin-left:8px">Blocked</span>' : '';
 
    return '<div class="admin-store-card">' +
              '<div class="' + previewClass + '">' + previewHtml + '</div>' +
@@ -4164,247 +3938,14 @@ function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, store
                 '<div class="admin-store-card-name">' + storeName + blockedBadge + '</div>' +
                 '<div class="admin-store-card-owner">' + ownerLabel + '</div>' +
                 '<div class="admin-store-card-stats">' +
-                   stat(productCount, 'Products') +
-                   stat(totalOrders,            'Placed') +
-                   stat(pendingOrders.length,   'Pending', 'stat-pending') +
-                   stat(completedOrders.length, 'Completed', 'stat-done') +
-                   stat('₹' + billedRevenue.toLocaleString('en-IN'), 'Billed', 'stat-billed') +
+                   '<div class="admin-store-stat"><div class="admin-store-stat-num">' + productCount + '</div><div class="admin-store-stat-label">Products</div></div>' +
+                   '<div class="admin-store-stat"><div class="admin-store-stat-num">' + orderCount + '</div><div class="admin-store-stat-label">Orders</div></div>' +
+                   '<div class="admin-store-stat"><div class="admin-store-stat-num">₹' + revenue.toLocaleString('en-IN') + '</div><div class="admin-store-stat-label">Revenue</div></div>' +
                 '</div>' +
-                '<div class="admin-store-card-actions">' +
-                   '<button class="admin-store-view-btn" onclick="switchAdminTab(\'products\');filterAdminProductsByStore(' + storeIdJs + ',\'' + storeNameJs + '\')">🛍️ Products</button>' +
-                   '<button class="admin-store-orders-btn" onclick="showStoreOrders(' + storeIdJs + ',\'' + storeNameJs + '\',\'' + ownerJs + '\')">📋 Orders (' + totalOrders + ')</button>' +
-                '</div>' +
+                '<button class="admin-store-view-btn" onclick="switchAdminTab(\'products\');filterAdminProductsByStore(' + storeIdJs + ',\'' + storeNameJs + '\')">🛍️ Products</button>' +
+                '<button class="admin-store-orders-btn" onclick="showStoreOrders(' + storeIdJs + ',\'' + storeNameJs + '\')">📋 Orders</button>' +
              '</div>' +
           '</div>';
-}
-
-// ── STORE ORDERS MODAL ──
-var _soOrders     = [];
-var _soFilterMode = 'all'; // 'all' | 'day' | 'month' | 'year'
-var _soFilterDay  = '';    // 'YYYY-MM-DD'
-var _soFilterMon  = 0;    // 1-12
-var _soFilterYear = 0;    // YYYY
-
-// Returns timestamp (ms) from an order — uses stored timestamp or parses date string
-function soOrderTs(o) {
-   if (o.timestamp) return o.timestamp;
-   // Fallback: parse "27 May 2026, 02:35 PM" style string
-   var d = new Date(o.date);
-   return isNaN(d.getTime()) ? 0 : d.getTime();
-}
-
-// Returns date-filtered subset of _soOrders based on current filter state
-function soGetFiltered() {
-   if (_soFilterMode === 'all') return _soOrders;
-   return _soOrders.filter(function(o) {
-      var ts = soOrderTs(o);
-      if (!ts) return false;
-      var d = new Date(ts);
-      if (_soFilterMode === 'day') {
-         var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-         return iso === _soFilterDay;
-      }
-      if (_soFilterMode === 'month') {
-         return d.getFullYear() === _soFilterYear && (d.getMonth() + 1) === _soFilterMon;
-      }
-      if (_soFilterMode === 'year') {
-         return d.getFullYear() === _soFilterYear;
-      }
-      return true;
-   });
-}
-
-function showStoreOrders(storeId, storeName, ownerLabel) {
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
-   _soOrders = allOrders.filter(function(o) {
-      return storeId === null ? !o.storeId : o.storeId === storeId;
-   });
-   // Reset filter to All Time when opening
-   _soFilterMode = 'all';
-   _soFilterDay  = '';
-   _soFilterMon  = 0;
-   _soFilterYear = 0;
-   document.getElementById('soStoreName').textContent = storeName;
-   document.getElementById('soStoreSub').textContent  = ownerLabel || 'Platform (admin managed)';
-   renderSOFilterBar();
-   renderSOStatsAndTabs();
-   renderSOOrderList(null, null);
-   document.getElementById('storeOrdersModal').classList.remove('hidden');
-}
-
-// Build filter bar: mode buttons + conditional input
-function renderSOFilterBar() {
-   var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-   // Collect unique years from orders for dropdowns
-   var yearSet = {};
-   _soOrders.forEach(function(o) {
-      var ts = soOrderTs(o);
-      if (ts) yearSet[new Date(ts).getFullYear()] = 1;
-   });
-   var years = Object.keys(yearSet).map(Number).sort(function(a, b) { return b - a; });
-   if (years.length === 0) years = [new Date().getFullYear()];
-
-   var defaultYear = years[0];
-   var defaultMon  = new Date().getMonth() + 1;
-
-   // Set defaults if filter state is blank (first open)
-   if (_soFilterMode === 'month' && !_soFilterYear) { _soFilterYear = defaultYear; _soFilterMon = defaultMon; }
-   if (_soFilterMode === 'year'  && !_soFilterYear) { _soFilterYear = defaultYear; }
-   if (_soFilterMode === 'day'   && !_soFilterDay)  {
-      var today = new Date();
-      _soFilterDay = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-   }
-
-   var modes = [
-      { val: 'all',   label: 'All Time' },
-      { val: 'day',   label: 'By Date' },
-      { val: 'month', label: 'By Month' },
-      { val: 'year',  label: 'By Year' },
-   ];
-   var modeBtns = modes.map(function(m) {
-      var active = _soFilterMode === m.val ? ' active' : '';
-      return '<button class="so-fmode-btn' + active + '" onclick="setSOFilterMode(\'' + m.val + '\')">' + m.label + '</button>';
-   }).join('');
-
-   // Conditional inputs
-   var inputs = '';
-   if (_soFilterMode === 'day') {
-      inputs = '<input type="date" class="so-finput" id="soFilterDay" value="' + _soFilterDay + '" onchange="applySODateFilter()">';
-   } else if (_soFilterMode === 'month') {
-      var monOpts = MONTHS.map(function(m, i) {
-         var v = i + 1;
-         return '<option value="' + v + '"' + (v === _soFilterMon ? ' selected' : '') + '>' + m + '</option>';
-      }).join('');
-      var yrOpts = years.map(function(y) {
-         return '<option value="' + y + '"' + (y === _soFilterYear ? ' selected' : '') + '>' + y + '</option>';
-      }).join('');
-      inputs = '<select class="so-finput" id="soFilterMon"  onchange="applySODateFilter()">' + monOpts + '</select>' +
-               '<select class="so-finput" id="soFilterYrM"  onchange="applySODateFilter()">' + yrOpts  + '</select>';
-   } else if (_soFilterMode === 'year') {
-      var yrOpts2 = years.map(function(y) {
-         return '<option value="' + y + '"' + (y === _soFilterYear ? ' selected' : '') + '>' + y + '</option>';
-      }).join('');
-      inputs = '<select class="so-finput" id="soFilterYr" onchange="applySODateFilter()">' + yrOpts2 + '</select>';
-   }
-
-   document.getElementById('soFilterBar').innerHTML =
-      '<div class="so-filter-row">' +
-         '<div class="so-fmode-group">' + modeBtns + '</div>' +
-         (inputs ? '<div class="so-finput-group">' + inputs + '</div>' : '') +
-      '</div>';
-}
-
-function setSOFilterMode(mode) {
-   _soFilterMode = mode;
-   // Set defaults for the chosen mode
-   var years = [];
-   _soOrders.forEach(function(o) { var ts = soOrderTs(o); if (ts) years.push(new Date(ts).getFullYear()); });
-   var defaultYear = years.length ? Math.max.apply(null, years) : new Date().getFullYear();
-   if (mode === 'month') { _soFilterYear = defaultYear; _soFilterMon = new Date().getMonth() + 1; }
-   if (mode === 'year')  { _soFilterYear = defaultYear; }
-   if (mode === 'day')   {
-      var today = new Date();
-      _soFilterDay = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-   }
-   renderSOFilterBar();
-   renderSOStatsAndTabs();
-   renderSOOrderList(null, null);
-}
-
-function applySODateFilter() {
-   if (_soFilterMode === 'day') {
-      _soFilterDay = (document.getElementById('soFilterDay') || {}).value || _soFilterDay;
-   } else if (_soFilterMode === 'month') {
-      _soFilterMon  = parseInt((document.getElementById('soFilterMon') || {}).value)  || _soFilterMon;
-      _soFilterYear = parseInt((document.getElementById('soFilterYrM') || {}).value) || _soFilterYear;
-   } else if (_soFilterMode === 'year') {
-      _soFilterYear = parseInt((document.getElementById('soFilterYr') || {}).value) || _soFilterYear;
-   }
-   renderSOStatsAndTabs();
-   renderSOOrderList(null, null);
-}
-
-function renderSOStatsAndTabs() {
-   var base      = soGetFiltered();
-   var total     = base.length;
-   var completed = base.filter(function(o) { return o.status === 'Completed'; });
-   var pending   = base.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
-   var ready     = base.filter(function(o) { return o.status === 'Ready'; }).length;
-   var billed    = completed.reduce(function(s, o) { return s + (o.total || 0); }, 0);
-
-   function st(val, label, cls) {
-      return '<div class="so-stat ' + (cls || '') + '"><div class="so-stat-num">' + val + '</div><div class="so-stat-label">' + label + '</div></div>';
-   }
-   document.getElementById('soStatsBar').innerHTML =
-      st(total,     'Total Placed') +
-      st(pending,   'Pending',   'so-stat-pending') +
-      st(ready,     'Ready',     'so-stat-ready') +
-      st(completed.length, 'Completed', 'so-stat-done') +
-      st('₹' + billed.toLocaleString('en-IN'), 'Billed Revenue', 'so-stat-billed');
-
-   var filters = [
-      { label: 'All (' + total + ')',                   val: null },
-      { label: 'Pending (' + pending + ')',              val: 'Pending Pickup' },
-      { label: 'Ready (' + ready + ')',                  val: 'Ready' },
-      { label: 'Completed (' + completed.length + ')',   val: 'Completed' },
-   ];
-   document.getElementById('soTabs').innerHTML = filters.map(function(f, i) {
-      var filterJs = f.val ? '\'' + f.val + '\'' : 'null';
-      return '<button class="so-tab' + (i === 0 ? ' active' : '') + '" onclick="renderSOOrderList(' + filterJs + ',this)">' + f.label + '</button>';
-   }).join('');
-}
-
-function renderSOOrderList(statusFilter, tabBtn) {
-   if (tabBtn) {
-      document.querySelectorAll('#soTabs .so-tab').forEach(function(t) { t.classList.remove('active'); });
-      tabBtn.classList.add('active');
-   }
-   var list     = document.getElementById('soOrderList');
-   var base     = soGetFiltered();
-   var filtered = statusFilter ? base.filter(function(o) { return o.status === statusFilter; }) : base;
-
-   if (filtered.length === 0) {
-      var msg = _soFilterMode !== 'all'
-         ? 'No orders found for the selected period.'
-         : (statusFilter ? 'No orders with status "' + statusFilter + '".' : 'No orders yet.');
-      list.innerHTML = '<p class="so-empty">' + msg + '</p>';
-      return;
-   }
-
-   list.innerHTML = filtered.map(function(o) {
-      var cls = o.status === 'Completed'  ? 'so-badge-done'
-              : o.status === 'Ready'      ? 'so-badge-ready'
-              :                             'so-badge-pending';
-      var itemsHtml = (o.items || []).map(function(i) {
-         return '<span class="so-item-pill">' + i.name + ' ×' + i.qty + ' — ₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span>';
-      }).join('');
-      return '<div class="so-order-row">' +
-                '<div class="so-order-top">' +
-                   '<div>' +
-                      '<div class="so-order-id">' + o.orderId + '</div>' +
-                      '<div class="so-order-meta">' +
-                         '👤 ' + (o.customerName || '—') +
-                         (o.customerPhone ? ' &nbsp;·&nbsp; 📞 ' + o.customerPhone : '') +
-                         ' &nbsp;·&nbsp; 🗓 ' + (o.date || '—') +
-                      '</div>' +
-                   '</div>' +
-                   '<div class="so-order-right">' +
-                      '<span class="so-badge ' + cls + '">' + o.status + '</span>' +
-                      '<div class="so-order-total">₹' + (o.total || 0).toLocaleString('en-IN') + '</div>' +
-                   '</div>' +
-                '</div>' +
-                '<div class="so-order-items">' + itemsHtml + '</div>' +
-             '</div>';
-   }).join('');
-}
-
-function closeStoreOrdersModal() {
-   document.getElementById('storeOrdersModal').classList.add('hidden');
-}
-
-function handleSOOverlayClick(e) {
-   if (e.target === e.currentTarget) closeStoreOrdersModal();
 }
 
 function filterAdminProductsByStore(storeId, storeName) {
@@ -4417,9 +3958,10 @@ function filterAdminProductsByStore(storeId, storeName) {
 let _editId = null;
 let _addMode = false;
 
-function initAdmin() {
+async function initAdmin() {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user || !isAdmin(user.email)) { window.location.href = 'login.html'; return; }
+   await initDB();
    document.getElementById('adminUserName').textContent = user.name;
    populateAdminFilterDropdowns();
    renderAdminGrid();
@@ -4475,7 +4017,7 @@ function clearAdminFilters() {
 }
 
 function renderAdminGrid(filterStoreId) {
-   var ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   var ov = _db.overrides;
    var container = document.getElementById('adminContent');
    container.innerHTML = '';
 
@@ -4693,7 +4235,7 @@ function openEditModal(itemId, catKey) {
    const cat  = products[catKey];
    const item = cat.items.find(i => i.id === itemId);
    if (!item) return;
-   const ov       = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   const ov       = _db.overrides;
    const o        = ov[itemId] || {};
    _editId        = itemId;
 
@@ -4753,7 +4295,7 @@ function saveProductEdit() {
       if (isNaN(price)) { alert('Price is required.'); return; }
    }
 
-   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+   var ov = _db.overrides;
    var sel       = document.getElementById('modalStoreOwner');
    var storeId   = sel ? sel.value : '';
    var storeName = storeId ? getStoreName(storeId) : '';
@@ -4767,7 +4309,7 @@ function saveProductEdit() {
       storeId:   storeId,
       storeName: storeName
    };
-   localStorage.setItem('adminProductOverrides', JSON.stringify(ov));
+   AppDB.upsertProductOverride(_editId, ov[_editId]);
 
    // Apply override immediately to in-memory products so store updates without reload
    Object.values(products).forEach(function(cat) {
@@ -4841,7 +4383,7 @@ function saveNewProduct() {
 
    // Case-insensitive duplicate check within the same category
    if (products[catKey]) {
-      const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
+      const ov = _db.overrides;
       const duplicate = products[catKey].items.find(function(i) {
          var displayName = (ov[i.id] && ov[i.id].name) ? ov[i.id].name : i.name;
          return displayName.toLowerCase() === nameLower;
@@ -4867,9 +4409,20 @@ function saveNewProduct() {
       storeId:   storeId || null,
       storeName: storeName || null
    };
-   const items = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
-   items.push(newItem);
-   localStorage.setItem('adminNewItems', JSON.stringify(items));
+   var dbRow = {
+      id:          newItem.id,
+      store_id:    '__platform__',
+      category:    newItem.catKey,
+      name:        newItem.name,
+      price:       newItem.price,
+      description: newItem.desc,
+      image:       newItem.img,
+      badge:       newItem.badge,
+      variants:    newItem.variants || null,
+      store_name:  null
+   };
+   _db.storeProducts.push(dbRow);
+   AppDB.upsertProduct(dbRow);
    // Also push into in-memory products so it appears immediately without reload
    if (products[newItem.catKey] && !products[newItem.catKey].items.find(function(i) { return i.id === newItem.id; })) {
       products[newItem.catKey].items.push({
@@ -4886,9 +4439,8 @@ function saveNewProduct() {
 
 function deleteCustomProduct(id) {
    if (!confirm('Delete this product from the store?')) return;
-   let items = JSON.parse(localStorage.getItem('adminNewItems') || '[]');
-   items = items.filter(i => i.id !== id);
-   localStorage.setItem('adminNewItems', JSON.stringify(items));
+   _db.storeProducts = _db.storeProducts.filter(function(p) { return p.id !== id; });
+   AppDB.deleteProduct(id);
    // Remove from in-memory products immediately
    Object.values(products).forEach(function(cat) {
       cat.items = cat.items.filter(function(i) { return i.id !== id; });
@@ -4899,9 +4451,8 @@ function deleteCustomProduct(id) {
 
 function resetProductEdit() {
    if (!_editId) return;
-   const ov = JSON.parse(localStorage.getItem('adminProductOverrides') || '{}');
-   delete ov[_editId];
-   localStorage.setItem('adminProductOverrides', JSON.stringify(ov));
+   delete _db.overrides[_editId];
+   AppDB.deleteProductOverride(_editId);
    closeEditModal();
    renderAdminGrid();
    showAdminToast('↺ Reset to original defaults.');
@@ -4950,9 +4501,7 @@ const DEFAULT_MENU_ITEMS = [
    { icon: '🔔', label: 'Notifications',         url: '' }
 ];
 
-function getAdminSettings() {
-   return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-}
+function getAdminSettings() { return _db.settings || {}; }
 
 function loadSettingsForm() {
    const s = getAdminSettings();
@@ -5061,7 +4610,8 @@ function saveAllSettings() {
       shopAnnouncementOn:   document.getElementById('set-shopAnnouncementOn').checked,
       shopAnnouncementText: document.getElementById('set-shopAnnouncementText').value.trim()
    };
-   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+   _db.settings = s;
+   AppDB.saveSettings(s);
    showAdminToast('✅ Settings saved! Refresh the store to see changes.');
 }
 
@@ -5134,9 +4684,11 @@ function loadSiteSettings() {
 }
 
 // ── PROFILE PAGE ──
-function initProfile() {
+async function initProfile() {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
+   await initDB();
+   await loadUserData(user.email);
    document.getElementById('prof-name').value   = user.name   || '';
    document.getElementById('prof-email').value  = user.email  || '';
    document.getElementById('prof-gender').value = user.gender || '';
@@ -5187,8 +4739,16 @@ function saveProfileInfo() {
 // ── ADDRESSES ──
 let _editAddrIdx = -1;
 
-function getAddresses(email) { return JSON.parse(localStorage.getItem('addresses_' + email) || '[]'); }
-function saveAddressesData(email, arr) { localStorage.setItem('addresses_' + email, JSON.stringify(arr)); }
+function getAddresses(email) { return _db.addresses; }
+function saveAddressesData(email, arr) {
+   arr.forEach(function(a) { if (!a.id) a.id = crypto.randomUUID(); });
+   _db.addresses = arr;
+   AppDB.deleteUserAddresses(email).then(function() {
+      arr.forEach(function(a) {
+         AppDB.upsertAddress({ id: a.id, user_email: email, name: a.name, phone: a.phone || '', line: a.line, city: a.city, state: a.state || '', pin: a.pin, is_default: a.isDefault || false });
+      });
+   });
+}
 
 function renderAddresses() {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
@@ -5288,14 +4848,12 @@ function orderStatusClass(status) {
 
 function renderOrders() {
    const user   = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   const orders = JSON.parse(localStorage.getItem('orders_' + user.email) || '[]');
+   const orders = _db.orders.filter(function(o) { return o.customerEmail === user.email; });
    const list   = document.getElementById('ordersList');
    if (!orders.length) { list.innerHTML = '<p class="prof-empty">No orders placed yet.</p>'; return; }
 
-   // Build a live status map from allOrders (shop owner updates land here first)
-   const allOrders  = JSON.parse(localStorage.getItem('allOrders') || '[]');
-   const statusMap  = {};
-   allOrders.forEach(o => { statusMap[o.orderId] = o.status; });
+   const statusMap = {};
+   _db.orders.forEach(function(o) { statusMap[o.orderId || o.order_id] = o.status; });
 
    list.innerHTML = orders.slice().reverse().map(o => {
       const liveStatus = statusMap[o.orderId] || o.status || 'Pending Pickup';
@@ -5319,34 +4877,40 @@ function renderOrders() {
 }
 
 // ── WISHLIST ──
-function getWishlist(email)          { return JSON.parse(localStorage.getItem('wishlist_' + email) || '[]'); }
-function saveWishlistData(email, arr) { localStorage.setItem('wishlist_' + email, JSON.stringify(arr)); }
+function getWishlist(email)           { return _db.wishlist; }
+function saveWishlistData(email, arr) { _db.wishlist = arr; }  // kept for compat
 
-function toggleWishlist(itemId, catKey, btn) {
+async function toggleWishlist(itemId, catKey, btn) {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { alert('Please log in to use Wishlist.'); return; }
-   const wl = getWishlist(user.email);
-   const idx = wl.findIndex(w => w.id === itemId);
+   const idx = _db.wishlist.indexOf(itemId);
    if (idx >= 0) {
-      wl.splice(idx, 1);
+      _db.wishlist.splice(idx, 1);
+      AppDB.removeFromWishlist(user.email, itemId);
       if (btn) { btn.textContent = '🤍'; btn.classList.remove('wished'); btn.title = 'Add to Wishlist'; }
       showToast('Removed from Wishlist');
    } else {
-      const cat  = products[catKey];
-      const item = cat && cat.items.find(i => i.id === itemId);
-      if (item) wl.push({ id: item.id, catKey, name: item.name, price: item.price || item.pricePerLitre, img: item.img, desc: item.desc, badge: item.badge });
+      _db.wishlist.push(itemId);
+      AppDB.addToWishlist(user.email, itemId);
       if (btn) { btn.textContent = '❤️'; btn.classList.add('wished'); btn.title = 'Remove from Wishlist'; }
       showToast('❤️ Added to Wishlist!');
    }
-   saveWishlistData(user.email, wl);
 }
 
 function renderWishlistTab() {
-   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   const wl   = user ? getWishlist(user.email) : [];
    const container = document.getElementById('wishlistItems');
-   if (!wl.length) { container.innerHTML = '<p class="prof-empty">No items in wishlist yet.<br>Click 🤍 on any product to add it.</p>'; return; }
-   container.innerHTML = wl.map(item => `
+   if (!_db.wishlist.length) { container.innerHTML = '<p class="prof-empty">No items in wishlist yet.<br>Click 🤍 on any product to add it.</p>'; return; }
+   // Resolve item_ids to full item objects from in-memory products
+   var wlItems = [];
+   _db.wishlist.forEach(function(itemId) {
+      var found = Object.keys(products).find(function(catKey) {
+         var item = products[catKey].items.find(function(i) { return i.id === itemId; });
+         if (item) { wlItems.push(Object.assign({}, item, { catKey: catKey })); return true; }
+         return false;
+      });
+   });
+   if (!wlItems.length) { container.innerHTML = '<p class="prof-empty">No items in wishlist yet.<br>Click 🤍 on any product to add it.</p>'; return; }
+   container.innerHTML = wlItems.map(function(item) { return `
       <div class="wish-item-card">
          <img src="${item.img}" alt="${item.name}" onerror="this.src='https://placehold.co/80x80?text=img'"/>
          <div class="wish-item-info">
@@ -5358,13 +4922,14 @@ function renderWishlistTab() {
             <button class="addr-edit-btn" onclick="wishGoToProduct('${item.catKey}')">🛍️ View</button>
             <button class="addr-del-btn"  onclick="removeFromWishlistTab('${item.id}')">🗑️</button>
          </div>
-      </div>`).join('');
+      </div>`; }).join('');
 }
 
 function removeFromWishlistTab(itemId) {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   const wl   = getWishlist(user.email).filter(w => w.id !== itemId);
-   saveWishlistData(user.email, wl);
+   if (!user) return;
+   _db.wishlist = _db.wishlist.filter(function(id) { return id !== itemId; });
+   AppDB.removeFromWishlist(user.email, itemId);
    renderWishlistTab();
 }
 
@@ -5382,8 +4947,8 @@ function showProfileToast(msg) {
 }
 
 // ── SAVED CARDS ──
-function getSavedCards(email)       { return JSON.parse(localStorage.getItem('savedCards_' + email) || '[]'); }
-function saveCardsData(email, arr)  { localStorage.setItem('savedCards_' + email, JSON.stringify(arr)); }
+function getSavedCards(email)       { return _db.cards; }
+function saveCardsData(email, arr)  { _db.cards = arr; }  // kept for compat
 
 function getCardBrand(number) {
    const n = number.replace(/\s/g, '');
@@ -5431,7 +4996,7 @@ function openCardModal() {
 function closeCardModal()           { document.getElementById('cardModal').classList.add('hidden'); }
 function handleCardOverlayClick(e)  { if (e.target.id === 'cardModal') closeCardModal(); }
 
-function saveCard() {
+async function saveCard() {
    const number = document.getElementById('card-number').value.replace(/\s/g, '');
    const expiry = document.getElementById('card-expiry').value.trim();
    const name   = document.getElementById('card-name').value.trim();
@@ -5441,19 +5006,23 @@ function saveCard() {
    const last4 = number.slice(-4);
    const brand = getCardBrand(number);
    if (cards.some(c => c.last4 === last4 && c.expiry === expiry)) { alert('This card is already saved.'); return; }
-   cards.push({ last4, expiry, nameOnCard: name, brand });
-   saveCardsData(user.email, cards);
+   const newCard = { id: crypto.randomUUID(), last4, expiry, nameOnCard: name, brand };
+   cards.push(newCard);
+   _db.cards = cards;
+   await AppDB.insertCard({ id: newCard.id, user_email: user.email, last4, expiry, name_on_card: name, brand });
    closeCardModal();
    renderCards();
    showProfileToast('✅ Card saved! CVV will be asked at payment time.');
 }
 
-function deleteCard(idx) {
+async function deleteCard(idx) {
    if (!confirm('Remove this card?')) return;
    const user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const cards = getSavedCards(user.email);
+   const card  = cards[idx];
    cards.splice(idx, 1);
-   saveCardsData(user.email, cards);
+   _db.cards = cards;
+   if (card && card.id) await AppDB.deleteCard(card.id);
    renderCards();
    showProfileToast('🗑️ Card removed.');
 }
@@ -5461,11 +5030,16 @@ function deleteCard(idx) {
 // ── SAVED CARDS IN PAYMENT MODAL ──
 let _selectedSavedCard = -1;
 
-function loadSavedCardsInPayment() {
+async function loadSavedCardsInPayment() {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const container = document.getElementById('savedCardsInPayment');
    if (!container || !user) return;
-   const cards = getSavedCards(user.email);
+   // Always fetch fresh from Supabase when payment modal opens
+   const data = await AppDB.getCards(user.email);
+   _db.cards = (data || []).map(function(c) {
+      return { id: c.id, last4: c.last4 || '', brand: c.brand || '', expiry: c.expiry || '', nameOnCard: c.name_on_card || '' };
+   });
+   const cards = _db.cards;
    _selectedSavedCard = -1;
    if (!cards.length) { container.innerHTML = ''; return; }
    container.innerHTML = `
@@ -5499,4 +5073,156 @@ function payWithSavedCard(idx) {
    const cvv = (document.getElementById('rp_cvv_' + idx).value || '').trim();
    if (cvv.length < 3) { alert('Please enter your CVV (3 or 4 digits).'); return; }
    processPayment('Card (' + document.getElementById('rp_card_' + idx).querySelector('.card-brand-badge').textContent + ' •••• ' + getSavedCards(JSON.parse(sessionStorage.getItem('loggedInUser')).email)[idx].last4 + ')');
+}
+
+// ── ADMIN: STORE ORDERS MODAL ─────────────────────────────
+var _soStoreId   = null;
+var _soStoreName = '';
+var _soTabFilter = '';           // '' = All, 'Pending Pickup', 'Ready', 'Completed'
+var _soFMode     = 'all';        // 'all' | 'day' | 'month' | 'year'
+var _soDay       = '';
+var _soMonth     = '';
+var _soYear      = '';
+
+function showStoreOrders(storeId, storeName) {
+   _soStoreId   = storeId;
+   _soStoreName = storeName;
+   _soTabFilter = '';
+   _soFMode     = 'all';
+   _soDay = _soMonth = _soYear = '';
+   var modal = document.getElementById('storeOrdersModal');
+   document.getElementById('soStoreName').textContent = storeName;
+   document.getElementById('soStoreSub').textContent  = storeId || 'Platform Store';
+   renderSOFilterBar();
+   _renderSO();
+   if (modal) modal.classList.remove('hidden');
+}
+
+function closeStoreOrdersModal() {
+   var modal = document.getElementById('storeOrdersModal');
+   if (modal) modal.classList.add('hidden');
+}
+
+function handleSOOverlayClick(e) {
+   if (e.target.id === 'storeOrdersModal') closeStoreOrdersModal();
+}
+
+function _soGetOrders() {
+   return _db.orders.filter(function(o) {
+      if (_soStoreId === null) return !o.storeId;
+      return o.storeId === _soStoreId;
+   });
+}
+
+function _soApplyFilters(orders) {
+   var out = orders;
+   if (_soFMode === 'day' && _soDay) {
+      out = out.filter(function(o) { return (o.date || '').startsWith(_soDay.split('-').reverse().map(function(p,i){ return i===0?p:p.padStart(2,'0'); }).join(' ').trim()); });
+      // Simpler: compare yyyy-mm-dd against order date string
+      var parts = _soDay.split('-');  // yyyy-mm-dd
+      if (parts.length === 3) {
+         var yyyy = parts[0], mm = parts[1], dd = parts[2];
+         out = orders.filter(function(o) { var d = new Date(o.date||o.timestamp||0); return d.getFullYear()==parseInt(yyyy) && (d.getMonth()+1)==parseInt(mm) && d.getDate()==parseInt(dd); });
+      }
+   } else if (_soFMode === 'month' && _soMonth) {
+      var mp = _soMonth.split('-');   // yyyy-mm
+      if (mp.length === 2) {
+         out = orders.filter(function(o) { var d = new Date(o.date||o.timestamp||0); return d.getFullYear()==parseInt(mp[0]) && (d.getMonth()+1)==parseInt(mp[1]); });
+      }
+   } else if (_soFMode === 'year' && _soYear) {
+      out = orders.filter(function(o) { var d = new Date(o.date||o.timestamp||0); return d.getFullYear()==parseInt(_soYear); });
+   }
+   if (_soTabFilter) out = out.filter(function(o) { return o.status === _soTabFilter; });
+   return out;
+}
+
+function _renderSO() {
+   var all      = _soGetOrders();
+   var filtered = _soApplyFilters(all);
+   _renderSOStats(all);
+   _renderSOTabs(all, filtered);
+   _renderSOList(filtered);
+}
+
+function _renderSOStats(all) {
+   var el = document.getElementById('soStatsBar');
+   if (!el) return;
+   var pending   = all.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
+   var ready     = all.filter(function(o) { return o.status === 'Ready'; }).length;
+   var completed = all.filter(function(o) { return o.status === 'Completed'; }).length;
+   var revenue   = all.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+   el.innerHTML =
+      '<div class="so-stat"><div class="so-stat-num">' + all.length + '</div><div class="so-stat-label">Total</div></div>' +
+      '<div class="so-stat"><div class="so-stat-num">' + pending + '</div><div class="so-stat-label">Pending</div></div>' +
+      '<div class="so-stat"><div class="so-stat-num">' + ready + '</div><div class="so-stat-label">Ready</div></div>' +
+      '<div class="so-stat"><div class="so-stat-num">' + completed + '</div><div class="so-stat-label">Completed</div></div>' +
+      '<div class="so-stat"><div class="so-stat-num">₹' + revenue.toLocaleString('en-IN') + '</div><div class="so-stat-label">Revenue</div></div>';
+}
+
+function _renderSOTabs(all, filtered) {
+   var el = document.getElementById('soTabs');
+   if (!el) return;
+   function tabBtn(label, filter) {
+      var active = _soTabFilter === filter ? ' active' : '';
+      return '<button class="so-tab' + active + '" onclick="_soSetTab(\'' + filter + '\')">' + label + '</button>';
+   }
+   el.innerHTML =
+      tabBtn('All Orders', '') +
+      tabBtn('⏳ Pending', 'Pending Pickup') +
+      tabBtn('✅ Ready', 'Ready') +
+      tabBtn('🏁 Completed', 'Completed');
+}
+
+function _soSetTab(filter) {
+   _soTabFilter = filter;
+   _renderSO();
+}
+
+function renderSOFilterBar() {
+   var el = document.getElementById('soFilterBar');
+   if (!el) return;
+   var nowY = new Date().getFullYear();
+   var years = [];
+   for (var y = nowY; y >= nowY - 4; y--) years.push(y);
+
+   el.innerHTML =
+      '<div class="so-filter-row">' +
+         '<div class="so-fmode-group">' +
+            '<button class="so-fmode-btn' + (_soFMode==='all'   ?' active':'') + '" onclick="setSOFilterMode(\'all\')">All Time</button>' +
+            '<button class="so-fmode-btn' + (_soFMode==='day'   ?' active':'') + '" onclick="setSOFilterMode(\'day\')">By Day</button>' +
+            '<button class="so-fmode-btn' + (_soFMode==='month' ?' active':'') + '" onclick="setSOFilterMode(\'month\')">By Month</button>' +
+            '<button class="so-fmode-btn' + (_soFMode==='year'  ?' active':'') + '" onclick="setSOFilterMode(\'year\')">By Year</button>' +
+         '</div>' +
+      '</div>' +
+      '<div class="so-finput-group" id="soFinputGroup">' +
+         (_soFMode === 'day'   ? '<input type="date" class="so-finput" value="' + _soDay + '" onchange="_soDay=this.value;_renderSO()" />' : '') +
+         (_soFMode === 'month' ? '<input type="month" class="so-finput" value="' + _soMonth + '" onchange="_soMonth=this.value;_renderSO()" />' : '') +
+         (_soFMode === 'year'  ? '<select class="so-finput" onchange="_soYear=this.value;_renderSO()">' + years.map(function(y){ return '<option value="'+y+'"'+(String(y)===_soYear?' selected':'')+'>'+y+'</option>'; }).join('') + '</select>' : '') +
+      '</div>';
+}
+
+function setSOFilterMode(mode) {
+   _soFMode = mode;
+   if (mode === 'all') { _soDay = _soMonth = _soYear = ''; }
+   renderSOFilterBar();
+   _renderSO();
+}
+
+function _renderSOList(orders) {
+   var el = document.getElementById('soOrderList');
+   if (!el) return;
+   if (!orders.length) { el.innerHTML = '<div class="so-empty">No orders match the current filter.</div>'; return; }
+   el.innerHTML = orders.map(function(o) {
+      var cls = o.status === 'Ready' ? 'so-badge-ready' : o.status === 'Completed' ? 'so-badge-done' : 'so-badge-pending';
+      var items = (o.items || []).map(function(it) { return '<span class="so-item-pill">' + it.name + ' ×' + it.qty + '</span>'; }).join('');
+      return '<div class="so-order-row">' +
+                '<div class="so-order-top">' +
+                   '<span class="so-order-id">' + (o.orderId || o.order_id) + '</span>' +
+                   '<span class="so-badge ' + cls + '">' + o.status + '</span>' +
+                '</div>' +
+                '<div class="so-order-meta">' + (o.customerName||'') + ' · ' + (o.date||'') + '</div>' +
+                '<div class="so-order-items">' + items + '</div>' +
+                '<div class="so-order-footer">₹' + (o.total||0).toLocaleString('en-IN') + '</div>' +
+             '</div>';
+   }).join('');
 }

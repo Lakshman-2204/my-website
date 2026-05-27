@@ -5,6 +5,8 @@
       <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
       <title>MyStore</title>
       <link rel="stylesheet" href="style.css"/>
+      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+      <script src="supabase.js"></script>
    </head>
    <body>
       <!-- 3-ROW HEADER -->
@@ -359,6 +361,12 @@
       <!-- TOAST -->
       <div class="toast hidden" id="toast"></div>
       <script src="script.js"></script>
-      <script>loadSiteSettings();</script>
+      <script>
+         initDB().then(function() {
+            loadSiteSettings();
+            var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
+            if (_u) AppDB.getWishlist(_u.email).then(function(ids) { _db.wishlist = ids || []; });
+         });
+      </script>
    </body>
 </html>

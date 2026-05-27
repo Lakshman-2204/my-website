@@ -73,8 +73,8 @@ const products = {
    electricals:  { title: 'Electricals',         type: 'regular', category: 'Construction',    mainCat: 'construction', items: [] },
 
    // ── CLOTHING ─────────────────────────────────────────────
-   menswear:     { title: 'Men's Wear',         type: 'regular', category: 'Clothing',        mainCat: 'clothing', items: [] },
-   womenswear:   { title: 'Women's Wear',       type: 'regular', category: 'Clothing',        mainCat: 'clothing', items: [] },
+   menswear:     { title: "Men's Wear",          type: 'regular', category: 'Clothing',        mainCat: 'clothing', items: [] },
+   womenswear:   { title: "Women's Wear",        type: 'regular', category: 'Clothing',        mainCat: 'clothing', items: [] },
    kidswear:     { title: 'Kids Wear',           type: 'regular', category: 'Clothing',        mainCat: 'clothing', items: [] },
    textiles:     { title: 'Textiles & Fabrics',  type: 'regular', category: 'Clothing',        mainCat: 'clothing', items: [] },
    hairClips:    { title: 'Hair Accessories',    type: 'regular', category: 'Clothing',        mainCat: 'clothing', items: [] },

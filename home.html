@@ -366,6 +366,14 @@
             loadSiteSettings();
             var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
             if (_u) AppDB.getWishlist(_u.email).then(function(ids) { _db.wishlist = ids || []; });
+            // Re-render current view now that products are loaded
+            var activeEl = document.querySelector('.cat-item.active');
+            var activeCat = activeEl ? activeEl.id.replace('cat-','') : 'all';
+            if (activeCat && activeCat !== 'all') catClick(activeCat);
+            else if (document.getElementById('productsSection') &&
+                     !document.getElementById('productsSection').classList.contains('hidden')) {
+               showAllProducts();
+            }
          });
       </script>
    </body>

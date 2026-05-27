@@ -87,9 +87,19 @@ window.AppDB = {
    },
 
    async getAllStoreProducts() {
-      const { data, error } = await _sb.from('products').select('*');
-      if (error) { console.error('getAllStoreProducts:', error.message); return []; }
-      return data || [];
+      // Paginate to fetch all rows (Supabase default limit is 1000)
+      const all = [];
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+         const { data, error } = await _sb.from('products').select('*').range(from, from + pageSize - 1);
+         if (error) { console.error('getAllStoreProducts:', error.message); break; }
+         if (!data || data.length === 0) break;
+         all.push(...data);
+         if (data.length < pageSize) break;
+         from += pageSize;
+      }
+      return all;
    },
 
    async upsertProduct(product) {

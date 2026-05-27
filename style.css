@@ -5286,6 +5286,60 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 .so-stat.so-stat-billed  .so-stat-num { color: #1565c0; font-size: 0.88rem; }
 .so-stat.so-stat-billed               { background: #f0f6ff; }
 
+/* Filter bar */
+.so-filter-bar {
+   padding: 10px 16px;
+   border-bottom: 1px solid #eee;
+   background: #fafbff;
+   flex-shrink: 0;
+}
+.so-filter-row {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   flex-wrap: wrap;
+}
+.so-fmode-group {
+   display: flex;
+   gap: 4px;
+   flex-wrap: wrap;
+}
+.so-fmode-btn {
+   padding: 5px 12px;
+   border: 1.5px solid #dde;
+   border-radius: 20px;
+   background: #fff;
+   color: #555;
+   font-size: 0.78rem;
+   font-weight: 500;
+   cursor: pointer;
+   transition: background 0.15s, color 0.15s, border-color 0.15s;
+   white-space: nowrap;
+}
+.so-fmode-btn.active {
+   background: #1a1a2e;
+   color: #fff;
+   border-color: #1a1a2e;
+   font-weight: 700;
+}
+.so-fmode-btn:hover:not(.active) { background: #eeeeff; border-color: #aab; }
+.so-finput-group {
+   display: flex;
+   gap: 6px;
+   align-items: center;
+}
+.so-finput {
+   padding: 5px 10px;
+   border: 1.5px solid #dde;
+   border-radius: 8px;
+   font-size: 0.82rem;
+   color: #1a1a2e;
+   background: #fff;
+   cursor: pointer;
+   outline: none;
+}
+.so-finput:focus { border-color: #1a1a2e; }
+
 /* Tabs */
 .so-tabs {
    display: flex;

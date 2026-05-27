@@ -4179,31 +4179,163 @@ function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, store
 }
 
 // ── STORE ORDERS MODAL ──
-var _soOrders = [];
+var _soOrders     = [];
+var _soFilterMode = 'all'; // 'all' | 'day' | 'month' | 'year'
+var _soFilterDay  = '';    // 'YYYY-MM-DD'
+var _soFilterMon  = 0;    // 1-12
+var _soFilterYear = 0;    // YYYY
+
+// Returns timestamp (ms) from an order — uses stored timestamp or parses date string
+function soOrderTs(o) {
+   if (o.timestamp) return o.timestamp;
+   // Fallback: parse "27 May 2026, 02:35 PM" style string
+   var d = new Date(o.date);
+   return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+// Returns date-filtered subset of _soOrders based on current filter state
+function soGetFiltered() {
+   if (_soFilterMode === 'all') return _soOrders;
+   return _soOrders.filter(function(o) {
+      var ts = soOrderTs(o);
+      if (!ts) return false;
+      var d = new Date(ts);
+      if (_soFilterMode === 'day') {
+         var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+         return iso === _soFilterDay;
+      }
+      if (_soFilterMode === 'month') {
+         return d.getFullYear() === _soFilterYear && (d.getMonth() + 1) === _soFilterMon;
+      }
+      if (_soFilterMode === 'year') {
+         return d.getFullYear() === _soFilterYear;
+      }
+      return true;
+   });
+}
 
 function showStoreOrders(storeId, storeName, ownerLabel) {
    var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
    _soOrders = allOrders.filter(function(o) {
       return storeId === null ? !o.storeId : o.storeId === storeId;
    });
+   // Reset filter to All Time when opening
+   _soFilterMode = 'all';
+   _soFilterDay  = '';
+   _soFilterMon  = 0;
+   _soFilterYear = 0;
    document.getElementById('soStoreName').textContent = storeName;
    document.getElementById('soStoreSub').textContent  = ownerLabel || 'Platform (admin managed)';
-   renderSOStats();
+   renderSOFilterBar();
+   renderSOStatsAndTabs();
    renderSOOrderList(null, null);
    document.getElementById('storeOrdersModal').classList.remove('hidden');
 }
 
-function renderSOStats() {
-   var total     = _soOrders.length;
-   var completed = _soOrders.filter(function(o) { return o.status === 'Completed'; });
-   var pending   = _soOrders.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
-   var ready     = _soOrders.filter(function(o) { return o.status === 'Ready'; }).length;
+// Build filter bar: mode buttons + conditional input
+function renderSOFilterBar() {
+   var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+   // Collect unique years from orders for dropdowns
+   var yearSet = {};
+   _soOrders.forEach(function(o) {
+      var ts = soOrderTs(o);
+      if (ts) yearSet[new Date(ts).getFullYear()] = 1;
+   });
+   var years = Object.keys(yearSet).map(Number).sort(function(a, b) { return b - a; });
+   if (years.length === 0) years = [new Date().getFullYear()];
+
+   var defaultYear = years[0];
+   var defaultMon  = new Date().getMonth() + 1;
+
+   // Set defaults if filter state is blank (first open)
+   if (_soFilterMode === 'month' && !_soFilterYear) { _soFilterYear = defaultYear; _soFilterMon = defaultMon; }
+   if (_soFilterMode === 'year'  && !_soFilterYear) { _soFilterYear = defaultYear; }
+   if (_soFilterMode === 'day'   && !_soFilterDay)  {
+      var today = new Date();
+      _soFilterDay = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+   }
+
+   var modes = [
+      { val: 'all',   label: 'All Time' },
+      { val: 'day',   label: 'By Date' },
+      { val: 'month', label: 'By Month' },
+      { val: 'year',  label: 'By Year' },
+   ];
+   var modeBtns = modes.map(function(m) {
+      var active = _soFilterMode === m.val ? ' active' : '';
+      return '<button class="so-fmode-btn' + active + '" onclick="setSOFilterMode(\'' + m.val + '\')">' + m.label + '</button>';
+   }).join('');
+
+   // Conditional inputs
+   var inputs = '';
+   if (_soFilterMode === 'day') {
+      inputs = '<input type="date" class="so-finput" id="soFilterDay" value="' + _soFilterDay + '" onchange="applySODateFilter()">';
+   } else if (_soFilterMode === 'month') {
+      var monOpts = MONTHS.map(function(m, i) {
+         var v = i + 1;
+         return '<option value="' + v + '"' + (v === _soFilterMon ? ' selected' : '') + '>' + m + '</option>';
+      }).join('');
+      var yrOpts = years.map(function(y) {
+         return '<option value="' + y + '"' + (y === _soFilterYear ? ' selected' : '') + '>' + y + '</option>';
+      }).join('');
+      inputs = '<select class="so-finput" id="soFilterMon"  onchange="applySODateFilter()">' + monOpts + '</select>' +
+               '<select class="so-finput" id="soFilterYrM"  onchange="applySODateFilter()">' + yrOpts  + '</select>';
+   } else if (_soFilterMode === 'year') {
+      var yrOpts2 = years.map(function(y) {
+         return '<option value="' + y + '"' + (y === _soFilterYear ? ' selected' : '') + '>' + y + '</option>';
+      }).join('');
+      inputs = '<select class="so-finput" id="soFilterYr" onchange="applySODateFilter()">' + yrOpts2 + '</select>';
+   }
+
+   document.getElementById('soFilterBar').innerHTML =
+      '<div class="so-filter-row">' +
+         '<div class="so-fmode-group">' + modeBtns + '</div>' +
+         (inputs ? '<div class="so-finput-group">' + inputs + '</div>' : '') +
+      '</div>';
+}
+
+function setSOFilterMode(mode) {
+   _soFilterMode = mode;
+   // Set defaults for the chosen mode
+   var years = [];
+   _soOrders.forEach(function(o) { var ts = soOrderTs(o); if (ts) years.push(new Date(ts).getFullYear()); });
+   var defaultYear = years.length ? Math.max.apply(null, years) : new Date().getFullYear();
+   if (mode === 'month') { _soFilterYear = defaultYear; _soFilterMon = new Date().getMonth() + 1; }
+   if (mode === 'year')  { _soFilterYear = defaultYear; }
+   if (mode === 'day')   {
+      var today = new Date();
+      _soFilterDay = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+   }
+   renderSOFilterBar();
+   renderSOStatsAndTabs();
+   renderSOOrderList(null, null);
+}
+
+function applySODateFilter() {
+   if (_soFilterMode === 'day') {
+      _soFilterDay = (document.getElementById('soFilterDay') || {}).value || _soFilterDay;
+   } else if (_soFilterMode === 'month') {
+      _soFilterMon  = parseInt((document.getElementById('soFilterMon') || {}).value)  || _soFilterMon;
+      _soFilterYear = parseInt((document.getElementById('soFilterYrM') || {}).value) || _soFilterYear;
+   } else if (_soFilterMode === 'year') {
+      _soFilterYear = parseInt((document.getElementById('soFilterYr') || {}).value) || _soFilterYear;
+   }
+   renderSOStatsAndTabs();
+   renderSOOrderList(null, null);
+}
+
+function renderSOStatsAndTabs() {
+   var base      = soGetFiltered();
+   var total     = base.length;
+   var completed = base.filter(function(o) { return o.status === 'Completed'; });
+   var pending   = base.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
+   var ready     = base.filter(function(o) { return o.status === 'Ready'; }).length;
    var billed    = completed.reduce(function(s, o) { return s + (o.total || 0); }, 0);
 
    function st(val, label, cls) {
       return '<div class="so-stat ' + (cls || '') + '"><div class="so-stat-num">' + val + '</div><div class="so-stat-label">' + label + '</div></div>';
    }
-
    document.getElementById('soStatsBar').innerHTML =
       st(total,     'Total Placed') +
       st(pending,   'Pending',   'so-stat-pending') +
@@ -4212,10 +4344,10 @@ function renderSOStats() {
       st('₹' + billed.toLocaleString('en-IN'), 'Billed Revenue', 'so-stat-billed');
 
    var filters = [
-      { label: 'All (' + total + ')',             val: null },
-      { label: 'Pending (' + pending + ')',        val: 'Pending Pickup' },
-      { label: 'Ready (' + ready + ')',            val: 'Ready' },
-      { label: 'Completed (' + completed.length + ')', val: 'Completed' },
+      { label: 'All (' + total + ')',                   val: null },
+      { label: 'Pending (' + pending + ')',              val: 'Pending Pickup' },
+      { label: 'Ready (' + ready + ')',                  val: 'Ready' },
+      { label: 'Completed (' + completed.length + ')',   val: 'Completed' },
    ];
    document.getElementById('soTabs').innerHTML = filters.map(function(f, i) {
       var filterJs = f.val ? '\'' + f.val + '\'' : 'null';
@@ -4229,17 +4361,21 @@ function renderSOOrderList(statusFilter, tabBtn) {
       tabBtn.classList.add('active');
    }
    var list     = document.getElementById('soOrderList');
-   var filtered = statusFilter ? _soOrders.filter(function(o) { return o.status === statusFilter; }) : _soOrders;
+   var base     = soGetFiltered();
+   var filtered = statusFilter ? base.filter(function(o) { return o.status === statusFilter; }) : base;
 
    if (filtered.length === 0) {
-      list.innerHTML = '<p class="so-empty">No orders' + (statusFilter ? ' with status "' + statusFilter + '"' : '') + '.</p>';
+      var msg = _soFilterMode !== 'all'
+         ? 'No orders found for the selected period.'
+         : (statusFilter ? 'No orders with status "' + statusFilter + '".' : 'No orders yet.');
+      list.innerHTML = '<p class="so-empty">' + msg + '</p>';
       return;
    }
 
    list.innerHTML = filtered.map(function(o) {
-      var cls = o.status === 'Completed'     ? 'so-badge-done'
-              : o.status === 'Ready'         ? 'so-badge-ready'
-              :                                'so-badge-pending';
+      var cls = o.status === 'Completed'  ? 'so-badge-done'
+              : o.status === 'Ready'      ? 'so-badge-ready'
+              :                             'so-badge-pending';
       var itemsHtml = (o.items || []).map(function(i) {
          return '<span class="so-item-pill">' + i.name + ' ×' + i.qty + ' — ₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span>';
       }).join('');

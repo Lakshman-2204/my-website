@@ -3125,10 +3125,13 @@ async function signUp() {
 }
 
 async function login() {
+   const btn = document.querySelector('.btn-primary');
+   if (btn) { btn.textContent = 'Logging in…'; btn.disabled = true; }
    await initDB();
    const email    = document.getElementById('loginEmail').value.trim().toLowerCase();
    const password = document.getElementById('loginPassword').value;
    const errorMsg = document.getElementById('loginError');
+   if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
    const users    = getUsers();
    const user     = users.find(u => u.email.toLowerCase() === email && u.password === password);
    if (!user) { errorMsg.classList.remove('hidden'); errorMsg.textContent = '❌ Incorrect email or password.'; return; }

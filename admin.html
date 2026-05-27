@@ -374,6 +374,22 @@
          </div>
       </div>
 
+      <!-- STORE ORDERS MODAL -->
+      <div class="so-overlay hidden" id="storeOrdersModal" onclick="handleSOOverlayClick(event)">
+         <div class="so-modal">
+            <div class="so-modal-header">
+               <div>
+                  <div class="so-modal-store-name" id="soStoreName"></div>
+                  <div class="so-modal-store-sub"  id="soStoreSub"></div>
+               </div>
+               <button class="so-close-btn" onclick="closeStoreOrdersModal()">✕</button>
+            </div>
+            <div class="so-stats-bar" id="soStatsBar"></div>
+            <div class="so-tabs"      id="soTabs"></div>
+            <div class="so-order-list" id="soOrderList"></div>
+         </div>
+      </div>
+
       <!-- TOAST -->
       <div class="toast hidden" id="adminToast"></div>
 

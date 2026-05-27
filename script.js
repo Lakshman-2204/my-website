@@ -4096,47 +4096,46 @@ function renderAdminStores() {
    var container = document.getElementById('adminStoresContent');
    if (!container) return;
 
-   var users     = getUsers();
-   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
-   var settings  = getAdminSettings();
+   var users       = getUsers();
+   var allOrders   = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   var settings    = getAdminSettings();
    var storeOwners = users.filter(function(u) { return u.role === 'storeowner'; });
 
-   // Platform products
+   // Platform products & orders
    var platformItems = [];
    Object.entries(products).forEach(function([catKey, cat]) {
       cat.items.forEach(function(item) { if (!item.storeId) platformItems.push(item); });
    });
    var platformOrders = allOrders.filter(function(o) { return !o.storeId; });
-   var platformRevenue = platformOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
 
    var html = '<div class="admin-stores-grid">';
+   html += buildAdminStoreCard(null, settings.storeName || 'MyStore', '(Platform — admin managed)', platformItems.length, platformOrders, false);
 
-   // Platform store card
-   html += buildAdminStoreCard(null, settings.storeName || 'MyStore', '(Platform — admin managed)', platformItems.length, platformOrders.length, platformRevenue, false);
-
-   // Store-owner cards
    storeOwners.forEach(function(u) {
       var storeItems = [];
       Object.entries(products).forEach(function([catKey, cat]) {
          cat.items.forEach(function(item) { if (item.storeId === u.email) storeItems.push(item); });
       });
-      var storeOrders  = allOrders.filter(function(o) { return o.storeId === u.email; });
-      var storeRevenue = storeOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
-      html += buildAdminStoreCard(u.email, u.storeName || u.name, u.email, storeItems.length, storeOrders.length, storeRevenue, u.blocked);
+      var storeOrders = allOrders.filter(function(o) { return o.storeId === u.email; });
+      html += buildAdminStoreCard(u.email, u.storeName || u.name, u.email, storeItems.length, storeOrders, u.blocked);
    });
 
    html += '</div>';
-
-   if (storeOwners.length === 0 && platformItems.length === 0) {
-      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No stores or products yet.</p>';
-   } else {
-      container.innerHTML = html;
-   }
+   container.innerHTML = (storeOwners.length === 0 && platformItems.length === 0)
+      ? '<p style="color:#999;text-align:center;padding:60px">No stores or products yet.</p>'
+      : html;
 }
 
-function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, orderCount, revenue, isBlocked) {
+function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, storeOrders, isBlocked) {
    var storeIdJs   = storeId ? "'" + storeId.replace(/'/g, "\\'") + "'" : 'null';
    var storeNameJs = storeName.replace(/'/g, "\\'");
+   var ownerJs     = ownerLabel.replace(/'/g, "\\'");
+
+   var totalOrders     = storeOrders.length;
+   var completedOrders = storeOrders.filter(function(o) { return o.status === 'Completed'; });
+   var pendingOrders   = storeOrders.filter(function(o) { return o.status === 'Pending Pickup'; });
+   var readyOrders     = storeOrders.filter(function(o) { return o.status === 'Ready'; });
+   var billedRevenue   = completedOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
 
    // Preview images
    var previewItems = [];
@@ -4146,12 +4145,18 @@ function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, order
          if (match && previewItems.length < 4) previewItems.push(item);
       });
    });
-   var previewHtml = previewItems.map(function(item) {
+   var previewHtml  = previewItems.map(function(item) {
       return '<img src="' + item.img + '" alt="" onerror="this.src=\'https://placehold.co/80x80?text=Item\'"/>';
    }).join('');
    var previewClass = 'store-card-preview store-card-preview-' + Math.min(previewItems.length, 4);
-
    var blockedBadge = isBlocked ? '<span class="um-badge um-badge-blocked" style="margin-left:8px">Blocked</span>' : '';
+
+   function stat(val, label, accent) {
+      return '<div class="admin-store-stat' + (accent ? ' ' + accent : '') + '">' +
+                '<div class="admin-store-stat-num">' + val + '</div>' +
+                '<div class="admin-store-stat-label">' + label + '</div>' +
+             '</div>';
+   }
 
    return '<div class="admin-store-card">' +
              '<div class="' + previewClass + '">' + previewHtml + '</div>' +
@@ -4159,13 +4164,111 @@ function buildAdminStoreCard(storeId, storeName, ownerLabel, productCount, order
                 '<div class="admin-store-card-name">' + storeName + blockedBadge + '</div>' +
                 '<div class="admin-store-card-owner">' + ownerLabel + '</div>' +
                 '<div class="admin-store-card-stats">' +
-                   '<div class="admin-store-stat"><div class="admin-store-stat-num">' + productCount + '</div><div class="admin-store-stat-label">Products</div></div>' +
-                   '<div class="admin-store-stat"><div class="admin-store-stat-num">' + orderCount + '</div><div class="admin-store-stat-label">Orders</div></div>' +
-                   '<div class="admin-store-stat"><div class="admin-store-stat-num">₹' + revenue.toLocaleString('en-IN') + '</div><div class="admin-store-stat-label">Revenue</div></div>' +
+                   stat(productCount, 'Products') +
+                   stat(totalOrders,            'Placed') +
+                   stat(pendingOrders.length,   'Pending', 'stat-pending') +
+                   stat(completedOrders.length, 'Completed', 'stat-done') +
+                   stat('₹' + billedRevenue.toLocaleString('en-IN'), 'Billed', 'stat-billed') +
                 '</div>' +
-                '<button class="admin-store-view-btn" onclick="switchAdminTab(\'products\');filterAdminProductsByStore(' + storeIdJs + ',\'' + storeNameJs + '\')">🛍️ View Products</button>' +
+                '<div class="admin-store-card-actions">' +
+                   '<button class="admin-store-view-btn" onclick="switchAdminTab(\'products\');filterAdminProductsByStore(' + storeIdJs + ',\'' + storeNameJs + '\')">🛍️ Products</button>' +
+                   '<button class="admin-store-orders-btn" onclick="showStoreOrders(' + storeIdJs + ',\'' + storeNameJs + '\',\'' + ownerJs + '\')">📋 Orders (' + totalOrders + ')</button>' +
+                '</div>' +
              '</div>' +
           '</div>';
+}
+
+// ── STORE ORDERS MODAL ──
+var _soOrders = [];
+
+function showStoreOrders(storeId, storeName, ownerLabel) {
+   var allOrders = JSON.parse(localStorage.getItem('allOrders') || '[]');
+   _soOrders = allOrders.filter(function(o) {
+      return storeId === null ? !o.storeId : o.storeId === storeId;
+   });
+   document.getElementById('soStoreName').textContent = storeName;
+   document.getElementById('soStoreSub').textContent  = ownerLabel || 'Platform (admin managed)';
+   renderSOStats();
+   renderSOOrderList(null, null);
+   document.getElementById('storeOrdersModal').classList.remove('hidden');
+}
+
+function renderSOStats() {
+   var total     = _soOrders.length;
+   var completed = _soOrders.filter(function(o) { return o.status === 'Completed'; });
+   var pending   = _soOrders.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
+   var ready     = _soOrders.filter(function(o) { return o.status === 'Ready'; }).length;
+   var billed    = completed.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+
+   function st(val, label, cls) {
+      return '<div class="so-stat ' + (cls || '') + '"><div class="so-stat-num">' + val + '</div><div class="so-stat-label">' + label + '</div></div>';
+   }
+
+   document.getElementById('soStatsBar').innerHTML =
+      st(total,     'Total Placed') +
+      st(pending,   'Pending',   'so-stat-pending') +
+      st(ready,     'Ready',     'so-stat-ready') +
+      st(completed.length, 'Completed', 'so-stat-done') +
+      st('₹' + billed.toLocaleString('en-IN'), 'Billed Revenue', 'so-stat-billed');
+
+   var filters = [
+      { label: 'All (' + total + ')',             val: null },
+      { label: 'Pending (' + pending + ')',        val: 'Pending Pickup' },
+      { label: 'Ready (' + ready + ')',            val: 'Ready' },
+      { label: 'Completed (' + completed.length + ')', val: 'Completed' },
+   ];
+   document.getElementById('soTabs').innerHTML = filters.map(function(f, i) {
+      var filterJs = f.val ? '\'' + f.val + '\'' : 'null';
+      return '<button class="so-tab' + (i === 0 ? ' active' : '') + '" onclick="renderSOOrderList(' + filterJs + ',this)">' + f.label + '</button>';
+   }).join('');
+}
+
+function renderSOOrderList(statusFilter, tabBtn) {
+   if (tabBtn) {
+      document.querySelectorAll('#soTabs .so-tab').forEach(function(t) { t.classList.remove('active'); });
+      tabBtn.classList.add('active');
+   }
+   var list     = document.getElementById('soOrderList');
+   var filtered = statusFilter ? _soOrders.filter(function(o) { return o.status === statusFilter; }) : _soOrders;
+
+   if (filtered.length === 0) {
+      list.innerHTML = '<p class="so-empty">No orders' + (statusFilter ? ' with status "' + statusFilter + '"' : '') + '.</p>';
+      return;
+   }
+
+   list.innerHTML = filtered.map(function(o) {
+      var cls = o.status === 'Completed'     ? 'so-badge-done'
+              : o.status === 'Ready'         ? 'so-badge-ready'
+              :                                'so-badge-pending';
+      var itemsHtml = (o.items || []).map(function(i) {
+         return '<span class="so-item-pill">' + i.name + ' ×' + i.qty + ' — ₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span>';
+      }).join('');
+      return '<div class="so-order-row">' +
+                '<div class="so-order-top">' +
+                   '<div>' +
+                      '<div class="so-order-id">' + o.orderId + '</div>' +
+                      '<div class="so-order-meta">' +
+                         '👤 ' + (o.customerName || '—') +
+                         (o.customerPhone ? ' &nbsp;·&nbsp; 📞 ' + o.customerPhone : '') +
+                         ' &nbsp;·&nbsp; 🗓 ' + (o.date || '—') +
+                      '</div>' +
+                   '</div>' +
+                   '<div class="so-order-right">' +
+                      '<span class="so-badge ' + cls + '">' + o.status + '</span>' +
+                      '<div class="so-order-total">₹' + (o.total || 0).toLocaleString('en-IN') + '</div>' +
+                   '</div>' +
+                '</div>' +
+                '<div class="so-order-items">' + itemsHtml + '</div>' +
+             '</div>';
+   }).join('');
+}
+
+function closeStoreOrdersModal() {
+   document.getElementById('storeOrdersModal').classList.add('hidden');
+}
+
+function handleSOOverlayClick(e) {
+   if (e.target === e.currentTarget) closeStoreOrdersModal();
 }
 
 function filterAdminProductsByStore(storeId, storeName) {

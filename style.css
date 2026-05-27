@@ -5125,3 +5125,270 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
    font-weight: 700;
    cursor: pointer;
 }
+
+/* ═══════════════════════════════════════════════════════
+   ADMIN STORE CARD — extended stats & actions
+   ═══════════════════════════════════════════════════════ */
+.admin-store-card-stats {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   margin: 8px 0 10px;
+}
+.admin-store-stat {
+   flex: 1 1 60px;
+   min-width: 56px;
+   background: #f4f5fb;
+   border-radius: 8px;
+   padding: 6px 8px;
+   text-align: center;
+}
+.admin-store-stat-num {
+   font-size: 1rem;
+   font-weight: 700;
+   color: #1a1a2e;
+   line-height: 1.2;
+}
+.admin-store-stat-label {
+   font-size: 0.68rem;
+   color: #888;
+   margin-top: 2px;
+   text-transform: uppercase;
+   letter-spacing: 0.03em;
+}
+.admin-store-stat.stat-pending .admin-store-stat-num { color: #e65100; }
+.admin-store-stat.stat-pending                       { background: #fff3e0; }
+.admin-store-stat.stat-done    .admin-store-stat-num { color: #2e7d32; }
+.admin-store-stat.stat-done                          { background: #e8f5e9; }
+.admin-store-stat.stat-billed  .admin-store-stat-num { color: #1565c0; font-size: 0.85rem; }
+.admin-store-stat.stat-billed                        { background: #e3f2fd; }
+
+.admin-store-card-actions {
+   display: flex;
+   gap: 8px;
+   flex-wrap: wrap;
+}
+.admin-store-orders-btn {
+   flex: 1;
+   padding: 8px 12px;
+   background: #1a1a2e;
+   color: #fff;
+   border: none;
+   border-radius: 8px;
+   font-size: 0.82rem;
+   font-weight: 600;
+   cursor: pointer;
+   transition: background 0.18s;
+}
+.admin-store-orders-btn:hover { background: #2e2e4e; }
+
+/* ═══════════════════════════════════════════════════════
+   STORE ORDERS MODAL (Admin)
+   ═══════════════════════════════════════════════════════ */
+.so-overlay {
+   position: fixed;
+   inset: 0;
+   background: rgba(0,0,0,0.55);
+   z-index: 2200;
+   display: flex;
+   align-items: flex-end;
+   justify-content: center;
+}
+@media (min-width: 600px) {
+   .so-overlay { align-items: center; }
+}
+.so-modal {
+   background: #fff;
+   border-radius: 20px 20px 0 0;
+   width: 100%;
+   max-width: 680px;
+   max-height: 92vh;
+   display: flex;
+   flex-direction: column;
+   overflow: hidden;
+   box-shadow: 0 -4px 32px rgba(0,0,0,0.18);
+}
+@media (min-width: 600px) {
+   .so-modal {
+      border-radius: 20px;
+      max-height: 88vh;
+   }
+}
+.so-modal-header {
+   display: flex;
+   align-items: flex-start;
+   justify-content: space-between;
+   padding: 18px 20px 14px;
+   border-bottom: 1px solid #eee;
+   flex-shrink: 0;
+}
+.so-modal-store-name {
+   font-size: 1.1rem;
+   font-weight: 700;
+   color: #1a1a2e;
+}
+.so-modal-store-sub {
+   font-size: 0.78rem;
+   color: #888;
+   margin-top: 2px;
+}
+.so-close-btn {
+   background: #f0f0f0;
+   border: none;
+   border-radius: 50%;
+   width: 32px;
+   height: 32px;
+   font-size: 1rem;
+   cursor: pointer;
+   flex-shrink: 0;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   margin-left: 12px;
+}
+.so-close-btn:hover { background: #e0e0e0; }
+
+/* Stats bar */
+.so-stats-bar {
+   display: flex;
+   gap: 0;
+   background: #f8f9fb;
+   border-bottom: 1px solid #eee;
+   flex-shrink: 0;
+   overflow-x: auto;
+   -webkit-overflow-scrolling: touch;
+}
+.so-stat {
+   flex: 1 1 70px;
+   padding: 10px 12px;
+   text-align: center;
+   border-right: 1px solid #eee;
+}
+.so-stat:last-child { border-right: none; }
+.so-stat-num {
+   font-size: 1.05rem;
+   font-weight: 700;
+   color: #1a1a2e;
+}
+.so-stat-label {
+   font-size: 0.65rem;
+   color: #888;
+   text-transform: uppercase;
+   letter-spacing: 0.04em;
+   margin-top: 2px;
+}
+.so-stat.so-stat-pending .so-stat-num { color: #e65100; }
+.so-stat.so-stat-pending              { background: #fff8f3; }
+.so-stat.so-stat-ready   .so-stat-num { color: #6a1b9a; }
+.so-stat.so-stat-ready                { background: #f9f0ff; }
+.so-stat.so-stat-done    .so-stat-num { color: #2e7d32; }
+.so-stat.so-stat-done                 { background: #f0fbf1; }
+.so-stat.so-stat-billed  .so-stat-num { color: #1565c0; font-size: 0.88rem; }
+.so-stat.so-stat-billed               { background: #f0f6ff; }
+
+/* Tabs */
+.so-tabs {
+   display: flex;
+   gap: 4px;
+   padding: 10px 16px 0;
+   flex-shrink: 0;
+   border-bottom: 1px solid #eee;
+   overflow-x: auto;
+}
+.so-tab {
+   padding: 7px 14px;
+   border: none;
+   background: transparent;
+   color: #555;
+   font-size: 0.82rem;
+   font-weight: 500;
+   cursor: pointer;
+   border-bottom: 2px solid transparent;
+   margin-bottom: -1px;
+   white-space: nowrap;
+   border-radius: 0;
+   transition: color 0.15s, border-color 0.15s;
+}
+.so-tab.active {
+   color: #1a1a2e;
+   font-weight: 700;
+   border-bottom-color: #1a1a2e;
+}
+.so-tab:hover:not(.active) { color: #333; }
+
+/* Order list */
+.so-order-list {
+   flex: 1;
+   overflow-y: auto;
+   padding: 12px 16px 20px;
+}
+.so-order-row {
+   background: #fafafa;
+   border: 1px solid #eee;
+   border-radius: 12px;
+   padding: 12px 14px;
+   margin-bottom: 10px;
+}
+.so-order-top {
+   display: flex;
+   justify-content: space-between;
+   align-items: flex-start;
+   gap: 8px;
+   margin-bottom: 8px;
+}
+.so-order-right {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-end;
+   gap: 4px;
+   flex-shrink: 0;
+}
+.so-order-id {
+   font-size: 0.82rem;
+   font-weight: 700;
+   color: #1a1a2e;
+   font-family: monospace;
+}
+.so-order-meta {
+   font-size: 0.75rem;
+   color: #888;
+   margin-top: 3px;
+   line-height: 1.5;
+}
+.so-order-total {
+   font-size: 0.9rem;
+   font-weight: 700;
+   color: #1a1a2e;
+}
+.so-badge {
+   display: inline-block;
+   padding: 3px 10px;
+   border-radius: 20px;
+   font-size: 0.7rem;
+   font-weight: 700;
+   text-transform: uppercase;
+   letter-spacing: 0.04em;
+}
+.so-badge-pending { background: #fff3e0; color: #e65100; }
+.so-badge-ready   { background: #f3e5f5; color: #6a1b9a; }
+.so-badge-done    { background: #e8f5e9; color: #2e7d32; }
+
+.so-order-items {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 5px;
+}
+.so-item-pill {
+   background: #eeeeff;
+   color: #3333aa;
+   font-size: 0.72rem;
+   padding: 3px 9px;
+   border-radius: 20px;
+   font-weight: 500;
+}
+.so-empty {
+   text-align: center;
+   color: #aaa;
+   font-size: 0.9rem;
+   padding: 40px 20px;
+}

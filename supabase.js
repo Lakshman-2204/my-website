@@ -3,7 +3,7 @@
 //  Replaces all localStorage data operations with Supabase
 // ═══════════════════════════════════════════════════════
 
-const SUPABASE_URL = 'https://ucajlkv1ekczflbsnzhw.supabase.co';
+const SUPABASE_URL = 'https://ucajlkviekczflbsnzhw.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_lnv0yTSC_hld4HC_ms_9xw_pXvkraeR';
 
 const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);

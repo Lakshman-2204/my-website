@@ -418,8 +418,11 @@ function renderCard(item, catKey, grid) {
    card.className = 'product-card';
    card.id = 'card_' + item.id;
    card.innerHTML = `
-<div class="card-color-top" style="background:${topBg}">
-  <div class="card-color-name">${shortName}</div>
+<div class="card-color-top" style="${item.img ? `background:${topBg};` : `background:${topBg};`}">
+  ${item.img
+    ? `<img src="${item.img}" alt="${shortName}" class="card-product-img" onerror="this.style.display='none';this.parentElement.querySelector('.card-color-name').style.display='flex'">`
+    : ''}
+  <div class="card-color-name" style="${item.img ? 'display:none' : ''}">${shortName}</div>
   <button class="wish-btn${inWL ? ' wished' : ''}" id="wish_${item.id}"
           onclick="toggleWishlist('${item.id}','${catKey}',this)"
           title="${inWL ? 'Remove from Wishlist' : 'Add to Wishlist'}">${inWL ? '❤️' : '🤍'}</button>

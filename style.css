@@ -6,6 +6,13 @@
 
 body {
 	font-family: Arial, sans-serif;
+	overflow-x: hidden;
+}
+
+/* Hide store identity bits when the visitor is not logged in */
+body.guest .store-badge,
+body.guest .store-section-divider {
+	display: none !important;
 }
 
 /* ── AUTH ── */
@@ -454,13 +461,29 @@ body {
 	.header-middle {
 		padding: 8px 12px;
 		gap: 8px;
+		flex-wrap: wrap;
+	}
+	.search-box-wide {
+		max-width: none;
+		order: -1;
+		flex-basis: 100%;
+		min-width: 0;
 	}
 	.header-stores-btn {
 		padding: 8px 12px;
 		font-size: 0.82rem;
 	}
-	.search-box-wide {
-		max-width: none;
+	.header-apt-btn {
+		padding: 6px 10px;
+		font-size: 0.78rem;
+	}
+	.header-actions {
+		gap: 12px;
+		margin-left: auto;
+	}
+	.header-user,
+	.header-cart {
+		font-size: 0.82rem;
 	}
 
 	.cat-item {

@@ -500,7 +500,7 @@ function selectVariant(itemId, variantIdx) {
 // ── ADD TO CART ──
 function addToCart(itemId, catKey) {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   if (!user) { showToast('Please login to add items to cart.'); return; }
+   if (!user) { promptAuth('Please log in or sign up to add items to your cart.'); return; }
 
    const data = products[catKey];
    const item = data && data.items.find(i => i.id === itemId);
@@ -1966,7 +1966,16 @@ function deleteUserFromDetail() {
 
 function checkLogin() {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   if (!user) { window.location.href = 'login.html'; return; }
+
+   // Guest visitor — let them browse, but hide login-only UI bits
+   if (!user) {
+      document.body.classList.add('guest');
+      const addrEl = document.getElementById('headerAddress');
+      if (addrEl) addrEl.innerHTML = '📍 <span>Login to set address</span>';
+      return;
+   }
+
+   document.body.classList.remove('guest');
 
    // Kick blocked users out immediately (admins can never be blocked)
    if (!isAdmin(user.email) && isBlocked(user.email)) {
@@ -2061,7 +2070,15 @@ function updateAddressDisplay(email) {
 
 function toggleUserMenu(e) {
    e.stopPropagation();
+   const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { window.location.href = 'login.html'; return; }
    document.getElementById('userDropdown').classList.toggle('open');
+}
+
+function promptAuth(message) {
+   if (confirm(message + '\n\nGo to login page now? (You can sign up from there.)')) {
+      window.location.href = 'login.html';
+   }
 }
 
 document.addEventListener('click', function () {
@@ -3380,7 +3397,7 @@ function saveWishlistData(email, arr) { _db.wishlist = arr; }  // kept for compa
 
 async function toggleWishlist(itemId, catKey, btn) {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   if (!user) { alert('Please log in to use Wishlist.'); return; }
+   if (!user) { promptAuth('Please log in or sign up to use the Wishlist.'); return; }
    const idx = _db.wishlist.indexOf(itemId);
    if (idx >= 0) {
       _db.wishlist.splice(idx, 1);

@@ -710,10 +710,24 @@ body {
 	background: white;
 	border-radius: 12px;
 	box-shadow: 0 3px 12px rgba(0,0,0,0.08);
-	overflow: hidden;
 	position: sticky;
 	top: 175px;
 	z-index: 5;
+	max-height: calc(100vh - 195px);
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-width: thin;
+	scrollbar-color: #c5cae9 transparent;
+}
+.subcat-sidebar::-webkit-scrollbar {
+	width: 4px;
+}
+.subcat-sidebar::-webkit-scrollbar-track {
+	background: transparent;
+}
+.subcat-sidebar::-webkit-scrollbar-thumb {
+	background: #c5cae9;
+	border-radius: 4px;
 }
 
 .subcat-sidebar-item {

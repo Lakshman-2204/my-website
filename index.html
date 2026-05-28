@@ -3,74 +3,11 @@
    <head>
       <meta charset="UTF-8"/>
       <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-      <title>Sign Up</title>
-      <link rel="stylesheet" href="style.css"/>
-      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-      <script src="supabase.js"></script>
+      <meta http-equiv="refresh" content="0; url=home.html"/>
+      <title>MyStore</title>
    </head>
-   <body class="auth-page">
-      <div class="auth-box" id="signupBox">
-         <h1>Create Account</h1>
-         <p class="subtitle">Sign up to get started</p>
-         <div class="form-group">
-            <label>Full Name</label>
-            <input type="text" id="signupName" placeholder="firstname lastname"/>
-         </div>
-         <div class="form-group">
-            <label>Email</label>
-            <input type="email" id="signupEmail" placeholder="gajula@example.com"/>
-         </div>
-         <div class="form-group">
-            <label>Password</label>
-            <input type="password" id="signupPassword" placeholder="Min 6 characters"/>
-         </div>
-         <div class="form-group">
-            <label>Confirm Password</label>
-            <input type="password" id="signupConfirm" placeholder="Repeat password"/>
-         </div>
-         <div class="form-group">
-            <label>I am a</label>
-            <div class="role-selector">
-               <label class="role-option" id="role-customer-label">
-                  <input type="radio" name="userRole" id="role-customer" value="customer" checked/>
-                  <div class="role-card">
-                     <div class="role-icon">🛍️</div>
-                     <div class="role-name">Customer</div>
-                     <div class="role-desc">Browse & order products</div>
-                  </div>
-               </label>
-               <label class="role-option" id="role-owner-label">
-                  <input type="radio" name="userRole" id="role-storeowner" value="storeowner"/>
-                  <div class="role-card">
-                     <div class="role-icon">🏪</div>
-                     <div class="role-name">Store Owner</div>
-                     <div class="role-desc">Manage incoming orders</div>
-                  </div>
-               </label>
-            </div>
-         </div>
-         <button class="btn-primary" onclick="signUp()">Create Account</button>
-         <p class="switch-link">
-            Already have an account? <a href="login.html">Login here</a>
-         </p>
-      </div>
-
-      <div class="auth-box" id="otpBox" style="display:none">
-         <h1>Verify Your Email</h1>
-         <p class="subtitle">We sent a 6-digit code to <strong id="otpEmail"></strong></p>
-         <div class="form-group">
-            <label>Verification Code</label>
-            <input type="text" id="otpCode" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code"/>
-         </div>
-         <p id="otpError" class="error-msg hidden"></p>
-         <button class="btn-primary" onclick="verifySignupOtp()">Verify & Create Account</button>
-         <p class="switch-link">
-            Didn't receive it? <a href="#" onclick="resendOtp(event)">Resend code</a>
-         </p>
-         <p class="switch-link">
-            <a href="#" onclick="backToSignup(event)">← Back to signup</a>
-         </p>
-      </div>
-      <script src="script.js"></script>
+   <body>
+      <script>window.location.replace('home.html');</script>
+      <p>Loading <a href="home.html">MyStore</a>…</p>
    </body>
 </html>

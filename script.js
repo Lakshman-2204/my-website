@@ -1509,6 +1509,8 @@ function saveUsers(users) {
    users.forEach(function(u) { AppDB.upsertUser(u); });
 }
 
+let _pendingSignup = null;
+
 async function signUp() {
    await initDB();
    const name     = document.getElementById('signupName').value.trim();
@@ -1520,18 +1522,104 @@ async function signUp() {
    if (!name || !email || !password || !confirm) { alert('Please fill in all fields.'); return; }
    if (password.length < 6) { alert('Password must be at least 6 characters.'); return; }
    if (password !== confirm) { alert('Passwords do not match.'); return; }
-   const users = getUsers();
-   if (users.find(u => u.email.toLowerCase() === email)) {
+
+   const existing = getUsers().find(u => u.email.toLowerCase() === email);
+   if (existing) {
       alert('An account with this email already exists. Please login.');
       window.location.href = 'login.html';
       return;
    }
-   users.push({ name, email, password, role });
-   saveUsers(users);
-   // Save role separately so it survives any array operations
-   localStorage.setItem('role_' + email, role);
-   alert('Account created! Please login.');
+
+   const btn = document.querySelector('#signupBox .btn-primary');
+   if (btn) { btn.disabled = true; btn.textContent = 'Sending code…'; }
+
+   const { error } = await _sb.auth.signUp({ email, password });
+
+   if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
+
+   if (error) {
+      alert(error.message || 'Sign-up failed. Please try again.');
+      return;
+   }
+
+   _pendingSignup = { name, email, role, password };
+
+   document.getElementById('signupBox').style.display = 'none';
+   const otpBox = document.getElementById('otpBox');
+   if (otpBox) {
+      otpBox.style.display = '';
+      document.getElementById('otpEmail').textContent = email;
+      const otpInput = document.getElementById('otpCode');
+      if (otpInput) { otpInput.value = ''; otpInput.focus(); }
+      const errEl = document.getElementById('otpError');
+      if (errEl) { errEl.classList.add('hidden'); errEl.style.color = ''; }
+   }
+}
+
+async function verifySignupOtp() {
+   if (!_pendingSignup) { alert('No pending signup. Please start over.'); backToSignup(); return; }
+   const token = (document.getElementById('otpCode').value || '').trim();
+   const errEl = document.getElementById('otpError');
+   if (!/^\d{6}$/.test(token)) {
+      if (errEl) { errEl.textContent = 'Please enter the 6-digit code.'; errEl.classList.remove('hidden'); errEl.style.color = ''; }
+      return;
+   }
+   if (errEl) errEl.classList.add('hidden');
+
+   const btn = document.querySelector('#otpBox .btn-primary');
+   if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+
+   const { error } = await _sb.auth.verifyOtp({
+      email: _pendingSignup.email,
+      token,
+      type: 'signup'
+   });
+
+   if (btn) { btn.disabled = false; btn.textContent = 'Verify & Create Account'; }
+
+   if (error) {
+      if (errEl) { errEl.textContent = error.message || 'Invalid or expired code.'; errEl.classList.remove('hidden'); errEl.style.color = ''; }
+      return;
+   }
+
+   await AppDB.upsertUser({
+      name:  _pendingSignup.name,
+      email: _pendingSignup.email,
+      role:  _pendingSignup.role,
+      password: ''
+   });
+   localStorage.setItem('role_' + _pendingSignup.email, _pendingSignup.role);
+
+   await _sb.auth.signOut();
+   _pendingSignup = null;
+
+   alert('Account verified! Please login.');
    window.location.href = 'login.html';
+}
+
+async function resendOtp(e) {
+   if (e) e.preventDefault();
+   if (!_pendingSignup) { backToSignup(); return; }
+   const errEl = document.getElementById('otpError');
+   const { error } = await _sb.auth.resend({ type: 'signup', email: _pendingSignup.email });
+   if (errEl) {
+      errEl.classList.remove('hidden');
+      if (error) {
+         errEl.textContent = error.message || 'Could not resend code.';
+         errEl.style.color = '';
+      } else {
+         errEl.textContent = 'A new code has been sent.';
+         errEl.style.color = '#2e7d32';
+      }
+   }
+}
+
+function backToSignup(e) {
+   if (e) e.preventDefault();
+   _pendingSignup = null;
+   document.getElementById('signupBox').style.display = '';
+   const otpBox = document.getElementById('otpBox');
+   if (otpBox) otpBox.style.display = 'none';
 }
 
 async function login() {

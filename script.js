@@ -291,7 +291,8 @@ function doSearch() {
 // Close search dropdown on outside click
 document.addEventListener('click', (e) => {
    if (!e.target.closest('.search-box')) {
-      document.getElementById('searchDropdown').classList.remove('show');
+      const sd = document.getElementById('searchDropdown');
+      if (sd) sd.classList.remove('show');
    }
 });
 
@@ -1511,7 +1512,7 @@ function saveUsers(users) {
 async function signUp() {
    await initDB();
    const name     = document.getElementById('signupName').value.trim();
-   const email    = document.getElementById('signupEmail').value.trim();
+   const email    = document.getElementById('signupEmail').value.trim().toLowerCase();
    const password = document.getElementById('signupPassword').value;
    const confirm  = document.getElementById('signupConfirm').value;
    const roleEl   = document.querySelector('input[name="userRole"]:checked');
@@ -1520,7 +1521,7 @@ async function signUp() {
    if (password.length < 6) { alert('Password must be at least 6 characters.'); return; }
    if (password !== confirm) { alert('Passwords do not match.'); return; }
    const users = getUsers();
-   if (users.find(u => u.email === email)) {
+   if (users.find(u => u.email.toLowerCase() === email)) {
       alert('An account with this email already exists. Please login.');
       window.location.href = 'login.html';
       return;

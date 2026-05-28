@@ -1715,24 +1715,21 @@ function deleteUser(email) {
    var target = users.find(function(u) { return u.email === email; });
    var isStore = target && target.role === 'storeowner';
 
-   var msg = 'Delete account for:\n' + email + '\n\n';
+   var msg = 'Remove account for:\n' + email + '\n\n';
    if (isStore) msg += 'This is a store owner. Their account will be removed but products are preserved — if re-admitted, all products restore automatically.\n\n';
-   msg += 'Personal data (addresses, orders, cards) will be cleared. This cannot be undone.';
+   msg += 'Their login access will be removed. Order history is kept for records.\nSaved addresses, cards and wishlist will be cleared.';
    if (!confirm(msg)) return;
 
-   // Remove from users list
+   // Remove from users list (login no longer possible)
    _db.users = users.filter(function(u) { return u.email !== email; });
    AppDB.deleteUserByEmail(email);
 
-   // Remove personal data from Supabase
+   // Clear personal preferences — but keep orders for business records
    AppDB.deleteUserAddresses(email);
-   AppDB.deleteCustomerOrders(email);
    AppDB.deleteUserCards(email);
    AppDB.deleteUserWishlist(email);
    AppDB.deleteUserAppointments(email);
-
-   // Remove customer's orders from cache
-   _db.orders = _db.orders.filter(function(o) { return o.customerEmail !== email; });
+   // Note: orders are intentionally kept in Supabase for order history
 
    // Remove in-memory store products (Supabase products preserved for re-admission)
    if (isStore) {
@@ -1745,7 +1742,7 @@ function deleteUser(email) {
    var lu = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
    if (lu && lu.email.toLowerCase() === email.toLowerCase()) sessionStorage.removeItem('loggedInUser');
 
-   showAdminToast(isStore ? '🗑 Account removed (products preserved): ' + email : '🗑 Account deleted: ' + email);
+   showAdminToast(isStore ? '🗑 Account removed (products & orders preserved): ' + email : '🗑 Account removed (orders kept for records): ' + email);
    renderUserList(_currentUserFilter);
 }
 
@@ -1942,8 +1939,8 @@ function seedAdmin() {
    // Remove old placeholder admin
    users = users.filter(u => u.email !== 'admin@mystore.com');
    const admins = [
-      { name: 'Admin', email: 'g.ramkumar3127@gmail.com',    password: 'Gsggrl@703662', isAdmin: true },
-      { name: 'Admin', email: 'lakshmankumar586@gmail.com',  password: 'Lucky@123',     isAdmin: true }
+      { name: 'Admin', email: 'g.ramkumar3127@gmail.com',    password: 'Gsggrl@703662', role: 'admin', isAdmin: true },
+      { name: 'Admin', email: 'lakshmankumar586@gmail.com',  password: 'Lucky@123',     role: 'admin', isAdmin: true }
    ];
    admins.forEach(admin => {
       const existing = users.find(u => u.email === admin.email);
@@ -2898,7 +2895,7 @@ function switchAdminTab(tab) {
       if (btn) btn.classList.toggle('active', t === tab);
    });
    if (tab === 'settings') loadSettingsForm();
-   if (tab === 'users')    renderUserList('all');
+   if (tab === 'users')    refreshAndRenderUsers();
    if (tab === 'stores')   renderAdminStores();
 }
 

@@ -3356,13 +3356,15 @@ async function renderShopAppointments(filterStatus) {
    var rows = apts.map(function(a) {
       var status = a.status || 'Confirmed';
       var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      // Friendlier labels for the owner — DB still stores 'Completed' / 'Cancelled'
+      var statusLabel = status === 'Completed' ? 'Checkup Completed' : status;
       var aid = (a.apt_id || '').replace(/'/g, "\\'");
       var canChange = status === 'Confirmed';
 
       // Fee column — show "(not paid)" hint for pending bookings
       var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
       if (status === 'Confirmed')        feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
-      else if (status === 'Completed')   feeHtml += '<div class="apt-tbl-fee-tag paid">paid</div>';
+      else if (status === 'Completed')   feeHtml += '<div class="apt-tbl-fee-tag paid">paid offline</div>';
 
       // Booked At — when the customer placed the booking (uses created_at)
       var bookedAt = '';
@@ -3385,10 +3387,10 @@ async function renderShopAppointments(filterStatus) {
                 '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div>' +
                     '<div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.patient_name || a.user_email || '') + '</div>' +
-                    '<div class="apt-tbl-sub">' + (a.user_email || '') + (a.patient_phone ? ' · ' + a.patient_phone : '') + '</div></td>' +
+                    (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + '</td>' +
                 '<td class="apt-tbl-symptom" title="' + (a.patient_reason || '').replace(/"/g,'&quot;') + '">' + (a.patient_reason || '<span style="color:#bbb">—</span>') + '</td>' +
                 '<td style="text-align:right">' + feeHtml + '</td>' +
-                '<td><span class="order-badge ' + cls + '">' + status + '</span></td>' +
+                '<td><span class="order-badge ' + cls + '">' + statusLabel + '</span></td>' +
                 '<td class="apt-tbl-actions">' + actions + '</td>' +
                 '<td class="apt-tbl-booked">' + bookedAt + '</td>' +
                 '<td class="apt-tbl-id">' + a.apt_id + '</td>' +

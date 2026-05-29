@@ -2929,7 +2929,7 @@ function renderShopDashboard(filterStatus) {
    // Apply date range filter (uses order date — falls back to created_at if present)
    var df = _readDateFilter('shopOrderDateFilter', 'shopOrderCustomDate');
    allOrders = allOrders.filter(function(o) {
-      return _isDateInRange(o.date || o.created_at || o.timestamp, df.range, df.customDate);
+      return _isDateInRange(o.date || o.created_at || o.timestamp, df.range, df);
    });
 
    // Update stats — reflect the date filter so numbers match what's visible
@@ -3232,19 +3232,27 @@ async function renderShopDoctors() {
 // Cache of this shop owner's appointments so filter buttons don't re-fetch
 let _shopAptsCache = null;
 
-// Date range matcher used by both appointments and orders filters.
-// dateStr is 'YYYY-MM-DD' (or a JS-parseable date); range is 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'.
-// customDate is required when range === 'custom' and is the YYYY-MM-DD string from a <input type="date">.
-function _isDateInRange(dateStr, range, customDate) {
+// Date range matcher. range is 'all'|'today'|'week'|'month'|'year'|'custom'|'range'.
+// opts may carry { customDate, rangeFrom, rangeTo } as YYYY-MM-DD strings.
+function _isDateInRange(dateStr, range, opts) {
    if (!range || range === 'all') return true;
    if (!dateStr) return false;
+   opts = opts || {};
    var d = (dateStr instanceof Date) ? dateStr : new Date(/^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr + 'T00:00:00' : dateStr);
    if (isNaN(d.getTime())) return false;
+   var ymd = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+
    if (range === 'custom') {
-      if (!customDate) return true;   // No date picked yet → don't filter anything out
-      var ymd = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-      return ymd === customDate;
+      if (!opts.customDate) return true;     // no date chosen yet
+      return ymd === opts.customDate;
    }
+   if (range === 'range') {
+      if (!opts.rangeFrom && !opts.rangeTo) return true;
+      if (opts.rangeFrom && ymd < opts.rangeFrom) return false;
+      if (opts.rangeTo   && ymd > opts.rangeTo)   return false;
+      return true;
+   }
+
    var now = new Date();
    if (range === 'today') {
       return d.getFullYear() === now.getFullYear() &&
@@ -3256,24 +3264,28 @@ function _isDateInRange(dateStr, range, customDate) {
       var end   = new Date(start); end.setDate(start.getDate() + 7);
       return d >= start && d < end;
    }
-   if (range === 'month') {
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-   }
-   if (range === 'year') {
-      return d.getFullYear() === now.getFullYear();
-   }
+   if (range === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+   if (range === 'year')  return d.getFullYear() === now.getFullYear();
    return true;
 }
 
-// Read the selected range + custom-date from a pair of inputs, and toggle
-// the custom-date input's visibility. Returns { range, customDate }.
-function _readDateFilter(selectId, customInputId) {
-   var sel  = document.getElementById(selectId);
-   var inp  = document.getElementById(customInputId);
-   var range = sel ? sel.value : 'all';
-   if (inp) inp.style.display = (range === 'custom') ? '' : 'none';
-   var customDate = (range === 'custom' && inp) ? inp.value : null;
-   return { range: range, customDate: customDate };
+// Read range + custom/range inputs and toggle their visibility.
+// ids: { selectId, customId, rangeFromId, rangeToId } — last two optional.
+function _readDateFilter(selectId, customInputId, rangeFromId, rangeToId) {
+   var sel    = document.getElementById(selectId);
+   var inp    = customInputId ? document.getElementById(customInputId) : null;
+   var fromEl = rangeFromId   ? document.getElementById(rangeFromId)   : null;
+   var toEl   = rangeToId     ? document.getElementById(rangeToId)     : null;
+   var range  = sel ? sel.value : 'all';
+   if (inp)    inp.style.display    = (range === 'custom') ? '' : 'none';
+   if (fromEl) fromEl.style.display = (range === 'range')  ? '' : 'none';
+   if (toEl)   toEl.style.display   = (range === 'range')  ? '' : 'none';
+   return {
+      range: range,
+      customDate: (range === 'custom' && inp) ? inp.value : null,
+      rangeFrom:  (range === 'range'  && fromEl) ? fromEl.value : null,
+      rangeTo:    (range === 'range'  && toEl)   ? toEl.value   : null
+   };
 }
 
 async function renderShopAppointments(filterStatus) {
@@ -3308,11 +3320,18 @@ async function renderShopAppointments(filterStatus) {
    var doctorFilter = (docSel && docSel.value) || '';
 
    // Apply date range filter (uses appointment date, not booked-at time)
-   var df = _readDateFilter('shopAptDateFilter', 'shopAptCustomDate');
+   var df = _readDateFilter('shopAptDateFilter', 'shopAptCustomDate', 'shopAptRangeFrom', 'shopAptRangeTo');
    var dateRange = df.range;
+   var searchEl  = document.getElementById('shopAptSearch');
+   var searchVal = (searchEl && searchEl.value || '').trim().toLowerCase();
    var dateFiltered = all.filter(function(a) {
       if (doctorFilter && a.doctor_name !== doctorFilter) return false;
-      return _isDateInRange(a.date, df.range, df.customDate);
+      if (!_isDateInRange(a.date, df.range, df)) return false;
+      if (searchVal) {
+         var hay = ((a.patient_name || '') + ' ' + (a.user_email || '') + ' ' + (a.patient_phone || '')).toLowerCase();
+         if (hay.indexOf(searchVal) === -1) return false;
+      }
+      return true;
    });
 
    // Stat counters reflect the date filter so they make sense in context
@@ -3367,6 +3386,7 @@ async function renderShopAppointments(filterStatus) {
                     '<div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.patient_name || a.user_email || '') + '</div>' +
                     '<div class="apt-tbl-sub">' + (a.user_email || '') + (a.patient_phone ? ' · ' + a.patient_phone : '') + '</div></td>' +
+                '<td class="apt-tbl-symptom" title="' + (a.patient_reason || '').replace(/"/g,'&quot;') + '">' + (a.patient_reason || '<span style="color:#bbb">—</span>') + '</td>' +
                 '<td style="text-align:right">' + feeHtml + '</td>' +
                 '<td><span class="order-badge ' + cls + '">' + status + '</span></td>' +
                 '<td class="apt-tbl-actions">' + actions + '</td>' +
@@ -3382,6 +3402,7 @@ async function renderShopAppointments(filterStatus) {
               '<th>Date / Slot</th>' +
               '<th>Doctor</th>' +
               '<th>Patient</th>' +
+              '<th class="apt-tbl-symptom">Symptom / Reason</th>' +
               '<th style="text-align:right">Fee</th>' +
               '<th>Status</th>' +
               '<th>Actions</th>' +

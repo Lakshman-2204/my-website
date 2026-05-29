@@ -962,6 +962,9 @@ function goHome() {
    document.getElementById('productsSection').classList.add('hidden');
    var aptSec = document.getElementById('appointmentSection');
    if (aptSec) aptSec.classList.add('hidden');
+   // Restore the product-category row hidden by showBookAppointment
+   var cats = document.querySelector('.header-categories');
+   if (cats) cats.classList.remove('hidden');
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    const allCat = document.getElementById('cat-all');
    if (allCat) allCat.classList.add('active');
@@ -999,6 +1002,9 @@ function catClick(cat) {
    if (aptSec) aptSec.classList.add('hidden');
    var aptBtn = document.querySelector('.header-apt-btn');
    if (aptBtn) aptBtn.classList.remove('active');
+   // Restore the product-category row in case it was hidden by appointment view
+   var cats = document.querySelector('.header-categories');
+   if (cats) cats.classList.remove('hidden');
 
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    // Stores is a header button, not a cat-item — toggle its active class separately
@@ -1136,10 +1142,34 @@ async function showBookAppointment() {
    if (storesBtn) storesBtn.classList.remove('active');
    var aptBtn = document.querySelector('.header-apt-btn');
    if (aptBtn) aptBtn.classList.add('active');
+   // Hide the product-category row — categories are irrelevant on the appointment flow
+   var cats = document.querySelector('.header-categories');
+   if (cats) cats.classList.add('hidden');
+   // Show the "My Appointments" shortcut next to the section title
+   _addAptHistoryBtn();
    document.getElementById('aptContent').innerHTML = '<p style="text-align:center;color:#999;padding:40px">Loading…</p>';
    await loadAptProviders();
    renderAptCategories();
    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Inject a "📋 My Appointments" link into the appointment section header (idempotent)
+function _addAptHistoryBtn() {
+   var header = document.querySelector('#appointmentSection .apt-section-header');
+   if (!header || header.querySelector('.apt-history-btn')) return;
+   var btn = document.createElement('button');
+   btn.className   = 'btn-back apt-history-btn';
+   btn.style.marginLeft = '8px';
+   btn.innerHTML   = '📋 My Appointments';
+   btn.onclick     = function() {
+      var u = JSON.parse(sessionStorage.getItem('loggedInUser'));
+      if (!u) { promptAuth('Please log in to view your appointment history.'); return; }
+      window.location.href = 'profile.html?tab=appointments';
+   };
+   // Insert next to the existing Back button so they sit together on the right
+   var backBtn = header.querySelector('.btn-back');
+   if (backBtn) backBtn.parentNode.insertBefore(btn, backBtn);
+   else header.appendChild(btn);
 }
 
 function renderAptCategories() {

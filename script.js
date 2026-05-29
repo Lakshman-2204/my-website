@@ -1495,7 +1495,7 @@ function openAptProviderModal(providerId) {
    });
    // If the saved owner no longer matches any storeowner, keep it as a stray entry so admin can see it
    if (current && !owners.find(function(u) { return u.email.toLowerCase() === current.toLowerCase(); })) {
-      opts += '<option value="' + current + '" selected>' + current + ' (not a registered store owner)</option>';
+      opts += '<option value="' + current + '" selected>' + current + ' (not a registered business partner)</option>';
    }
    ownerSel.innerHTML = opts;
 
@@ -2404,7 +2404,7 @@ function renderUserList(filter) {
    var html = '';
    filtered.forEach(function(u) {
       var initial    = (u.name || u.email).charAt(0).toUpperCase();
-      var roleLabel  = u.role === 'storeowner' ? 'Store Owner' : 'Customer';
+      var roleLabel  = u.role === 'storeowner' ? 'Business Partner' : 'Customer';
       var roleClass  = u.role === 'storeowner' ? 'badge-owner' : 'badge-customer';
       var statusCls  = u.blocked ? 'status-blocked' : 'status-active';
       var statusLbl  = u.blocked ? '🚫 Blocked' : '✅ Active';
@@ -2466,7 +2466,7 @@ function deleteUser(email) {
    var isStore = target && target.role === 'storeowner';
 
    var msg = 'Remove account for:\n' + email + '\n\n';
-   if (isStore) msg += 'This is a store owner. Their account will be removed but products are preserved — if re-admitted, all products restore automatically.\n\n';
+   if (isStore) msg += 'This is a business partner. Their account will be removed but products and hospital records are preserved — if re-admitted, everything restores automatically.\n\n';
    msg += 'Their login access will be removed. Order history is kept for records.\nSaved addresses, cards and wishlist will be cleared.';
    if (!confirm(msg)) return;
 
@@ -2515,7 +2515,7 @@ function showUserDetail(email) {
    var allOrders = _db.orders;
    var userOrders = allOrders.filter(function(o) { return o.customerEmail === email; });
 
-   var roleLabel   = u.role === 'storeowner' ? 'Store Owner' : 'Customer';
+   var roleLabel   = u.role === 'storeowner' ? 'Business Partner' : 'Customer';
    var statusLabel = u.blocked ? '🚫 Blocked' : '✅ Active';
    var initial     = (u.name || u.email).charAt(0).toUpperCase();
 
@@ -2766,11 +2766,36 @@ async function checkShopOwnerLogin() {
    var storeBtn = document.getElementById('shopViewStoreBtn');
    if (storeBtn && isAdmin(user.email)) storeBtn.classList.remove('hidden');
    loadSiteSettings();
-   renderShopDashboard();
-   switchShopTab('orders');
+
+   // Decide which tabs are relevant for this owner.
+   // Admins see all tabs; everyone else sees only what they own.
+   var ownsHospital = false, ownsProducts = false;
+   if (isAdmin(user.email)) {
+      ownsHospital = ownsProducts = true;
+   } else {
+      var providers = await AppDB.getProviders();
+      ownsHospital  = providers.some(function(p) { return (p.owner_email || '').toLowerCase() === user.email.toLowerCase(); });
+      ownsProducts  = (_db.products || []).some(function(p) { return (p.store_id || '').toLowerCase() === user.email.toLowerCase(); });
+      // If the user owns nothing yet, default to Appointments view so a brand-new hospital
+      // owner doesn't land on an empty Orders page.
+      if (!ownsHospital && !ownsProducts) ownsHospital = true;
+   }
+
+   var ordersTab = document.getElementById('shop-tab-orders');
+   var aptTab    = document.getElementById('shop-tab-appointments');
+   var prodTab   = document.getElementById('shop-tab-products');
+   if (ordersTab) ordersTab.classList.toggle('hidden', !ownsProducts);
+   if (prodTab)   prodTab.classList.toggle('hidden',   !ownsProducts);
+   if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
+
+   // Render whichever panel makes sense
+   if (ownsProducts) renderShopDashboard();
+   var defaultTab = ownsProducts ? 'orders' : 'appointments';
+   switchShopTab(defaultTab);
+
    // Auto-refresh if admin enabled it
    var s = getAdminSettings();
-   if (s.autoRefreshOrders) {
+   if (s.autoRefreshOrders && ownsProducts) {
       setInterval(function() { renderShopDashboard(window._shopCurrentFilter); }, 30000);
    }
 }

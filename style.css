@@ -1621,6 +1621,12 @@ body.guest .store-section-divider {
 }
 
 /* ── APPOINTMENTS TABLE (shopowner) ── */
+/* Override the 860px parent width so the appointments table can use full page width */
+#shopAppointmentList {
+	max-width: none;
+	padding: 1rem 1.5rem;
+}
+
 .apt-tbl-wrap {
 	background: #fff;
 	border-radius: 12px;
@@ -1660,14 +1666,54 @@ body.guest .store-section-divider {
 .apt-tbl-name    { font-weight: 600; color: #1a1a2e; }
 .apt-tbl-sub     { font-size: 0.78rem; color: #666; margin-top: 2px; }
 .apt-tbl-actions { white-space: nowrap; text-align: center; }
+.apt-tbl-fee     { font-weight: 700; color: #1a1a2e; }
+.apt-tbl-fee-tag {
+	display: inline-block;
+	font-size: 0.66rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: 1px 6px;
+	border-radius: 4px;
+	margin-top: 2px;
+}
+.apt-tbl-fee-tag.unpaid { background: #ffebee; color: #c62828; }
+.apt-tbl-fee-tag.paid   { background: #e8f5e9; color: #2e7d32; }
 .apt-tbl-id      { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
                    font-size: 0.72rem; color: #888; }
 
+/* Action buttons inside the actions column */
+.apt-act-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 5px 10px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: opacity 0.15s;
+	margin: 2px;
+}
+.apt-act-btn:hover { opacity: 0.85; }
+.apt-act-ok        { background: #1a1a2e; color: #fff; }
+.apt-act-cancel    { background: #c62828; color: #fff; }
+
+@media (max-width: 900px) {
+	/* Hide Booked At column (8th) and Appt ID column (9th — last) on tablets/phones */
+	.apt-tbl tr > .apt-tbl-booked,
+	.apt-tbl tr > .apt-tbl-id { display: none; }
+}
 @media (max-width: 700px) {
-	.apt-tbl { font-size: 0.78rem; }
-	.apt-tbl thead th, .apt-tbl tbody td { padding: 8px 8px; }
-	/* hide both the th and td of the Appt ID column (7th) on narrow screens */
-	.apt-tbl tr > *:nth-child(7) { display: none; }
+	#shopAppointmentList { padding: 0.6rem 0.6rem; }
+	.apt-tbl { font-size: 0.74rem; }
+	.apt-tbl thead th, .apt-tbl tbody td { padding: 6px 6px; }
+	.apt-act-btn { padding: 4px 7px; font-size: 0.7rem; }
+	.apt-tbl-sub { font-size: 0.7rem; }
+	/* Stack actions vertically on very small screens so they don't overflow */
+	.apt-tbl-actions { white-space: normal; }
 }
 
 .shop-store-btn, .shop-admin-btn {

@@ -113,6 +113,9 @@
             <button class="shop-tab"        id="apt-tab-Cancelled" data-filter="Cancelled" onclick="renderShopAppointments('Cancelled')">✕ Cancelled</button>
          </div>
          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="shopAptDoctorFilter" class="admin-filter-select" onchange="renderShopAppointments(window._shopAptCurrentFilter)">
+               <option value="">👨‍⚕️ All doctors</option>
+            </select>
             <select id="shopAptDateFilter" class="admin-filter-select" onchange="renderShopAppointments(window._shopAptCurrentFilter)">
                <option value="all">📅 All time</option>
                <option value="today">Today</option>

@@ -3295,10 +3295,25 @@ async function renderShopAppointments(filterStatus) {
    }
    var all = _shopAptsCache || [];
 
+   // Populate the doctor-filter dropdown from the current cache (preserves selection)
+   var docSel = document.getElementById('shopAptDoctorFilter');
+   if (docSel) {
+      var currentDoc = docSel.value;
+      var doctors = Array.from(new Set(all.map(function(a) { return a.doctor_name; }).filter(Boolean))).sort();
+      docSel.innerHTML = '<option value="">👨‍⚕️ All doctors</option>' +
+         doctors.map(function(d) {
+            return '<option value="' + d + '"' + (d === currentDoc ? ' selected' : '') + '>' + d + '</option>';
+         }).join('');
+   }
+   var doctorFilter = (docSel && docSel.value) || '';
+
    // Apply date range filter (uses appointment date, not booked-at time)
    var df = _readDateFilter('shopAptDateFilter', 'shopAptCustomDate');
    var dateRange = df.range;
-   var dateFiltered = all.filter(function(a) { return _isDateInRange(a.date, df.range, df.customDate); });
+   var dateFiltered = all.filter(function(a) {
+      if (doctorFilter && a.doctor_name !== doctorFilter) return false;
+      return _isDateInRange(a.date, df.range, df.customDate);
+   });
 
    // Stat counters reflect the date filter so they make sense in context
    var counts = { Confirmed: 0, Completed: 0, Cancelled: 0 };
@@ -3324,9 +3339,26 @@ async function renderShopAppointments(filterStatus) {
       var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
       var aid = (a.apt_id || '').replace(/'/g, "\\'");
       var canChange = status === 'Confirmed';
+
+      // Fee column — show "(not paid)" hint for pending bookings
+      var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
+      if (status === 'Confirmed')        feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
+      else if (status === 'Completed')   feeHtml += '<div class="apt-tbl-fee-tag paid">paid</div>';
+
+      // Booked At — when the customer placed the booking (uses created_at)
+      var bookedAt = '';
+      if (a.created_at) {
+         var dt = new Date(a.created_at);
+         if (!isNaN(dt.getTime())) {
+            var dStr = dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+            var tStr = dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            bookedAt = '<div class="apt-tbl-name">' + dStr + '</div><div class="apt-tbl-sub">' + tStr + '</div>';
+         }
+      }
+
       var actions = canChange
-         ? '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.75rem" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅</button>' +
-           '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.75rem;background:#c62828;margin-left:4px" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕</button>'
+         ? '<button class="apt-act-btn apt-act-ok"     title="Mark as Completed" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Complete</button>' +
+           '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>'
          : '<span style="color:#bbb">—</span>';
       return '<tr>' +
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div>' +
@@ -3335,9 +3367,10 @@ async function renderShopAppointments(filterStatus) {
                     '<div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.patient_name || a.user_email || '') + '</div>' +
                     '<div class="apt-tbl-sub">' + (a.user_email || '') + (a.patient_phone ? ' · ' + a.patient_phone : '') + '</div></td>' +
-                '<td style="text-align:right;font-weight:600">₹' + (a.fee || 0) + '</td>' +
+                '<td style="text-align:right">' + feeHtml + '</td>' +
                 '<td><span class="order-badge ' + cls + '">' + status + '</span></td>' +
                 '<td class="apt-tbl-actions">' + actions + '</td>' +
+                '<td class="apt-tbl-booked">' + bookedAt + '</td>' +
                 '<td class="apt-tbl-id">' + a.apt_id + '</td>' +
              '</tr>';
    }).join('');
@@ -3352,7 +3385,8 @@ async function renderShopAppointments(filterStatus) {
               '<th style="text-align:right">Fee</th>' +
               '<th>Status</th>' +
               '<th>Actions</th>' +
-              '<th>Appt ID</th>' +
+              '<th class="apt-tbl-booked">Booked</th>' +
+              '<th class="apt-tbl-id">Appt ID</th>' +
            '</tr></thead>' +
            '<tbody>' + rows + '</tbody>' +
         '</table>' +

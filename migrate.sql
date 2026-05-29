@@ -48,3 +48,8 @@ CREATE TABLE IF NOT EXISTS public.apt_providers (
 );
 ALTER TABLE public.apt_providers DISABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS apt_providers_category_idx ON public.apt_providers(category);
+
+-- 5. APT_PROVIDERS — link each hospital/clinic to a store-owner user
+ALTER TABLE public.apt_providers
+   ADD COLUMN IF NOT EXISTS owner_email text DEFAULT '';
+CREATE INDEX IF NOT EXISTS apt_providers_owner_idx ON public.apt_providers(owner_email);

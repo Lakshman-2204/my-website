@@ -3860,6 +3860,9 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 .order-badge.badge-pending   { background: #fff3e0; color: #e65100; }
 .order-badge.badge-ready     { background: #e8f5e9; color: #2e7d32; }
 .order-badge.badge-completed { background: #e3f2fd; color: #1565c0; }
+.order-badge.confirmed       { background: #e8f5e9; color: #2e7d32; }
+.order-badge.cancelled       { background: #ffebee; color: #c62828; }
+.order-badge.completed       { background: #e3f2fd; color: #1565c0; }
 
 .order-store-tag {
 	font-size: 0.8rem;

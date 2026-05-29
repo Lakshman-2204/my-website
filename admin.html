@@ -271,15 +271,40 @@
                <button class="admin-add-main-btn" onclick="openAptProviderModal()">➕ Add Hospital / Clinic</button>
             </div>
          </div>
-         <div class="admin-filter-bar">
-            <select id="aptAdminCatFilter" class="admin-filter-select" onchange="renderAptAdmin()">
-               <option value="">All Categories</option>
-               <option value="hospital">🏥 Hospitals</option>
-               <option value="dental">🦷 Dental Clinics</option>
-            </select>
+
+         <!-- Sub-section tabs -->
+         <div class="admin-filter-bar" style="margin-bottom:6px">
+            <button class="admin-tab active" id="apt-subtab-providers-btn" onclick="switchAptAdminSub('providers')">🏥 Providers &amp; Doctors</button>
+            <button class="admin-tab"        id="apt-subtab-bookings-btn"  onclick="switchAptAdminSub('bookings')">📅 All Bookings</button>
          </div>
-         <div class="admin-content" id="aptAdminContent">
-            <p style="color:#999;text-align:center;padding:40px">Loading…</p>
+
+         <!-- Providers sub-panel -->
+         <div id="apt-sub-providers">
+            <div class="admin-filter-bar">
+               <select id="aptAdminCatFilter" class="admin-filter-select" onchange="renderAptAdmin()">
+                  <option value="">All Categories</option>
+                  <option value="hospital">🏥 Hospitals</option>
+                  <option value="dental">🦷 Dental Clinics</option>
+               </select>
+            </div>
+            <div class="admin-content" id="aptAdminContent">
+               <p style="color:#999;text-align:center;padding:40px">Loading…</p>
+            </div>
+         </div>
+
+         <!-- Bookings sub-panel -->
+         <div id="apt-sub-bookings" class="hidden">
+            <div class="admin-filter-bar">
+               <select id="aptBookingsFilter" class="admin-filter-select" onchange="renderAllAppointments()">
+                  <option value="">All Statuses</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+               </select>
+            </div>
+            <div class="admin-content" id="aptAllBookingsContent">
+               <p style="color:#999;text-align:center;padding:40px">Loading…</p>
+            </div>
          </div>
       </div>
 
@@ -451,6 +476,12 @@
                <div class="modal-field">
                   <label>Icon <small style="font-weight:400;color:#aaa">(emoji)</small></label>
                   <input type="text" id="aptProvIcon" maxlength="2" placeholder="🏥"/>
+               </div>
+               <div class="modal-field">
+                  <label>Hospital Owner <small style="font-weight:400;color:#aaa">(store-owner who manages bookings)</small></label>
+                  <select id="aptProvOwner" class="modal-select">
+                     <option value="">— Not assigned (admin manages) —</option>
+                  </select>
                </div>
                <input type="hidden" id="aptProvId"/>
             </div>

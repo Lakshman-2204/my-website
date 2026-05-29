@@ -327,6 +327,19 @@ window.AppDB = {
       return true;
    },
 
+   async getAllAppointments() {
+      const { data, error } = await _sb.from('appointments').select('*')
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getAllAppointments:', error.message); return []; }
+      return data || [];
+   },
+
+   async updateAppointmentStatus(aptId, status) {
+      const { error } = await _sb.from('appointments').update({ status }).eq('apt_id', aptId);
+      if (error) { console.error('updateAppointmentStatus:', error.message); return false; }
+      return true;
+   },
+
    async deleteUserAppointments(email) {
       const { error } = await _sb.from('appointments').delete()
          .eq('user_email', email.toLowerCase());
@@ -343,14 +356,15 @@ window.AppDB = {
 
    async upsertProvider(provider) {
       const row = {
-         id:       provider.id,
-         category: provider.category,
-         name:     provider.name,
-         tagline:  provider.tagline || '',
-         address:  provider.address || '',
-         timing:   provider.timing  || '',
-         icon:     provider.icon    || '🏥',
-         doctors:  provider.doctors || []
+         id:          provider.id,
+         category:    provider.category,
+         name:        provider.name,
+         tagline:     provider.tagline     || '',
+         address:     provider.address     || '',
+         timing:      provider.timing      || '',
+         icon:        provider.icon        || '🏥',
+         owner_email: (provider.owner_email || '').toLowerCase(),
+         doctors:     provider.doctors     || []
       };
       const { error } = await _sb.from('apt_providers').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertProvider:', error.message); return false; }
@@ -361,6 +375,20 @@ window.AppDB = {
       const { error } = await _sb.from('apt_providers').delete().eq('id', id);
       if (error) { console.error('deleteProvider:', error.message); return false; }
       return true;
+   },
+
+   async getAppointmentsByOwner(ownerEmail) {
+      const lc = (ownerEmail || '').toLowerCase();
+      if (!lc) return [];
+      const { data: providers, error: pErr } = await _sb.from('apt_providers').select('id').eq('owner_email', lc);
+      if (pErr) { console.error('getAppointmentsByOwner (providers):', pErr.message); return []; }
+      const ids = (providers || []).map(function(p) { return p.id; });
+      if (!ids.length) return [];
+      const { data: apts, error: aErr } = await _sb.from('appointments').select('*')
+         .in('provider_id', ids)
+         .order('created_at', { ascending: false });
+      if (aErr) { console.error('getAppointmentsByOwner (apts):', aErr.message); return []; }
+      return apts || [];
    },
 
    // ── SETTINGS ─────────────────────────────────────────

@@ -26,10 +26,11 @@
    <!-- Internal shop announcement (admin-controlled) -->
    <div class="announcement-bar hidden" id="shopAnnouncementBar"></div>
 
-   <!-- TOP-LEVEL TABS: Orders / My Products -->
+   <!-- TOP-LEVEL TABS: Orders / Appointments / My Products -->
    <div class="shop-main-tabs">
-      <button class="shop-main-tab active" id="shop-tab-orders"   onclick="switchShopTab('orders')">📋 Orders</button>
-      <button class="shop-main-tab"        id="shop-tab-products" onclick="switchShopTab('products')">🛍️ My Products <button class="shop-add-prod-btn" onclick="event.stopPropagation();openStoreProductModal(-1)">➕ Add</button></button>
+      <button class="shop-main-tab active" id="shop-tab-orders"       onclick="switchShopTab('orders')">📋 Orders</button>
+      <button class="shop-main-tab"        id="shop-tab-appointments" onclick="switchShopTab('appointments')">📅 Appointments</button>
+      <button class="shop-main-tab"        id="shop-tab-products"     onclick="switchShopTab('products')">🛍️ My Products <button class="shop-add-prod-btn" onclick="event.stopPropagation();openStoreProductModal(-1)">➕ Add</button></button>
    </div>
 
    <!-- ORDERS PANEL -->
@@ -71,6 +72,33 @@
    </div>
 
    </div><!-- /shop-panel-orders -->
+
+   <!-- APPOINTMENTS PANEL -->
+   <div id="shop-panel-appointments" class="hidden">
+      <div class="shop-stats-bar">
+         <div class="shop-stat" onclick="renderShopAppointments('Confirmed')">
+            <div class="shop-stat-num" id="statAptConfirmed">0</div>
+            <div class="shop-stat-label">Confirmed</div>
+         </div>
+         <div class="shop-stat" onclick="renderShopAppointments('Completed')">
+            <div class="shop-stat-num" id="statAptCompleted">0</div>
+            <div class="shop-stat-label">Completed</div>
+         </div>
+         <div class="shop-stat" onclick="renderShopAppointments('Cancelled')">
+            <div class="shop-stat-num" id="statAptCancelled">0</div>
+            <div class="shop-stat-label">Cancelled</div>
+         </div>
+      </div>
+      <div class="shop-tabs">
+         <button class="shop-tab active" id="apt-tab-all"       data-filter=""          onclick="renderShopAppointments()">All</button>
+         <button class="shop-tab"        id="apt-tab-Confirmed" data-filter="Confirmed" onclick="renderShopAppointments('Confirmed')">⏳ Confirmed</button>
+         <button class="shop-tab"        id="apt-tab-Completed" data-filter="Completed" onclick="renderShopAppointments('Completed')">✅ Completed</button>
+         <button class="shop-tab"        id="apt-tab-Cancelled" data-filter="Cancelled" onclick="renderShopAppointments('Cancelled')">✕ Cancelled</button>
+      </div>
+      <div class="shop-order-list" id="shopAppointmentList">
+         <div class="shop-empty">Loading…</div>
+      </div>
+   </div>
 
    <!-- PRODUCTS PANEL -->
    <div id="shop-panel-products" class="hidden">

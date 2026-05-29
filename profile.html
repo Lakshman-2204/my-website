@@ -23,6 +23,7 @@
          <button class="profile-tab active" id="ptab-info-btn"      onclick="switchProfileTab('info')">👤 Profile Info</button>
          <button class="profile-tab"        id="ptab-addresses-btn" onclick="switchProfileTab('addresses')">📍 Addresses</button>
          <button class="profile-tab"        id="ptab-orders-btn"    onclick="switchProfileTab('orders')">📦 My Orders</button>
+         <button class="profile-tab"        id="ptab-appointments-btn" onclick="switchProfileTab('appointments')">📅 Appointments</button>
          <button class="profile-tab"        id="ptab-wishlist-btn"  onclick="switchProfileTab('wishlist')">❤️ Wishlist</button>
          <button class="profile-tab"        id="ptab-cards-btn"     onclick="switchProfileTab('cards')">💳 Cards</button>
       </div>
@@ -82,6 +83,16 @@
             <div class="profile-card-header">📦 My Orders</div>
             <div class="profile-card-body" id="ordersList">
                <p class="prof-empty">No orders placed yet.</p>
+            </div>
+         </div>
+      </div>
+
+      <!-- APPOINTMENTS TAB -->
+      <div id="ptab-appointments" class="profile-content hidden">
+         <div class="profile-card">
+            <div class="profile-card-header">📅 My Appointments</div>
+            <div class="profile-card-body" id="appointmentsList">
+               <p class="prof-empty">Loading…</p>
             </div>
          </div>
       </div>

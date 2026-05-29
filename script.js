@@ -1279,11 +1279,20 @@ function selectAptDate(dateStr, btn) {
    var doctor = _aptBookCtx.doctor;
    var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
 
+   // If picked date is today, hide any slot ≤ now + buffer (so user has time
+   // to fill the form and actually arrive). Buffer = 20 minutes.
+   var now = new Date();
+   var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+   var isToday = dateStr === todayStr;
+   var BUFFER_MIN = 20;
+   var earliestMin = isToday ? (now.getHours() * 60 + now.getMinutes() + BUFFER_MIN) : -1;
+
    var slotHtml = '';
    windows.forEach(function(w) {
       var startMin = _hhmmToMin(w.start);
       var endMin   = _hhmmToMin(w.end);
       for (var t = startMin; t + 30 <= endMin; t += 30) {
+         if (t < earliestMin) continue;     // skip past slots for today
          var hh = Math.floor(t / 60);
          var mm = t % 60;
          var slot24 = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
@@ -1292,7 +1301,11 @@ function selectAptDate(dateStr, btn) {
          slotHtml += '<button class="apt-slot-btn" onclick="selectAptSlot(\'' + slot24 + '\', this)">' + label + '</button>';
       }
    });
-   if (!slotHtml) slotHtml = '<p style="color:#999;font-size:0.85rem">No time slots available on this day.</p>';
+   if (!slotHtml) {
+      slotHtml = '<p style="color:#999;font-size:0.85rem">' +
+                 (isToday ? 'No more slots available today. Try tomorrow.' : 'No time slots available on this day.') +
+                 '</p>';
+   }
    document.getElementById('aptSlotButtons').innerHTML = slotHtml;
    document.getElementById('aptSlotSection').classList.remove('hidden');
    document.getElementById('aptConfirmBtn').disabled = true;
@@ -1469,6 +1482,23 @@ function openAptProviderModal(providerId) {
    document.getElementById('aptProvAddress').value  = p ? (p.address || '') : '';
    document.getElementById('aptProvTiming').value   = p ? (p.timing  || '') : '';
    document.getElementById('aptProvIcon').value     = p ? (p.icon    || '') : '';
+
+   // Populate owner dropdown with current store-owner users
+   var ownerSel = document.getElementById('aptProvOwner');
+   var current  = p ? (p.owner_email || '') : '';
+   var owners   = (getUsers() || []).filter(function(u) { return u.role === 'storeowner'; });
+   var opts     = '<option value="">— Not assigned (admin manages) —</option>';
+   owners.forEach(function(u) {
+      var label = (u.name || u.email) + ' (' + u.email + ')';
+      var sel = (u.email.toLowerCase() === current.toLowerCase()) ? ' selected' : '';
+      opts += '<option value="' + u.email + '"' + sel + '>' + label + '</option>';
+   });
+   // If the saved owner no longer matches any storeowner, keep it as a stray entry so admin can see it
+   if (current && !owners.find(function(u) { return u.email.toLowerCase() === current.toLowerCase(); })) {
+      opts += '<option value="' + current + '" selected>' + current + ' (not a registered store owner)</option>';
+   }
+   ownerSel.innerHTML = opts;
+
    document.getElementById('aptProviderModal').classList.remove('hidden');
 }
 
@@ -1489,11 +1519,12 @@ async function saveAptProvider() {
       id: id,
       category: category,
       name: name,
-      tagline: document.getElementById('aptProvTagline').value.trim(),
-      address: document.getElementById('aptProvAddress').value.trim(),
-      timing:  document.getElementById('aptProvTiming').value.trim(),
-      icon:    icon,
-      doctors: existing ? (existing.doctors || []) : []
+      tagline:     document.getElementById('aptProvTagline').value.trim(),
+      address:     document.getElementById('aptProvAddress').value.trim(),
+      timing:      document.getElementById('aptProvTiming').value.trim(),
+      icon:        icon,
+      owner_email: document.getElementById('aptProvOwner').value || '',
+      doctors:     existing ? (existing.doctors || []) : []
    };
    var ok = await AppDB.upsertProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
@@ -1594,6 +1625,66 @@ async function deleteAptDoctor(providerId, doctorId) {
    var ok = await AppDB.upsertProvider(provider);
    if (!ok) { alert('Failed to delete doctor.'); return; }
    await renderAptAdmin();
+}
+
+// ── ADMIN: Appointment sub-tab + bookings view ──
+function switchAptAdminSub(sub) {
+   ['providers', 'bookings'].forEach(function(s) {
+      var panel = document.getElementById('apt-sub-' + s);
+      var btn   = document.getElementById('apt-subtab-' + s + '-btn');
+      if (panel) panel.classList.toggle('hidden', s !== sub);
+      if (btn)   btn.classList.toggle('active', s === sub);
+   });
+   if (sub === 'bookings')  renderAllAppointments();
+   if (sub === 'providers') renderAptAdmin();
+}
+
+async function renderAllAppointments() {
+   var container = document.getElementById('aptAllBookingsContent');
+   if (!container) return;
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+   var apts = await AppDB.getAllAppointments();
+   var filter = (document.getElementById('aptBookingsFilter') || {}).value || '';
+   if (filter) apts = apts.filter(function(a) { return (a.status || 'Confirmed') === filter; });
+
+   if (!apts.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No appointments to show.</p>';
+      return;
+   }
+
+   var html = '<div style="display:grid;gap:0.85rem;margin-top:1rem">';
+   apts.forEach(function(a) {
+      var status = a.status || 'Confirmed';
+      var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      var aid = (a.apt_id || '').replace(/'/g, "\\'");
+      var canChange = status !== 'Cancelled' && status !== 'Completed';
+      html += '<div class="order-card">' +
+                '<div class="order-card-header">' +
+                   '<div><span class="order-id">' + a.apt_id + '</span> <span class="order-date">' + (a.date || '') + ' · ' + (a.slot || '') + '</span></div>' +
+                   '<span class="order-badge ' + cls + '">' + status + '</span>' +
+                '</div>' +
+                '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
+                '<div class="order-items">' +
+                   '<div class="order-item"><span>👨‍⚕️ ' + (a.doctor_name || '') + ' (' + (a.speciality || '') + ')</span><span>₹' + (a.fee || 0) + '</span></div>' +
+                   '<div class="order-item"><span>👤 ' + (a.user_email || '') + '</span><span></span></div>' +
+                '</div>' +
+                (canChange
+                  ? '<div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 0">' +
+                       '<button class="apt-view-btn" onclick="adminSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Mark Completed</button>' +
+                       '<button class="apt-view-btn" style="background:#c62828" onclick="adminSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>' +
+                    '</div>'
+                  : '') +
+             '</div>';
+   });
+   html += '</div>';
+   container.innerHTML = html;
+}
+
+async function adminSetAptStatus(aptId, status) {
+   if (!confirm('Set this appointment to "' + status + '"?')) return;
+   var ok = await AppDB.updateAppointmentStatus(aptId, status);
+   if (!ok) { alert('Failed to update status.'); return; }
+   renderAllAppointments();
 }
 
 // ── STORES ──
@@ -2894,13 +2985,84 @@ function deleteStoreProduct(idx) {
 }
 
 function switchShopTab(tab) {
-   ['orders', 'products'].forEach(function(t) {
+   ['orders', 'appointments', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
       if (btn)   btn.classList.toggle('active',   t === tab);
    });
-   if (tab === 'products') renderStoreOwnerProducts();
+   if (tab === 'products')     renderStoreOwnerProducts();
+   if (tab === 'appointments') renderShopAppointments();
+}
+
+// Cache of this shop owner's appointments so filter buttons don't re-fetch
+let _shopAptsCache = null;
+
+async function renderShopAppointments(filterStatus) {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var list = document.getElementById('shopAppointmentList');
+   if (!user) { list.innerHTML = '<div class="shop-empty">Please log in.</div>'; return; }
+
+   // Highlight active filter pill
+   ['', 'Confirmed', 'Completed', 'Cancelled'].forEach(function(f) {
+      var id = 'apt-tab-' + (f || 'all');
+      var btn = document.getElementById(id);
+      if (btn) btn.classList.toggle('active', (filterStatus || '') === f);
+   });
+
+   if (!_shopAptsCache) {
+      list.innerHTML = '<div class="shop-empty">Loading…</div>';
+      _shopAptsCache = await AppDB.getAppointmentsByOwner(user.email);
+   }
+   var all = _shopAptsCache || [];
+
+   // Update stat counters
+   var counts = { Confirmed: 0, Completed: 0, Cancelled: 0 };
+   all.forEach(function(a) {
+      var s = a.status || 'Confirmed';
+      if (counts[s] !== undefined) counts[s]++;
+   });
+   var ce = document.getElementById('statAptConfirmed'); if (ce) ce.textContent = counts.Confirmed;
+   var cm = document.getElementById('statAptCompleted'); if (cm) cm.textContent = counts.Completed;
+   var cc = document.getElementById('statAptCancelled'); if (cc) cc.textContent = counts.Cancelled;
+
+   var apts = filterStatus ? all.filter(function(a) { return (a.status || 'Confirmed') === filterStatus; }) : all;
+   if (!apts.length) {
+      list.innerHTML = '<div class="shop-empty">No appointments' + (filterStatus ? ' in "' + filterStatus + '"' : '') + '.</div>';
+      return;
+   }
+
+   list.innerHTML = apts.map(function(a) {
+      var status = a.status || 'Confirmed';
+      var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      var aid = (a.apt_id || '').replace(/'/g, "\\'");
+      var canChange = status === 'Confirmed';
+      return '<div class="order-card">' +
+                '<div class="order-card-header">' +
+                   '<div><span class="order-id">' + a.apt_id + '</span> <span class="order-date">' + (a.date || '') + ' · ' + (a.slot || '') + '</span></div>' +
+                   '<span class="order-badge ' + cls + '">' + status + '</span>' +
+                '</div>' +
+                '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
+                '<div class="order-items">' +
+                   '<div class="order-item"><span>👨‍⚕️ ' + (a.doctor_name || '') + ' (' + (a.speciality || '') + ')</span><span>₹' + (a.fee || 0) + '</span></div>' +
+                   '<div class="order-item"><span>👤 Customer</span><span>' + (a.user_email || '') + '</span></div>' +
+                '</div>' +
+                (canChange
+                   ? '<div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 0">' +
+                        '<button class="apt-view-btn" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Mark Completed</button>' +
+                        '<button class="apt-view-btn" style="background:#c62828" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>' +
+                     '</div>'
+                   : '') +
+             '</div>';
+   }).join('');
+}
+
+async function shopSetAptStatus(aptId, status) {
+   if (!confirm('Set this appointment to "' + status + '"?')) return;
+   var ok = await AppDB.updateAppointmentStatus(aptId, status);
+   if (!ok) { alert('Failed to update.'); return; }
+   _shopAptsCache = null;     // force re-fetch
+   renderShopAppointments();
 }
 
 function logout() {
@@ -3770,14 +3932,15 @@ async function initProfile() {
 }
 
 function switchProfileTab(tab) {
-   ['info', 'addresses', 'orders', 'wishlist', 'cards'].forEach(t => {
+   ['info', 'addresses', 'orders', 'appointments', 'wishlist', 'cards'].forEach(t => {
       document.getElementById('ptab-' + t).classList.toggle('hidden', t !== tab);
       document.getElementById('ptab-' + t + '-btn').classList.toggle('active', t === tab);
    });
-   if (tab === 'addresses') renderAddresses();
-   if (tab === 'orders')    renderOrders();
-   if (tab === 'wishlist')  renderWishlistTab();
-   if (tab === 'cards')     renderCards();
+   if (tab === 'addresses')    renderAddresses();
+   if (tab === 'orders')       renderOrders();
+   if (tab === 'appointments') renderMyAppointments();
+   if (tab === 'wishlist')     renderWishlistTab();
+   if (tab === 'cards')        renderCards();
 }
 
 function saveProfileInfo() {
@@ -3939,6 +4102,46 @@ function renderOrders() {
          </div>
       </div>`;
    }).join('');
+}
+
+// ── MY APPOINTMENTS (profile page) ──
+async function renderMyAppointments() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var list = document.getElementById('appointmentsList');
+   if (!user) { list.innerHTML = '<p class="prof-empty">Please log in to view your appointments.</p>'; return; }
+   list.innerHTML = '<p class="prof-empty">Loading…</p>';
+   var apts = await AppDB.getAppointments(user.email);
+   if (!apts.length) { list.innerHTML = '<p class="prof-empty">No appointments booked yet.</p>'; return; }
+
+   list.innerHTML = apts.map(function(a) {
+      var status = a.status || 'Confirmed';
+      var isCancellable = status !== 'Cancelled' && status !== 'Completed';
+      var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      return '<div class="order-card">' +
+                '<div class="order-card-header">' +
+                   '<div><span class="order-id">' + a.apt_id + '</span> <span class="order-date">' + (a.date || '') + ' · ' + (a.slot || '') + '</span></div>' +
+                   '<span class="order-badge ' + cls + '">' + status + '</span>' +
+                '</div>' +
+                '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
+                '<div class="order-items">' +
+                   '<div class="order-item"><span>👨‍⚕️ ' + (a.doctor_name || '') + '</span><span>' + (a.speciality || '') + '</span></div>' +
+                '</div>' +
+                '<div class="order-footer">' +
+                   '<span>Consultation Fee</span>' +
+                   '<span class="order-total">₹' + (a.fee || 0) + '</span>' +
+                '</div>' +
+                (isCancellable
+                   ? '<div style="text-align:right;padding:8px 12px 0"><button class="apt-cancel-btn" style="padding:6px 14px;font-size:0.8rem" onclick="cancelMyAppointment(\'' + a.apt_id.replace(/'/g,"\\'") + '\')">Cancel Appointment</button></div>'
+                   : '') +
+             '</div>';
+   }).join('');
+}
+
+async function cancelMyAppointment(aptId) {
+   if (!confirm('Cancel this appointment? This cannot be undone.')) return;
+   var ok = await AppDB.updateAppointmentStatus(aptId, 'Cancelled');
+   if (!ok) { alert('Failed to cancel. Please try again.'); return; }
+   renderMyAppointments();
 }
 
 // ── WISHLIST ──

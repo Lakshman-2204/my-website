@@ -1424,6 +1424,7 @@ function handleAptOverlayClick(e) {
 async function renderAptAdmin() {
    var container = document.getElementById('aptAdminContent');
    if (!container) return;
+   _liveSubscribe('adminProvs', 'apt_providers', renderAptAdmin);
    container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
    await loadAptProviders(true);
 
@@ -1673,6 +1674,7 @@ function switchAptAdminSub(sub) {
 async function renderAllAppointments() {
    var container = document.getElementById('aptAllBookingsContent');
    if (!container) return;
+   _liveSubscribe('adminApts', 'appointments', renderAllAppointments);
    container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
    var apts = await AppDB.getAllAppointments();
    var filter = (document.getElementById('aptBookingsFilter') || {}).value || '';
@@ -3172,11 +3174,33 @@ function switchShopTab(tab) {
    if (tab === 'doctors')      renderShopDoctors();
 }
 
+// Quick-add doctor shortcut from the Doctors tab "+ Add" button.
+// Picks the owner's first hospital automatically; if they own more than one,
+// they should use the "+ Add Doctor" button on the specific provider card.
+async function shopQuickAddDoctor() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) return;
+   // Make sure providers cache is fresh
+   await loadAptProviders(true);
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase() ||
+             isAdmin(user.email);
+   });
+   if (!mine.length) {
+      alert('No hospital/clinic is linked to your account yet. Ask the admin to assign one.');
+      return;
+   }
+   // Switch to Doctors tab so user sees the new entry land there
+   switchShopTab('doctors');
+   openAptDoctorModal(mine[0].id);
+}
+
 // ── SHOP OWNER: Doctors / Staff management ──
 async function renderShopDoctors() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var container = document.getElementById('shopDoctorsContent');
    if (!user || !container) return;
+   _liveSubscribe('shopDocs', 'apt_providers', renderShopDoctors);
    container.innerHTML = '<div class="shop-empty">Loading…</div>';
 
    // Always re-fetch providers so edits show up immediately
@@ -3240,6 +3264,39 @@ async function renderShopDoctors() {
 // Cache of this shop owner's appointments so filter buttons don't re-fetch
 let _shopAptsCache = null;
 
+// ── REALTIME SUBSCRIPTIONS ──────────────────────────────
+// Subscribe once per page to a Supabase table; the callback fires whenever
+// any row in that table changes (insert/update/delete). Debounced so rapid
+// changes only trigger one re-render.
+//
+// We store the channel on window so navigating away cleans it up naturally,
+// and re-calling with a new callback just replaces what runs on change.
+function _liveSubscribe(key, table, callback) {
+   var holder = '_rt_' + key;
+   if (window[holder]) {
+      window[holder].callback = callback;
+      return;
+   }
+   window[holder] = { callback: callback };
+   var debounced = (function() {
+      var timer;
+      return function() {
+         clearTimeout(timer);
+         timer = setTimeout(function() {
+            try { window[holder].callback(); } catch (e) { console.error(e); }
+         }, 300);
+      };
+   })();
+   try {
+      window[holder].channel = _sb
+         .channel(key + '-' + Math.random().toString(36).slice(2, 8))
+         .on('postgres_changes', { event: '*', schema: 'public', table: table }, debounced)
+         .subscribe();
+   } catch (e) {
+      console.warn('Realtime subscription failed for ' + table + ':', e);
+   }
+}
+
 // Date range matcher. range is 'all'|'today'|'week'|'month'|'year'|'custom'|'range'.
 // opts may carry { customDate, rangeFrom, rangeTo } as YYYY-MM-DD strings.
 function _isDateInRange(dateStr, range, opts) {
@@ -3301,6 +3358,12 @@ async function renderShopAppointments(filterStatus) {
    var list = document.getElementById('shopAppointmentList');
    if (!user) { list.innerHTML = '<div class="shop-empty">Please log in.</div>'; return; }
    window._shopAptCurrentFilter = filterStatus || '';
+
+   // Live updates: re-fetch & re-render whenever an appointment row changes anywhere
+   _liveSubscribe('shopApts', 'appointments', function() {
+      _shopAptsCache = null;
+      renderShopAppointments(window._shopAptCurrentFilter);
+   });
 
    // Highlight active filter pill
    ['', 'Confirmed', 'Completed', 'Cancelled'].forEach(function(f) {
@@ -4483,6 +4546,7 @@ async function renderMyAppointments() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var list = document.getElementById('appointmentsList');
    if (!user) { list.innerHTML = '<p class="prof-empty">Please log in to view your appointments.</p>'; return; }
+   _liveSubscribe('myApts', 'appointments', renderMyAppointments);
    list.innerHTML = '<p class="prof-empty">Loading…</p>';
    var apts = await AppDB.getAppointments(user.email);
    if (!apts.length) { list.innerHTML = '<p class="prof-empty">No appointments booked yet.</p>'; return; }

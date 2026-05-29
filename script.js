@@ -2915,6 +2915,7 @@ function renderShopDashboard(filterStatus) {
    var allOrders = _db.orders;
    var list = document.getElementById('shopOrderList');
    if (!list) return;
+   window._shopCurrentFilter = filterStatus || '';
 
    // Filter to store-owner's own orders if not admin
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
@@ -2922,7 +2923,13 @@ function renderShopDashboard(filterStatus) {
       allOrders = allOrders.filter(function(o) { return o.storeId === loggedUser.email; });
    }
 
-   // Update stats
+   // Apply date range filter (uses order date — falls back to created_at if present)
+   var dateRange = (document.getElementById('shopOrderDateFilter') || {}).value || 'all';
+   allOrders = allOrders.filter(function(o) {
+      return _isDateInRange(o.date || o.created_at || o.timestamp, dateRange);
+   });
+
+   // Update stats — reflect the date filter so numbers match what's visible
    var pending   = allOrders.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
    var ready     = allOrders.filter(function(o) { return o.status === 'Ready'; }).length;
    var completed = allOrders.filter(function(o) { return o.status === 'Completed'; }).length;
@@ -3222,10 +3229,38 @@ async function renderShopDoctors() {
 // Cache of this shop owner's appointments so filter buttons don't re-fetch
 let _shopAptsCache = null;
 
+// Date range matcher used by both appointments and orders filters.
+// dateStr is 'YYYY-MM-DD' (or a JS-parseable date); range is 'all' | 'today' | 'week' | 'month' | 'year'.
+function _isDateInRange(dateStr, range) {
+   if (!range || range === 'all') return true;
+   if (!dateStr) return false;
+   var d = (dateStr instanceof Date) ? dateStr : new Date(/^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr + 'T00:00:00' : dateStr);
+   if (isNaN(d.getTime())) return false;
+   var now = new Date();
+   if (range === 'today') {
+      return d.getFullYear() === now.getFullYear() &&
+             d.getMonth()    === now.getMonth() &&
+             d.getDate()     === now.getDate();
+   }
+   if (range === 'week') {
+      var start = new Date(now); start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0);
+      var end   = new Date(start); end.setDate(start.getDate() + 7);
+      return d >= start && d < end;
+   }
+   if (range === 'month') {
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+   }
+   if (range === 'year') {
+      return d.getFullYear() === now.getFullYear();
+   }
+   return true;
+}
+
 async function renderShopAppointments(filterStatus) {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var list = document.getElementById('shopAppointmentList');
    if (!user) { list.innerHTML = '<div class="shop-empty">Please log in.</div>'; return; }
+   window._shopAptCurrentFilter = filterStatus || '';
 
    // Highlight active filter pill
    ['', 'Confirmed', 'Completed', 'Cancelled'].forEach(function(f) {
@@ -3240,9 +3275,13 @@ async function renderShopAppointments(filterStatus) {
    }
    var all = _shopAptsCache || [];
 
-   // Update stat counters
+   // Apply date range filter (uses appointment date, not booked-at time)
+   var dateRange = (document.getElementById('shopAptDateFilter') || {}).value || 'all';
+   var dateFiltered = all.filter(function(a) { return _isDateInRange(a.date, dateRange); });
+
+   // Stat counters reflect the date filter so they make sense in context
    var counts = { Confirmed: 0, Completed: 0, Cancelled: 0 };
-   all.forEach(function(a) {
+   dateFiltered.forEach(function(a) {
       var s = a.status || 'Confirmed';
       if (counts[s] !== undefined) counts[s]++;
    });
@@ -3250,35 +3289,53 @@ async function renderShopAppointments(filterStatus) {
    var cm = document.getElementById('statAptCompleted'); if (cm) cm.textContent = counts.Completed;
    var cc = document.getElementById('statAptCancelled'); if (cc) cc.textContent = counts.Cancelled;
 
-   var apts = filterStatus ? all.filter(function(a) { return (a.status || 'Confirmed') === filterStatus; }) : all;
+   var apts = filterStatus ? dateFiltered.filter(function(a) { return (a.status || 'Confirmed') === filterStatus; }) : dateFiltered;
    if (!apts.length) {
-      list.innerHTML = '<div class="shop-empty">No appointments' + (filterStatus ? ' in "' + filterStatus + '"' : '') + '.</div>';
+      var msg = 'No appointments';
+      if (filterStatus) msg += ' in "' + filterStatus + '"';
+      if (dateRange !== 'all') msg += ' for ' + dateRange === 'today' ? 'today' : 'this ' + dateRange;
+      list.innerHTML = '<div class="shop-empty">' + msg + '.</div>';
       return;
    }
 
-   list.innerHTML = apts.map(function(a) {
+   var rows = apts.map(function(a) {
       var status = a.status || 'Confirmed';
       var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
       var aid = (a.apt_id || '').replace(/'/g, "\\'");
       var canChange = status === 'Confirmed';
-      return '<div class="order-card">' +
-                '<div class="order-card-header">' +
-                   '<div><span class="order-id">' + a.apt_id + '</span> <span class="order-date">' + (a.date || '') + ' · ' + (a.slot || '') + '</span></div>' +
-                   '<span class="order-badge ' + cls + '">' + status + '</span>' +
-                '</div>' +
-                '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
-                '<div class="order-items">' +
-                   '<div class="order-item"><span>👨‍⚕️ ' + (a.doctor_name || '') + ' (' + (a.speciality || '') + ')</span><span>₹' + (a.fee || 0) + '</span></div>' +
-                   '<div class="order-item"><span>👤 Customer</span><span>' + (a.user_email || '') + '</span></div>' +
-                '</div>' +
-                (canChange
-                   ? '<div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 0">' +
-                        '<button class="apt-view-btn" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Mark Completed</button>' +
-                        '<button class="apt-view-btn" style="background:#c62828" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>' +
-                     '</div>'
-                   : '') +
-             '</div>';
+      var actions = canChange
+         ? '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.75rem" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅</button>' +
+           '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.75rem;background:#c62828;margin-left:4px" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕</button>'
+         : '<span style="color:#bbb">—</span>';
+      return '<tr>' +
+                '<td><div class="apt-tbl-date">' + (a.date || '') + '</div>' +
+                    '<div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div>' +
+                    '<div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.user_email || '') + '</div>' +
+                    '<div class="apt-tbl-sub">' + (a.provider_name || '') + '</div></td>' +
+                '<td style="text-align:right;font-weight:600">₹' + (a.fee || 0) + '</td>' +
+                '<td><span class="order-badge ' + cls + '">' + status + '</span></td>' +
+                '<td class="apt-tbl-actions">' + actions + '</td>' +
+                '<td class="apt-tbl-id">' + a.apt_id + '</td>' +
+             '</tr>';
    }).join('');
+
+   list.innerHTML =
+      '<div class="apt-tbl-wrap">' +
+        '<table class="apt-tbl">' +
+           '<thead><tr>' +
+              '<th>Date / Slot</th>' +
+              '<th>Doctor</th>' +
+              '<th>Customer / Hospital</th>' +
+              '<th style="text-align:right">Fee</th>' +
+              '<th>Status</th>' +
+              '<th>Actions</th>' +
+              '<th>Appt ID</th>' +
+           '</tr></thead>' +
+           '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>';
 }
 
 async function shopSetAptStatus(aptId, status) {

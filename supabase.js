@@ -340,6 +340,22 @@ window.AppDB = {
       return true;
    },
 
+   async deleteAppointment(aptId) {
+      const { error } = await _sb.from('appointments').delete().eq('apt_id', aptId);
+      if (error) { console.error('deleteAppointment:', error.message); return false; }
+      return true;
+   },
+
+   // Delete multiple appointments by status. Pass null/empty to wipe ALL appointments.
+   async deleteAppointmentsByStatus(status) {
+      let q = _sb.from('appointments').delete();
+      if (status) q = q.eq('status', status);
+      else        q = q.not('apt_id', 'is', null);  // forces a WHERE clause so PostgREST allows the delete
+      const { error } = await q;
+      if (error) { console.error('deleteAppointmentsByStatus:', error.message); return false; }
+      return true;
+   },
+
    async deleteUserAppointments(email) {
       const { error } = await _sb.from('appointments').delete()
          .eq('user_email', email.toLowerCase());

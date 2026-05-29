@@ -294,13 +294,14 @@
 
          <!-- Bookings sub-panel -->
          <div id="apt-sub-bookings" class="hidden">
-            <div class="admin-filter-bar">
+            <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
                <select id="aptBookingsFilter" class="admin-filter-select" onchange="renderAllAppointments()">
                   <option value="">All Statuses</option>
                   <option value="Confirmed">Confirmed</option>
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
                </select>
+               <button class="apt-view-btn" style="background:#c62828" onclick="deleteAllShownAppointments()">🗑 Delete All Shown</button>
             </div>
             <div class="admin-content" id="aptAllBookingsContent">
                <p style="color:#999;text-align:center;padding:40px">Loading…</p>

@@ -1668,12 +1668,13 @@ async function renderAllAppointments() {
                    '<div class="order-item"><span>👨‍⚕️ ' + (a.doctor_name || '') + ' (' + (a.speciality || '') + ')</span><span>₹' + (a.fee || 0) + '</span></div>' +
                    '<div class="order-item"><span>👤 ' + (a.user_email || '') + '</span><span></span></div>' +
                 '</div>' +
-                (canChange
-                  ? '<div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 0">' +
-                       '<button class="apt-view-btn" onclick="adminSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Mark Completed</button>' +
-                       '<button class="apt-view-btn" style="background:#c62828" onclick="adminSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>' +
-                    '</div>'
-                  : '') +
+                '<div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 0;flex-wrap:wrap">' +
+                   (canChange
+                      ? '<button class="apt-view-btn" onclick="adminSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Mark Completed</button>' +
+                        '<button class="apt-view-btn" style="background:#c62828" onclick="adminSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>'
+                      : '') +
+                   '<button class="apt-view-btn" style="background:#555" onclick="deleteAdminAppointment(\'' + aid + '\')">🗑 Delete</button>' +
+                '</div>' +
              '</div>';
    });
    html += '</div>';
@@ -1684,6 +1685,27 @@ async function adminSetAptStatus(aptId, status) {
    if (!confirm('Set this appointment to "' + status + '"?')) return;
    var ok = await AppDB.updateAppointmentStatus(aptId, status);
    if (!ok) { alert('Failed to update status.'); return; }
+   renderAllAppointments();
+}
+
+async function deleteAdminAppointment(aptId) {
+   if (!confirm('Permanently delete appointment ' + aptId + '?\n\nThis cannot be undone and will remove it from the customer\'s history too.')) return;
+   var ok = await AppDB.deleteAppointment(aptId);
+   if (!ok) { alert('Failed to delete.'); return; }
+   renderAllAppointments();
+}
+
+async function deleteAllShownAppointments() {
+   var filter = (document.getElementById('aptBookingsFilter') || {}).value || '';
+   var apts = await AppDB.getAllAppointments();
+   var matching = filter ? apts.filter(function(a) { return (a.status || 'Confirmed') === filter; }) : apts;
+   if (!matching.length) { alert('Nothing to delete.'); return; }
+
+   var label = filter ? '"' + filter + '" appointments' : 'ALL appointments';
+   if (!confirm('Permanently delete ' + matching.length + ' ' + label + '?\n\nThis cannot be undone.')) return;
+
+   var ok = await AppDB.deleteAppointmentsByStatus(filter);
+   if (!ok) { alert('Failed to delete.'); return; }
    renderAllAppointments();
 }
 

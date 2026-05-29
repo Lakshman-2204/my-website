@@ -61,3 +61,9 @@ ALTER TABLE public.users
    ADD COLUMN IF NOT EXISTS is_approved boolean DEFAULT true;
 -- Grandfather: any existing business partner you already trust is left approved.
 -- New unapproved partners will only appear after the JS change ships.
+
+-- 7. APPOINTMENTS — save patient details collected on the booking form
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS patient_name   text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS patient_phone  text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS patient_reason text DEFAULT '';

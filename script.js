@@ -1371,7 +1371,10 @@ async function confirmAptBooking() {
       date: _aptBookCtx.date,
       slot: _aptBookCtx.slot,
       fee: _aptBookCtx.doctor.fee,
-      status: 'Confirmed'
+      status: 'Confirmed',
+      patient_name:   name,
+      patient_phone:  phone,
+      patient_reason: document.getElementById('aptPatientReason').value.trim()
    };
 
    var confirmBtn = document.getElementById('aptConfirmBtn');
@@ -1694,7 +1697,7 @@ async function renderAllAppointments() {
                 '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
                 '<div class="order-items">' +
                    '<div class="order-item"><span>👨‍⚕️ ' + (a.doctor_name || '') + ' (' + (a.speciality || '') + ')</span><span>₹' + (a.fee || 0) + '</span></div>' +
-                   '<div class="order-item"><span>👤 ' + (a.user_email || '') + '</span><span></span></div>' +
+                   '<div class="order-item"><span>👤 ' + (a.patient_name || a.user_email || '') + '</span><span>' + (a.user_email || '') + (a.patient_phone ? ' · ' + a.patient_phone : '') + '</span></div>' +
                 '</div>' +
                 '<div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 0;flex-wrap:wrap">' +
                    (canChange
@@ -3330,8 +3333,8 @@ async function renderShopAppointments(filterStatus) {
                     '<div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div>' +
                     '<div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
-                '<td><div class="apt-tbl-name">' + (a.user_email || '') + '</div>' +
-                    '<div class="apt-tbl-sub">' + (a.provider_name || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.patient_name || a.user_email || '') + '</div>' +
+                    '<div class="apt-tbl-sub">' + (a.user_email || '') + (a.patient_phone ? ' · ' + a.patient_phone : '') + '</div></td>' +
                 '<td style="text-align:right;font-weight:600">₹' + (a.fee || 0) + '</td>' +
                 '<td><span class="order-badge ' + cls + '">' + status + '</span></td>' +
                 '<td class="apt-tbl-actions">' + actions + '</td>' +
@@ -3345,7 +3348,7 @@ async function renderShopAppointments(filterStatus) {
            '<thead><tr>' +
               '<th>Date / Slot</th>' +
               '<th>Doctor</th>' +
-              '<th>Customer / Hospital</th>' +
+              '<th>Patient</th>' +
               '<th style="text-align:right">Fee</th>' +
               '<th>Status</th>' +
               '<th>Actions</th>' +

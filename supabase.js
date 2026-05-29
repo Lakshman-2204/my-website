@@ -334,6 +334,35 @@ window.AppDB = {
       return true;
    },
 
+   // ── APT PROVIDERS (Hospitals / Clinics) ─────────────
+   async getProviders() {
+      const { data, error } = await _sb.from('apt_providers').select('*').order('category').order('name');
+      if (error) { console.error('getProviders:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertProvider(provider) {
+      const row = {
+         id:       provider.id,
+         category: provider.category,
+         name:     provider.name,
+         tagline:  provider.tagline || '',
+         address:  provider.address || '',
+         timing:   provider.timing  || '',
+         icon:     provider.icon    || '🏥',
+         doctors:  provider.doctors || []
+      };
+      const { error } = await _sb.from('apt_providers').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertProvider:', error.message); return false; }
+      return true;
+   },
+
+   async deleteProvider(id) {
+      const { error } = await _sb.from('apt_providers').delete().eq('id', id);
+      if (error) { console.error('deleteProvider:', error.message); return false; }
+      return true;
+   },
+
    // ── SETTINGS ─────────────────────────────────────────
    // Settings are stored as a JSONB blob in the 'data' column (see migrate.sql)
    async getSettings() {

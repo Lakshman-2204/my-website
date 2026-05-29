@@ -31,3 +31,20 @@ ALTER TABLE public.settings
 
 -- Reset the default settings row so 'data' column is initialized
 UPDATE public.settings SET data = '{}'::jsonb WHERE id = 1 AND data IS NULL;
+
+-- 4. APT_PROVIDERS — Hospitals / Clinics for the Appointments feature
+--    Each row is one provider. Its doctors (with per-doctor availability)
+--    live in the JSONB column so the whole provider loads in a single query.
+CREATE TABLE IF NOT EXISTS public.apt_providers (
+   id          text         PRIMARY KEY,
+   category    text         NOT NULL,                   -- 'hospital' | 'dental' | future categories
+   name        text         NOT NULL,
+   tagline     text         DEFAULT '',
+   address     text         DEFAULT '',
+   timing      text         DEFAULT '',
+   icon        text         DEFAULT '🏥',
+   doctors     jsonb        DEFAULT '[]'::jsonb,
+   created_at  timestamptz  DEFAULT now()
+);
+ALTER TABLE public.apt_providers DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS apt_providers_category_idx ON public.apt_providers(category);

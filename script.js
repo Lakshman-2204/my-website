@@ -960,11 +960,15 @@ function goDashboard() {
 function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
+   var aptSec = document.getElementById('appointmentSection');
+   if (aptSec) aptSec.classList.add('hidden');
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    const allCat = document.getElementById('cat-all');
    if (allCat) allCat.classList.add('active');
    var storesBtn = document.querySelector('.header-stores-btn');
    if (storesBtn) storesBtn.classList.remove('active');
+   var aptBtn = document.querySelector('.header-apt-btn');
+   if (aptBtn) aptBtn.classList.remove('active');
    window.scrollTo({
       top: 0,
       behavior: 'smooth'
@@ -990,6 +994,12 @@ function showByCategory(groupName) {
 }
 
 function catClick(cat) {
+   // Hide the appointment section when navigating to product categories
+   var aptSec = document.getElementById('appointmentSection');
+   if (aptSec) aptSec.classList.add('hidden');
+   var aptBtn = document.querySelector('.header-apt-btn');
+   if (aptBtn) aptBtn.classList.remove('active');
+
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    // Stores is a header button, not a cat-item — toggle its active class separately
    var storesBtn = document.querySelector('.header-stores-btn');
@@ -1045,6 +1055,545 @@ function showContactInfo() {
          '<p class="contact-tagline">We\'re happy to help. Reach us through any of the channels below.</p>' +
          rows +
       '</div>';
+}
+
+// ── APPOINTMENTS ─────────────────────────────────────────
+// Category metadata (label, icon, description). Providers + doctors live in
+// the apt_providers table — managed via the Admin → Appointments tab.
+const APT_CAT_META = {
+   hospital: { icon: '🏥', label: 'Hospitals',      desc: 'General & multi-speciality hospitals' },
+   dental:   { icon: '🦷', label: 'Dental Clinics', desc: 'Dentists, orthodontists & cosmetic care' }
+};
+const APT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+let _aptProvidersCache = null;  // [{id, category, name, ..., doctors:[...]}]
+let _aptBookCtx = null;
+
+async function loadAptProviders(force) {
+   if (_aptProvidersCache && !force) return _aptProvidersCache;
+   _aptProvidersCache = await AppDB.getProviders();
+   return _aptProvidersCache;
+}
+
+function _aptGetProvider(id)        { return (_aptProvidersCache || []).find(function(p) { return p.id === id; }); }
+function _aptProvidersByCat(catKey) { return (_aptProvidersCache || []).filter(function(p) { return p.category === catKey; }); }
+function _aptGetDoctor(provider, doctorId) {
+   if (!provider || !provider.doctors) return null;
+   return provider.doctors.find(function(d) { return d.id === doctorId; });
+}
+
+// Parse availability text like "09:00-12:00, 14:00-18:00" → [{start,end}, ...]
+// Returns [] for empty / "off". Invalid windows are dropped.
+function parseAvailLine(text) {
+   if (!text) return [];
+   var s = String(text).trim().toLowerCase();
+   if (!s || s === 'off' || s === '-') return [];
+   var out = [];
+   s.split(',').forEach(function(part) {
+      var m = part.trim().match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+      if (!m) return;
+      var start = String(m[1]).padStart(2,'0') + ':' + m[2];
+      var end   = String(m[3]).padStart(2,'0') + ':' + m[4];
+      if (start < end) out.push({ start: start, end: end });
+   });
+   return out;
+}
+
+function formatAvailLine(windows) {
+   if (!windows || !windows.length) return 'off';
+   return windows.map(function(w) { return w.start + '-' + w.end; }).join(', ');
+}
+
+async function showBookAppointment() {
+   document.getElementById('heroSection').classList.add('hidden');
+   document.getElementById('productsSection').classList.add('hidden');
+   document.getElementById('appointmentSection').classList.remove('hidden');
+   document.getElementById('aptSectionTitle').textContent = '📅 Book Appointment';
+   document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
+   var storesBtn = document.querySelector('.header-stores-btn');
+   if (storesBtn) storesBtn.classList.remove('active');
+   var aptBtn = document.querySelector('.header-apt-btn');
+   if (aptBtn) aptBtn.classList.add('active');
+   document.getElementById('aptContent').innerHTML = '<p style="text-align:center;color:#999;padding:40px">Loading…</p>';
+   await loadAptProviders();
+   renderAptCategories();
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderAptCategories() {
+   var html = '<div class="apt-cats-grid">';
+   Object.keys(APT_CAT_META).forEach(function(k) {
+      var c = APT_CAT_META[k];
+      var count = _aptProvidersByCat(k).length;
+      html += '<div class="apt-cat-card" onclick="showAptCategory(\'' + k + '\')">' +
+                '<div class="apt-cat-icon">' + c.icon + '</div>' +
+                '<div class="apt-cat-label">' + c.label + '</div>' +
+                '<div class="apt-cat-desc">' + c.desc + '</div>' +
+                '<div class="apt-cat-count">' + count + (count === 1 ? ' place' : ' places') + ' available</div>' +
+             '</div>';
+   });
+   html += '</div>';
+   document.getElementById('aptContent').innerHTML = html;
+}
+
+function showAptCategory(catKey) {
+   var meta = APT_CAT_META[catKey];
+   if (!meta) return;
+   var providers = _aptProvidersByCat(catKey);
+   document.getElementById('aptSectionTitle').textContent = meta.icon + ' ' + meta.label;
+   var html = '<button class="apt-back-btn" onclick="showBookAppointment()">← All Categories</button>';
+   if (!providers.length) {
+      html += '<p style="text-align:center;color:#999;padding:40px">No ' + meta.label.toLowerCase() + ' available yet.</p>';
+   } else {
+      html += '<div class="apt-providers-grid">';
+      providers.forEach(function(p) {
+         var docCount = (p.doctors || []).length;
+         var icon = p.icon || meta.icon;
+         html += '<div class="apt-provider-card">' +
+                   '<div class="apt-provider-top">' +
+                      '<div class="apt-provider-icon">' + icon + '</div>' +
+                      '<div>' +
+                         '<div class="apt-provider-name">' + p.name + '</div>' +
+                         '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
+                      '</div>' +
+                   '</div>' +
+                   (p.address ? '<div class="apt-provider-meta">📍 ' + p.address + '</div>' : '') +
+                   (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
+                   '<div class="apt-provider-footer">' +
+                      '<span>' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + '</span>' +
+                      '<button class="apt-view-btn" onclick="showAptProvider(\'' + catKey + '\',\'' + p.id + '\')">View Doctors →</button>' +
+                   '</div>' +
+                '</div>';
+      });
+      html += '</div>';
+   }
+   document.getElementById('aptContent').innerHTML = html;
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showAptProvider(catKey, providerId) {
+   var meta = APT_CAT_META[catKey];
+   var provider = _aptGetProvider(providerId);
+   if (!provider) return;
+   var icon = provider.icon || (meta && meta.icon) || '🏥';
+   document.getElementById('aptSectionTitle').textContent = icon + ' ' + provider.name;
+   var html = '<button class="apt-back-btn" onclick="showAptCategory(\'' + catKey + '\')">← ' + (meta ? meta.label : 'Back') + '</button>' +
+              '<div class="apt-provider-info-bar">' +
+                 (provider.address ? '<span>📍 ' + provider.address + '</span>' : '') +
+                 (provider.timing  ? '<span>🕒 ' + provider.timing  + '</span>' : '') +
+              '</div>';
+   var doctors = provider.doctors || [];
+   if (!doctors.length) {
+      html += '<p style="text-align:center;color:#999;padding:40px">No doctors listed yet.</p>';
+   } else {
+      html += '<div class="apt-doctors-list">';
+      doctors.forEach(function(d) {
+         var initials = d.name.replace(/^Dr\.?\s*/i, '').split(' ').map(function(s) { return s[0]; }).slice(0, 2).join('').toUpperCase();
+         var daysSummary = summarizeDoctorDays(d.availability);
+         html += '<div class="apt-doctor-card">' +
+                   '<div class="apt-doctor-avatar">' + initials + '</div>' +
+                   '<div class="apt-doctor-info">' +
+                      '<div class="apt-doctor-name">' + d.name + '</div>' +
+                      '<div class="apt-doctor-spec">' + (d.speciality || '') + '</div>' +
+                      '<div class="apt-doctor-qual">' + (d.qual || '') + '</div>' +
+                      '<div class="apt-doctor-days">📅 ' + daysSummary + '</div>' +
+                   '</div>' +
+                   '<div class="apt-doctor-right">' +
+                      '<div class="apt-doctor-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
+                      '<button class="apt-book-btn" onclick="openAptBookModal(\'' + catKey + '\',\'' + providerId + '\',\'' + d.id + '\')">Book</button>' +
+                   '</div>' +
+                '</div>';
+      });
+      html += '</div>';
+   }
+   document.getElementById('aptContent').innerHTML = html;
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function summarizeDoctorDays(avail) {
+   if (!avail) return 'Not set';
+   var openDays = [];
+   for (var i = 0; i < 7; i++) {
+      var arr = avail[i] || avail[String(i)] || [];
+      if (arr.length) openDays.push(APT_DAYS[i]);
+   }
+   if (!openDays.length) return 'Currently unavailable';
+   if (openDays.length === 7) return 'All days';
+   return openDays.join(', ');
+}
+
+function openAptBookModal(catKey, providerId, doctorId) {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { promptAuth('Please log in or sign up to book an appointment.'); return; }
+
+   var provider = _aptGetProvider(providerId);
+   var doctor = _aptGetDoctor(provider, doctorId);
+   if (!doctor) return;
+
+   _aptBookCtx = { catKey: catKey, providerId: providerId, doctor: doctor, provider: provider, date: null, slot: null };
+
+   document.getElementById('aptBookModalDoc').textContent = doctor.name + ' · ' + provider.name;
+   document.getElementById('aptBookModalSpec').textContent = (doctor.speciality || '') + (doctor.qual ? ' · ' + doctor.qual : '');
+   document.getElementById('aptBookModalFee').textContent = 'Consultation fee: ₹' + (doctor.fee || 0);
+
+   // Next 7 dates, disable ones the doctor isn't available
+   var dateHtml = '';
+   for (var i = 0; i < 7; i++) {
+      var d = new Date();
+      d.setDate(d.getDate() + i);
+      var dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      var label = i === 0 ? 'TODAY' : (i === 1 ? 'TMRW' : APT_DAYS[d.getDay()]);
+      var monthShort = d.toLocaleDateString('en-IN', { month: 'short' });
+      var dayIdx = d.getDay();
+      var avail = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+      var off = avail.length === 0;
+      var click = off ? '' : ' onclick="selectAptDate(\'' + dateStr + '\', this)"';
+      var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="Doctor unavailable"' : '';
+      dateHtml += '<div class="apt-date-btn"' + click + extra + '>' +
+                     '<div class="apt-date-day">' + label + '</div>' +
+                     '<div class="apt-date-num">' + d.getDate() + ' ' + monthShort + '</div>' +
+                  '</div>';
+   }
+   document.getElementById('aptDateButtons').innerHTML = dateHtml;
+
+   document.getElementById('aptSlotSection').classList.add('hidden');
+   document.getElementById('aptSlotButtons').innerHTML = '';
+   document.getElementById('aptPatientName').value = user.name || '';
+   document.getElementById('aptPatientPhone').value = user.phone || '';
+   document.getElementById('aptPatientReason').value = '';
+   document.getElementById('aptConfirmBtn').disabled = true;
+
+   document.getElementById('aptBookModal').classList.remove('hidden');
+}
+
+function selectAptDate(dateStr, btn) {
+   if (!_aptBookCtx) return;
+   _aptBookCtx.date = dateStr;
+   _aptBookCtx.slot = null;
+   document.querySelectorAll('.apt-date-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+
+   // Build slots from doctor's availability windows for this day-of-week
+   var d = new Date(dateStr + 'T00:00:00');
+   var dayIdx = d.getDay();
+   var doctor = _aptBookCtx.doctor;
+   var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+
+   var slotHtml = '';
+   windows.forEach(function(w) {
+      var startMin = _hhmmToMin(w.start);
+      var endMin   = _hhmmToMin(w.end);
+      for (var t = startMin; t + 30 <= endMin; t += 30) {
+         var hh = Math.floor(t / 60);
+         var mm = t % 60;
+         var slot24 = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+         var hour12 = ((hh % 12) || 12);
+         var label = hour12 + ':' + String(mm).padStart(2, '0') + ' ' + (hh < 12 ? 'AM' : 'PM');
+         slotHtml += '<button class="apt-slot-btn" onclick="selectAptSlot(\'' + slot24 + '\', this)">' + label + '</button>';
+      }
+   });
+   if (!slotHtml) slotHtml = '<p style="color:#999;font-size:0.85rem">No time slots available on this day.</p>';
+   document.getElementById('aptSlotButtons').innerHTML = slotHtml;
+   document.getElementById('aptSlotSection').classList.remove('hidden');
+   document.getElementById('aptConfirmBtn').disabled = true;
+}
+
+function _hhmmToMin(s) {
+   var p = String(s).split(':');
+   return parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10);
+}
+
+function selectAptSlot(slot, btn) {
+   if (!_aptBookCtx) return;
+   _aptBookCtx.slot = slot;
+   document.querySelectorAll('.apt-slot-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   document.getElementById('aptConfirmBtn').disabled = false;
+}
+
+async function confirmAptBooking() {
+   if (!_aptBookCtx || !_aptBookCtx.date || !_aptBookCtx.slot) {
+      alert('Please pick a date and time slot.');
+      return;
+   }
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { promptAuth('Please log in to book.'); return; }
+
+   var name = document.getElementById('aptPatientName').value.trim();
+   var phone = document.getElementById('aptPatientPhone').value.trim();
+   if (!name || !phone) { alert('Please enter patient name and phone.'); return; }
+
+   var aptId = 'APT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 5).toUpperCase();
+   var apt = {
+      apt_id: aptId,
+      user_email: user.email,
+      provider_id: _aptBookCtx.providerId,
+      provider_name: _aptBookCtx.provider.name,
+      doctor_id: _aptBookCtx.doctor.id,
+      doctor_name: _aptBookCtx.doctor.name,
+      speciality: _aptBookCtx.doctor.speciality,
+      category: _aptBookCtx.catKey,
+      date: _aptBookCtx.date,
+      slot: _aptBookCtx.slot,
+      fee: _aptBookCtx.doctor.fee,
+      status: 'Confirmed'
+   };
+
+   var confirmBtn = document.getElementById('aptConfirmBtn');
+   confirmBtn.disabled = true;
+   confirmBtn.textContent = 'Booking…';
+
+   var ok = await AppDB.insertAppointment(apt);
+
+   confirmBtn.disabled = false;
+   confirmBtn.textContent = '✅ Confirm Appointment';
+
+   if (!ok) { alert('Failed to book appointment. Please try again.'); return; }
+
+   closeAptBookModal();
+   showAptDone(apt);
+}
+
+function showAptDone(apt) {
+   document.getElementById('aptDoneDetails').innerHTML =
+      '<div style="background:#f8f9ff;border-radius:10px;padding:14px;margin-top:10px">' +
+         '<div style="font-size:0.78rem;color:#888">Appointment ID</div>' +
+         '<div style="font-weight:700;color:#1a1a2e;font-size:0.95rem;margin-bottom:8px">' + apt.apt_id + '</div>' +
+         '<div style="font-size:0.85rem;color:#555;line-height:1.7">' +
+            '<div>👨‍⚕️ ' + apt.doctor_name + ' — ' + apt.speciality + '</div>' +
+            '<div>🏥 ' + apt.provider_name + '</div>' +
+            '<div>📅 ' + apt.date + ' at ' + apt.slot + '</div>' +
+            '<div>💰 ₹' + apt.fee + '</div>' +
+         '</div>' +
+      '</div>';
+   document.getElementById('aptDoneOverlay').classList.remove('hidden');
+}
+
+function closeAptBookModal() {
+   document.getElementById('aptBookModal').classList.add('hidden');
+   _aptBookCtx = null;
+}
+
+function closeAptDoneModal() {
+   document.getElementById('aptDoneOverlay').classList.add('hidden');
+}
+
+function handleAptOverlayClick(e) {
+   if (e.target === e.currentTarget) closeAptBookModal();
+}
+
+// ── ADMIN: Appointments management ──
+async function renderAptAdmin() {
+   var container = document.getElementById('aptAdminContent');
+   if (!container) return;
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+   await loadAptProviders(true);
+
+   var filter = (document.getElementById('aptAdminCatFilter') || {}).value || '';
+   var list = (_aptProvidersCache || []).filter(function(p) { return !filter || p.category === filter; });
+
+   if (!list.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">' +
+         'No providers yet. Click <strong>➕ Add Hospital / Clinic</strong> to create one.' +
+      '</p>';
+      return;
+   }
+
+   var html = '<div class="apt-providers-grid" style="margin-top:1rem">';
+   list.forEach(function(p) {
+      var meta = APT_CAT_META[p.category] || { icon: '🏥', label: p.category };
+      var icon = p.icon || meta.icon;
+      var docCount = (p.doctors || []).length;
+      var pid = p.id.replace(/'/g, "\\'");
+      html += '<div class="apt-provider-card">' +
+                '<div class="apt-provider-top">' +
+                   '<div class="apt-provider-icon">' + icon + '</div>' +
+                   '<div style="flex:1;min-width:0">' +
+                      '<div class="apt-provider-name">' + p.name + '</div>' +
+                      '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
+                      '<div class="apt-provider-tagline" style="margin-top:3px;color:#1a73e8">' + meta.icon + ' ' + meta.label + '</div>' +
+                   '</div>' +
+                '</div>' +
+                (p.address ? '<div class="apt-provider-meta">📍 ' + p.address + '</div>' : '') +
+                (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
+                '<div class="apt-provider-footer">' +
+                   '<span>' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + '</span>' +
+                   '<div style="display:flex;gap:6px">' +
+                      '<button class="apt-view-btn" onclick="openAptProviderModal(\'' + pid + '\')">✏️ Edit</button>' +
+                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteAptProvider(\'' + pid + '\')">🗑</button>' +
+                   '</div>' +
+                '</div>' +
+                renderAptAdminDoctors(p) +
+             '</div>';
+   });
+   html += '</div>';
+   container.innerHTML = html;
+}
+
+function renderAptAdminDoctors(provider) {
+   var doctors = provider.doctors || [];
+   var pid = provider.id.replace(/'/g, "\\'");
+   var html = '<div style="margin-top:0.9rem;padding-top:0.9rem;border-top:1px solid #f0f0f0">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">' +
+                 '<strong style="font-size:0.85rem;color:#1a1a2e">Doctors</strong>' +
+                 '<button class="apt-view-btn" onclick="openAptDoctorModal(\'' + pid + '\')">➕ Add Doctor</button>' +
+              '</div>';
+   if (!doctors.length) {
+      html += '<p style="color:#999;font-size:0.82rem">No doctors added yet.</p>';
+   } else {
+      doctors.forEach(function(d) {
+         var did = d.id.replace(/'/g, "\\'");
+         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;gap:8px">' +
+                   '<div style="flex:1;min-width:0">' +
+                      '<div style="font-weight:600;font-size:0.88rem;color:#1a1a2e">' + d.name + '</div>' +
+                      '<div style="font-size:0.78rem;color:#666">' + (d.speciality || '') + ' · ₹' + (d.fee || 0) + '</div>' +
+                   '</div>' +
+                   '<div style="display:flex;gap:4px">' +
+                      '<button class="apt-view-btn" style="padding:4px 9px;font-size:0.75rem" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️</button>' +
+                      '<button class="apt-view-btn" style="padding:4px 9px;font-size:0.75rem;background:#c62828" onclick="deleteAptDoctor(\'' + pid + '\',\'' + did + '\')">🗑</button>' +
+                   '</div>' +
+                '</div>';
+      });
+   }
+   html += '</div>';
+   return html;
+}
+
+function openAptProviderModal(providerId) {
+   var p = providerId ? _aptGetProvider(providerId) : null;
+   document.getElementById('aptProviderModalTitle').textContent = p ? '✏️ Edit Provider' : '➕ Add Hospital / Clinic';
+   document.getElementById('aptProvId').value       = p ? p.id : '';
+   document.getElementById('aptProvCategory').value = p ? p.category : 'hospital';
+   document.getElementById('aptProvName').value     = p ? p.name : '';
+   document.getElementById('aptProvTagline').value  = p ? (p.tagline || '') : '';
+   document.getElementById('aptProvAddress').value  = p ? (p.address || '') : '';
+   document.getElementById('aptProvTiming').value   = p ? (p.timing  || '') : '';
+   document.getElementById('aptProvIcon').value     = p ? (p.icon    || '') : '';
+   document.getElementById('aptProviderModal').classList.remove('hidden');
+}
+
+function closeAptProviderModal() {
+   document.getElementById('aptProviderModal').classList.add('hidden');
+}
+
+async function saveAptProvider() {
+   var name = document.getElementById('aptProvName').value.trim();
+   if (!name) { alert('Provider name is required.'); return; }
+   var existingId = document.getElementById('aptProvId').value;
+   var existing = existingId ? _aptGetProvider(existingId) : null;
+   var category = document.getElementById('aptProvCategory').value;
+   var icon = document.getElementById('aptProvIcon').value.trim() || (APT_CAT_META[category] && APT_CAT_META[category].icon) || '🏥';
+
+   var id = existingId || (category + '_' + Date.now().toString(36));
+   var provider = {
+      id: id,
+      category: category,
+      name: name,
+      tagline: document.getElementById('aptProvTagline').value.trim(),
+      address: document.getElementById('aptProvAddress').value.trim(),
+      timing:  document.getElementById('aptProvTiming').value.trim(),
+      icon:    icon,
+      doctors: existing ? (existing.doctors || []) : []
+   };
+   var ok = await AppDB.upsertProvider(provider);
+   if (!ok) { alert('Failed to save. Check console.'); return; }
+   closeAptProviderModal();
+   await renderAptAdmin();
+}
+
+async function deleteAptProvider(providerId) {
+   var p = _aptGetProvider(providerId);
+   if (!p) return;
+   if (!confirm('Delete "' + p.name + '" and all its doctors? This cannot be undone.')) return;
+   var ok = await AppDB.deleteProvider(providerId);
+   if (!ok) { alert('Failed to delete.'); return; }
+   await renderAptAdmin();
+}
+
+function openAptDoctorModal(providerId, doctorId) {
+   var provider = _aptGetProvider(providerId);
+   if (!provider) return;
+   var doctor = doctorId ? _aptGetDoctor(provider, doctorId) : null;
+
+   document.getElementById('aptDoctorModalTitle').textContent = doctor ? '✏️ Edit Doctor' : '➕ Add Doctor — ' + provider.name;
+   document.getElementById('aptDocProviderId').value = providerId;
+   document.getElementById('aptDocId').value         = doctor ? doctor.id : '';
+   document.getElementById('aptDocName').value       = doctor ? doctor.name : '';
+   document.getElementById('aptDocSpec').value       = doctor ? (doctor.speciality || '') : '';
+   document.getElementById('aptDocQual').value       = doctor ? (doctor.qual || '') : '';
+   document.getElementById('aptDocFee').value        = doctor ? (doctor.fee || '') : '';
+
+   var defaultAvail = { 0: [], 1: [{start:'09:00',end:'12:00'},{start:'14:00',end:'18:00'}],
+                        2: [{start:'09:00',end:'12:00'},{start:'14:00',end:'18:00'}],
+                        3: [{start:'09:00',end:'12:00'},{start:'14:00',end:'18:00'}],
+                        4: [{start:'09:00',end:'12:00'},{start:'14:00',end:'18:00'}],
+                        5: [{start:'09:00',end:'12:00'},{start:'14:00',end:'18:00'}],
+                        6: [{start:'09:00',end:'13:00'}] };
+   var avail = (doctor && doctor.availability) || defaultAvail;
+
+   var html = '';
+   for (var i = 0; i < 7; i++) {
+      var line = formatAvailLine(avail[i] || avail[String(i)] || []);
+      html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+                '<label style="width:42px;font-size:0.82rem;font-weight:600;color:#555">' + APT_DAYS[i] + '</label>' +
+                '<input type="text" id="aptDocAvail_' + i + '" value="' + line.replace(/"/g,'&quot;') + '" placeholder="09:00-12:00, 14:00-18:00 or off" ' +
+                       'style="flex:1;padding:7px 10px;border:1.5px solid #ddd;border-radius:6px;font-size:0.85rem"/>' +
+             '</div>';
+   }
+   document.getElementById('aptDocAvail').innerHTML = html;
+   document.getElementById('aptDoctorModal').classList.remove('hidden');
+}
+
+function closeAptDoctorModal() {
+   document.getElementById('aptDoctorModal').classList.add('hidden');
+}
+
+async function saveAptDoctor() {
+   var providerId = document.getElementById('aptDocProviderId').value;
+   var provider = _aptGetProvider(providerId);
+   if (!provider) { alert('Provider not found.'); return; }
+
+   var name = document.getElementById('aptDocName').value.trim();
+   if (!name) { alert('Doctor name is required.'); return; }
+
+   var availability = {};
+   for (var i = 0; i < 7; i++) {
+      var raw = document.getElementById('aptDocAvail_' + i).value;
+      availability[i] = parseAvailLine(raw);
+   }
+
+   var existingDocId = document.getElementById('aptDocId').value;
+   var docId = existingDocId || (providerId + '_d_' + Date.now().toString(36));
+   var newDoctor = {
+      id: docId,
+      name: name,
+      speciality: document.getElementById('aptDocSpec').value.trim(),
+      qual:       document.getElementById('aptDocQual').value.trim(),
+      fee:        parseInt(document.getElementById('aptDocFee').value, 10) || 0,
+      availability: availability
+   };
+
+   var doctors = (provider.doctors || []).slice();
+   var idx = doctors.findIndex(function(d) { return d.id === docId; });
+   if (idx >= 0) doctors[idx] = newDoctor; else doctors.push(newDoctor);
+
+   provider.doctors = doctors;
+   var ok = await AppDB.upsertProvider(provider);
+   if (!ok) { alert('Failed to save doctor.'); return; }
+   closeAptDoctorModal();
+   await renderAptAdmin();
+}
+
+async function deleteAptDoctor(providerId, doctorId) {
+   var provider = _aptGetProvider(providerId);
+   if (!provider) return;
+   var doctor = _aptGetDoctor(provider, doctorId);
+   if (!doctor) return;
+   if (!confirm('Remove Dr. ' + doctor.name.replace(/^Dr\.?\s*/i,'') + ' from ' + provider.name + '?')) return;
+   provider.doctors = (provider.doctors || []).filter(function(d) { return d.id !== doctorId; });
+   var ok = await AppDB.upsertProvider(provider);
+   if (!ok) { alert('Failed to delete doctor.'); return; }
+   await renderAptAdmin();
 }
 
 // ── STORES ──
@@ -2993,15 +3542,16 @@ function showAdminToast(msg) {
 
 // ── ADMIN TABS ──
 function switchAdminTab(tab) {
-   ['products', 'stores', 'settings', 'users'].forEach(function(t) {
+   ['products', 'stores', 'appointments', 'settings', 'users'].forEach(function(t) {
       var el  = document.getElementById('tab-' + t);
       var btn = document.getElementById('tab-' + t + '-btn');
       if (el)  el.classList.toggle('hidden', t !== tab);
       if (btn) btn.classList.toggle('active', t === tab);
    });
-   if (tab === 'settings') loadSettingsForm();
-   if (tab === 'users')    refreshAndRenderUsers();
-   if (tab === 'stores')   renderAdminStores();
+   if (tab === 'settings')     loadSettingsForm();
+   if (tab === 'users')        refreshAndRenderUsers();
+   if (tab === 'stores')       renderAdminStores();
+   if (tab === 'appointments') renderAptAdmin();
 }
 
 // ── ADMIN SETTINGS ──

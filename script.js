@@ -1689,10 +1689,17 @@ async function renderAllAppointments() {
       var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
       var aid = (a.apt_id || '').replace(/'/g, "\\'");
       var canChange = status !== 'Cancelled' && status !== 'Completed';
+      var statusLabel = status;
+      if (status === 'Cancelled' && a.cancelled_by) {
+         var byLabel = a.cancelled_by === 'customer' ? 'by Customer'
+                      : a.cancelled_by === 'hospital' ? 'by Hospital'
+                      : a.cancelled_by === 'admin'   ? 'by Admin' : '';
+         if (byLabel) statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+      }
       html += '<div class="order-card">' +
                 '<div class="order-card-header">' +
                    '<div><span class="order-id">' + a.apt_id + '</span> <span class="order-date">' + (a.date || '') + ' · ' + (a.slot || '') + '</span></div>' +
-                   '<span class="order-badge ' + cls + '">' + status + '</span>' +
+                   '<span class="order-badge ' + cls + '">' + statusLabel + '</span>' +
                 '</div>' +
                 '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
                 '<div class="order-items">' +
@@ -1714,7 +1721,8 @@ async function renderAllAppointments() {
 
 async function adminSetAptStatus(aptId, status) {
    if (!confirm('Set this appointment to "' + status + '"?')) return;
-   var ok = await AppDB.updateAppointmentStatus(aptId, status);
+   var extra = status === 'Cancelled' ? { cancelled_by: 'admin' } : null;
+   var ok = await AppDB.updateAppointmentStatus(aptId, status, extra);
    if (!ok) { alert('Failed to update status.'); return; }
    renderAllAppointments();
 }
@@ -3358,6 +3366,12 @@ async function renderShopAppointments(filterStatus) {
       var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
       // Friendlier labels for the owner — DB still stores 'Completed' / 'Cancelled'
       var statusLabel = status === 'Completed' ? 'Checkup Completed' : status;
+      if (status === 'Cancelled' && a.cancelled_by) {
+         var byLabel = a.cancelled_by === 'customer' ? 'by Patient'
+                      : a.cancelled_by === 'hospital' ? 'by You'
+                      : a.cancelled_by === 'admin'   ? 'by Admin' : '';
+         if (byLabel) statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+      }
       var aid = (a.apt_id || '').replace(/'/g, "\\'");
       var canChange = status === 'Confirmed';
 
@@ -3418,7 +3432,8 @@ async function renderShopAppointments(filterStatus) {
 
 async function shopSetAptStatus(aptId, status) {
    if (!confirm('Set this appointment to "' + status + '"?')) return;
-   var ok = await AppDB.updateAppointmentStatus(aptId, status);
+   var extra = status === 'Cancelled' ? { cancelled_by: 'hospital' } : null;
+   var ok = await AppDB.updateAppointmentStatus(aptId, status, extra);
    if (!ok) { alert('Failed to update.'); return; }
    _shopAptsCache = null;     // force re-fetch
    renderShopAppointments();
@@ -4476,10 +4491,17 @@ async function renderMyAppointments() {
       var status = a.status || 'Confirmed';
       var isCancellable = status !== 'Cancelled' && status !== 'Completed';
       var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      var statusLabel = status;
+      if (status === 'Cancelled' && a.cancelled_by) {
+         var byLabel = a.cancelled_by === 'customer' ? 'by You'
+                      : a.cancelled_by === 'hospital' ? 'by Hospital'
+                      : a.cancelled_by === 'admin'   ? 'by Admin' : '';
+         if (byLabel) statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+      }
       return '<div class="order-card">' +
                 '<div class="order-card-header">' +
                    '<div><span class="order-id">' + a.apt_id + '</span> <span class="order-date">' + (a.date || '') + ' · ' + (a.slot || '') + '</span></div>' +
-                   '<span class="order-badge ' + cls + '">' + status + '</span>' +
+                   '<span class="order-badge ' + cls + '">' + statusLabel + '</span>' +
                 '</div>' +
                 '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
                 '<div class="order-items">' +
@@ -4498,7 +4520,7 @@ async function renderMyAppointments() {
 
 async function cancelMyAppointment(aptId) {
    if (!confirm('Cancel this appointment? This cannot be undone.')) return;
-   var ok = await AppDB.updateAppointmentStatus(aptId, 'Cancelled');
+   var ok = await AppDB.updateAppointmentStatus(aptId, 'Cancelled', { cancelled_by: 'customer' });
    if (!ok) { alert('Failed to cancel. Please try again.'); return; }
    renderMyAppointments();
 }

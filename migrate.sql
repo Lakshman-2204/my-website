@@ -67,3 +67,8 @@ ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS patient_name   text DEFAULT '',
    ADD COLUMN IF NOT EXISTS patient_phone  text DEFAULT '',
    ADD COLUMN IF NOT EXISTS patient_reason text DEFAULT '';
+
+-- 8. APPOINTMENTS — track who cancelled so all parties see context
+--    values: 'customer' | 'hospital' | 'admin'  (empty for non-cancelled rows)
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS cancelled_by text DEFAULT '';

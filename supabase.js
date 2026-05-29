@@ -339,8 +339,9 @@ window.AppDB = {
       return data || [];
    },
 
-   async updateAppointmentStatus(aptId, status) {
-      const { error } = await _sb.from('appointments').update({ status }).eq('apt_id', aptId);
+   async updateAppointmentStatus(aptId, status, extra) {
+      const updates = Object.assign({ status }, extra || {});
+      const { error } = await _sb.from('appointments').update(updates).eq('apt_id', aptId);
       if (error) { console.error('updateAppointmentStatus:', error.message); return false; }
       return true;
    },

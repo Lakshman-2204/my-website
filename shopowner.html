@@ -69,13 +69,17 @@
          <button class="shop-tab" id="tab-Ready" data-filter="Ready" onclick="renderShopDashboard('Ready')">✅ Ready</button>
          <button class="shop-tab" id="tab-Completed" data-filter="Completed" onclick="renderShopDashboard('Completed')">🏁 Completed</button>
       </div>
-      <select id="shopOrderDateFilter" class="admin-filter-select" onchange="renderShopDashboard(window._shopCurrentFilter)">
-         <option value="all">📅 All time</option>
-         <option value="today">Today</option>
-         <option value="week">This Week</option>
-         <option value="month">This Month</option>
-         <option value="year">This Year</option>
-      </select>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+         <select id="shopOrderDateFilter" class="admin-filter-select" onchange="renderShopDashboard(window._shopCurrentFilter)">
+            <option value="all">📅 All time</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="year">This Year</option>
+            <option value="custom">📆 Custom date…</option>
+         </select>
+         <input type="date" id="shopOrderCustomDate" class="admin-filter-select" style="display:none" onchange="renderShopDashboard(window._shopCurrentFilter)"/>
+      </div>
    </div>
 
    <!-- ORDER LIST -->
@@ -108,13 +112,17 @@
             <button class="shop-tab"        id="apt-tab-Completed" data-filter="Completed" onclick="renderShopAppointments('Completed')">✅ Completed</button>
             <button class="shop-tab"        id="apt-tab-Cancelled" data-filter="Cancelled" onclick="renderShopAppointments('Cancelled')">✕ Cancelled</button>
          </div>
-         <select id="shopAptDateFilter" class="admin-filter-select" onchange="renderShopAppointments(window._shopAptCurrentFilter)">
-            <option value="all">📅 All time</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
-         </select>
+         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="shopAptDateFilter" class="admin-filter-select" onchange="renderShopAppointments(window._shopAptCurrentFilter)">
+               <option value="all">📅 All time</option>
+               <option value="today">Today</option>
+               <option value="week">This Week</option>
+               <option value="month">This Month</option>
+               <option value="year">This Year</option>
+               <option value="custom">📆 Custom date…</option>
+            </select>
+            <input type="date" id="shopAptCustomDate" class="admin-filter-select" style="display:none" onchange="renderShopAppointments(window._shopAptCurrentFilter)"/>
+         </div>
       </div>
       <div class="shop-order-list" id="shopAppointmentList">
          <div class="shop-empty">Loading…</div>

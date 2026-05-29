@@ -2924,9 +2924,9 @@ function renderShopDashboard(filterStatus) {
    }
 
    // Apply date range filter (uses order date — falls back to created_at if present)
-   var dateRange = (document.getElementById('shopOrderDateFilter') || {}).value || 'all';
+   var df = _readDateFilter('shopOrderDateFilter', 'shopOrderCustomDate');
    allOrders = allOrders.filter(function(o) {
-      return _isDateInRange(o.date || o.created_at || o.timestamp, dateRange);
+      return _isDateInRange(o.date || o.created_at || o.timestamp, df.range, df.customDate);
    });
 
    // Update stats — reflect the date filter so numbers match what's visible
@@ -3230,12 +3230,18 @@ async function renderShopDoctors() {
 let _shopAptsCache = null;
 
 // Date range matcher used by both appointments and orders filters.
-// dateStr is 'YYYY-MM-DD' (or a JS-parseable date); range is 'all' | 'today' | 'week' | 'month' | 'year'.
-function _isDateInRange(dateStr, range) {
+// dateStr is 'YYYY-MM-DD' (or a JS-parseable date); range is 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'.
+// customDate is required when range === 'custom' and is the YYYY-MM-DD string from a <input type="date">.
+function _isDateInRange(dateStr, range, customDate) {
    if (!range || range === 'all') return true;
    if (!dateStr) return false;
    var d = (dateStr instanceof Date) ? dateStr : new Date(/^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr + 'T00:00:00' : dateStr);
    if (isNaN(d.getTime())) return false;
+   if (range === 'custom') {
+      if (!customDate) return true;   // No date picked yet → don't filter anything out
+      var ymd = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      return ymd === customDate;
+   }
    var now = new Date();
    if (range === 'today') {
       return d.getFullYear() === now.getFullYear() &&
@@ -3254,6 +3260,17 @@ function _isDateInRange(dateStr, range) {
       return d.getFullYear() === now.getFullYear();
    }
    return true;
+}
+
+// Read the selected range + custom-date from a pair of inputs, and toggle
+// the custom-date input's visibility. Returns { range, customDate }.
+function _readDateFilter(selectId, customInputId) {
+   var sel  = document.getElementById(selectId);
+   var inp  = document.getElementById(customInputId);
+   var range = sel ? sel.value : 'all';
+   if (inp) inp.style.display = (range === 'custom') ? '' : 'none';
+   var customDate = (range === 'custom' && inp) ? inp.value : null;
+   return { range: range, customDate: customDate };
 }
 
 async function renderShopAppointments(filterStatus) {
@@ -3276,8 +3293,9 @@ async function renderShopAppointments(filterStatus) {
    var all = _shopAptsCache || [];
 
    // Apply date range filter (uses appointment date, not booked-at time)
-   var dateRange = (document.getElementById('shopAptDateFilter') || {}).value || 'all';
-   var dateFiltered = all.filter(function(a) { return _isDateInRange(a.date, dateRange); });
+   var df = _readDateFilter('shopAptDateFilter', 'shopAptCustomDate');
+   var dateRange = df.range;
+   var dateFiltered = all.filter(function(a) { return _isDateInRange(a.date, df.range, df.customDate); });
 
    // Stat counters reflect the date filter so they make sense in context
    var counts = { Confirmed: 0, Completed: 0, Cancelled: 0 };

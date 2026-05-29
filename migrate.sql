@@ -53,3 +53,11 @@ CREATE INDEX IF NOT EXISTS apt_providers_category_idx ON public.apt_providers(ca
 ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS owner_email text DEFAULT '';
 CREATE INDEX IF NOT EXISTS apt_providers_owner_idx ON public.apt_providers(owner_email);
+
+-- 6. USERS — approval gate for Business Partners
+--    is_approved=true for customers (no gate). New Business Partner signups
+--    default false until admin approves them.
+ALTER TABLE public.users
+   ADD COLUMN IF NOT EXISTS is_approved boolean DEFAULT true;
+-- Grandfather: any existing business partner you already trust is left approved.
+-- New unapproved partners will only appear after the JS change ships.

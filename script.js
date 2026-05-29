@@ -2248,14 +2248,20 @@ async function verifySignupOtp() {
       name:  _pendingSignup.name,
       email: _pendingSignup.email,
       role:  _pendingSignup.role,
-      password: ''
+      password: '',
+      // Business Partner accounts require admin approval before they can access
+      // the business dashboard. Customers are auto-approved.
+      isApproved: _pendingSignup.role !== 'storeowner'
    });
    localStorage.setItem('role_' + _pendingSignup.email, _pendingSignup.role);
 
    await _sb.auth.signOut();
+   var pendingMsg = _pendingSignup.role === 'storeowner'
+      ? 'Account verified!\n\nYour business partner account is awaiting admin approval. You can log in now and browse the site as a customer in the meantime — the business dashboard will unlock once approved.'
+      : 'Account verified! Please login.';
    _pendingSignup = null;
 
-   alert('Account verified! Please login.');
+   alert(pendingMsg);
    window.location.href = 'login.html';
 }
 
@@ -2313,8 +2319,16 @@ async function login() {
 
    // Admin → home.html (can access all pages via dropdown)
    if (isAdmin(user.email)) { window.location.href = 'home.html'; return; }
-   // Store owner → shopowner.html
-   if (user.role === 'storeowner') { window.location.href = 'shopowner.html'; return; }
+   // Business Partner → shopowner.html if approved, else browse as customer
+   if (user.role === 'storeowner') {
+      if (user.isApproved === false) {
+         alert('Your Business Partner account is still awaiting admin approval. You can browse as a customer in the meantime — the business dashboard will unlock once approved.');
+         window.location.href = 'home.html';
+         return;
+      }
+      window.location.href = 'shopowner.html';
+      return;
+   }
    // Customer → home.html
    window.location.href = 'home.html';
 }
@@ -2355,7 +2369,7 @@ function filterUsers(filter) {
 function renderUserList(filter) {
    filter = filter || 'all';
    // Update filter tab active state
-   ['all', 'customers', 'storeowners', 'blocked'].forEach(function(f) {
+   ['all', 'customers', 'storeowners', 'pending', 'blocked'].forEach(function(f) {
       var btn = document.getElementById('uf-' + f);
       if (btn) btn.classList.toggle('active', f === filter);
    });
@@ -2370,11 +2384,13 @@ function renderUserList(filter) {
    // Stats
    var activeCount  = allNonAdmin.filter(function(u) { return !u.blocked; }).length;
    var blockedCount = allNonAdmin.filter(function(u) { return u.blocked; }).length;
+   var pendingCount = allNonAdmin.filter(function(u) { return u.role === 'storeowner' && u.isApproved === false; }).length;
    var statsEl = document.getElementById('userStatsBar');
    if (statsEl) {
       statsEl.innerHTML =
          '<span>👥 Total: <strong>' + allNonAdmin.length + '</strong></span>' +
          '<span>✅ Active: <strong>' + activeCount + '</strong></span>' +
+         '<span>⏳ Pending: <strong>' + pendingCount + '</strong></span>' +
          '<span>🚫 Blocked: <strong>' + blockedCount + '</strong></span>';
    }
 
@@ -2382,6 +2398,7 @@ function renderUserList(filter) {
    var filtered = allNonAdmin.slice();
    if (filter === 'customers')   filtered = filtered.filter(function(u) { return u.role !== 'storeowner'; });
    if (filter === 'storeowners') filtered = filtered.filter(function(u) { return u.role === 'storeowner'; });
+   if (filter === 'pending')     filtered = filtered.filter(function(u) { return u.role === 'storeowner' && u.isApproved === false; });
    if (filter === 'blocked')     filtered = filtered.filter(function(u) { return u.blocked; });
 
    // Apply search
@@ -2404,8 +2421,10 @@ function renderUserList(filter) {
    var html = '';
    filtered.forEach(function(u) {
       var initial    = (u.name || u.email).charAt(0).toUpperCase();
-      var roleLabel  = u.role === 'storeowner' ? 'Business Partner' : 'Customer';
-      var roleClass  = u.role === 'storeowner' ? 'badge-owner' : 'badge-customer';
+      var isPartner  = u.role === 'storeowner';
+      var isPending  = isPartner && u.isApproved === false;
+      var roleLabel  = isPartner ? 'Business Partner' : 'Customer';
+      var roleClass  = isPartner ? 'badge-owner' : 'badge-customer';
       var statusCls  = u.blocked ? 'status-blocked' : 'status-active';
       var statusLbl  = u.blocked ? '🚫 Blocked' : '✅ Active';
       var blockLbl   = u.blocked ? '✅ Unblock' : '🚫 Block';
@@ -2415,6 +2434,18 @@ function renderUserList(filter) {
       var meta       = orderCount + ' order' + (orderCount !== 1 ? 's' : '');
       if (u.phone) meta += ' · ' + u.phone;
 
+      var approvalBadge = '';
+      var approvalBtn   = '';
+      if (isPartner) {
+         if (isPending) {
+            approvalBadge = ' <span class="um-status status-blocked" style="background:#fff3e0;color:#e65100">⏳ Pending</span>';
+            approvalBtn   = '<button class="um-btn um-btn-unblock" onclick="approvePartner(\'' + u.email + '\')">✅ Approve</button>';
+         } else {
+            approvalBadge = ' <span class="um-status status-active">✅ Approved</span>';
+            approvalBtn   = '<button class="um-btn um-btn-block"   onclick="revokePartner(\'' + u.email + '\')">🚫 Revoke</button>';
+         }
+      }
+
       html +=
          '<div class="um-user-card' + (u.blocked ? ' um-card-blocked' : '') + '">' +
             '<div class="um-avatar">' + initial + '</div>' +
@@ -2423,18 +2454,40 @@ function renderUserList(filter) {
                   (u.name || '(No name)') +
                   ' <span class="um-badge ' + roleClass + '">' + roleLabel + '</span>' +
                   ' <span class="um-status ' + statusCls + '">' + statusLbl + '</span>' +
+                  approvalBadge +
                '</div>' +
                '<div class="um-user-email">' + u.email + '</div>' +
                '<div class="um-user-meta">' + meta + '</div>' +
             '</div>' +
             '<div class="um-actions">' +
                '<button class="um-btn um-btn-view"   onclick="showUserDetail(\'' + u.email + '\')">👁 Profile</button>' +
+               approvalBtn +
                '<button class="um-btn ' + blockCls + '" onclick="' + blockFn + '(\'' + u.email + '\')">' + blockLbl + '</button>' +
                '<button class="um-btn um-btn-delete" onclick="deleteUser(\'' + u.email + '\')">🗑 Delete</button>' +
             '</div>' +
          '</div>';
    });
    container.innerHTML = html;
+}
+
+async function approvePartner(email) {
+   if (!confirm('Approve ' + email + ' as a Business Partner?\n\nThey will gain access to the business dashboard on their next login.')) return;
+   var ok = await AppDB.updateUser(email, { isApproved: true });
+   if (!ok) { alert('Failed to approve.'); return; }
+   var users = getUsers();
+   var u = users.find(function(x) { return x.email === email; });
+   if (u) u.isApproved = true;
+   renderUserList(_currentUserFilter);
+}
+
+async function revokePartner(email) {
+   if (!confirm('Revoke Business Partner access for ' + email + '?\n\nThey will be redirected to the home page next time they try to access the dashboard.')) return;
+   var ok = await AppDB.updateUser(email, { isApproved: false });
+   if (!ok) { alert('Failed to revoke.'); return; }
+   var users = getUsers();
+   var u = users.find(function(x) { return x.email === email; });
+   if (u) u.isApproved = false;
+   renderUserList(_currentUserFilter);
 }
 
 function blockUser(email) {
@@ -2760,6 +2813,12 @@ async function checkShopOwnerLogin() {
    }
    if (!isAdmin(user.email) && !isStoreOwner(user)) {
       window.location.href = 'home.html'; return;
+   }
+   // Unapproved Business Partner trying to reach the dashboard directly via URL
+   if (!isAdmin(user.email) && user.isApproved === false) {
+      alert('Your Business Partner account is still awaiting admin approval.');
+      window.location.href = 'home.html';
+      return;
    }
    var nameEl = document.getElementById('shopOwnerName');
    if (nameEl) nameEl.textContent = user.name;

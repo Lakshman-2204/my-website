@@ -15,14 +15,19 @@ function _userFromDB(r) {
             role: r.role || 'customer', phone: r.phone || '',
             storeName: r.store_name || '', storeType: r.store_type || '',
             blocked: r.blocked || false, isAdmin: r.is_admin || false,
+            isApproved: r.is_approved !== false,   // null/missing → treat as approved (legacy rows)
             gender: r.gender || '' };
 }
 function _userToDB(u) {
-   return { name: u.name, email: (u.email || '').toLowerCase(),
+   const row = { name: u.name, email: (u.email || '').toLowerCase(),
             password: u.password || '', role: u.role || 'customer',
             phone: u.phone || '', store_name: u.storeName || '',
             store_type: u.storeType || '', blocked: u.blocked || false,
             is_admin: u.isAdmin || false, gender: u.gender || '' };
+   // Only write is_approved when explicitly set by the caller, so partial updates
+   // (e.g. profile edits) don't accidentally re-approve a pending partner.
+   if (typeof u.isApproved === 'boolean') row.is_approved = u.isApproved;
+   return row;
 }
 function _orderFromDB(r) {
    if (!r) return null;

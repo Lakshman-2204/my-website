@@ -2869,29 +2869,26 @@ async function checkShopOwnerLogin() {
 
    // Decide which tabs are relevant for this owner and figure out the business name
    // to show in the header centre.
-   var ownsHospital = false, ownsProducts = false;
+   // NOTE: Admins viewing this page see the same as any user — based on what THEY personally own.
+   // For global management (any hospital / any product), admin goes to admin.html.
+   var providers    = await AppDB.getProviders();
+   var myProviders  = providers.filter(function(p) { return (p.owner_email || '').toLowerCase() === user.email.toLowerCase(); });
+   var ownsHospital = myProviders.length > 0;
+   var ownsProducts = (_db.products || []).some(function(p) { return (p.store_id || '').toLowerCase() === user.email.toLowerCase(); });
    var businessName = '';
-   var myProviders  = [];
-   if (isAdmin(user.email)) {
-      ownsHospital = ownsProducts = true;
-      businessName = 'Admin View';
+   if (myProviders.length > 0) {
+      businessName = myProviders.length === 1 ? myProviders[0].name
+                                              : myProviders.map(function(p) { return p.name; }).join(' · ');
+   } else if (ownsProducts) {
+      businessName = user.storeName || user.name || '';
+   } else if (isAdmin(user.email)) {
+      businessName = 'Admin Dashboard';
    } else {
-      var providers = await AppDB.getProviders();
-      myProviders   = providers.filter(function(p) { return (p.owner_email || '').toLowerCase() === user.email.toLowerCase(); });
-      ownsHospital  = myProviders.length > 0;
-      ownsProducts  = (_db.products || []).some(function(p) { return (p.store_id || '').toLowerCase() === user.email.toLowerCase(); });
-      if (myProviders.length > 0) {
-         businessName = myProviders.length === 1 ? myProviders[0].name
-                                                 : myProviders.map(function(p) { return p.name; }).join(' · ');
-      } else if (ownsProducts) {
-         businessName = user.storeName || user.name || '';
-      } else {
-         businessName = user.storeName || user.name || '';
-      }
-      // If the user owns nothing yet, default to Appointments view so a brand-new hospital
-      // owner doesn't land on an empty Orders page.
-      if (!ownsHospital && !ownsProducts) ownsHospital = true;
+      businessName = user.storeName || user.name || '';
    }
+   // If the user owns nothing yet, default to Appointments view so a brand-new partner
+   // (or admin without linked assets) doesn't land on a blank page.
+   if (!ownsHospital && !ownsProducts) ownsHospital = true;
 
    var bizEl = document.getElementById('shopBusinessName');
    if (bizEl) bizEl.textContent = businessName;
@@ -4141,7 +4138,7 @@ function showAdminToast(msg) {
 
 // ── ADMIN TABS ──
 function switchAdminTab(tab) {
-   ['products', 'stores', 'appointments', 'settings', 'users'].forEach(function(t) {
+   ['products', 'stores', 'orders', 'appointments', 'settings', 'users'].forEach(function(t) {
       var el  = document.getElementById('tab-' + t);
       var btn = document.getElementById('tab-' + t + '-btn');
       if (el)  el.classList.toggle('hidden', t !== tab);
@@ -4150,7 +4147,82 @@ function switchAdminTab(tab) {
    if (tab === 'settings')     loadSettingsForm();
    if (tab === 'users')        refreshAndRenderUsers();
    if (tab === 'stores')       renderAdminStores();
+   if (tab === 'orders')       renderAdminOrders();
    if (tab === 'appointments') renderAptAdmin();
+}
+
+// ── ADMIN: All Orders across every store ──
+async function renderAdminOrders() {
+   var container = document.getElementById('adminOrdersContent');
+   if (!container) return;
+   _liveSubscribe('adminOrders', 'orders', renderAdminOrders);
+
+   await initDB();
+   var all = (_db.orders || []).slice();
+
+   // Filters
+   var search   = (document.getElementById('adminOrderSearch') || {}).value || '';
+   var status   = (document.getElementById('adminOrderStatusFilter') || {}).value || '';
+   var df       = _readDateFilter('adminOrderDateFilter', 'adminOrderCustomDate', 'adminOrderRangeFrom', 'adminOrderRangeTo');
+   var s        = search.trim().toLowerCase();
+
+   var filtered = all.filter(function(o) {
+      if (status && o.status !== status) return false;
+      if (!_isDateInRange(o.date || o.created_at || o.timestamp, df.range, df)) return false;
+      if (s) {
+         var hay = ((o.orderId || '') + ' ' + (o.customerEmail || '') + ' ' + (o.customerName || '') + ' ' + (o.storeName || '')).toLowerCase();
+         if (hay.indexOf(s) === -1) return false;
+      }
+      return true;
+   });
+
+   if (!filtered.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No orders match the current filters.</p>';
+      return;
+   }
+
+   // Totals strip
+   var totalRevenue = filtered.reduce(function(sum, o) { return sum + (o.total || 0); }, 0);
+   var totalItems   = filtered.reduce(function(sum, o) { return sum + (o.items || []).reduce(function(s, it) { return s + (it.qty || 0); }, 0); }, 0);
+
+   var rows = filtered.map(function(o) {
+      var status   = o.status || 'Pending Pickup';
+      var cls      = status === 'Completed' ? 'completed' : (status === 'Cancelled' ? 'cancelled' : 'confirmed');
+      var itemCount = (o.items || []).reduce(function(s, it) { return s + (it.qty || 0); }, 0);
+      return '<tr>' +
+                '<td><div class="apt-tbl-date">' + (o.date || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (o.customerName || '—') + '</div>' +
+                    '<div class="apt-tbl-sub">' + (o.customerEmail || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (o.storeName || '<em style="color:#999">Platform</em>') + '</div></td>' +
+                '<td style="text-align:center">' + itemCount + '</td>' +
+                '<td style="text-align:right;font-weight:600">₹' + (o.total || 0).toLocaleString('en-IN') + '</td>' +
+                '<td>' + (o.method || 'Pickup') + '</td>' +
+                '<td><span class="order-badge ' + cls + '">' + status + '</span></td>' +
+                '<td class="apt-tbl-id">' + (o.orderId || '') + '</td>' +
+             '</tr>';
+   }).join('');
+
+   container.innerHTML =
+      '<div style="display:flex;gap:1.2rem;padding:0.6rem 0 1rem;font-size:0.88rem;color:#444">' +
+         '<div><strong>' + filtered.length + '</strong> orders</div>' +
+         '<div><strong>' + totalItems + '</strong> items</div>' +
+         '<div>Revenue: <strong>₹' + totalRevenue.toLocaleString('en-IN') + '</strong></div>' +
+      '</div>' +
+      '<div class="apt-tbl-wrap">' +
+        '<table class="apt-tbl">' +
+           '<thead><tr>' +
+              '<th>Date</th>' +
+              '<th>Customer</th>' +
+              '<th>Store</th>' +
+              '<th style="text-align:center">Items</th>' +
+              '<th style="text-align:right">Total</th>' +
+              '<th>Method</th>' +
+              '<th>Status</th>' +
+              '<th class="apt-tbl-id">Order ID</th>' +
+           '</tr></thead>' +
+           '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>';
 }
 
 // ── ADMIN SETTINGS ──

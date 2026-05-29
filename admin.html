@@ -23,6 +23,7 @@
       <div class="admin-tabs">
          <button class="admin-tab active" id="tab-products-btn" onclick="switchAdminTab('products')">🛍️ Products</button>
          <button class="admin-tab" id="tab-stores-btn"   onclick="switchAdminTab('stores')">🏪 Stores</button>
+         <button class="admin-tab" id="tab-orders-btn"   onclick="switchAdminTab('orders')">📦 Orders</button>
          <button class="admin-tab" id="tab-appointments-btn" onclick="switchAdminTab('appointments')">🏥 Appointments</button>
          <button class="admin-tab" id="tab-settings-btn" onclick="switchAdminTab('settings')">⚙️ Settings</button>
          <button class="admin-tab" id="tab-users-btn"    onclick="switchAdminTab('users')">👥 Users</button>
@@ -258,6 +259,47 @@
          </div>
          <div class="admin-stores-content" id="adminStoresContent">
             <p style="color:#999;text-align:center;padding:40px">Loading stores…</p>
+         </div>
+      </div>
+
+      <!-- ORDERS TAB -->
+      <div id="tab-orders" class="hidden">
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>📦 All Orders</h1>
+                  <p>Every order placed across all stores. Use the filters to drill down.</p>
+               </div>
+            </div>
+         </div>
+         <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+               <input type="search" id="adminOrderSearch" class="apt-search-input" placeholder="🔍 Search order ID, customer, store" oninput="renderAdminOrders()"/>
+               <select id="adminOrderStatusFilter" class="admin-filter-select" onchange="renderAdminOrders()">
+                  <option value="">All statuses</option>
+                  <option value="Pending Pickup">Pending Pickup</option>
+                  <option value="Ready">Ready</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Confirmed">Confirmed (paid)</option>
+               </select>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+               <select id="adminOrderDateFilter" class="admin-filter-select" onchange="renderAdminOrders()">
+                  <option value="all">📅 All time</option>
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="year">This Year</option>
+                  <option value="custom">📆 Specific date…</option>
+                  <option value="range">📆 Custom range…</option>
+               </select>
+               <input type="date" id="adminOrderCustomDate" class="admin-filter-select" style="display:none" onchange="renderAdminOrders()"/>
+               <input type="date" id="adminOrderRangeFrom" class="admin-filter-select" style="display:none" title="From" onchange="renderAdminOrders()"/>
+               <input type="date" id="adminOrderRangeTo"   class="admin-filter-select" style="display:none" title="To"   onchange="renderAdminOrders()"/>
+            </div>
+         </div>
+         <div class="admin-content" id="adminOrdersContent">
+            <p style="color:#999;text-align:center;padding:40px">Loading…</p>
          </div>
       </div>
 

@@ -13,12 +13,13 @@
    <!-- HEADER -->
    <div class="shop-header">
       <div class="shop-header-left">
-         <div class="shop-brand">🏪 Shop Dashboard</div>
+         <div class="shop-site-name">myWebsite</div>
+      </div>
+      <div class="shop-header-center">
+         <div class="shop-business-name" id="shopBusinessName"></div>
          <div class="shop-owner-name" id="shopOwnerName"></div>
       </div>
       <div class="shop-header-right">
-         <button class="shop-store-btn hidden" id="shopViewStoreBtn" onclick="window.location='home.html'">🛍️ View Store</button>
-         <button class="shop-admin-btn" onclick="window.location='admin.html'" id="shopAdminBtn" style="display:none">⚙️ Admin</button>
          <button class="shop-logout-btn" onclick="logout()">Logout</button>
       </div>
    </div>
@@ -26,15 +27,17 @@
    <!-- Internal shop announcement (admin-controlled) -->
    <div class="announcement-bar hidden" id="shopAnnouncementBar"></div>
 
-   <!-- TOP-LEVEL TABS: Orders / Appointments / My Products -->
+   <!-- TOP-LEVEL TABS: Orders / Appointments / My Products
+        All hidden by default — checkShopOwnerLogin reveals only the ones this user owns. -->
    <div class="shop-main-tabs">
-      <button class="shop-main-tab active" id="shop-tab-orders"       onclick="switchShopTab('orders')">📋 Orders</button>
-      <button class="shop-main-tab"        id="shop-tab-appointments" onclick="switchShopTab('appointments')">📅 Appointments</button>
-      <button class="shop-main-tab"        id="shop-tab-products"     onclick="switchShopTab('products')">🛍️ My Products <button class="shop-add-prod-btn" onclick="event.stopPropagation();openStoreProductModal(-1)">➕ Add</button></button>
+      <button class="shop-main-tab hidden" id="shop-tab-orders"       onclick="switchShopTab('orders')">📋 Orders</button>
+      <button class="shop-main-tab hidden" id="shop-tab-appointments" onclick="switchShopTab('appointments')">📅 Appointments</button>
+      <button class="shop-main-tab hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')">👨‍⚕️ Doctors</button>
+      <button class="shop-main-tab hidden" id="shop-tab-products"     onclick="switchShopTab('products')">🛍️ My Products <button class="shop-add-prod-btn" onclick="event.stopPropagation();openStoreProductModal(-1)">➕ Add</button></button>
    </div>
 
-   <!-- ORDERS PANEL -->
-   <div id="shop-panel-orders">
+   <!-- ORDERS PANEL (hidden until checkShopOwnerLogin decides) -->
+   <div id="shop-panel-orders" class="hidden">
 
    <!-- STATS BAR -->
    <div class="shop-stats-bar">
@@ -100,6 +103,50 @@
       </div>
    </div>
 
+   <!-- DOCTORS PANEL -->
+   <div id="shop-panel-doctors" class="hidden">
+      <div id="shopDoctorsContent">
+         <div class="shop-empty">Loading…</div>
+      </div>
+   </div>
+
+   <!-- DOCTOR EDIT MODAL (same IDs as admin's so saveAptDoctor can be reused) -->
+   <div class="admin-modal-overlay hidden" id="aptDoctorModal" onclick="if(event.target===this)closeAptDoctorModal()">
+      <div class="admin-modal">
+         <div class="admin-modal-header">
+            <h3 id="aptDoctorModalTitle">Add</h3>
+            <button class="admin-modal-close" onclick="closeAptDoctorModal()">✕</button>
+         </div>
+         <div class="admin-modal-body">
+            <div class="modal-field">
+               <label>Name</label>
+               <input type="text" id="aptDocName" placeholder="Dr. Ramesh Kumar"/>
+            </div>
+            <div class="modal-field">
+               <label>Speciality / Service</label>
+               <input type="text" id="aptDocSpec" placeholder="General Physician"/>
+            </div>
+            <div class="modal-field">
+               <label>Qualification / Experience</label>
+               <input type="text" id="aptDocQual" placeholder="MBBS, MD"/>
+            </div>
+            <div class="modal-field">
+               <label>Consultation Fee (₹)</label>
+               <input type="number" id="aptDocFee" min="0" placeholder="500"/>
+            </div>
+            <label class="apt-form-label" style="margin-top:6px">Weekly Availability</label>
+            <p style="font-size:0.78rem;color:#888;margin-bottom:6px">Format: <code>09:00-12:00, 14:00-18:00</code> or <code>off</code></p>
+            <div id="aptDocAvail"></div>
+            <input type="hidden" id="aptDocProviderId"/>
+            <input type="hidden" id="aptDocId"/>
+         </div>
+         <div class="admin-modal-footer">
+            <button class="admin-modal-btn-cancel" onclick="closeAptDoctorModal()">Cancel</button>
+            <button class="admin-modal-btn-save"   onclick="saveAptDoctor()">💾 Save</button>
+         </div>
+      </div>
+   </div>
+
    <!-- PRODUCTS PANEL -->
    <div id="shop-panel-products" class="hidden">
       <div class="shop-prods-header">
@@ -148,14 +195,7 @@
 
    <script src="script.js"></script>
    <script>
-      checkShopOwnerLogin().then(function() {
-         // Show admin button for admins
-         var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
-         if (_u && isAdmin(_u.email)) {
-            var ab = document.getElementById('shopAdminBtn');
-            if (ab) ab.style.display = '';
-         }
-      });
+      checkShopOwnerLogin();
    </script>
 </body>
 </html>

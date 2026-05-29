@@ -1060,10 +1060,32 @@ function showContactInfo() {
 // ── APPOINTMENTS ─────────────────────────────────────────
 // Category metadata (label, icon, description). Providers + doctors live in
 // the apt_providers table — managed via the Admin → Appointments tab.
+// Each category defines:
+//   icon, label, desc       — category-level (used in customer category picker)
+//   staffLabel, staffIcon   — what the people inside are called (Doctors / Stylists / etc.)
+// To support a new business type, add an entry here + add an <option> in admin.html.
 const APT_CAT_META = {
-   hospital: { icon: '🏥', label: 'Hospitals',      desc: 'General & multi-speciality hospitals' },
-   dental:   { icon: '🦷', label: 'Dental Clinics', desc: 'Dentists, orthodontists & cosmetic care' }
+   hospital: { icon: '🏥', label: 'Hospitals',      desc: 'General & multi-speciality hospitals',
+               staffLabel: 'Doctors',  staffIcon: '👨‍⚕️' },
+   dental:   { icon: '🦷', label: 'Dental Clinics', desc: 'Dentists, orthodontists & cosmetic care',
+               staffLabel: 'Doctors',  staffIcon: '👨‍⚕️' }
+   // Example future entries (don't activate without also adding admin <option>):
+   // beauty:  { icon: '💇', label: 'Beauty Parlours', desc: 'Hair, facial & spa services',
+   //            staffLabel: 'Stylists', staffIcon: '💁' },
+   // fitness: { icon: '🏋️', label: 'Gyms',            desc: 'Personal training & group classes',
+   //            staffLabel: 'Trainers', staffIcon: '🏃' }
 };
+
+// Pick the right tab label/icon for an owner based on their providers' categories.
+// Returns { label, icon } — falls back to generic "Staff" if owner runs multiple cats.
+function _staffLabelForCategories(categories) {
+   var unique = Array.from(new Set(categories.filter(Boolean)));
+   if (unique.length === 1) {
+      var meta = APT_CAT_META[unique[0]];
+      if (meta && meta.staffLabel) return { label: meta.staffLabel, icon: meta.staffIcon || '👥' };
+   }
+   return { label: 'Staff', icon: '👥' };
+}
 const APT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 let _aptProvidersCache = null;  // [{id, category, name, ..., doctors:[...]}]
@@ -1612,7 +1634,7 @@ async function saveAptDoctor() {
    var ok = await AppDB.upsertProvider(provider);
    if (!ok) { alert('Failed to save doctor.'); return; }
    closeAptDoctorModal();
-   await renderAptAdmin();
+   await _aptRerenderActiveList();
 }
 
 async function deleteAptDoctor(providerId, doctorId) {
@@ -1624,7 +1646,13 @@ async function deleteAptDoctor(providerId, doctorId) {
    provider.doctors = (provider.doctors || []).filter(function(d) { return d.id !== doctorId; });
    var ok = await AppDB.upsertProvider(provider);
    if (!ok) { alert('Failed to delete doctor.'); return; }
-   await renderAptAdmin();
+   await _aptRerenderActiveList();
+}
+
+// Re-render whichever doctor/provider list is on the current page (admin or shopowner)
+async function _aptRerenderActiveList() {
+   if (document.getElementById('aptAdminContent'))    await renderAptAdmin();
+   if (document.getElementById('shopDoctorsContent')) await renderShopDoctors();
 }
 
 // ── ADMIN: Appointment sub-tab + bookings view ──
@@ -2826,26 +2854,50 @@ async function checkShopOwnerLogin() {
    if (storeBtn && isAdmin(user.email)) storeBtn.classList.remove('hidden');
    loadSiteSettings();
 
-   // Decide which tabs are relevant for this owner.
-   // Admins see all tabs; everyone else sees only what they own.
+   // Decide which tabs are relevant for this owner and figure out the business name
+   // to show in the header centre.
    var ownsHospital = false, ownsProducts = false;
+   var businessName = '';
+   var myProviders  = [];
    if (isAdmin(user.email)) {
       ownsHospital = ownsProducts = true;
+      businessName = 'Admin View';
    } else {
       var providers = await AppDB.getProviders();
-      ownsHospital  = providers.some(function(p) { return (p.owner_email || '').toLowerCase() === user.email.toLowerCase(); });
+      myProviders   = providers.filter(function(p) { return (p.owner_email || '').toLowerCase() === user.email.toLowerCase(); });
+      ownsHospital  = myProviders.length > 0;
       ownsProducts  = (_db.products || []).some(function(p) { return (p.store_id || '').toLowerCase() === user.email.toLowerCase(); });
+      if (myProviders.length > 0) {
+         businessName = myProviders.length === 1 ? myProviders[0].name
+                                                 : myProviders.map(function(p) { return p.name; }).join(' · ');
+      } else if (ownsProducts) {
+         businessName = user.storeName || user.name || '';
+      } else {
+         businessName = user.storeName || user.name || '';
+      }
       // If the user owns nothing yet, default to Appointments view so a brand-new hospital
       // owner doesn't land on an empty Orders page.
       if (!ownsHospital && !ownsProducts) ownsHospital = true;
    }
 
+   var bizEl = document.getElementById('shopBusinessName');
+   if (bizEl) bizEl.textContent = businessName;
+
    var ordersTab = document.getElementById('shop-tab-orders');
    var aptTab    = document.getElementById('shop-tab-appointments');
+   var docTab    = document.getElementById('shop-tab-doctors');
    var prodTab   = document.getElementById('shop-tab-products');
    if (ordersTab) ordersTab.classList.toggle('hidden', !ownsProducts);
    if (prodTab)   prodTab.classList.toggle('hidden',   !ownsProducts);
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
+   if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
+
+   // Pick the right "staff" label for the doctors tab based on what the owner runs
+   if (docTab && ownsHospital) {
+      var cats = (myProviders || []).map(function(p) { return p.category; });
+      var s    = _staffLabelForCategories(cats);
+      docTab.innerHTML = s.icon + ' ' + s.label;
+   }
 
    // Render whichever panel makes sense
    if (ownsProducts) renderShopDashboard();
@@ -3091,7 +3143,7 @@ function deleteStoreProduct(idx) {
 }
 
 function switchShopTab(tab) {
-   ['orders', 'appointments', 'products'].forEach(function(t) {
+   ['orders', 'appointments', 'doctors', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
@@ -3099,6 +3151,72 @@ function switchShopTab(tab) {
    });
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'appointments') renderShopAppointments();
+   if (tab === 'doctors')      renderShopDoctors();
+}
+
+// ── SHOP OWNER: Doctors / Staff management ──
+async function renderShopDoctors() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var container = document.getElementById('shopDoctorsContent');
+   if (!user || !container) return;
+   container.innerHTML = '<div class="shop-empty">Loading…</div>';
+
+   // Always re-fetch providers so edits show up immediately
+   await loadAptProviders(true);
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase() ||
+             isAdmin(user.email);
+   });
+   if (!mine.length) {
+      container.innerHTML = '<div class="shop-empty">No providers linked to your account yet. Ask the admin to assign you a hospital/clinic.</div>';
+      return;
+   }
+
+   var html = '';
+   mine.forEach(function(p) {
+      var meta  = APT_CAT_META[p.category] || {};
+      var s     = _staffLabelForCategories([p.category]);
+      var pid   = p.id.replace(/'/g, "\\'");
+      var docs  = p.doctors || [];
+      html += '<div class="apt-provider-card" style="margin-bottom:1rem">' +
+                '<div class="apt-provider-top">' +
+                   '<div class="apt-provider-icon">' + (p.icon || meta.icon || '🏥') + '</div>' +
+                   '<div style="flex:1;min-width:0">' +
+                      '<div class="apt-provider-name">' + p.name + '</div>' +
+                      '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
+                   '</div>' +
+                   '<button class="apt-view-btn" onclick="openAptDoctorModal(\'' + pid + '\')">➕ Add ' + s.label.replace(/s$/,'') + '</button>' +
+                '</div>';
+      if (!docs.length) {
+         html += '<p style="color:#999;font-size:0.85rem;padding:0.5rem 0">No ' + s.label.toLowerCase() + ' added yet.</p>';
+      } else {
+         html += '<div class="apt-doctors-list" style="margin-top:0.7rem">';
+         docs.forEach(function(d) {
+            var initials = d.name.replace(/^Dr\.?\s*/i, '').split(' ').map(function(x) { return x[0]; }).slice(0,2).join('').toUpperCase();
+            var did = d.id.replace(/'/g, "\\'");
+            var daysSummary = summarizeDoctorDays(d.availability);
+            html += '<div class="apt-doctor-card">' +
+                      '<div class="apt-doctor-avatar">' + initials + '</div>' +
+                      '<div class="apt-doctor-info">' +
+                         '<div class="apt-doctor-name">' + d.name + '</div>' +
+                         '<div class="apt-doctor-spec">' + (d.speciality || '') + '</div>' +
+                         '<div class="apt-doctor-qual">' + (d.qual || '') + '</div>' +
+                         '<div class="apt-doctor-days">📅 ' + daysSummary + '</div>' +
+                      '</div>' +
+                      '<div class="apt-doctor-right">' +
+                         '<div class="apt-doctor-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
+                         '<div style="display:flex;gap:4px">' +
+                            '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️</button>' +
+                            '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem;background:#c62828" onclick="deleteAptDoctor(\'' + pid + '\',\'' + did + '\')">🗑</button>' +
+                         '</div>' +
+                      '</div>' +
+                   '</div>';
+         });
+         html += '</div>';
+      }
+      html += '</div>';
+   });
+   container.innerHTML = html;
 }
 
 // Cache of this shop owner's appointments so filter buttons don't re-fetch

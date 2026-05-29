@@ -1580,10 +1580,44 @@ body.guest .store-section-divider {
 	margin-top: 2px;
 }
 
+.shop-header-left {
+	flex: 1;
+	min-width: 0;
+}
+
+.shop-header-center {
+	flex: 1;
+	text-align: center;
+	min-width: 0;
+}
+
+.shop-business-name {
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: #fff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .shop-header-right {
+	flex: 1;
 	display: flex;
 	gap: 0.5rem;
 	align-items: center;
+	justify-content: flex-end;
+}
+
+.shop-site-name {
+	font-size: 1.1rem;
+	font-weight: 800;
+	color: #fff;
+	letter-spacing: 0.03em;
+}
+
+@media (max-width: 700px) {
+	.shop-business-name { font-size: 0.95rem; }
+	.shop-site-name     { font-size: 0.95rem; }
 }
 
 .shop-store-btn, .shop-admin-btn {

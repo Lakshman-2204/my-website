@@ -3132,6 +3132,21 @@ async function completePasswordReset() {
    setTimeout(function() { window.location.href = 'login.html'; }, 1500);
 }
 
+// Add a green/red border to the confirm-password input based on whether it matches.
+// Wired via oninput on BOTH the password and confirm fields so changes either way revalidate.
+function checkPwMatch(pwId, confirmId) {
+   var pw = document.getElementById(pwId);
+   var cf = document.getElementById(confirmId);
+   if (!pw || !cf) return;
+   if (!cf.value) {
+      cf.classList.remove('pw-match', 'pw-mismatch');
+      return;
+   }
+   var match = pw.value === cf.value;
+   cf.classList.toggle('pw-match',    match);
+   cf.classList.toggle('pw-mismatch', !match);
+}
+
 // Toggle a password input's visibility from a button onclick. Updates the icon too.
 function togglePassword(inputId, btn) {
    var input = document.getElementById(inputId);

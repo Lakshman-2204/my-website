@@ -3695,6 +3695,11 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	padding: 0 20px 60px;
 }
 
+/* My Appointments tab uses a wide table — let it span more of the page */
+#ptab-appointments {
+	max-width: 1200px;
+}
+
 .profile-card {
 	background: #fff;
 	border-radius: 12px;

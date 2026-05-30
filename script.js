@@ -2510,13 +2510,8 @@ async function login() {
 
    var user = null;
 
-   if (isAdmin(email)) {
-      // Admins still live only in our users table (not auth.users) — legacy plaintext check.
-      // We require a non-empty password explicitly so blanks don't match a blank record.
-      const users = getUsers();
-      user = users.find(u => u.email.toLowerCase() === email && u.password && u.password === password) || null;
-   } else {
-      // Try Supabase Auth first (proper OTP-signed-up users).
+   // Try Supabase Auth first — works for OTP-signed-up users AND migrated admins.
+   {
       const { data, error } = await _sb.auth.signInWithPassword({ email, password });
       if (!error && data && data.user) {
          user = await AppDB.getUserByEmail(email);
@@ -2528,9 +2523,9 @@ async function login() {
             return;
          }
       } else {
-         // Fallback for legacy users (SQL-inserted, pre-OTP) that have a plaintext password
-         // in users table. We REQUIRE a non-empty stored password so OTP-only users
-         // (where password column is empty) can never bypass Auth this way.
+         // Legacy fallback for users still on plaintext in the users table
+         // (un-migrated admins, SQL-inserted users). Empty-password OTP rows
+         // can never match because we require a non-empty stored password.
          const users = getUsers();
          user = users.find(u => u.email.toLowerCase() === email && u.password && u.password === password) || null;
       }
@@ -3185,27 +3180,20 @@ async function changePassword() {
 
    var success = false;
 
-   if (isAdmin(user.email)) {
-      // Admin: plaintext path
-      var dbUser = await AppDB.getUserByEmail(user.email);
-      if (!dbUser || dbUser.password !== current) { setMsg('❌ Current password is incorrect.', '#c62828'); return; }
-      success = await AppDB.updateUser(user.email, { password: newPw });
+   // Try Supabase Auth first (works for migrated admins + OTP-signed-up users)
+   var verify = await _sb.auth.signInWithPassword({ email: user.email, password: current });
+   if (!verify.error && verify.data && verify.data.user) {
+      var upd = await _sb.auth.updateUser({ password: newPw });
+      success = !upd.error;
+      if (upd.error) setMsg('❌ ' + (upd.error.message || 'Update failed.'), '#c62828');
    } else {
-      // Try Supabase Auth (the normal path for OTP-signed-up users)
-      var verify = await _sb.auth.signInWithPassword({ email: user.email, password: current });
-      if (!verify.error && verify.data && verify.data.user) {
-         var upd = await _sb.auth.updateUser({ password: newPw });
-         success = !upd.error;
-         if (upd.error) setMsg('❌ ' + (upd.error.message || 'Update failed.'), '#c62828');
-      } else {
-         // Legacy fallback (SQL-inserted user with plaintext password)
-         var dbUser = await AppDB.getUserByEmail(user.email);
-         if (!dbUser || !dbUser.password || dbUser.password !== current) {
-            setMsg('❌ Current password is incorrect.', '#c62828');
-            return;
-         }
-         success = await AppDB.updateUser(user.email, { password: newPw });
+      // Legacy fallback for un-migrated admins / SQL-inserted users
+      var dbUser = await AppDB.getUserByEmail(user.email);
+      if (!dbUser || !dbUser.password || dbUser.password !== current) {
+         setMsg('❌ Current password is incorrect.', '#c62828');
+         return;
       }
+      success = await AppDB.updateUser(user.email, { password: newPw });
    }
 
    if (!success) {

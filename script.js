@@ -4649,14 +4649,48 @@ async function renderMyAppointments() {
    var list = document.getElementById('appointmentsList');
    if (!user) { list.innerHTML = '<p class="prof-empty">Please log in to view your appointments.</p>'; return; }
    _liveSubscribe('myApts', 'appointments', renderMyAppointments);
-   list.innerHTML = '<p class="prof-empty">Loading…</p>';
-   var apts = await AppDB.getAppointments(user.email);
-   if (!apts.length) { list.innerHTML = '<p class="prof-empty">No appointments booked yet.</p>'; return; }
+   if (!list.innerHTML.trim()) list.innerHTML = '<p class="prof-empty">Loading…</p>';
+   var all = await AppDB.getAppointments(user.email);
+   if (!all.length) {
+      list.innerHTML = '<p class="prof-empty">No appointments booked yet.</p>';
+      return;
+   }
 
-   list.innerHTML = apts.map(function(a) {
+   // Populate filter dropdowns from data (preserves current selection)
+   _fillSelectFromList('myAptDoctorFilter',   '👨‍⚕️ All doctors',   all.map(function(a){return a.doctor_name;}));
+   _fillSelectFromList('myAptHospitalFilter', '🏥 All hospitals',   all.map(function(a){return a.provider_name;}));
+   _fillSelectFromList('myAptCategoryFilter', '🗂 All categories',  all.map(function(a){return a.category;}), function(k){
+      var m = APT_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k;
+   });
+
+   var search   = ((document.getElementById('myAptSearch')         || {}).value || '').trim().toLowerCase();
+   var docF     =  (document.getElementById('myAptDoctorFilter')   || {}).value || '';
+   var hospF    =  (document.getElementById('myAptHospitalFilter') || {}).value || '';
+   var catF     =  (document.getElementById('myAptCategoryFilter') || {}).value || '';
+   var df       = _readDateFilter('myAptDateFilter', 'myAptCustomDate', 'myAptRangeFrom', 'myAptRangeTo');
+
+   var apts = all.filter(function(a) {
+      if (docF  && a.doctor_name   !== docF)  return false;
+      if (hospF && a.provider_name !== hospF) return false;
+      if (catF  && a.category      !== catF)  return false;
+      if (!_isDateInRange(a.date, df.range, df)) return false;
+      if (search) {
+         var hay = ((a.patient_name || '') + ' ' + (a.patient_phone || '')).toLowerCase();
+         if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+   });
+
+   if (!apts.length) {
+      list.innerHTML = '<p class="prof-empty">No appointments match the current filters.</p>';
+      return;
+   }
+
+   var rows = apts.map(function(a) {
       var status = a.status || 'Confirmed';
-      var isCancellable = status !== 'Cancelled' && status !== 'Completed';
-      var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      var cls    = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      var aid    = (a.apt_id || '').replace(/'/g, "\\'");
+      var isCancellable = status === 'Confirmed';
       var statusLabel = status;
       if (status === 'Cancelled' && a.cancelled_by) {
          var byLabel = a.cancelled_by === 'customer' ? 'by You'
@@ -4664,24 +4698,67 @@ async function renderMyAppointments() {
                       : a.cancelled_by === 'admin'   ? 'by Admin' : '';
          if (byLabel) statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
       }
-      return '<div class="order-card">' +
-                '<div class="order-card-header">' +
-                   '<div><span class="order-id">' + a.apt_id + '</span> <span class="order-date">' + (a.date || '') + ' · ' + (a.slot || '') + '</span></div>' +
-                   '<span class="order-badge ' + cls + '">' + statusLabel + '</span>' +
-                '</div>' +
-                '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
-                '<div class="order-items">' +
-                   '<div class="order-item"><span>👨‍⚕️ ' + (a.doctor_name || '') + '</span><span>' + (a.speciality || '') + '</span></div>' +
-                '</div>' +
-                '<div class="order-footer">' +
-                   '<span>Consultation Fee</span>' +
-                   '<span class="order-total">₹' + (a.fee || 0) + '</span>' +
-                '</div>' +
-                (isCancellable
-                   ? '<div style="text-align:right;padding:8px 12px 0"><button class="apt-cancel-btn" style="padding:6px 14px;font-size:0.8rem" onclick="cancelMyAppointment(\'' + a.apt_id.replace(/'/g,"\\'") + '\')">Cancel Appointment</button></div>'
-                   : '') +
-             '</div>';
+      var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
+      if (status === 'Confirmed')       feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
+      else if (status === 'Completed')  feeHtml += '<div class="apt-tbl-fee-tag paid">paid offline</div>';
+      var bookedAt = '';
+      if (a.created_at) {
+         var dt = new Date(a.created_at);
+         if (!isNaN(dt.getTime())) {
+            bookedAt = '<div class="apt-tbl-name">' + dt.toLocaleDateString('en-IN', { day:'2-digit', month:'short' }) + '</div>' +
+                       '<div class="apt-tbl-sub">' + dt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+         }
+      }
+      var actions = isCancellable
+         ? '<button class="apt-act-btn apt-act-cancel" onclick="cancelMyAppointment(\'' + aid + '\')">✕ Cancel</button>'
+         : '<span style="color:#bbb">—</span>';
+      var meta = APT_CAT_META[a.category] || {};
+      return '<tr>' +
+                '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div><div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.provider_name || '') + '</div><div class="apt-tbl-sub">' + (meta.icon || '') + ' ' + (meta.label || a.category || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.patient_name || '—') + '</div>' + (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + '</td>' +
+                '<td class="apt-tbl-symptom" title="' + (a.patient_reason || '').replace(/"/g,'&quot;') + '">' + (a.patient_reason || '<span style="color:#bbb">—</span>') + '</td>' +
+                '<td style="text-align:right">' + feeHtml + '</td>' +
+                '<td><span class="order-badge ' + cls + '">' + statusLabel + '</span></td>' +
+                '<td class="apt-tbl-actions">' + actions + '</td>' +
+                '<td class="apt-tbl-booked">' + bookedAt + '</td>' +
+                '<td class="apt-tbl-id">' + a.apt_id + '</td>' +
+             '</tr>';
    }).join('');
+
+   list.innerHTML =
+      '<div class="apt-tbl-wrap">' +
+        '<table class="apt-tbl">' +
+           '<thead><tr>' +
+              '<th>Date / Slot</th>' +
+              '<th>Doctor</th>' +
+              '<th>Hospital / Category</th>' +
+              '<th>Patient</th>' +
+              '<th class="apt-tbl-symptom">Symptom</th>' +
+              '<th style="text-align:right">Fee</th>' +
+              '<th>Status</th>' +
+              '<th>Actions</th>' +
+              '<th class="apt-tbl-booked">Booked</th>' +
+              '<th class="apt-tbl-id">Appt ID</th>' +
+           '</tr></thead>' +
+           '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>';
+}
+
+// Helper: populate a <select> with unique values from a list, preserving current selection.
+// optionLabel(value) → display text (defaults to identity).
+function _fillSelectFromList(selectId, defaultLabel, values, optionLabel) {
+   var sel = document.getElementById(selectId);
+   if (!sel) return;
+   var current = sel.value;
+   var unique  = Array.from(new Set(values.filter(Boolean))).sort();
+   sel.innerHTML = '<option value="">' + defaultLabel + '</option>' +
+      unique.map(function(v) {
+         var label = optionLabel ? optionLabel(v) : v;
+         return '<option value="' + v + '"' + (v === current ? ' selected' : '') + '>' + label + '</option>';
+      }).join('');
 }
 
 async function cancelMyAppointment(aptId) {

@@ -309,27 +309,25 @@
             <div class="admin-title-row">
                <div>
                   <h1>🏥 Appointments Setup</h1>
-                  <p>Manage hospitals, dental clinics and their doctors. Each doctor's weekly availability controls the slots customers can book.</p>
+                  <p>Manage the business categories you offer (Hospitals, Dental, Beauty, Fitness…), the providers in each, and their staff availability.</p>
                </div>
-               <button class="admin-add-main-btn" onclick="openAptProviderModal()">➕ Add Hospital / Clinic</button>
             </div>
          </div>
 
          <!-- Sub-section tabs -->
          <div class="admin-filter-bar" style="margin-bottom:6px">
-            <button class="admin-tab active" id="apt-subtab-providers-btn"   onclick="switchAptAdminSub('providers')">🏥 Providers &amp; Doctors</button>
+            <button class="admin-tab active" id="apt-subtab-providers-btn"   onclick="switchAptAdminSub('providers')">🏪 Providers &amp; Staff</button>
             <button class="admin-tab"        id="apt-subtab-bookings-btn"    onclick="switchAptAdminSub('bookings')">📅 All Bookings</button>
             <button class="admin-tab"        id="apt-subtab-categories-btn"  onclick="switchAptAdminSub('categories')">🗂 Categories</button>
          </div>
 
          <!-- Providers sub-panel -->
          <div id="apt-sub-providers">
-            <div class="admin-filter-bar">
+            <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
                <select id="aptAdminCatFilter" class="admin-filter-select" onchange="renderAptAdmin()">
                   <option value="">All Categories</option>
-                  <option value="hospital">🏥 Hospitals</option>
-                  <option value="dental">🦷 Dental Clinics</option>
                </select>
+               <button class="admin-add-main-btn" onclick="openAptProviderModal()">➕ Add Provider</button>
             </div>
             <div class="admin-content" id="aptAdminContent">
                <p style="color:#999;text-align:center;padding:40px">Loading…</p>

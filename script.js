@@ -1474,6 +1474,17 @@ async function renderAptAdmin() {
    await loadAptCategories();
    await loadAptProviders(true);
 
+   // Populate the category-filter dropdown from the live categories cache (preserve selection)
+   var catSel = document.getElementById('aptAdminCatFilter');
+   if (catSel) {
+      var current = catSel.value;
+      catSel.innerHTML = '<option value="">All Categories</option>' +
+         Object.keys(APT_CAT_META).map(function(k) {
+            var c = APT_CAT_META[k];
+            return '<option value="' + k + '"' + (k === current ? ' selected' : '') + '>' + c.icon + ' ' + c.label + '</option>';
+         }).join('');
+   }
+
    var filter = (document.getElementById('aptAdminCatFilter') || {}).value || '';
    var list = (_aptProvidersCache || []).filter(function(p) { return !filter || p.category === filter; });
 

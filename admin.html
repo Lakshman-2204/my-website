@@ -351,12 +351,30 @@
          <!-- Bookings sub-panel -->
          <div id="apt-sub-bookings" class="hidden">
             <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
-               <select id="aptBookingsFilter" class="admin-filter-select" onchange="renderAllAppointments()">
-                  <option value="">All Statuses</option>
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Cancelled">Cancelled</option>
-               </select>
+               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <input type="search" id="adminAptSearch"     class="apt-search-input"    placeholder="🔍 Patient / customer / phone" oninput="renderAllAppointments()"/>
+                  <select id="adminAptDoctorFilter"   class="admin-filter-select" onchange="renderAllAppointments()"><option value="">👨‍⚕️ All staff</option></select>
+                  <select id="adminAptProviderFilter" class="admin-filter-select" onchange="renderAllAppointments()"><option value="">🏪 All providers</option></select>
+                  <select id="adminAptCategoryFilter" class="admin-filter-select" onchange="renderAllAppointments()"><option value="">🗂 All categories</option></select>
+                  <select id="aptBookingsFilter"      class="admin-filter-select" onchange="renderAllAppointments()">
+                     <option value="">All Statuses</option>
+                     <option value="Confirmed">⏳ Confirmed</option>
+                     <option value="Completed">✅ Completed</option>
+                     <option value="Cancelled">✕ Cancelled</option>
+                  </select>
+                  <select id="adminAptDateFilter"   class="admin-filter-select" onchange="renderAllAppointments()">
+                     <option value="all">📅 All time</option>
+                     <option value="today">Today</option>
+                     <option value="week">This Week</option>
+                     <option value="month">This Month</option>
+                     <option value="year">This Year</option>
+                     <option value="custom">📆 Specific date…</option>
+                     <option value="range">📆 Custom range…</option>
+                  </select>
+                  <input type="date" id="adminAptCustomDate" class="admin-filter-select" style="display:none" onchange="renderAllAppointments()"/>
+                  <input type="date" id="adminAptRangeFrom"  class="admin-filter-select" style="display:none" title="From" onchange="renderAllAppointments()"/>
+                  <input type="date" id="adminAptRangeTo"    class="admin-filter-select" style="display:none" title="To"   onchange="renderAllAppointments()"/>
+               </div>
                <button class="apt-view-btn" style="background:#c62828" onclick="deleteAllShownAppointments()">🗑 Delete All Shown</button>
             </div>
             <div class="admin-content" id="aptAllBookingsContent">
@@ -499,11 +517,11 @@
          </div>
       </div>
 
-      <!-- APT PROVIDER MODAL (Hospital / Clinic edit) -->
+      <!-- APT PROVIDER MODAL (provider edit — works for any business category) -->
       <div class="admin-modal-overlay hidden" id="aptProviderModal" onclick="if(event.target===this)closeAptProviderModal()">
          <div class="admin-modal">
             <div class="admin-modal-header">
-               <h3 id="aptProviderModalTitle">Add Hospital / Clinic</h3>
+               <h3 id="aptProviderModalTitle">Add Provider</h3>
                <button class="admin-modal-close" onclick="closeAptProviderModal()">✕</button>
             </div>
             <div class="admin-modal-body">

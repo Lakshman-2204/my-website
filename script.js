@@ -1490,7 +1490,7 @@ async function renderAptAdmin() {
 
    if (!list.length) {
       container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">' +
-         'No providers yet. Click <strong>➕ Add Hospital / Clinic</strong> to create one.' +
+         'No providers yet. Click <strong>➕ Add Provider</strong> to create one.' +
       '</p>';
       return;
    }
@@ -1848,21 +1848,46 @@ async function renderAllAppointments() {
    var container = document.getElementById('aptAllBookingsContent');
    if (!container) return;
    _liveSubscribe('adminApts', 'appointments', renderAllAppointments);
-   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
-   var apts = await AppDB.getAllAppointments();
-   var filter = (document.getElementById('aptBookingsFilter') || {}).value || '';
-   if (filter) apts = apts.filter(function(a) { return (a.status || 'Confirmed') === filter; });
+   if (!container.innerHTML.trim()) container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+   await loadAptCategories();
+   var all = await AppDB.getAllAppointments();
+
+   // Populate filter dropdowns from data (preserves selection)
+   _fillSelectFromList('adminAptDoctorFilter',   '👨‍⚕️ All staff',     all.map(function(a){return a.doctor_name;}));
+   _fillSelectFromList('adminAptProviderFilter', '🏪 All providers',  all.map(function(a){return a.provider_name;}));
+   _fillSelectFromList('adminAptCategoryFilter', '🗂 All categories', all.map(function(a){return a.category;}), function(k){
+      var m = APT_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k;
+   });
+
+   var search   = ((document.getElementById('adminAptSearch')         || {}).value || '').trim().toLowerCase();
+   var docF     =  (document.getElementById('adminAptDoctorFilter')   || {}).value || '';
+   var provF    =  (document.getElementById('adminAptProviderFilter') || {}).value || '';
+   var catF     =  (document.getElementById('adminAptCategoryFilter') || {}).value || '';
+   var statusF  =  (document.getElementById('aptBookingsFilter')      || {}).value || '';
+   var df       = _readDateFilter('adminAptDateFilter', 'adminAptCustomDate', 'adminAptRangeFrom', 'adminAptRangeTo');
+
+   var apts = all.filter(function(a) {
+      if (docF     && a.doctor_name   !== docF)     return false;
+      if (provF    && a.provider_name !== provF)    return false;
+      if (catF     && a.category      !== catF)     return false;
+      if (statusF  && (a.status || 'Confirmed') !== statusF) return false;
+      if (!_isDateInRange(a.date, df.range, df))    return false;
+      if (search) {
+         var hay = ((a.patient_name || '') + ' ' + (a.user_email || '') + ' ' + (a.patient_phone || '')).toLowerCase();
+         if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+   });
 
    if (!apts.length) {
-      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No appointments to show.</p>';
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No appointments match the current filters.</p>';
       return;
    }
 
-   var html = '<div style="display:grid;gap:0.85rem;margin-top:1rem">';
-   apts.forEach(function(a) {
+   var rows = apts.map(function(a) {
       var status = a.status || 'Confirmed';
-      var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
-      var aid = (a.apt_id || '').replace(/'/g, "\\'");
+      var cls    = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      var aid    = (a.apt_id || '').replace(/'/g, "\\'");
       var canChange = status !== 'Cancelled' && status !== 'Completed';
       var statusLabel = status;
       if (status === 'Cancelled' && a.cancelled_by) {
@@ -1871,27 +1896,60 @@ async function renderAllAppointments() {
                       : a.cancelled_by === 'admin'   ? 'by Admin' : '';
          if (byLabel) statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
       }
-      html += '<div class="order-card">' +
-                '<div class="order-card-header">' +
-                   '<div><span class="order-id">' + a.apt_id + '</span> <span class="order-date">' + (a.date || '') + ' · ' + (a.slot || '') + '</span></div>' +
-                   '<span class="order-badge ' + cls + '">' + statusLabel + '</span>' +
-                '</div>' +
-                '<div class="order-store-tag">🏥 ' + (a.provider_name || '') + '</div>' +
-                '<div class="order-items">' +
-                   '<div class="order-item"><span>👨‍⚕️ ' + (a.doctor_name || '') + ' (' + (a.speciality || '') + ')</span><span>₹' + (a.fee || 0) + '</span></div>' +
-                   '<div class="order-item"><span>👤 ' + (a.patient_name || a.user_email || '') + '</span><span>' + (a.user_email || '') + (a.patient_phone ? ' · ' + a.patient_phone : '') + '</span></div>' +
-                '</div>' +
-                '<div style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 0;flex-wrap:wrap">' +
-                   (canChange
-                      ? '<button class="apt-view-btn" onclick="adminSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Mark Completed</button>' +
-                        '<button class="apt-view-btn" style="background:#c62828" onclick="adminSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>'
-                      : '') +
-                   '<button class="apt-view-btn" style="background:#555" onclick="deleteAdminAppointment(\'' + aid + '\')">🗑 Delete</button>' +
-                '</div>' +
-             '</div>';
-   });
-   html += '</div>';
-   container.innerHTML = html;
+      var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
+      if (status === 'Confirmed')      feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
+      else if (status === 'Completed') feeHtml += '<div class="apt-tbl-fee-tag paid">paid</div>';
+      var bookedAt = '';
+      if (a.created_at) {
+         var dt = new Date(a.created_at);
+         if (!isNaN(dt.getTime())) {
+            bookedAt = '<div class="apt-tbl-name">' + dt.toLocaleDateString('en-IN', { day:'2-digit', month:'short' }) + '</div>' +
+                       '<div class="apt-tbl-sub">' + dt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) + '</div>';
+         }
+      }
+      var actions = (canChange
+         ? '<button class="apt-act-btn apt-act-ok"     onclick="adminSetAptStatus(\'' + aid + '\',\'Completed\')">✅</button>' +
+           '<button class="apt-act-btn apt-act-cancel" onclick="adminSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕</button>'
+         : '') +
+         '<button class="apt-act-btn" style="background:#555;color:#fff" onclick="deleteAdminAppointment(\'' + aid + '\')">🗑</button>';
+      var meta = APT_CAT_META[a.category] || {};
+      return '<tr>' +
+                '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div><div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.provider_name || '') + '</div><div class="apt-tbl-sub">' + (meta.icon || '') + ' ' + (meta.label || a.category || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.patient_name || '—') + '</div>' + (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + '</td>' +
+                '<td><div class="apt-tbl-sub">' + (a.user_email || '') + '</div></td>' +
+                '<td class="apt-tbl-symptom" title="' + (a.patient_reason || '').replace(/"/g,'&quot;') + '">' + (a.patient_reason || '<span style="color:#bbb">—</span>') + '</td>' +
+                '<td style="text-align:right">' + feeHtml + '</td>' +
+                '<td><span class="order-badge ' + cls + '">' + statusLabel + '</span></td>' +
+                '<td class="apt-tbl-actions">' + actions + '</td>' +
+                '<td class="apt-tbl-booked">' + bookedAt + '</td>' +
+                '<td class="apt-tbl-id">' + a.apt_id + '</td>' +
+             '</tr>';
+   }).join('');
+
+   container.innerHTML =
+      '<div style="padding:0.6rem 0;font-size:0.88rem;color:#444">' +
+         '<strong>' + apts.length + '</strong> appointment' + (apts.length === 1 ? '' : 's') + ' shown' +
+      '</div>' +
+      '<div class="apt-tbl-wrap">' +
+        '<table class="apt-tbl">' +
+           '<thead><tr>' +
+              '<th>Date / Slot</th>' +
+              '<th>Doctor / Staff</th>' +
+              '<th>Provider</th>' +
+              '<th>Patient</th>' +
+              '<th>Customer</th>' +
+              '<th class="apt-tbl-symptom">Symptom</th>' +
+              '<th style="text-align:right">Fee</th>' +
+              '<th>Status</th>' +
+              '<th>Actions</th>' +
+              '<th class="apt-tbl-booked">Booked</th>' +
+              '<th class="apt-tbl-id">Appt ID</th>' +
+           '</tr></thead>' +
+           '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>';
 }
 
 async function adminSetAptStatus(aptId, status) {

@@ -2516,18 +2516,23 @@ async function login() {
       const users = getUsers();
       user = users.find(u => u.email.toLowerCase() === email && u.password && u.password === password) || null;
    } else {
-      // All other users go through Supabase Auth (password hash lives in auth.users).
+      // Try Supabase Auth first (proper OTP-signed-up users).
       const { data, error } = await _sb.auth.signInWithPassword({ email, password });
       if (!error && data && data.user) {
          user = await AppDB.getUserByEmail(email);
          if (!user) {
-            // Auth row exists but no profile yet — they probably aborted signup before verifying.
             await _sb.auth.signOut();
             if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
             errorMsg.textContent = '❌ Profile not found. Please complete signup again.';
             errorMsg.classList.remove('hidden');
             return;
          }
+      } else {
+         // Fallback for legacy users (SQL-inserted, pre-OTP) that have a plaintext password
+         // in users table. We REQUIRE a non-empty stored password so OTP-only users
+         // (where password column is empty) can never bypass Auth this way.
+         const users = getUsers();
+         user = users.find(u => u.email.toLowerCase() === email && u.password && u.password === password) || null;
       }
    }
 

@@ -71,6 +71,36 @@ body.guest .store-section-divider {
 	border-color: #4a90e2;
 }
 
+/* Show/hide password toggle on auth forms */
+.pw-wrap {
+	position: relative;
+}
+.pw-wrap input {
+	width: 100%;
+	padding-right: 42px;
+	box-sizing: border-box;
+}
+.pw-toggle {
+	position: absolute;
+	right: 6px;
+	top: 50%;
+	transform: translateY(-50%);
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 1rem;
+	padding: 6px 8px;
+	color: #888;
+	border-radius: 4px;
+	line-height: 1;
+	transition: background 0.15s, color 0.15s;
+	user-select: none;
+}
+.pw-toggle:hover {
+	background: #f0f0f0;
+	color: #1a1a2e;
+}
+
 .btn-primary {
 	width: 100%;
 	padding: 12px;

@@ -3040,6 +3040,172 @@ function promptAuth(message) {
    }
 }
 
+// ── FORGOT / RESET PASSWORD ─────────────────────────────
+function showForgotPassword(e) {
+   if (e) e.preventDefault();
+   var box = document.querySelector('.auth-box:not(#forgotBox)');
+   if (box) box.style.display = 'none';
+   var fb = document.getElementById('forgotBox');
+   if (fb) {
+      fb.style.display = '';
+      var input = document.getElementById('forgotEmail');
+      if (input) input.focus();
+   }
+}
+
+function hideForgotPassword(e) {
+   if (e) e.preventDefault();
+   document.getElementById('forgotBox').style.display = 'none';
+   var box = document.querySelector('.auth-box:not(#forgotBox)');
+   if (box) box.style.display = '';
+}
+
+async function sendPasswordReset() {
+   var email = (document.getElementById('forgotEmail').value || '').trim().toLowerCase();
+   var msg   = document.getElementById('forgotMsg');
+   var btn   = document.querySelector('#forgotBox .btn-primary');
+   if (!email) { msg.textContent = 'Please enter your email.'; msg.classList.remove('hidden'); msg.style.color = ''; return; }
+
+   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+   // Build redirect URL pointing at reset-password.html in the same directory as this page
+   var basePath  = window.location.pathname.replace(/\/[^/]*$/, '/');
+   var redirectTo = window.location.origin + basePath + 'reset-password.html';
+
+   var { error } = await _sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo });
+   if (btn) { btn.disabled = false; btn.textContent = '📧 Send Reset Link'; }
+
+   // Always show the same friendly message regardless of whether the email exists,
+   // so we don't reveal which emails are registered.
+   msg.classList.remove('hidden');
+   msg.style.color = '#2e7d32';
+   msg.style.background = '#e8f5e9';
+   msg.style.borderColor = '#c8e6c9';
+   msg.textContent = '✅ If an account exists for ' + email + ', a reset link has been sent. Check your inbox (and spam folder).';
+   if (error) console.warn('resetPasswordForEmail:', error.message);
+}
+
+// Called from reset-password.html on load. Supabase auto-detects the recovery
+// hash in the URL and fires a PASSWORD_RECOVERY event — we wait for it.
+function initPasswordResetPage() {
+   var intro = document.getElementById('resetIntro');
+   var form  = document.getElementById('resetForm');
+
+   _sb.auth.onAuthStateChange(function(event, session) {
+      if (event === 'PASSWORD_RECOVERY' || (session && session.user)) {
+         if (intro) intro.textContent = 'Enter your new password below.';
+         if (form)  form.style.display = '';
+      }
+   });
+
+   // Fallback timer — if no event in 3 seconds, link was probably invalid/expired
+   setTimeout(function() {
+      if (form && form.style.display === 'none') {
+         if (intro) intro.innerHTML = '⚠️ This reset link is invalid or has expired. <a href="login.html" style="color:#4a90e2">Back to login</a>.';
+      }
+   }, 3000);
+}
+
+async function completePasswordReset() {
+   var newPw   = document.getElementById('resetNew').value;
+   var confirm = document.getElementById('resetConfirm').value;
+   var msg     = document.getElementById('resetMsg');
+   var btn     = document.querySelector('#resetForm .btn-primary');
+   var setMsg  = function(t, ok) {
+      msg.textContent = t;
+      msg.classList.remove('hidden');
+      msg.style.color  = ok ? '#2e7d32' : '#c62828';
+      msg.style.background = ok ? '#e8f5e9' : '#fff0f0';
+   };
+
+   if (!newPw || !confirm) { setMsg('All fields are required.'); return; }
+   if (newPw.length < 6)   { setMsg('Password must be at least 6 characters.'); return; }
+   if (newPw !== confirm)  { setMsg('Passwords do not match.'); return; }
+
+   if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+   var { error } = await _sb.auth.updateUser({ password: newPw });
+   if (btn) { btn.disabled = false; btn.textContent = '🔒 Update Password'; }
+
+   if (error) { setMsg('❌ ' + (error.message || 'Update failed.')); return; }
+
+   setMsg('✅ Password updated! Redirecting to login…', true);
+   await _sb.auth.signOut();
+   setTimeout(function() { window.location.href = 'login.html'; }, 1500);
+}
+
+// Toggle a password input's visibility from a button onclick. Updates the icon too.
+function togglePassword(inputId, btn) {
+   var input = document.getElementById(inputId);
+   if (!input) return;
+   if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '🙈';
+      btn.title = 'Hide password';
+   } else {
+      input.type = 'password';
+      btn.textContent = '👁';
+      btn.title = 'Show password';
+   }
+}
+
+// Change-password flow on profile.html. Handles all three account types:
+//   1. Admin              → plaintext check + plaintext update in users table
+//   2. New OTP user       → re-verify via Supabase Auth + updateUser
+//   3. Legacy SQL-inserted → re-verify against users.password + plaintext update
+async function changePassword() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var msg  = document.getElementById('pw-msg');
+   var setMsg = function(text, color) { msg.textContent = text; msg.style.color = color || '#666'; };
+   if (!user) { setMsg('❌ Please log in.', '#c62828'); return; }
+
+   var current = document.getElementById('pw-current').value;
+   var newPw   = document.getElementById('pw-new').value;
+   var confirm = document.getElementById('pw-confirm').value;
+
+   if (!current || !newPw || !confirm) { setMsg('❌ All three fields are required.', '#c62828'); return; }
+   if (newPw.length < 6)               { setMsg('❌ New password must be at least 6 characters.', '#c62828'); return; }
+   if (newPw !== confirm)              { setMsg('❌ New passwords do not match.', '#c62828'); return; }
+   if (newPw === current)              { setMsg('❌ New password must be different from current.', '#c62828'); return; }
+
+   setMsg('⏳ Updating…');
+
+   var success = false;
+
+   if (isAdmin(user.email)) {
+      // Admin: plaintext path
+      var dbUser = await AppDB.getUserByEmail(user.email);
+      if (!dbUser || dbUser.password !== current) { setMsg('❌ Current password is incorrect.', '#c62828'); return; }
+      success = await AppDB.updateUser(user.email, { password: newPw });
+   } else {
+      // Try Supabase Auth (the normal path for OTP-signed-up users)
+      var verify = await _sb.auth.signInWithPassword({ email: user.email, password: current });
+      if (!verify.error && verify.data && verify.data.user) {
+         var upd = await _sb.auth.updateUser({ password: newPw });
+         success = !upd.error;
+         if (upd.error) setMsg('❌ ' + (upd.error.message || 'Update failed.'), '#c62828');
+      } else {
+         // Legacy fallback (SQL-inserted user with plaintext password)
+         var dbUser = await AppDB.getUserByEmail(user.email);
+         if (!dbUser || !dbUser.password || dbUser.password !== current) {
+            setMsg('❌ Current password is incorrect.', '#c62828');
+            return;
+         }
+         success = await AppDB.updateUser(user.email, { password: newPw });
+      }
+   }
+
+   if (!success) {
+      // setMsg may have already been set above; fall back to a generic message
+      if (msg.textContent === '⏳ Updating…') setMsg('❌ Failed to update password. Please try again.', '#c62828');
+      return;
+   }
+
+   // Clear the fields after success
+   document.getElementById('pw-current').value = '';
+   document.getElementById('pw-new').value     = '';
+   document.getElementById('pw-confirm').value = '';
+   setMsg('✅ Password updated successfully.', '#2e7d32');
+}
+
 document.addEventListener('click', function () {
    const dd = document.getElementById('userDropdown');
    if (dd) dd.classList.remove('open');

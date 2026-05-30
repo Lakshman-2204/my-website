@@ -73,6 +73,10 @@ ALTER TABLE public.appointments
 ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS cancelled_by text DEFAULT '';
 
+-- 8b. APPOINTMENTS — free-text reason captured when the booking is cancelled
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS cancellation_reason text DEFAULT '';
+
 -- 9. APT_CATEGORIES — admin-managed list of business categories for appointments
 --    (hospitals, dental, beauty parlour, fitness, …). Used everywhere instead of
 --    a hardcoded JS constant so new categories appear with no code change.

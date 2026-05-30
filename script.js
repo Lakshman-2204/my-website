@@ -1894,7 +1894,12 @@ async function renderAllAppointments() {
          var byLabel = a.cancelled_by === 'customer' ? 'by Customer'
                       : a.cancelled_by === 'hospital' ? 'by Hospital'
                       : a.cancelled_by === 'admin'   ? 'by Admin' : '';
-         if (byLabel) statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+         if (byLabel) {
+            statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+            if (a.cancellation_reason) {
+               statusLabel += '<br><small style="font-weight:400;opacity:0.75" title="' + a.cancellation_reason.replace(/"/g,'&quot;') + '">"' + (a.cancellation_reason.length > 30 ? a.cancellation_reason.slice(0,30) + '…' : a.cancellation_reason) + '"</small>';
+            }
+         }
       }
       var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
       if (status === 'Confirmed')      feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
@@ -1907,11 +1912,8 @@ async function renderAllAppointments() {
                        '<div class="apt-tbl-sub">' + dt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) + '</div>';
          }
       }
-      var actions = (canChange
-         ? '<button class="apt-act-btn apt-act-ok"     onclick="adminSetAptStatus(\'' + aid + '\',\'Completed\')">✅</button>' +
-           '<button class="apt-act-btn apt-act-cancel" onclick="adminSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕</button>'
-         : '') +
-         '<button class="apt-act-btn" style="background:#555;color:#fff" onclick="deleteAdminAppointment(\'' + aid + '\')">🗑</button>';
+      // Admin only deletes — Complete/Cancel are done by hospital owner or customer.
+      var actions = '<button class="apt-act-btn" style="background:#555;color:#fff" onclick="deleteAdminAppointment(\'' + aid + '\')" title="Delete (permanent)">🗑 Delete</button>';
       var meta = APT_CAT_META[a.category] || {};
       return '<tr>' +
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
@@ -3871,7 +3873,12 @@ async function renderShopAppointments(filterStatus) {
          var byLabel = a.cancelled_by === 'customer' ? 'by Patient'
                       : a.cancelled_by === 'hospital' ? 'by You'
                       : a.cancelled_by === 'admin'   ? 'by Admin' : '';
-         if (byLabel) statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+         if (byLabel) {
+            statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+            if (a.cancellation_reason) {
+               statusLabel += '<br><small style="font-weight:400;opacity:0.75" title="' + a.cancellation_reason.replace(/"/g,'&quot;') + '">"' + (a.cancellation_reason.length > 30 ? a.cancellation_reason.slice(0,30) + '…' : a.cancellation_reason) + '"</small>';
+            }
+         }
       }
       var aid = (a.apt_id || '').replace(/'/g, "\\'");
       var canChange = status === 'Confirmed';
@@ -3932,8 +3939,14 @@ async function renderShopAppointments(filterStatus) {
 }
 
 async function shopSetAptStatus(aptId, status) {
-   if (!confirm('Set this appointment to "' + status + '"?')) return;
-   var extra = status === 'Cancelled' ? { cancelled_by: 'hospital' } : null;
+   var extra = null;
+   if (status === 'Cancelled') {
+      var reason = prompt('Please tell the patient why you\'re cancelling:\n\n(Optional — leave blank if not applicable.)');
+      if (reason === null) return;   // user hit Cancel on the prompt
+      extra = { cancelled_by: 'hospital', cancellation_reason: (reason || '').trim() };
+   } else {
+      if (!confirm('Set this appointment to "' + status + '"?')) return;
+   }
    var ok = await AppDB.updateAppointmentStatus(aptId, status, extra);
    if (!ok) { alert('Failed to update.'); return; }
    _shopAptsCache = null;     // force re-fetch
@@ -5108,7 +5121,12 @@ async function renderMyAppointments() {
          var byLabel = a.cancelled_by === 'customer' ? 'by You'
                       : a.cancelled_by === 'hospital' ? 'by Hospital'
                       : a.cancelled_by === 'admin'   ? 'by Admin' : '';
-         if (byLabel) statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+         if (byLabel) {
+            statusLabel = 'Cancelled<br><small style="font-weight:400;opacity:0.85">' + byLabel + '</small>';
+            if (a.cancellation_reason) {
+               statusLabel += '<br><small style="font-weight:400;opacity:0.75" title="' + a.cancellation_reason.replace(/"/g,'&quot;') + '">"' + (a.cancellation_reason.length > 30 ? a.cancellation_reason.slice(0,30) + '…' : a.cancellation_reason) + '"</small>';
+            }
+         }
       }
       var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
       if (status === 'Confirmed')       feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
@@ -5174,8 +5192,12 @@ function _fillSelectFromList(selectId, defaultLabel, values, optionLabel) {
 }
 
 async function cancelMyAppointment(aptId) {
-   if (!confirm('Cancel this appointment? This cannot be undone.')) return;
-   var ok = await AppDB.updateAppointmentStatus(aptId, 'Cancelled', { cancelled_by: 'customer' });
+   var reason = prompt('Please tell us why you\'re cancelling (so the hospital knows):\n\n(Optional — leave blank if you prefer.)');
+   if (reason === null) return;   // user hit Cancel on the prompt
+   var ok = await AppDB.updateAppointmentStatus(aptId, 'Cancelled', {
+      cancelled_by: 'customer',
+      cancellation_reason: (reason || '').trim()
+   });
    if (!ok) { alert('Failed to cancel. Please try again.'); return; }
    renderMyAppointments();
 }

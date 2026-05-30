@@ -3671,7 +3671,11 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	background: #fff;
 	border-bottom: 2px solid #e0e0e0;
 	padding: 0 28px;
+	overflow-x: auto;
+	scrollbar-width: none;
 }
+.profile-tabs::-webkit-scrollbar { display: none; }
+.profile-tab { white-space: nowrap; flex-shrink: 0; }
 
 .profile-tab {
 	padding: 13px 24px;
@@ -4390,9 +4394,13 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 .sp-btn-cancel { flex: 1; padding: 10px; background: #f5f5f5; color: #555; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
 
 @media (max-width: 600px) {
+	.profile-header { padding: 0 12px; height: 52px; }
+	.profile-brand  { font-size: 1rem; }
+	.profile-back-btn { padding: 6px 10px; font-size: 0.78rem; }
 	.profile-tabs { padding: 0 12px; }
 	.profile-tab  { padding: 11px 14px; font-size: 0.85rem; }
 	.profile-content { margin: 16px auto; padding: 0 12px 40px; }
+	.profile-card-body { padding: 14px; }
 	.addr-row { grid-template-columns: 1fr; }
 }
 

@@ -62,6 +62,11 @@ ALTER TABLE public.users
 -- Grandfather: any existing business partner you already trust is left approved.
 -- New unapproved partners will only appear after the JS change ships.
 
+-- 6b. USERS — per-partner commission rate override.
+--     NULL means "use the global rate from settings.commissionRate".
+ALTER TABLE public.users
+   ADD COLUMN IF NOT EXISTS commission_rate numeric DEFAULT NULL;
+
 -- 7. APPOINTMENTS — save patient details collected on the booking form
 ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS patient_name   text DEFAULT '',

@@ -16,6 +16,7 @@ function _userFromDB(r) {
             storeName: r.store_name || '', storeType: r.store_type || '',
             blocked: r.blocked || false, isAdmin: r.is_admin || false,
             isApproved: r.is_approved !== false,   // null/missing → treat as approved (legacy rows)
+            commissionRate: r.commission_rate != null ? Number(r.commission_rate) : null,
             gender: r.gender || '' };
 }
 function _userToDB(u) {
@@ -27,6 +28,11 @@ function _userToDB(u) {
    // Only write is_approved when explicitly set by the caller, so partial updates
    // (e.g. profile edits) don't accidentally re-approve a pending partner.
    if (typeof u.isApproved === 'boolean') row.is_approved = u.isApproved;
+   // commissionRate: null = "use global rate from settings"; number = per-partner override.
+   // Only write if explicitly provided so partial updates don't wipe an existing override.
+   if (u.commissionRate === null || typeof u.commissionRate === 'number') {
+      row.commission_rate = u.commissionRate;
+   }
    return row;
 }
 function _orderFromDB(r) {

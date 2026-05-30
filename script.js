@@ -4593,7 +4593,7 @@ function showAdminToast(msg) {
 
 // ── ADMIN TABS ──
 function switchAdminTab(tab) {
-   ['products', 'stores', 'orders', 'appointments', 'settings', 'users'].forEach(function(t) {
+   ['products', 'stores', 'orders', 'appointments', 'billing', 'settings', 'users'].forEach(function(t) {
       var el  = document.getElementById('tab-' + t);
       var btn = document.getElementById('tab-' + t + '-btn');
       if (el)  el.classList.toggle('hidden', t !== tab);
@@ -4604,6 +4604,152 @@ function switchAdminTab(tab) {
    if (tab === 'stores')       renderAdminStores();
    if (tab === 'orders')       renderAdminOrders();
    if (tab === 'appointments') renderAptAdmin();
+   if (tab === 'billing')      renderBillingAdmin();
+}
+
+// ── ADMIN: Billing — commission owed per business partner ──
+async function renderBillingAdmin() {
+   var container = document.getElementById('billingContent');
+   if (!container) return;
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+
+   await initDB();
+   await loadAptProviders(true);
+   var settings = getAdminSettings();
+   var globalRate = parseFloat(settings.commissionRate) || 0;
+
+   var df = _readDateFilter('billingDateFilter', null, 'billingRangeFrom', 'billingRangeTo');
+
+   // ORDERS — group by storeId (= partner email)
+   var orders = (_db.orders || []).filter(function(o) {
+      return o.status === 'Completed' && _isDateInRange(o.date || o.created_at || o.timestamp, df.range, df);
+   });
+
+   // APPOINTMENTS — fetch and group by provider's owner_email
+   var apts = await AppDB.getAllAppointments();
+   apts = apts.filter(function(a) {
+      return a.status === 'Completed' && _isDateInRange(a.date, df.range, df);
+   });
+   var providerById = {};
+   (_aptProvidersCache || []).forEach(function(p) { providerById[p.id] = p; });
+
+   var summary = {};
+   function bucket(email) {
+      var lc = (email || '').toLowerCase();
+      if (!summary[lc]) summary[lc] = { email: lc, name: '', orderCount: 0, orderRevenue: 0, aptCount: 0, aptRevenue: 0 };
+      return summary[lc];
+   }
+
+   orders.forEach(function(o) {
+      if (!o.storeId) return;
+      var b = bucket(o.storeId);
+      b.orderCount    += 1;
+      b.orderRevenue  += (o.total || 0);
+      if (!b.name && o.storeName) b.name = o.storeName;
+   });
+
+   apts.forEach(function(a) {
+      var prov = providerById[a.provider_id];
+      if (!prov || !prov.owner_email) return;
+      var b = bucket(prov.owner_email);
+      b.aptCount   += 1;
+      b.aptRevenue += (a.fee || 0);
+      if (!b.name && prov.name) b.name = prov.name;
+   });
+
+   // Fill missing names from users table, and remember each partner's per-row rate
+   var users = getUsers();
+   Object.keys(summary).forEach(function(email) {
+      var u = users.find(function(x) { return x.email.toLowerCase() === email; });
+      if (u) {
+         if (!summary[email].name) summary[email].name = u.storeName || u.name || email;
+         summary[email].partnerRate = (u.commissionRate != null) ? u.commissionRate : null;
+      } else {
+         if (!summary[email].name) summary[email].name = email;
+         summary[email].partnerRate = null;
+      }
+   });
+
+   var rows = Object.keys(summary).sort();
+   if (!rows.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No completed orders or appointments in the selected period.</p>';
+      return;
+   }
+
+   var grandRevenue = 0, grandCommission = 0, grandOrders = 0, grandApts = 0;
+   var tableRows = rows.map(function(email) {
+      var b = summary[email];
+      var effectiveRate = b.partnerRate != null ? b.partnerRate : globalRate;
+      var revenue       = b.orderRevenue + b.aptRevenue;
+      var commission    = Math.round(revenue * effectiveRate) / 100;
+      grandRevenue   += revenue;
+      grandCommission += commission;
+      grandOrders    += b.orderCount;
+      grandApts      += b.aptCount;
+      var rateBadge = b.partnerRate != null
+         ? '<strong>' + b.partnerRate + '%</strong>'
+         : '<strong>' + globalRate + '%</strong> <small style="color:#888">(global)</small>';
+      var emailJs = email.replace(/'/g, "\\'");
+      return '<tr>' +
+                '<td><div class="apt-tbl-name">' + b.name + '</div><div class="apt-tbl-sub">' + b.email + '</div></td>' +
+                '<td style="text-align:center">' + b.orderCount + '</td>' +
+                '<td style="text-align:center">' + b.aptCount + '</td>' +
+                '<td style="text-align:right;font-weight:600">₹' + revenue.toLocaleString('en-IN') + '</td>' +
+                '<td style="text-align:center">' + rateBadge + ' ' +
+                   '<button class="apt-view-btn" style="padding:2px 8px;font-size:0.72rem;margin-left:4px" onclick="editPartnerRate(\'' + emailJs + '\')">✏️</button>' +
+                '</td>' +
+                '<td style="text-align:right;font-weight:700;color:#1a73e8">₹' + commission.toLocaleString('en-IN') + '</td>' +
+             '</tr>';
+   }).join('');
+
+   container.innerHTML =
+      '<div style="display:flex;gap:1.5rem;padding:0.8rem 0 1rem;font-size:0.92rem;color:#444;flex-wrap:wrap">' +
+         '<div>Global rate: <strong>' + globalRate + '%</strong>' + (globalRate === 0 ? ' <small style="color:#c62828">(set in Settings)</small>' : '') + '</div>' +
+         '<div>' + rows.length + ' partner' + (rows.length === 1 ? '' : 's') + '</div>' +
+         '<div>' + grandOrders + ' orders · ' + grandApts + ' appointments</div>' +
+         '<div>Total Revenue: <strong>₹' + grandRevenue.toLocaleString('en-IN') + '</strong></div>' +
+         '<div>Total Commission: <strong style="color:#1a73e8">₹' + grandCommission.toLocaleString('en-IN') + '</strong></div>' +
+      '</div>' +
+      '<div class="apt-tbl-wrap">' +
+        '<table class="apt-tbl">' +
+           '<thead><tr>' +
+              '<th>Partner</th>' +
+              '<th style="text-align:center">Orders</th>' +
+              '<th style="text-align:center">Appointments</th>' +
+              '<th style="text-align:right">Revenue</th>' +
+              '<th style="text-align:center">Rate</th>' +
+              '<th style="text-align:right">Commission Owed</th>' +
+           '</tr></thead>' +
+           '<tbody>' + tableRows + '</tbody>' +
+        '</table>' +
+      '</div>';
+}
+
+async function editPartnerRate(email) {
+   var users = getUsers();
+   var u = users.find(function(x) { return x.email.toLowerCase() === email.toLowerCase(); });
+   var settings = getAdminSettings();
+   var globalRate = parseFloat(settings.commissionRate) || 0;
+   var current = (u && u.commissionRate != null) ? u.commissionRate : '';
+   var input = prompt(
+      'Commission rate (%) for ' + email + '\n\n' +
+      'Leave blank to use the global rate (' + globalRate + '%).\n' +
+      'Enter a number to override (e.g. 3 for 3%, 7.5 for 7.5%).',
+      current
+   );
+   if (input === null) return;
+   var trimmed = String(input).trim();
+   var newRate = null;
+   if (trimmed !== '') {
+      var n = parseFloat(trimmed);
+      if (isNaN(n) || n < 0 || n > 100) { alert('Please enter a number between 0 and 100, or leave blank.'); return; }
+      newRate = n;
+   }
+   var ok = await AppDB.updateUser(email, { commissionRate: newRate });
+   if (!ok) { alert('Failed to update rate.'); return; }
+   // Refresh in-memory users cache and re-render
+   if (u) u.commissionRate = newRate;
+   renderBillingAdmin();
 }
 
 // ── ADMIN: All Orders across every store ──
@@ -4719,6 +4865,7 @@ function loadSettingsForm() {
    setChecked('set-autoRefreshOrders', !!s.autoRefreshOrders);
    setChecked('set-shopAnnouncementOn', !!s.shopAnnouncementOn);
    setVal('set-shopAnnouncementText',  s.shopAnnouncementText  || '');
+   setVal('set-commissionRate',  s.commissionRate !== undefined ? s.commissionRate : '');
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
 }
 
@@ -4799,7 +4946,8 @@ function saveAllSettings() {
       showCustomerPhone:    document.getElementById('set-showCustomerPhone').checked,
       autoRefreshOrders:    document.getElementById('set-autoRefreshOrders').checked,
       shopAnnouncementOn:   document.getElementById('set-shopAnnouncementOn').checked,
-      shopAnnouncementText: document.getElementById('set-shopAnnouncementText').value.trim()
+      shopAnnouncementText: document.getElementById('set-shopAnnouncementText').value.trim(),
+      commissionRate:       parseFloat(document.getElementById('set-commissionRate').value) || 0
    };
    _db.settings = s;
    AppDB.saveSettings(s);

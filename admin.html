@@ -25,6 +25,7 @@
          <button class="admin-tab" id="tab-stores-btn"   onclick="switchAdminTab('stores')">🏪 Stores</button>
          <button class="admin-tab" id="tab-orders-btn"   onclick="switchAdminTab('orders')">📦 Orders</button>
          <button class="admin-tab" id="tab-appointments-btn" onclick="switchAdminTab('appointments')">🏥 Appointments</button>
+         <button class="admin-tab" id="tab-billing-btn" onclick="switchAdminTab('billing')">💰 Billing</button>
          <button class="admin-tab" id="tab-settings-btn" onclick="switchAdminTab('settings')">⚙️ Settings</button>
          <button class="admin-tab" id="tab-users-btn"    onclick="switchAdminTab('users')">👥 Users</button>
       </div>
@@ -57,6 +58,33 @@
          </div>
          <!-- PRODUCT GRID (filled by JS) -->
          <div class="admin-content" id="adminContent"></div>
+      </div>
+
+      <!-- BILLING TAB -->
+      <div id="tab-billing" class="hidden">
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>💰 Billing — Commission Owed</h1>
+                  <p>What each business partner owes you based on their <strong>Completed</strong> orders &amp; appointments. Set the rate in ⚙️ Settings → Platform Commission.</p>
+               </div>
+            </div>
+         </div>
+         <div class="admin-filter-bar" style="justify-content:flex-start;flex-wrap:wrap;gap:8px">
+            <select id="billingDateFilter" class="admin-filter-select" onchange="renderBillingAdmin()">
+               <option value="month" selected>This Month</option>
+               <option value="all">All time</option>
+               <option value="today">Today</option>
+               <option value="week">This Week</option>
+               <option value="year">This Year</option>
+               <option value="range">📆 Custom range…</option>
+            </select>
+            <input type="date" id="billingRangeFrom" class="admin-filter-select" style="display:none" title="From" onchange="renderBillingAdmin()"/>
+            <input type="date" id="billingRangeTo"   class="admin-filter-select" style="display:none" title="To"   onchange="renderBillingAdmin()"/>
+         </div>
+         <div class="admin-content" id="billingContent">
+            <p style="color:#999;text-align:center;padding:40px">Loading…</p>
+         </div>
       </div>
 
       <!-- SETTINGS TAB -->
@@ -197,6 +225,18 @@
                      <label>Internal Announcement Message</label>
                      <input type="text" id="set-shopAnnouncementText" placeholder="e.g. Today's rush: Area 3. Check stock before confirming."/>
                      <small>Visible only to business partners — not shown to customers.</small>
+                  </div>
+               </div>
+            </div>
+
+            <!-- PLATFORM COMMISSION -->
+            <div class="settings-card">
+               <div class="settings-card-header">💰 Platform Commission</div>
+               <div class="settings-card-body">
+                  <div class="settings-field">
+                     <label>Commission Rate (%)</label>
+                     <input type="number" id="set-commissionRate" min="0" max="100" step="0.1" placeholder="5"/>
+                     <small>What percentage you charge business partners on each Completed order/appointment. Used on the Billing tab.</small>
                   </div>
                </div>
             </div>

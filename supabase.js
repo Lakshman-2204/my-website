@@ -399,6 +399,34 @@ window.AppDB = {
       return true;
    },
 
+   // ── APT CATEGORIES (admin-managed) ─────────────
+   async getCategories() {
+      const { data, error } = await _sb.from('apt_categories').select('*').order('sort_order').order('label');
+      if (error) { console.error('getCategories:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertCategory(cat) {
+      const row = {
+         id:          cat.id,
+         label:       cat.label,
+         description: cat.description || '',
+         icon:        cat.icon        || '🏥',
+         staff_label: cat.staff_label || 'Staff',
+         staff_icon:  cat.staff_icon  || '👥',
+         sort_order:  typeof cat.sort_order === 'number' ? cat.sort_order : 100
+      };
+      const { error } = await _sb.from('apt_categories').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertCategory:', error.message); return false; }
+      return true;
+   },
+
+   async deleteCategory(id) {
+      const { error } = await _sb.from('apt_categories').delete().eq('id', id);
+      if (error) { console.error('deleteCategory:', error.message); return false; }
+      return true;
+   },
+
    async getAppointmentsByOwner(ownerEmail) {
       const lc = (ownerEmail || '').toLowerCase();
       if (!lc) return [];

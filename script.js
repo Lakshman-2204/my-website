@@ -1066,21 +1066,35 @@ function showContactInfo() {
 // ── APPOINTMENTS ─────────────────────────────────────────
 // Category metadata (label, icon, description). Providers + doctors live in
 // the apt_providers table — managed via the Admin → Appointments tab.
-// Each category defines:
-//   icon, label, desc       — category-level (used in customer category picker)
-//   staffLabel, staffIcon   — what the people inside are called (Doctors / Stylists / etc.)
-// To support a new business type, add an entry here + add an <option> in admin.html.
-const APT_CAT_META = {
-   hospital: { icon: '🏥', label: 'Hospitals',      desc: 'General & multi-speciality hospitals',
-               staffLabel: 'Doctors',  staffIcon: '👨‍⚕️' },
-   dental:   { icon: '🦷', label: 'Dental Clinics', desc: 'Dentists, orthodontists & cosmetic care',
-               staffLabel: 'Doctors',  staffIcon: '👨‍⚕️' }
-   // Example future entries (don't activate without also adding admin <option>):
-   // beauty:  { icon: '💇', label: 'Beauty Parlours', desc: 'Hair, facial & spa services',
-   //            staffLabel: 'Stylists', staffIcon: '💁' },
-   // fitness: { icon: '🏋️', label: 'Gyms',            desc: 'Personal training & group classes',
-   //            staffLabel: 'Trainers', staffIcon: '🏃' }
+// Categories are now stored in the apt_categories table (admin manages via UI).
+// APT_CAT_META is a live cache, populated by loadAptCategories() on first use.
+let APT_CAT_META = {
+   // Safe defaults so pages don't break if loadAptCategories() hasn't completed yet.
+   hospital: { icon: '🏥', label: 'Hospitals',      desc: '', staffLabel: 'Doctors', staffIcon: '👨‍⚕️' },
+   dental:   { icon: '🦷', label: 'Dental Clinics', desc: '', staffLabel: 'Doctors', staffIcon: '👨‍⚕️' }
 };
+let _aptCatsLoaded = false;
+
+async function loadAptCategories(force) {
+   if (_aptCatsLoaded && !force) return APT_CAT_META;
+   var rows = await AppDB.getCategories();
+   if (rows && rows.length) {
+      var next = {};
+      rows.forEach(function(r) {
+         next[r.id] = {
+            icon: r.icon || '🏥',
+            label: r.label,
+            desc: r.description || '',
+            staffLabel: r.staff_label || 'Staff',
+            staffIcon:  r.staff_icon  || '👥',
+            sortOrder:  r.sort_order || 100
+         };
+      });
+      APT_CAT_META = next;
+   }
+   _aptCatsLoaded = true;
+   return APT_CAT_META;
+}
 
 // Pick the right tab label/icon for an owner based on their providers' categories.
 // Returns { label, icon } — falls back to generic "Staff" if owner runs multiple cats.
@@ -1148,6 +1162,7 @@ async function showBookAppointment() {
    // Show the "My Appointments" shortcut next to the section title
    _addAptHistoryBtn();
    document.getElementById('aptContent').innerHTML = '<p style="text-align:center;color:#999;padding:40px">Loading…</p>';
+   await loadAptCategories();
    await loadAptProviders();
    renderAptCategories();
    window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1456,6 +1471,7 @@ async function renderAptAdmin() {
    if (!container) return;
    _liveSubscribe('adminProvs', 'apt_providers', renderAptAdmin);
    container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+   await loadAptCategories();
    await loadAptProviders(true);
 
    var filter = (document.getElementById('aptAdminCatFilter') || {}).value || '';
@@ -1530,9 +1546,19 @@ function renderAptAdminDoctors(provider) {
 
 function openAptProviderModal(providerId) {
    var p = providerId ? _aptGetProvider(providerId) : null;
-   document.getElementById('aptProviderModalTitle').textContent = p ? '✏️ Edit Provider' : '➕ Add Hospital / Clinic';
+   document.getElementById('aptProviderModalTitle').textContent = p ? '✏️ Edit Provider' : '➕ Add Provider';
+
+   // Populate the category dropdown from the live cache
+   var catSel = document.getElementById('aptProvCategory');
+   if (catSel) {
+      catSel.innerHTML = Object.keys(APT_CAT_META).map(function(k) {
+         var c = APT_CAT_META[k];
+         return '<option value="' + k + '">' + c.icon + ' ' + c.label + '</option>';
+      }).join('');
+   }
+
    document.getElementById('aptProvId').value       = p ? p.id : '';
-   document.getElementById('aptProvCategory').value = p ? p.category : 'hospital';
+   document.getElementById('aptProvCategory').value = p ? p.category : (Object.keys(APT_CAT_META)[0] || 'hospital');
    document.getElementById('aptProvName').value     = p ? p.name : '';
    document.getElementById('aptProvTagline').value  = p ? (p.tagline || '') : '';
    document.getElementById('aptProvAddress').value  = p ? (p.address || '') : '';
@@ -1691,14 +1717,120 @@ async function _aptRerenderActiveList() {
 
 // ── ADMIN: Appointment sub-tab + bookings view ──
 function switchAptAdminSub(sub) {
-   ['providers', 'bookings'].forEach(function(s) {
+   ['providers', 'bookings', 'categories'].forEach(function(s) {
       var panel = document.getElementById('apt-sub-' + s);
       var btn   = document.getElementById('apt-subtab-' + s + '-btn');
       if (panel) panel.classList.toggle('hidden', s !== sub);
       if (btn)   btn.classList.toggle('active', s === sub);
    });
-   if (sub === 'bookings')  renderAllAppointments();
-   if (sub === 'providers') renderAptAdmin();
+   if (sub === 'bookings')   renderAllAppointments();
+   if (sub === 'providers')  renderAptAdmin();
+   if (sub === 'categories') renderAptCategoriesAdmin();
+}
+
+// ── ADMIN: Categories CRUD ──
+async function renderAptCategoriesAdmin() {
+   var container = document.getElementById('aptCategoriesContent');
+   if (!container) return;
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+   await loadAptCategories(true);
+   await loadAptProviders(true);
+
+   var keys = Object.keys(APT_CAT_META);
+   if (!keys.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No categories yet. Click <strong>➕ Add Category</strong>.</p>';
+      return;
+   }
+
+   // Sort by sortOrder for display
+   keys.sort(function(a, b) {
+      var ao = APT_CAT_META[a].sortOrder || 100;
+      var bo = APT_CAT_META[b].sortOrder || 100;
+      return ao - bo;
+   });
+
+   var html = '<div class="apt-providers-grid" style="margin-top:1rem">';
+   keys.forEach(function(k) {
+      var c = APT_CAT_META[k];
+      var providerCount = (_aptProvidersCache || []).filter(function(p) { return p.category === k; }).length;
+      var kid = k.replace(/'/g, "\\'");
+      html += '<div class="apt-provider-card">' +
+                '<div class="apt-provider-top">' +
+                   '<div class="apt-provider-icon">' + c.icon + '</div>' +
+                   '<div style="flex:1;min-width:0">' +
+                      '<div class="apt-provider-name">' + c.label + '</div>' +
+                      '<div class="apt-provider-tagline">' + (c.desc || '') + '</div>' +
+                      '<div class="apt-provider-tagline" style="margin-top:3px;color:#1a73e8">' + c.staffIcon + ' Staff: ' + c.staffLabel + '</div>' +
+                      '<div class="apt-provider-tagline" style="margin-top:3px;font-family:ui-monospace,monospace;color:#888">ID: ' + k + '</div>' +
+                   '</div>' +
+                '</div>' +
+                '<div class="apt-provider-footer">' +
+                   '<span>' + providerCount + ' provider' + (providerCount === 1 ? '' : 's') + '</span>' +
+                   '<div style="display:flex;gap:6px">' +
+                      '<button class="apt-view-btn" onclick="openAptCategoryModal(\'' + kid + '\')">✏️ Edit</button>' +
+                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteAptCategory(\'' + kid + '\')">🗑</button>' +
+                   '</div>' +
+                '</div>' +
+             '</div>';
+   });
+   html += '</div>';
+   container.innerHTML = html;
+}
+
+function openAptCategoryModal(id) {
+   var c = id ? APT_CAT_META[id] : null;
+   document.getElementById('aptCategoryModalTitle').textContent = c ? '✏️ Edit Category' : '➕ Add Category';
+   document.getElementById('aptCatOriginalId').value = id || '';
+   document.getElementById('aptCatId').value         = id || '';
+   document.getElementById('aptCatId').disabled      = !!id;   // can't change PK after creation
+   document.getElementById('aptCatLabel').value      = c ? c.label : '';
+   document.getElementById('aptCatDesc').value       = c ? (c.desc || '') : '';
+   document.getElementById('aptCatIcon').value       = c ? (c.icon || '') : '';
+   document.getElementById('aptCatStaffLabel').value = c ? (c.staffLabel || '') : '';
+   document.getElementById('aptCatStaffIcon').value  = c ? (c.staffIcon || '') : '';
+   document.getElementById('aptCatSortOrder').value  = c && c.sortOrder != null ? c.sortOrder : 100;
+   document.getElementById('aptCategoryModal').classList.remove('hidden');
+}
+
+function closeAptCategoryModal() {
+   document.getElementById('aptCategoryModal').classList.add('hidden');
+}
+
+async function saveAptCategory() {
+   var id    = document.getElementById('aptCatId').value.trim().toLowerCase().replace(/\s+/g, '_');
+   var label = document.getElementById('aptCatLabel').value.trim();
+   if (!id)    { alert('ID is required (short code like "beauty").'); return; }
+   if (!label) { alert('Label is required.'); return; }
+   if (!/^[a-z][a-z0-9_]*$/.test(id)) { alert('ID can only contain lowercase letters, digits, and underscores, starting with a letter.'); return; }
+
+   var cat = {
+      id:          id,
+      label:       label,
+      description: document.getElementById('aptCatDesc').value.trim(),
+      icon:        document.getElementById('aptCatIcon').value.trim() || '🏥',
+      staff_label: document.getElementById('aptCatStaffLabel').value.trim() || 'Staff',
+      staff_icon:  document.getElementById('aptCatStaffIcon').value.trim() || '👥',
+      sort_order:  parseInt(document.getElementById('aptCatSortOrder').value, 10) || 100
+   };
+   var ok = await AppDB.upsertCategory(cat);
+   if (!ok) { alert('Failed to save category.'); return; }
+   closeAptCategoryModal();
+   await renderAptCategoriesAdmin();
+}
+
+async function deleteAptCategory(id) {
+   var c = APT_CAT_META[id];
+   if (!c) return;
+   // Don't allow deletion if any provider still uses this category
+   var inUse = (_aptProvidersCache || []).filter(function(p) { return p.category === id; });
+   if (inUse.length) {
+      alert('Cannot delete "' + c.label + '" — ' + inUse.length + ' provider(s) still use this category. Reassign them first.');
+      return;
+   }
+   if (!confirm('Delete category "' + c.label + '"? This cannot be undone.')) return;
+   var ok = await AppDB.deleteCategory(id);
+   if (!ok) { alert('Failed to delete.'); return; }
+   await renderAptCategoriesAdmin();
 }
 
 async function renderAllAppointments() {
@@ -2293,8 +2425,8 @@ async function verifySignupOtp() {
    if (!_pendingSignup) { alert('No pending signup. Please start over.'); backToSignup(); return; }
    const token = (document.getElementById('otpCode').value || '').trim();
    const errEl = document.getElementById('otpError');
-   if (!/^\d{6}$/.test(token)) {
-      if (errEl) { errEl.textContent = 'Please enter the 6-digit code.'; errEl.classList.remove('hidden'); errEl.style.color = ''; }
+   if (!/^\d{4,10}$/.test(token)) {
+      if (errEl) { errEl.textContent = 'Please enter the numeric code from your email.'; errEl.classList.remove('hidden'); errEl.style.color = ''; }
       return;
    }
    if (errEl) errEl.classList.add('hidden');
@@ -2363,18 +2495,54 @@ function backToSignup(e) {
 
 async function login() {
    const btn = document.querySelector('.btn-primary');
-   if (btn) { btn.textContent = 'Logging in…'; btn.disabled = true; }
-   await initDB();
+   const errorMsg = document.getElementById('loginError');
    const email    = document.getElementById('loginEmail').value.trim().toLowerCase();
    const password = document.getElementById('loginPassword').value;
-   const errorMsg = document.getElementById('loginError');
+
+   if (!email || !password) {
+      errorMsg.textContent = '❌ Email and password are required.';
+      errorMsg.classList.remove('hidden');
+      return;
+   }
+
+   if (btn) { btn.textContent = 'Logging in…'; btn.disabled = true; }
+   await initDB();
+
+   var user = null;
+
+   if (isAdmin(email)) {
+      // Admins still live only in our users table (not auth.users) — legacy plaintext check.
+      // We require a non-empty password explicitly so blanks don't match a blank record.
+      const users = getUsers();
+      user = users.find(u => u.email.toLowerCase() === email && u.password && u.password === password) || null;
+   } else {
+      // All other users go through Supabase Auth (password hash lives in auth.users).
+      const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+      if (!error && data && data.user) {
+         user = await AppDB.getUserByEmail(email);
+         if (!user) {
+            // Auth row exists but no profile yet — they probably aborted signup before verifying.
+            await _sb.auth.signOut();
+            if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
+            errorMsg.textContent = '❌ Profile not found. Please complete signup again.';
+            errorMsg.classList.remove('hidden');
+            return;
+         }
+      }
+   }
+
    if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
-   const users    = getUsers();
-   const user     = users.find(u => u.email.toLowerCase() === email && u.password === password);
-   if (!user) { errorMsg.classList.remove('hidden'); errorMsg.textContent = '❌ Incorrect email or password.'; return; }
+
+   if (!user) {
+      errorMsg.textContent = '❌ Incorrect email or password.';
+      errorMsg.classList.remove('hidden');
+      return;
+   }
 
    // Blocked check — admins cannot be blocked
    if (user.blocked && !isAdmin(user.email)) {
+      // Make sure we also clear the Supabase Auth session for blocked users
+      try { await _sb.auth.signOut(); } catch (e) {}
       errorMsg.textContent = '🚫 Your account has been blocked. Please contact the store admin.';
       errorMsg.classList.remove('hidden');
       return;
@@ -3529,8 +3697,9 @@ async function shopSetAptStatus(aptId, status) {
    renderShopAppointments();
 }
 
-function logout() {
+async function logout() {
    sessionStorage.removeItem('loggedInUser');
+   try { await _sb.auth.signOut(); } catch (e) { /* fine if no session */ }
    window.location.href = 'login.html';
 }
 

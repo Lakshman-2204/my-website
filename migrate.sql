@@ -72,3 +72,24 @@ ALTER TABLE public.appointments
 --    values: 'customer' | 'hospital' | 'admin'  (empty for non-cancelled rows)
 ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS cancelled_by text DEFAULT '';
+
+-- 9. APT_CATEGORIES — admin-managed list of business categories for appointments
+--    (hospitals, dental, beauty parlour, fitness, …). Used everywhere instead of
+--    a hardcoded JS constant so new categories appear with no code change.
+CREATE TABLE IF NOT EXISTS public.apt_categories (
+   id           text         PRIMARY KEY,
+   label        text         NOT NULL,
+   description  text         DEFAULT '',
+   icon         text         DEFAULT '🏥',
+   staff_label  text         DEFAULT 'Staff',
+   staff_icon   text         DEFAULT '👥',
+   sort_order   int          DEFAULT 100,
+   created_at   timestamptz  DEFAULT now()
+);
+ALTER TABLE public.apt_categories DISABLE ROW LEVEL SECURITY;
+
+-- Seed the two we already use
+INSERT INTO public.apt_categories (id, label, description, icon, staff_label, staff_icon, sort_order) VALUES
+   ('hospital', 'Hospitals',      'General & multi-speciality hospitals',    '🏥', 'Doctors', '👨‍⚕️', 10),
+   ('dental',   'Dental Clinics', 'Dentists, orthodontists & cosmetic care', '🦷', 'Doctors', '👨‍⚕️', 20)
+ON CONFLICT (id) DO NOTHING;

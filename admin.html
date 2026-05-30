@@ -317,8 +317,9 @@
 
          <!-- Sub-section tabs -->
          <div class="admin-filter-bar" style="margin-bottom:6px">
-            <button class="admin-tab active" id="apt-subtab-providers-btn" onclick="switchAptAdminSub('providers')">🏥 Providers &amp; Doctors</button>
-            <button class="admin-tab"        id="apt-subtab-bookings-btn"  onclick="switchAptAdminSub('bookings')">📅 All Bookings</button>
+            <button class="admin-tab active" id="apt-subtab-providers-btn"   onclick="switchAptAdminSub('providers')">🏥 Providers &amp; Doctors</button>
+            <button class="admin-tab"        id="apt-subtab-bookings-btn"    onclick="switchAptAdminSub('bookings')">📅 All Bookings</button>
+            <button class="admin-tab"        id="apt-subtab-categories-btn"  onclick="switchAptAdminSub('categories')">🗂 Categories</button>
          </div>
 
          <!-- Providers sub-panel -->
@@ -331,6 +332,20 @@
                </select>
             </div>
             <div class="admin-content" id="aptAdminContent">
+               <p style="color:#999;text-align:center;padding:40px">Loading…</p>
+            </div>
+         </div>
+
+         <!-- Categories sub-panel -->
+         <div id="apt-sub-categories" class="hidden">
+            <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+               <p style="margin:0;color:#666;font-size:0.85rem;flex:1">
+                  Manage the business categories you offer (Hospitals, Dental, Beauty Parlour, Fitness…).
+                  Each category defines what the staff inside are called (Doctors / Stylists / Trainers).
+               </p>
+               <button class="admin-add-main-btn" onclick="openAptCategoryModal()">➕ Add Category</button>
+            </div>
+            <div class="admin-content" id="aptCategoriesContent">
                <p style="color:#999;text-align:center;padding:40px">Loading…</p>
             </div>
          </div>
@@ -569,6 +584,51 @@
             <div class="admin-modal-footer">
                <button class="admin-modal-btn-cancel" onclick="closeAptDoctorModal()">Cancel</button>
                <button class="admin-modal-btn-save"   onclick="saveAptDoctor()">💾 Save Doctor</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- APT CATEGORY MODAL -->
+      <div class="admin-modal-overlay hidden" id="aptCategoryModal" onclick="if(event.target===this)closeAptCategoryModal()">
+         <div class="admin-modal">
+            <div class="admin-modal-header">
+               <h3 id="aptCategoryModalTitle">Add Category</h3>
+               <button class="admin-modal-close" onclick="closeAptCategoryModal()">✕</button>
+            </div>
+            <div class="admin-modal-body">
+               <div class="modal-field">
+                  <label>ID <small style="font-weight:400;color:#aaa">(short code — used internally, e.g. <code>beauty</code>, <code>fitness</code>)</small></label>
+                  <input type="text" id="aptCatId" placeholder="beauty" maxlength="32"/>
+               </div>
+               <div class="modal-field">
+                  <label>Display Label</label>
+                  <input type="text" id="aptCatLabel" placeholder="Beauty Parlours"/>
+               </div>
+               <div class="modal-field">
+                  <label>Description <small style="font-weight:400;color:#aaa">(shown on the category picker)</small></label>
+                  <input type="text" id="aptCatDesc" placeholder="Hair, facial & spa services"/>
+               </div>
+               <div class="modal-field">
+                  <label>Icon <small style="font-weight:400;color:#aaa">(emoji)</small></label>
+                  <input type="text" id="aptCatIcon" maxlength="2" placeholder="💇"/>
+               </div>
+               <div class="modal-field">
+                  <label>Staff Label <small style="font-weight:400;color:#aaa">(what people inside are called — Doctors, Stylists, Trainers…)</small></label>
+                  <input type="text" id="aptCatStaffLabel" placeholder="Stylists"/>
+               </div>
+               <div class="modal-field">
+                  <label>Staff Icon <small style="font-weight:400;color:#aaa">(emoji)</small></label>
+                  <input type="text" id="aptCatStaffIcon" maxlength="2" placeholder="💁"/>
+               </div>
+               <div class="modal-field">
+                  <label>Sort Order <small style="font-weight:400;color:#aaa">(lower numbers appear first)</small></label>
+                  <input type="number" id="aptCatSortOrder" value="100"/>
+               </div>
+               <input type="hidden" id="aptCatOriginalId"/>
+            </div>
+            <div class="admin-modal-footer">
+               <button class="admin-modal-btn-cancel" onclick="closeAptCategoryModal()">Cancel</button>
+               <button class="admin-modal-btn-save"   onclick="saveAptCategory()">💾 Save</button>
             </div>
          </div>
       </div>

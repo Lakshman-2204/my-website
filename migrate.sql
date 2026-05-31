@@ -105,6 +105,10 @@ ALTER TABLE public.appointments
 ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS phone text DEFAULT '';
 
+-- 5e. APT_PROVIDERS — GSTIN (15-char tax ID) shown on the consultation receipt header
+ALTER TABLE public.apt_providers
+   ADD COLUMN IF NOT EXISTS gstin text DEFAULT '';
+
 -- 10. STORAGE — public bucket for doctor profile photos
 INSERT INTO storage.buckets (id, name, public)
    VALUES ('doctor-photos', 'doctor-photos', true)

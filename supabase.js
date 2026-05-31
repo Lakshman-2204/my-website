@@ -419,6 +419,7 @@ window.AppDB = {
          timing:           provider.timing      || '',
          icon:             provider.icon        || '🏥',
          phone:            provider.phone       || '',
+         gstin:            (provider.gstin || '').toUpperCase(),
          owner_email:      (provider.owner_email || '').toLowerCase(),
          commission_type:  provider.commission_type  || 'percent',
          commission_value: (provider.commission_value != null) ? Number(provider.commission_value) : 0,

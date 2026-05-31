@@ -1797,6 +1797,7 @@ function openAptProviderModal(providerId) {
    document.getElementById('aptProvAddress').value  = p ? (p.address || '') : '';
    document.getElementById('aptProvTiming').value   = p ? (p.timing  || '') : '';
    document.getElementById('aptProvPhone').value    = p ? (p.phone   || '') : '';
+   document.getElementById('aptProvGstin').value    = p ? (p.gstin   || '') : '';
    document.getElementById('aptProvIcon').value     = p ? (p.icon    || '') : '';
 
    // Populate owner dropdown with current store-owner users
@@ -1858,6 +1859,7 @@ async function saveAptProvider() {
       address:          document.getElementById('aptProvAddress').value.trim(),
       timing:           document.getElementById('aptProvTiming').value.trim(),
       phone:            document.getElementById('aptProvPhone').value.trim(),
+      gstin:            document.getElementById('aptProvGstin').value.trim().toUpperCase(),
       icon:             icon,
       owner_email:      document.getElementById('aptProvOwner').value || '',
       commission_type:  document.getElementById('aptProvCommissionType').value || 'percent',
@@ -2237,8 +2239,10 @@ async function renderAllAppointments() {
                        '<div class="apt-tbl-sub">' + dt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) + '</div>';
          }
       }
-      // Admin only deletes — Complete/Cancel are done by hospital owner or customer.
-      var actions = '<button class="apt-act-btn" style="background:#555;color:#fff" onclick="deleteAdminAppointment(\'' + aid + '\')" title="Delete (permanent)">🗑 Delete</button>';
+      // Admin can print receipt + delete. Complete/Cancel are done by hospital owner or customer.
+      var actions =
+         '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="printConsultationReceipt(\'' + aid + '\')" title="Print consultation receipt">🧾 Receipt</button>' +
+         '<button class="apt-act-btn" style="background:#555;color:#fff" onclick="deleteAdminAppointment(\'' + aid + '\')" title="Delete (permanent)">🗑 Delete</button>';
       var meta = APT_CAT_META[a.category] || {};
       var tokenCell = a.token
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
@@ -4276,9 +4280,13 @@ async function renderShopAppointments(filterStatus) {
       }
 
       // Action buttons depend on status + whether the slot has passed yet.
+      // Receipt is available for any non-cancelled booking.
+      var receiptBtn = (status !== 'Cancelled')
+         ? '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" title="Print consultation receipt" onclick="printConsultationReceipt(\'' + aid + '\')">🧾 Receipt</button>'
+         : '';
       var actions;
       if (!canChange) {
-         actions = '<span style="color:#bbb">—</span>';
+         actions = receiptBtn || '<span style="color:#bbb">—</span>';
       } else {
          var slotPassed = _slotPassed(a);
          var completeBtn = slotPassed
@@ -4288,7 +4296,7 @@ async function renderShopAppointments(filterStatus) {
             ? '<button class="apt-act-btn apt-act-noshow"  title="Patient did not show up" onclick="shopSetAptStatus(\'' + aid + '\',\'No-show\')">🚫 No-show</button>'
             : '';
          var cancelBtn  = '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>';
-         actions = completeBtn + noshowBtn + cancelBtn;
+         actions = receiptBtn + completeBtn + noshowBtn + cancelBtn;
       }
       var tokenCell = a.token
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
@@ -6506,4 +6514,198 @@ function _renderSOList(orders) {
                 '<div class="so-order-footer">₹' + (o.total||0).toLocaleString('en-IN') + '</div>' +
              '</div>';
    }).join('');
+}
+
+// ─────────────────────────────────────────────────────────
+// CONSULTATION RECEIPT
+//   Opens a new window with a print-formatted consultation receipt
+//   for the given appointment id. Layout mirrors the standard hospital
+//   bill format: header (hospital name / address / GST), two-column
+//   patient + bill block, particulars table, totals row, signature
+//   footer with create/print metadata.
+// ─────────────────────────────────────────────────────────
+async function printConsultationReceipt(aptId) {
+   if (!aptId) return;
+
+   // Load appointment (search providers cache first for a quick row, else fetch all)
+   var apt = null;
+   var all = await AppDB.getAllAppointments();
+   apt = (all || []).find(function(a) { return a.apt_id === aptId; });
+   if (!apt) { alert('Appointment not found.'); return; }
+
+   // Find the provider for header details
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(apt.provider_id) || {};
+
+   // Build derived bill identifiers from the appointment id
+   var shortId   = (apt.apt_id || '').replace(/[^A-Za-z0-9]/g, '').slice(-10).toUpperCase();
+   var umrNo     = 'UMR' + shortId;
+   var billNo    = 'OC'  + shortId;
+   var receiptNo = 'REC' + shortId;
+
+   // Format dates
+   var now      = new Date();
+   var createDt = apt.created_at ? new Date(apt.created_at) : now;
+   var fmtDT    = function(d) {
+      if (!d || isNaN(d.getTime())) return '';
+      var dd = String(d.getDate()).padStart(2,'0');
+      var mm = d.toLocaleString('en-US', { month: 'short' });
+      var yy = d.getFullYear();
+      var hr = String(d.getHours()).padStart(2,'0');
+      var mn = String(d.getMinutes()).padStart(2,'0');
+      return dd + '-' + mm + '-' + yy + ' ' + hr + ':' + mn;
+   };
+   var fmtDTAmPm = function(d) {
+      if (!d || isNaN(d.getTime())) return '';
+      var dd = String(d.getDate()).padStart(2,'0');
+      var mm = d.toLocaleString('en-US', { month: 'short' });
+      var yy = d.getFullYear();
+      var hr = d.getHours();
+      var mn = String(d.getMinutes()).padStart(2,'0');
+      var ap = hr >= 12 ? 'PM' : 'AM';
+      hr = hr % 12; if (hr === 0) hr = 12;
+      return dd + '-' + mm + '-' + yy + ' ' + String(hr).padStart(2,'0') + ':' + mn + ' ' + ap;
+   };
+
+   var paymentMode = 'Cash';
+   var department  = (apt.speciality || apt.category || '').toUpperCase();
+   var fee         = Number(apt.fee || 0);
+   var status      = apt.status || 'Confirmed';
+
+   // Logged-in user's identifier appears on Create By / Print By
+   var loggedUser = (function() { try { return JSON.parse(sessionStorage.getItem('loggedInUser')); } catch(e) { return null; } })() || {};
+   var operator   = loggedUser.email || 'system';
+
+   var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
+
+   var html =
+      '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Consultation Receipt — ' + esc(billNo) + '</title>' +
+      '<style>' +
+         '*{box-sizing:border-box;margin:0;padding:0}' +
+         'body{font-family:"Courier New",Consolas,monospace;color:#000;background:#fff;padding:20px;font-size:13px;line-height:1.4}' +
+         '.rcpt{max-width:780px;margin:0 auto;border:1px solid #000;padding:14px 18px}' +
+         '.rcpt h1{font-size:22px;text-align:center;letter-spacing:1px;font-weight:700;margin-bottom:2px}' +
+         '.rcpt .legal{text-align:center;font-size:12px;margin-bottom:2px}' +
+         '.rcpt .addr{text-align:center;font-size:12px}' +
+         '.rcpt .phone{text-align:center;font-size:12px;margin-bottom:8px}' +
+         '.rcpt h2{text-align:center;font-size:16px;font-weight:700;border-top:1px solid #000;border-bottom:1px solid #000;padding:5px 0;margin:6px 0 0}' +
+         '.info{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #000}' +
+         '.info .col{padding:4px 8px}' +
+         '.info .col.right{border-left:1px solid #000}' +
+         '.info .row{display:grid;grid-template-columns:140px 10px 1fr;font-size:12.5px;padding:2px 0}' +
+         '.info .row .lbl{font-weight:700;text-transform:uppercase}' +
+         '.info .row .sep{text-align:center}' +
+         '.tbl{width:100%;border-collapse:collapse;margin-top:0}' +
+         '.tbl th,.tbl td{border-bottom:1px solid #000;padding:5px 8px;text-align:left;font-size:12.5px}' +
+         '.tbl th{text-transform:uppercase;font-weight:700;border-top:1px solid #000}' +
+         '.tbl .right{text-align:right}' +
+         '.tbl .center{text-align:center}' +
+         '.tbl .dept{font-weight:700;text-transform:uppercase}' +
+         '.totalrow{display:flex;justify-content:space-between;border-bottom:1px solid #000;padding:6px 8px;font-size:13px}' +
+         '.totalrow .amt{font-weight:700}' +
+         '.barcode{display:flex;justify-content:space-between;align-items:flex-end;padding:10px 8px 4px}' +
+         '.barcode .bcol{text-align:center}' +
+         '.bcimg{font-family:"Libre Barcode 39","Code 39",monospace;font-size:42px;letter-spacing:-2px;line-height:1;white-space:nowrap}' +
+         '.bcimg::before{content:"*"}.bcimg::after{content:"*"}' +
+         '.btxt{font-size:11px;letter-spacing:1px;margin-top:2px}' +
+         '.signrow{display:grid;grid-template-columns:1fr 1fr 1fr;font-size:12px;padding:4px 8px}' +
+         '.signrow .mid{text-align:center;font-weight:700}' +
+         '.signrow .right{text-align:right}' +
+         '.followup{text-align:center;font-size:13px;font-weight:700;padding:8px 0 0;letter-spacing:1px}' +
+         '.actions{max-width:780px;margin:14px auto 0;display:flex;gap:8px;justify-content:center}' +
+         '.actions button{padding:8px 18px;border:1px solid #000;background:#fff;cursor:pointer;font:inherit}' +
+         '.actions button:hover{background:#000;color:#fff}' +
+         '@media print{.actions{display:none}body{padding:0}.rcpt{border:none}}' +
+      '</style>' +
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap">' +
+      '</head><body>' +
+
+      '<div class="rcpt">' +
+         '<h1>' + esc((prov.name || 'Hospital').toUpperCase()) + '</h1>' +
+         (prov.tagline ? '<div class="legal">' + esc(prov.tagline) + '</div>' : '') +
+         (prov.address ? '<div class="addr">' + esc(prov.address) + '</div>' : '') +
+         '<div class="phone">' +
+            (prov.phone ? 'Phone ' + esc(prov.phone) : '') +
+            (prov.phone && prov.gstin ? ', ' : '') +
+            (prov.gstin ? 'GST No : ' + esc(prov.gstin) : '') +
+         '</div>' +
+         '<h2>Consultation Receipt</h2>' +
+
+         '<div class="info">' +
+            '<div class="col">' +
+               '<div class="row"><div class="lbl">UMR No</div><div class="sep">:</div><div>' + esc(umrNo) + '</div></div>' +
+               '<div class="row"><div class="lbl">Patient Name</div><div class="sep">:</div><div>' + esc(apt.patient_name || apt.user_email || '') + '</div></div>' +
+               '<div class="row"><div class="lbl">Age/Sex</div><div class="sep">:</div><div>' + esc(apt.patient_age ? (apt.patient_age + 'Y(s)' + (apt.patient_sex ? '/' + apt.patient_sex : '')) : '—') + '</div></div>' +
+               '<div class="row"><div class="lbl">Relative Name</div><div class="sep">:</div><div>—</div></div>' +
+               '<div class="row"><div class="lbl">Address</div><div class="sep">:</div><div>—</div></div>' +
+               '<div class="row"><div class="lbl">Referred By</div><div class="sep">:</div><div>—</div></div>' +
+               '<div class="row"><div class="lbl">Patient Type</div><div class="sep">:</div><div>' + esc(paymentMode) + '</div></div>' +
+            '</div>' +
+            '<div class="col right">' +
+               '<div class="row"><div class="lbl">Location</div><div class="sep">:</div><div>' + esc((prov.address || '').split(',').pop().trim() || '—') + '</div></div>' +
+               '<div class="row"><div class="lbl">Bill Date</div><div class="sep">:</div><div>' + esc(fmtDT(createDt)) + '</div></div>' +
+               '<div class="row"><div class="lbl">Bill No.</div><div class="sep">:</div><div>' + esc(billNo) + '</div></div>' +
+               '<div class="row"><div class="lbl">Receipt No.</div><div class="sep">:</div><div>' + esc(receiptNo) + '</div></div>' +
+               '<div class="row"><div class="lbl">Mobile No</div><div class="sep">:</div><div>' + esc(apt.patient_phone || '—') + '</div></div>' +
+               '<div class="row"><div class="lbl">HC No</div><div class="sep">:</div><div>—</div></div>' +
+            '</div>' +
+         '</div>' +
+
+         '<table class="tbl">' +
+            '<thead><tr>' +
+               '<th>Particulars</th>' +
+               '<th class="center">Service Status</th>' +
+               '<th class="right">Rates (Rs.)</th>' +
+            '</tr></thead>' +
+            '<tbody>' +
+               '<tr><td class="dept" colspan="3">' + esc(department || 'Consultation') + '</td></tr>' +
+               '<tr>' +
+                  '<td>' + esc(apt.doctor_name || '') + '</td>' +
+                  '<td class="center">' + (status === 'Completed' ? 'C' : 'A') + '</td>' +
+                  '<td class="right">' + fee.toFixed(2) + '</td>' +
+               '</tr>' +
+            '</tbody>' +
+         '</table>' +
+
+         '<div class="totalrow">' +
+            '<div>Mode Of Payment : ' + esc(paymentMode) + '</div>' +
+            '<div class="amt">Total Amount &nbsp;&nbsp; ' + fee.toFixed(2) + '</div>' +
+         '</div>' +
+
+         '<div class="barcode">' +
+            '<div class="bcol">' +
+               '<div class="bcimg">' + esc(umrNo) + '</div>' +
+               '<div class="btxt">' + esc(umrNo) + '</div>' +
+            '</div>' +
+            '<div class="bcol">' +
+               '<div class="bcimg">' + esc(billNo) + '</div>' +
+               '<div class="btxt">' + esc(billNo) + '</div>' +
+            '</div>' +
+         '</div>' +
+
+         '<div class="signrow">' +
+            '<div>Create By : ' + esc(operator) + '</div>' +
+            '<div class="mid">(Authorised Signatory)</div>' +
+            '<div class="right">Create Date : ' + esc(fmtDTAmPm(createDt)) + '</div>' +
+         '</div>' +
+         '<div class="signrow">' +
+            '<div>Print By &nbsp;: ' + esc(operator) + '</div>' +
+            '<div></div>' +
+            '<div class="right">Print Date &nbsp;: ' + esc(fmtDTAmPm(now)) + '</div>' +
+         '</div>' +
+
+         '<div class="followup">&lt; Free FOLLOW-UP &gt;</div>' +
+      '</div>' +
+
+      '<div class="actions">' +
+         '<button onclick="window.print()">🖨 Print</button>' +
+         '<button onclick="window.close()">Close</button>' +
+      '</div>' +
+
+      '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>' +
+      '</body></html>';
+
+   var w = window.open('', '_blank', 'width=860,height=900');
+   if (!w) { alert('Pop-up blocked. Please allow pop-ups and try again.'); return; }
+   w.document.open(); w.document.write(html); w.document.close();
 }

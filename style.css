@@ -1764,6 +1764,7 @@ body.guest .store-section-divider {
 .apt-act-btn:hover { opacity: 0.85; }
 .apt-act-ok        { background: #1a1a2e; color: #fff; }
 .apt-act-cancel    { background: #c62828; color: #fff; }
+.apt-act-noshow    { background: #ef6c00; color: #fff; }
 
 @media (max-width: 900px) {
 	/* Hide Booked At, Appt ID, and Symptom columns on tablets/phones */
@@ -4067,6 +4068,7 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 .order-badge.confirmed       { background: #e8f5e9; color: #2e7d32; }
 .order-badge.cancelled       { background: #ffebee; color: #c62828; }
 .order-badge.completed       { background: #e3f2fd; color: #1565c0; }
+.order-badge.noshow          { background: #fff3e0; color: #ef6c00; }
 
 .order-store-tag {
 	font-size: 0.8rem;

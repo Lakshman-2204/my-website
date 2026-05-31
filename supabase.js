@@ -418,6 +418,7 @@ window.AppDB = {
          address:          provider.address     || '',
          timing:           provider.timing      || '',
          icon:             provider.icon        || '🏥',
+         phone:            provider.phone       || '',
          owner_email:      (provider.owner_email || '').toLowerCase(),
          commission_type:  provider.commission_type  || 'percent',
          commission_value: (provider.commission_value != null) ? Number(provider.commission_value) : 0,

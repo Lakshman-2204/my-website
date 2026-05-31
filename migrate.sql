@@ -95,6 +95,16 @@ ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS token integer DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS appointments_doctor_date_idx ON public.appointments(doctor_id, date);
 
+-- 8d. APPOINTMENTS — track booking origin so online/offline capacity can be split
+--     'online'  = booked via customer website
+--     'offline' = booked by owner via Schedule tab (phone/walk-in)
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS booking_source text DEFAULT 'online';
+
+-- 5d. APT_PROVIDERS — phone number for "call to book" CTA when online slots are full
+ALTER TABLE public.apt_providers
+   ADD COLUMN IF NOT EXISTS phone text DEFAULT '';
+
 -- 9. APT_CATEGORIES — admin-managed list of business categories for appointments
 --    (hospitals, dental, beauty parlour, fitness, …). Used everywhere instead of
 --    a hardcoded JS constant so new categories appear with no code change.

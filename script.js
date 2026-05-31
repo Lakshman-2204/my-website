@@ -1345,36 +1345,48 @@ async function selectAptDate(dateStr, btn) {
    var doctor = _aptBookCtx.doctor;
    var isTokenMode = doctor.booking_mode === 'token';
 
-   // ── Token-only mode: no slot picker. Check daily cap, show next token, enable confirm. ──
+   var caps = _doctorCaps(doctor);
+
+   // ── Token-only mode: check ONLINE daily cap; show offline-only hint if needed ──
    if (isTokenMode) {
-      var dailyCap = Math.max(1, parseInt(doctor.daily_cap, 10) || 100);
       var section = document.getElementById('aptSlotSection');
       var btnsEl  = document.getElementById('aptSlotButtons');
       section.classList.remove('hidden');
       btnsEl.innerHTML = '<p style="color:#666;font-size:0.85rem">Checking availability…</p>';
       var existing = await AppDB.getDoctorBookings(doctor.id, dateStr);
-      if (existing.length >= dailyCap) {
-         btnsEl.innerHTML = '<p style="color:#c62828;font-size:0.88rem;font-weight:600">This day is fully booked (' + dailyCap + ' tokens issued). Please pick another day.</p>';
+      var onlineCount  = existing.filter(function(b) { return b.booking_source !== 'offline'; }).length;
+      var offlineCount = existing.filter(function(b) { return b.booking_source === 'offline'; }).length;
+
+      if (onlineCount >= caps.dailyOnline) {
+         var canCallOffline = offlineCount < caps.dailyOffline;
+         var provider = _aptBookCtx.provider;
+         var phone = provider && provider.phone;
+         btnsEl.innerHTML = '<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:14px">' +
+            '<div style="color:#c62828;font-weight:600;font-size:0.92rem">Online slots are full for today.</div>' +
+            (canCallOffline && phone
+               ? '<div style="margin-top:6px;font-size:0.85rem;color:#555">📞 Walk-in / phone slots are still available — call <a href="tel:' + phone.replace(/\D/g,'') + '" style="color:#1a73e8;font-weight:600">' + phone + '</a> to book offline.</div>'
+               : '<div style="margin-top:6px;font-size:0.85rem;color:#555">Please pick another day.</div>') +
+            '</div>';
          document.getElementById('aptConfirmBtn').disabled = true;
          return;
       }
-      var nextToken = existing.length + 1;
-      _aptBookCtx.slot = '';   // token mode has no time slot
+      var nextToken = onlineCount + 1;
+      _aptBookCtx.slot = '';
       btnsEl.innerHTML =
          '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:14px;text-align:center">' +
             '<div style="font-size:0.82rem;color:#555;margin-bottom:4px">Your token will be</div>' +
             '<div style="font-size:1.8rem;font-weight:800;color:#1a73e8;letter-spacing:0.04em">T' + nextToken + '</div>' +
-            '<div style="font-size:0.78rem;color:#777;margin-top:6px">' + existing.length + ' of ' + dailyCap + ' tokens used today</div>' +
+            '<div style="font-size:0.78rem;color:#777;margin-top:6px">' + onlineCount + ' of ' + caps.dailyOnline + ' online tokens used today</div>' +
          '</div>';
       document.getElementById('aptConfirmBtn').disabled = false;
       return;
    }
 
-   // ── Slot mode (default): generate 30-min slots, respecting capacity ──
+   // ── Slot mode (default): generate slots using doctor's configured duration ──
    var d = new Date(dateStr + 'T00:00:00');
    var dayIdx = d.getDay();
-   var capacity = Math.max(1, parseInt(doctor.slot_capacity, 10) || 1);
    var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+   var duration = caps.duration;
 
    // If picked date is today, hide any slot ≤ now + buffer (so user has time
    // to fill the form and actually arrive). Buffer = 20 minutes.
@@ -1387,35 +1399,47 @@ async function selectAptDate(dateStr, btn) {
    document.getElementById('aptSlotSection').classList.remove('hidden');
    document.getElementById('aptSlotButtons').innerHTML = '<p style="color:#999;font-size:0.85rem">Loading slots…</p>';
 
-   // Fetch existing bookings to compute fill counts per slot
+   // Fetch existing bookings to compute online/offline fill per slot
    var existing = await AppDB.getDoctorBookings(doctor.id, dateStr);
-   var slotCounts = {};
-   existing.forEach(function(b) { slotCounts[b.slot] = (slotCounts[b.slot] || 0) + 1; });
+   var onlineCountsBySlot  = {};
+   var offlineCountsBySlot = {};
+   existing.forEach(function(b) {
+      if (b.booking_source === 'offline') offlineCountsBySlot[b.slot] = (offlineCountsBySlot[b.slot] || 0) + 1;
+      else                                 onlineCountsBySlot[b.slot]  = (onlineCountsBySlot[b.slot]  || 0) + 1;
+   });
+   var provider = _aptBookCtx.provider;
+   var phone = provider && provider.phone;
 
    var slotHtml = '';
    windows.forEach(function(w) {
       var startMin = _hhmmToMin(w.start);
       var endMin   = _hhmmToMin(w.end);
-      for (var t = startMin; t + 30 <= endMin; t += 30) {
+      for (var t = startMin; t + duration <= endMin; t += duration) {
          if (t < earliestMin) continue;
          var hh = Math.floor(t / 60);
          var mm = t % 60;
          var slot24 = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
          var hour12 = ((hh % 12) || 12);
          var label  = hour12 + ':' + String(mm).padStart(2, '0') + ' ' + (hh < 12 ? 'AM' : 'PM');
-         var count  = slotCounts[slot24] || 0;
-         var full   = count >= capacity;
-         var remaining = capacity - count;
-         var subtitle = capacity === 1
-            ? (full ? 'Full' : 'Available')
-            : (full ? 'Full' : (remaining + ' of ' + capacity + ' left'));
-         if (full) {
+         var onCnt  = onlineCountsBySlot[slot24]  || 0;
+         var offCnt = offlineCountsBySlot[slot24] || 0;
+         var onlineFull  = onCnt  >= caps.slotOnline;
+         var offlineFull = offCnt >= caps.slotOffline;
+
+         if (onlineFull && !offlineFull) {
+            var callTxt = phone ? ('📞 ' + phone) : '📞 Call hospital';
+            slotHtml += '<button class="apt-slot-btn" disabled style="opacity:0.7;cursor:not-allowed;background:#fff3e0;border-color:#ffcc80;color:#bf6000" title="Online slots full — call to book offline">' +
+                          label + '<br><small style="font-weight:600">' + callTxt + '</small>' +
+                        '</button>';
+         } else if (onlineFull && offlineFull) {
             slotHtml += '<button class="apt-slot-btn" disabled style="opacity:0.4;cursor:not-allowed">' +
-                          label + '<br><small style="font-weight:400">' + subtitle + '</small>' +
+                          label + '<br><small style="font-weight:400">Full</small>' +
                         '</button>';
          } else {
+            var remaining = caps.slotOnline - onCnt;
+            var subtitle = caps.slotOnline === 1 ? 'Available' : (remaining + ' of ' + caps.slotOnline + ' left');
             slotHtml += '<button class="apt-slot-btn" onclick="selectAptSlot(\'' + slot24 + '\', this)">' +
-                          label + (capacity > 1 ? '<br><small style="font-weight:400;opacity:0.7">' + subtitle + '</small>' : '') +
+                          label + (caps.slotOnline > 1 ? '<br><small style="font-weight:400;opacity:0.7">' + subtitle + '</small>' : '') +
                         '</button>';
          }
       }
@@ -1432,6 +1456,97 @@ async function selectAptDate(dateStr, btn) {
 function _hhmmToMin(s) {
    var p = String(s).split(':');
    return parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10);
+}
+
+// Pick a stable colour for the token badge based on doctor + date + slot.
+// Same slot → same colour. Different slots → different colours. Helps the
+// owner visually group bookings that belong to the same slot.
+function _tokenBadgeColor(apt) {
+   var key = (apt.doctor_id || '') + '|' + (apt.date || '') + '|' + (apt.slot || 'TOKEN');
+   var palette = [
+      '#1a73e8', // blue
+      '#7b1fa2', // purple
+      '#2e7d32', // green
+      '#00897b', // teal
+      '#ef6c00', // orange
+      '#c2185b', // pink
+      '#5d4037', // brown
+      '#0277bd', // light blue
+      '#6a1b9a', // deep purple
+      '#558b2f'  // lime
+   ];
+   var hash = 0;
+   for (var i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0;
+   return palette[Math.abs(hash) % palette.length];
+}
+
+// Returns null if the booking is allowed, or a friendly error string if it should be blocked.
+// Checks (in order): no-show auto-block → per-doctor cap → daily cap.
+async function _checkBookingAbuse(user, doctor, providerId, dateStr) {
+   var settings = getAdminSettings();
+   var maxPerDoctor    = parseInt(settings.bookingsPerDoctorPerDay,   10) || 3;
+   var maxPerCustomer  = parseInt(settings.bookingsPerCustomerPerDay, 10) || 10;
+   var noShowThreshold = parseInt(settings.noShowBlockThreshold,      10) || 5;
+   var noShowDays      = parseInt(settings.noShowBlockDays,           10) || 30;
+   var emailLc         = (user.email || '').toLowerCase();
+
+   var history = await AppDB.getAppointments(emailLc);
+
+   // No-show auto-block (across all providers)
+   var cutoffDate = new Date(Date.now() - noShowDays * 24 * 60 * 60 * 1000);
+   var cutoffYmd  = cutoffDate.toISOString().slice(0, 10);
+   var noShows = history.filter(function(a) {
+      return a.status === 'No-show' && (a.date || '') >= cutoffYmd;
+   });
+   if (noShows.length >= noShowThreshold) {
+      return 'Your account has ' + noShows.length + ' unattended appointments in the last ' + noShowDays + ' days. New bookings are restricted. Please contact support.';
+   }
+
+   // Per-doctor-per-day cap (active = not cancelled / no-show)
+   var activeAtDoctorToday = history.filter(function(a) {
+      return a.doctor_id === doctor.id && a.date === dateStr &&
+             a.status !== 'Cancelled' && a.status !== 'No-show';
+   });
+   if (activeAtDoctorToday.length >= maxPerDoctor) {
+      return 'You already have ' + activeAtDoctorToday.length + ' booking' + (activeAtDoctorToday.length === 1 ? '' : 's') +
+             ' with this doctor on ' + dateStr + '. The maximum allowed per day is ' + maxPerDoctor + '.';
+   }
+
+   // Per-customer-per-day cap (across all doctors)
+   var allToday = history.filter(function(a) {
+      return a.date === dateStr && a.status !== 'Cancelled' && a.status !== 'No-show';
+   });
+   if (allToday.length >= maxPerCustomer) {
+      return 'You already have ' + allToday.length + ' bookings on ' + dateStr + '. The daily maximum across all doctors is ' + maxPerCustomer + '.';
+   }
+
+   return null;
+}
+
+// Read effective capacity for a doctor — handles old single-field schema during transition.
+function _doctorCaps(doctor) {
+   var legacySlot  = doctor.slot_capacity != null ? doctor.slot_capacity : 1;
+   var legacyDaily = doctor.daily_cap     != null ? doctor.daily_cap     : 100;
+   return {
+      duration:       parseInt(doctor.slot_duration, 10) || 30,
+      slotOnline:     parseInt(doctor.slot_capacity_online,  10) >= 0 ? parseInt(doctor.slot_capacity_online,  10) : legacySlot,
+      slotOffline:    parseInt(doctor.slot_capacity_offline, 10) >= 0 ? parseInt(doctor.slot_capacity_offline, 10) : legacySlot,
+      dailyOnline:    parseInt(doctor.daily_cap_online,  10) >= 0 ? parseInt(doctor.daily_cap_online,  10) : legacyDaily,
+      dailyOffline:   parseInt(doctor.daily_cap_offline, 10) >= 0 ? parseInt(doctor.daily_cap_offline, 10) : legacyDaily
+   };
+}
+
+// Has this appointment's scheduled time come and gone?
+// Past date → true; future date → false; today → compare with slot time (token-mode
+// bookings have no slot, so they remain "active" all day until the date rolls over).
+function _slotPassed(apt) {
+   if (!apt || !apt.date) return false;
+   var todayYmd = new Date().toISOString().slice(0, 10);
+   if (apt.date < todayYmd) return true;
+   if (apt.date > todayYmd) return false;
+   if (!apt.slot) return false;   // token-mode: day still active
+   var now = new Date();
+   return (now.getHours() * 60 + now.getMinutes()) >= _hhmmToMin(apt.slot);
 }
 
 function selectAptSlot(slot, btn) {
@@ -1455,24 +1570,28 @@ async function confirmAptBooking() {
    var phone = document.getElementById('aptPatientPhone').value.trim();
    if (!name || !phone) { alert('Please enter patient name and phone.'); return; }
 
-   // Re-check capacity & compute token at booking time (handles the race where
-   // someone else booked the same slot/day while this form was open).
+   // Abuse defenses — caps, no-show block, provider block list
+   var abuseError = await _checkBookingAbuse(user, doctor, _aptBookCtx.providerId, _aptBookCtx.date);
+   if (abuseError) { alert(abuseError); return; }
+
+   // Re-check ONLINE capacity & compute token (handles the race where someone
+   // else booked the same slot/day while this form was open).
+   var caps2 = _doctorCaps(doctor);
    var existing = await AppDB.getDoctorBookings(doctor.id, _aptBookCtx.date);
+   var onlineExisting = existing.filter(function(b) { return b.booking_source !== 'offline'; });
    var token;
    if (isTokenMode) {
-      var dailyCap = Math.max(1, parseInt(doctor.daily_cap, 10) || 100);
-      if (existing.length >= dailyCap) {
-         alert('Sorry — this day just got fully booked. Please pick another day.');
+      if (onlineExisting.length >= caps2.dailyOnline) {
+         alert('Sorry — online tokens for this day just got fully booked. Please pick another day or call the hospital.');
          var activeBtnT = document.querySelector('.apt-date-btn.active');
          if (activeBtnT) selectAptDate(_aptBookCtx.date, activeBtnT);
          return;
       }
-      token = existing.length + 1;
+      token = onlineExisting.length + 1;
    } else {
-      var capacity = Math.max(1, parseInt(doctor.slot_capacity, 10) || 1);
-      var inSlot   = existing.filter(function(b) { return b.slot === _aptBookCtx.slot; });
-      if (inSlot.length >= capacity) {
-         alert('Sorry — this slot just filled up. Please pick another time.');
+      var inSlot   = onlineExisting.filter(function(b) { return b.slot === _aptBookCtx.slot; });
+      if (inSlot.length >= caps2.slotOnline) {
+         alert('Sorry — online slots for this time just filled up. Please pick another time or call the hospital.');
          var activeBtn = document.querySelector('.apt-date-btn.active');
          if (activeBtn) selectAptDate(_aptBookCtx.date, activeBtn);
          return;
@@ -1495,6 +1614,7 @@ async function confirmAptBooking() {
       fee: _aptBookCtx.doctor.fee,
       status: 'Confirmed',
       token: token,
+      booking_source: 'online',
       patient_name:   name,
       patient_phone:  phone,
       patient_reason: document.getElementById('aptPatientReason').value.trim()
@@ -1654,6 +1774,7 @@ function openAptProviderModal(providerId) {
    document.getElementById('aptProvTagline').value  = p ? (p.tagline || '') : '';
    document.getElementById('aptProvAddress').value  = p ? (p.address || '') : '';
    document.getElementById('aptProvTiming').value   = p ? (p.timing  || '') : '';
+   document.getElementById('aptProvPhone').value    = p ? (p.phone   || '') : '';
    document.getElementById('aptProvIcon').value     = p ? (p.icon    || '') : '';
 
    // Populate owner dropdown with current store-owner users
@@ -1714,6 +1835,7 @@ async function saveAptProvider() {
       tagline:          document.getElementById('aptProvTagline').value.trim(),
       address:          document.getElementById('aptProvAddress').value.trim(),
       timing:           document.getElementById('aptProvTiming').value.trim(),
+      phone:            document.getElementById('aptProvPhone').value.trim(),
       icon:             icon,
       owner_email:      document.getElementById('aptProvOwner').value || '',
       commission_type:  document.getElementById('aptProvCommissionType').value || 'percent',
@@ -1740,7 +1862,9 @@ function openAptDoctorModal(providerId, doctorId) {
    if (!provider) return;
    var doctor = doctorId ? _aptGetDoctor(provider, doctorId) : null;
 
-   document.getElementById('aptDoctorModalTitle').textContent = doctor ? '✏️ Edit Doctor' : '➕ Add Doctor — ' + provider.name;
+   var meta = APT_CAT_META[provider.category];
+   var staffWord = (meta && meta.staffLabel) ? meta.staffLabel.replace(/s$/, '') : 'Staff';
+   document.getElementById('aptDoctorModalTitle').textContent = doctor ? ('✏️ Edit ' + staffWord) : ('➕ Add ' + staffWord + ' — ' + provider.name);
    document.getElementById('aptDocProviderId').value = providerId;
    document.getElementById('aptDocId').value         = doctor ? doctor.id : '';
    document.getElementById('aptDocName').value       = doctor ? doctor.name : '';
@@ -1748,8 +1872,17 @@ function openAptDoctorModal(providerId, doctorId) {
    document.getElementById('aptDocQual').value       = doctor ? (doctor.qual || '') : '';
    document.getElementById('aptDocFee').value        = doctor ? (doctor.fee || '') : '';
    document.getElementById('aptDocBookingMode').value = doctor && doctor.booking_mode === 'token' ? 'token' : 'slot';
-   document.getElementById('aptDocCapacity').value   = doctor && doctor.slot_capacity ? doctor.slot_capacity : 1;
-   document.getElementById('aptDocDailyCap').value   = doctor && doctor.daily_cap ? doctor.daily_cap : 100;
+   // Slot duration (default 60 minutes for new doctors). Backward compat: existing doctors default to 30.
+   document.getElementById('aptDocSlotDuration').value = doctor && doctor.slot_duration
+      ? String(doctor.slot_duration)
+      : (doctor ? '30' : '60');
+   // Capacity split — fall back to old slot_capacity if new fields aren't set yet
+   var legacyCap = doctor && doctor.slot_capacity != null ? doctor.slot_capacity : 5;
+   document.getElementById('aptDocCapacityOnline').value  = (doctor && doctor.slot_capacity_online  != null) ? doctor.slot_capacity_online  : legacyCap;
+   document.getElementById('aptDocCapacityOffline').value = (doctor && doctor.slot_capacity_offline != null) ? doctor.slot_capacity_offline : legacyCap;
+   var legacyDaily = doctor && doctor.daily_cap != null ? doctor.daily_cap : 100;
+   document.getElementById('aptDocDailyCapOnline').value  = (doctor && doctor.daily_cap_online  != null) ? doctor.daily_cap_online  : legacyDaily;
+   document.getElementById('aptDocDailyCapOffline').value = (doctor && doctor.daily_cap_offline != null) ? doctor.daily_cap_offline : legacyDaily;
    _aptDocModeChanged();
 
    var defaultAvail = { 0: [], 1: [{start:'09:00',end:'12:00'},{start:'14:00',end:'18:00'}],
@@ -1810,12 +1943,15 @@ async function saveAptDoctor() {
    var newDoctor = {
       id: docId,
       name: name,
-      speciality:    document.getElementById('aptDocSpec').value.trim(),
-      qual:          document.getElementById('aptDocQual').value.trim(),
-      fee:           parseInt(document.getElementById('aptDocFee').value, 10) || 0,
-      booking_mode:  document.getElementById('aptDocBookingMode').value || 'slot',
-      slot_capacity: Math.max(1, parseInt(document.getElementById('aptDocCapacity').value, 10) || 1),
-      daily_cap:     Math.max(1, parseInt(document.getElementById('aptDocDailyCap').value, 10) || 100),
+      speciality:           document.getElementById('aptDocSpec').value.trim(),
+      qual:                 document.getElementById('aptDocQual').value.trim(),
+      fee:                  parseInt(document.getElementById('aptDocFee').value, 10) || 0,
+      booking_mode:         document.getElementById('aptDocBookingMode').value || 'slot',
+      slot_duration:        parseInt(document.getElementById('aptDocSlotDuration').value, 10) || 60,
+      slot_capacity_online:  Math.max(0, parseInt(document.getElementById('aptDocCapacityOnline').value,  10) || 0),
+      slot_capacity_offline: Math.max(0, parseInt(document.getElementById('aptDocCapacityOffline').value, 10) || 0),
+      daily_cap_online:      Math.max(0, parseInt(document.getElementById('aptDocDailyCapOnline').value,  10) || 0),
+      daily_cap_offline:     Math.max(0, parseInt(document.getElementById('aptDocDailyCapOffline').value, 10) || 0),
       availability: availability
    };
 
@@ -2008,9 +2144,12 @@ async function renderAllAppointments() {
 
    var rows = apts.map(function(a) {
       var status = a.status || 'Confirmed';
-      var cls    = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      var cls    = status === 'Cancelled' ? 'cancelled'
+                 : status === 'Completed' ? 'completed'
+                 : status === 'No-show'   ? 'noshow'
+                 : 'confirmed';
       var aid    = (a.apt_id || '').replace(/'/g, "\\'");
-      var canChange = status !== 'Cancelled' && status !== 'Completed';
+      var canChange = status === 'Confirmed';
       var statusLabel = status;
       if (status === 'Cancelled' && a.cancelled_by) {
          var byLabel = a.cancelled_by === 'customer' ? 'by Customer'
@@ -2037,7 +2176,11 @@ async function renderAllAppointments() {
       // Admin only deletes — Complete/Cancel are done by hospital owner or customer.
       var actions = '<button class="apt-act-btn" style="background:#555;color:#fff" onclick="deleteAdminAppointment(\'' + aid + '\')" title="Delete (permanent)">🗑 Delete</button>';
       var meta = APT_CAT_META[a.category] || {};
+      var tokenCell = a.token
+         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
+         : '<span style="color:#bbb">—</span>';
       return '<tr>' +
+                '<td style="text-align:center">' + tokenCell + '</td>' +
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div><div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.provider_name || '') + '</div><div class="apt-tbl-sub">' + (meta.icon || '') + ' ' + (meta.label || a.category || '') + '</div></td>' +
@@ -2059,6 +2202,7 @@ async function renderAllAppointments() {
       '<div class="apt-tbl-wrap">' +
         '<table class="apt-tbl">' +
            '<thead><tr>' +
+              '<th style="text-align:center">Token</th>' +
               '<th>Date / Slot</th>' +
               '<th>Doctor / Staff</th>' +
               '<th>Provider</th>' +
@@ -3472,13 +3616,17 @@ async function checkShopOwnerLogin() {
    var ordersTab = document.getElementById('shop-tab-orders');
    var aptTab    = document.getElementById('shop-tab-appointments');
    var docTab    = document.getElementById('shop-tab-doctors');
+   var schedTab  = document.getElementById('shop-tab-schedule');
    var prodTab   = document.getElementById('shop-tab-products');
    if (ordersTab) ordersTab.classList.toggle('hidden', !ownsProducts);
    if (prodTab)   prodTab.classList.toggle('hidden',   !ownsProducts);
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
+   if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
 
    // Pick the right "staff" label for the doctors tab based on what the owner runs
+   // (e.g. Doctors / Stylists / Trainers / Staff). The +Add buttons live inside the panel,
+   // not on the tab label.
    if (docTab && ownsHospital) {
       var cats = (myProviders || []).map(function(p) { return p.category; });
       var s    = _staffLabelForCategories(cats);
@@ -3736,7 +3884,7 @@ function deleteStoreProduct(idx) {
 }
 
 function switchShopTab(tab) {
-   ['orders', 'appointments', 'doctors', 'products'].forEach(function(t) {
+   ['orders', 'appointments', 'doctors', 'schedule', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
@@ -3745,6 +3893,7 @@ function switchShopTab(tab) {
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'appointments') renderShopAppointments();
    if (tab === 'doctors')      renderShopDoctors();
+   if (tab === 'schedule')     renderShopSchedule();
 }
 
 // Quick-add doctor shortcut from the Doctors tab "+ Add" button.
@@ -3939,7 +4088,7 @@ async function renderShopAppointments(filterStatus) {
    });
 
    // Highlight active filter pill
-   ['', 'Confirmed', 'Completed', 'Cancelled'].forEach(function(f) {
+   ['', 'Confirmed', 'Completed', 'Cancelled', 'No-show'].forEach(function(f) {
       var id = 'apt-tab-' + (f || 'all');
       var btn = document.getElementById(id);
       if (btn) btn.classList.toggle('active', (filterStatus || '') === f);
@@ -3951,17 +4100,28 @@ async function renderShopAppointments(filterStatus) {
    }
    var all = _shopAptsCache || [];
 
-   // Populate the doctor-filter dropdown from the current cache (preserves selection)
-   var docSel = document.getElementById('shopAptDoctorFilter');
-   if (docSel) {
-      var currentDoc = docSel.value;
-      var doctors = Array.from(new Set(all.map(function(a) { return a.doctor_name; }).filter(Boolean))).sort();
-      docSel.innerHTML = '<option value="">👨‍⚕️ All doctors</option>' +
-         doctors.map(function(d) {
-            return '<option value="' + d + '"' + (d === currentDoc ? ' selected' : '') + '>' + d + '</option>';
-         }).join('');
+   // Doctor filter — render as tabs (dynamically populated from existing appointments).
+   // Preserves selection across re-renders via window._shopAptDoctorFilter.
+   var doctorFilter = window._shopAptDoctorFilter || '';
+   var doctorsTabsEl = document.getElementById('shopAptDoctorTabs');
+   var uniqueDoctors = Array.from(new Set(all.map(function(a) { return a.doctor_name; }).filter(Boolean))).sort();
+   if (doctorsTabsEl) {
+      if (uniqueDoctors.length <= 1) {
+         // No point showing tabs if there's only one (or no) doctor
+         doctorsTabsEl.style.display = 'none';
+         doctorFilter = '';
+      } else {
+         doctorsTabsEl.style.display = '';
+         var allActive = !doctorFilter ? ' active' : '';
+         var html = '<button class="shop-tab' + allActive + '" onclick="setShopAptDoctor(\'\')">👨‍⚕️ All doctors</button>';
+         uniqueDoctors.forEach(function(d) {
+            var dEsc = d.replace(/'/g, "\\'");
+            var active = (doctorFilter === d) ? ' active' : '';
+            html += '<button class="shop-tab' + active + '" onclick="setShopAptDoctor(\'' + dEsc + '\')">' + d + '</button>';
+         });
+         doctorsTabsEl.innerHTML = html;
+      }
    }
-   var doctorFilter = (docSel && docSel.value) || '';
 
    // Apply date range filter (uses appointment date, not booked-at time)
    var df = _readDateFilter('shopAptDateFilter', 'shopAptCustomDate', 'shopAptRangeFrom', 'shopAptRangeTo');
@@ -4005,8 +4165,11 @@ async function renderShopAppointments(filterStatus) {
 
    var rows = apts.map(function(a) {
       var status = a.status || 'Confirmed';
-      var cls = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
-      // Friendlier labels for the owner — DB still stores 'Completed' / 'Cancelled'
+      var cls = status === 'Cancelled' ? 'cancelled'
+              : status === 'Completed' ? 'completed'
+              : status === 'No-show'   ? 'noshow'
+              : 'confirmed';
+      // Friendlier labels for the owner — DB still stores 'Completed' / 'Cancelled' / 'No-show'
       var statusLabel = status === 'Completed' ? 'Checkup Completed' : status;
       if (status === 'Cancelled' && a.cancelled_by) {
          var byLabel = a.cancelled_by === 'customer' ? 'by Patient'
@@ -4038,11 +4201,24 @@ async function renderShopAppointments(filterStatus) {
          }
       }
 
-      var actions = canChange
-         ? '<button class="apt-act-btn apt-act-ok"     title="Mark as Completed" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Complete</button>' +
-           '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>'
+      // Action buttons depend on status + whether the slot has passed yet.
+      var actions;
+      if (!canChange) {
+         actions = '<span style="color:#bbb">—</span>';
+      } else {
+         var slotPassed = _slotPassed(a);
+         var completeBtn = slotPassed
+            ? '<button class="apt-act-btn apt-act-ok"      title="Mark as Completed" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Complete</button>'
+            : '<button class="apt-act-btn apt-act-ok"      title="Available after the slot time" disabled style="opacity:0.4;cursor:not-allowed">✅ Complete</button>';
+         var noshowBtn = slotPassed
+            ? '<button class="apt-act-btn apt-act-noshow"  title="Patient did not show up" onclick="shopSetAptStatus(\'' + aid + '\',\'No-show\')">🚫 No-show</button>'
+            : '';
+         var cancelBtn  = '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>';
+         actions = completeBtn + noshowBtn + cancelBtn;
+      }
+      var tokenCell = a.token
+         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
          : '<span style="color:#bbb">—</span>';
-      var tokenCell = a.token ? '<span class="apt-token-badge">T' + a.token + '</span>' : '<span style="color:#bbb">—</span>';
       var slotCell  = a.slot ? a.slot : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
       return '<tr>' +
                 '<td style="text-align:center">' + tokenCell + '</td>' +
@@ -4081,18 +4257,287 @@ async function renderShopAppointments(filterStatus) {
       '</div>';
 }
 
+// Doctor tab click — sets the filter and re-renders, preserving the status filter.
+function setShopAptDoctor(doctorName) {
+   window._shopAptDoctorFilter = doctorName || '';
+   renderShopAppointments(window._shopAptCurrentFilter);
+}
+
+// ── SCHEDULE (owner books on behalf of offline customers) ──
+let _schedCtx = null;   // { providerId, doctor, date, slot, token? }
+
+async function renderShopSchedule() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) return;
+   await loadAptProviders(true);
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
+   });
+
+   var sel = document.getElementById('schedDoctor');
+   if (!sel) return;
+   var options = '<option value="">— Select doctor —</option>';
+   mine.forEach(function(p) {
+      (p.doctors || []).forEach(function(d) {
+         var label = d.name + ' (' + (d.speciality || '—') + ') @ ' + p.name;
+         options += '<option value="' + p.id + '|' + d.id + '">' + label + '</option>';
+      });
+   });
+   sel.innerHTML = options;
+   resetShopSchedule();
+}
+
+function resetShopSchedule() {
+   _schedCtx = null;
+   var sel = document.getElementById('schedDoctor'); if (sel) sel.value = '';
+   ['schedDateSection', 'schedSlotSection', 'schedPatientSection'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.classList.add('hidden');
+   });
+   ['schedPatientName', 'schedPatientPhone', 'schedPatientEmail', 'schedPatientReason'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.value = '';
+   });
+   document.getElementById('schedConfirmBtn').disabled = true;
+   var msg = document.getElementById('schedMsg'); if (msg) msg.textContent = '';
+}
+
+function onSchedDoctorChange() {
+   var val = document.getElementById('schedDoctor').value;
+   if (!val) { resetShopSchedule(); return; }
+   var parts = val.split('|');
+   var provider = _aptGetProvider(parts[0]);
+   var doctor   = _aptGetDoctor(provider, parts[1]);
+   if (!doctor) return;
+   _schedCtx = { providerId: provider.id, provider: provider, doctor: doctor, date: null, slot: null, token: null };
+
+   // Render next 7 date buttons, disable days the doctor isn't available
+   var dateHtml = '';
+   for (var i = 0; i < 7; i++) {
+      var d = new Date();
+      d.setDate(d.getDate() + i);
+      var dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      var label = i === 0 ? 'TODAY' : (i === 1 ? 'TMRW' : APT_DAYS[d.getDay()]);
+      var monthShort = d.toLocaleDateString('en-IN', { month: 'short' });
+      var dayIdx = d.getDay();
+      var avail = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+      var off = avail.length === 0;
+      var click = off ? '' : ' onclick="schedSelectDate(\'' + dateStr + '\', this)"';
+      var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="Doctor unavailable"' : '';
+      dateHtml += '<div class="apt-date-btn"' + click + extra + '>' +
+                     '<div class="apt-date-day">' + label + '</div>' +
+                     '<div class="apt-date-num">' + d.getDate() + ' ' + monthShort + '</div>' +
+                  '</div>';
+   }
+   document.getElementById('schedDateButtons').innerHTML = dateHtml;
+   document.getElementById('schedDateSection').classList.remove('hidden');
+   document.getElementById('schedSlotSection').classList.add('hidden');
+   document.getElementById('schedPatientSection').classList.add('hidden');
+   document.getElementById('schedConfirmBtn').disabled = true;
+}
+
+async function schedSelectDate(dateStr, btn) {
+   if (!_schedCtx) return;
+   _schedCtx.date = dateStr;
+   _schedCtx.slot = null;
+   document.querySelectorAll('#schedDateButtons .apt-date-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+
+   var doctor = _schedCtx.doctor;
+   var section = document.getElementById('schedSlotSection');
+   var btnsEl  = document.getElementById('schedSlotButtons');
+   section.classList.remove('hidden');
+   btnsEl.innerHTML = '<p style="color:#999;font-size:0.85rem">Loading…</p>';
+
+   var existing = await AppDB.getDoctorBookings(doctor.id, dateStr);
+   var offlineExisting = existing.filter(function(b) { return b.booking_source === 'offline'; });
+   var isTokenMode = doctor.booking_mode === 'token';
+   var caps = _doctorCaps(doctor);
+
+   if (isTokenMode) {
+      if (offlineExisting.length >= caps.dailyOffline) {
+         btnsEl.innerHTML = '<p style="color:#c62828;font-size:0.88rem">Offline tokens are full for today (' + caps.dailyOffline + ' issued).</p>';
+         document.getElementById('schedPatientSection').classList.add('hidden');
+         document.getElementById('schedConfirmBtn').disabled = true;
+         return;
+      }
+      var nextToken = offlineExisting.length + 1;
+      _schedCtx.slot = '';
+      _schedCtx.overtime = false;
+      btnsEl.innerHTML =
+         '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:12px;text-align:center">' +
+            '<div style="font-size:0.78rem;color:#555">Patient\'s offline token will be</div>' +
+            '<div style="font-size:1.5rem;font-weight:800;color:#1a73e8">T' + nextToken + '</div>' +
+            '<div style="font-size:0.75rem;color:#777">' + offlineExisting.length + ' of ' + caps.dailyOffline + ' offline tokens used today</div>' +
+         '</div>';
+      document.getElementById('schedPatientSection').classList.remove('hidden');
+      _schedReevaluateConfirmEnabled();
+      return;
+   }
+
+   // Slot mode
+   var d = new Date(dateStr + 'T00:00:00');
+   var dayIdx = d.getDay();
+   var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+   var now = new Date();
+   var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+   var isToday = dateStr === todayStr;
+   var offlineCountsBySlot = {};
+   offlineExisting.forEach(function(b) { offlineCountsBySlot[b.slot] = (offlineCountsBySlot[b.slot] || 0) + 1; });
+
+   var slotHtml = '';
+   var anyShown = false;
+   windows.forEach(function(w) {
+      var startMin = _hhmmToMin(w.start);
+      var endMin   = _hhmmToMin(w.end);
+      for (var t = startMin; t + caps.duration <= endMin; t += caps.duration) {
+         var hh = Math.floor(t / 60);
+         var mm = t % 60;
+         var slot24 = String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+         var hour12 = ((hh % 12) || 12);
+         var label = hour12 + ':' + String(mm).padStart(2,'0') + ' ' + (hh < 12 ? 'AM' : 'PM');
+         var count = offlineCountsBySlot[slot24] || 0;
+         var full  = count >= caps.slotOffline;
+         anyShown = true;
+         if (full) {
+            slotHtml += '<button class="apt-slot-btn" disabled style="opacity:0.4;cursor:not-allowed">' + label + '<br><small>Full</small></button>';
+         } else {
+            slotHtml += '<button class="apt-slot-btn" onclick="schedSelectSlot(\'' + slot24 + '\', this)">' + label +
+                        (caps.slotOffline > 1 ? '<br><small>' + (caps.slotOffline - count) + ' of ' + caps.slotOffline + ' left</small>' : '') + '</button>';
+         }
+      }
+   });
+   if (!anyShown) slotHtml = '<p style="color:#999;font-size:0.85rem">No working windows on this day.</p>';
+
+   // Overtime option — only on TODAY when slots have all passed or are full
+   if (isToday) {
+      var nowMin = now.getHours() * 60 + now.getMinutes();
+      var lastEnd = 0;
+      windows.forEach(function(w) { lastEnd = Math.max(lastEnd, _hhmmToMin(w.end)); });
+      var allPast = nowMin >= lastEnd;
+      var nowHH = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+      slotHtml += '<button class="apt-slot-btn" style="background:#ef6c00;color:#fff;border-color:#ef6c00" onclick="schedSelectOvertime(\'' + nowHH + '\', this)">' +
+                     '🕐 Add as Overtime' +
+                     '<br><small style="opacity:0.85">' + (allPast ? 'After hours · ' : '') + 'Uses ' + nowHH + '</small>' +
+                  '</button>';
+   }
+
+   btnsEl.innerHTML = slotHtml;
+   document.getElementById('schedPatientSection').classList.add('hidden');
+   document.getElementById('schedConfirmBtn').disabled = true;
+}
+
+// Owner picks "Add as Overtime" — uses current time, bypasses capacity
+function schedSelectOvertime(slot24, btn) {
+   if (!_schedCtx) return;
+   _schedCtx.slot = slot24;
+   _schedCtx.overtime = true;
+   document.querySelectorAll('#schedSlotButtons .apt-slot-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   document.getElementById('schedPatientSection').classList.remove('hidden');
+   _schedReevaluateConfirmEnabled();
+}
+
+function schedSelectSlot(slot24, btn) {
+   if (!_schedCtx) return;
+   _schedCtx.slot = slot24;
+   _schedCtx.overtime = false;
+   document.querySelectorAll('#schedSlotButtons .apt-slot-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   document.getElementById('schedPatientSection').classList.remove('hidden');
+   _schedReevaluateConfirmEnabled();
+}
+
+function _schedReevaluateConfirmEnabled() {
+   var ctx = _schedCtx;
+   var isReady = ctx && ctx.date && (ctx.doctor.booking_mode === 'token' || ctx.slot);
+   document.getElementById('schedConfirmBtn').disabled = !isReady;
+}
+
+async function confirmShopSchedule() {
+   var ctx = _schedCtx;
+   if (!ctx) return;
+   var name  = document.getElementById('schedPatientName').value.trim();
+   var phone = document.getElementById('schedPatientPhone').value.trim();
+   var email = document.getElementById('schedPatientEmail').value.trim().toLowerCase();
+   var reason = document.getElementById('schedPatientReason').value.trim();
+   var msg = document.getElementById('schedMsg');
+   var setMsg = function(t, ok) { msg.textContent = t; msg.style.color = ok ? '#2e7d32' : '#c62828'; };
+   if (!name || !phone) { setMsg('Patient name and phone are required.'); return; }
+
+   // Re-check OFFLINE capacity & assign token within the offline pool.
+   // Overtime bypasses capacity since it's after hours / extra effort.
+   var existing = await AppDB.getDoctorBookings(ctx.doctor.id, ctx.date);
+   var offlineExisting = existing.filter(function(b) { return b.booking_source === 'offline'; });
+   var isTokenMode = ctx.doctor.booking_mode === 'token';
+   var caps = _doctorCaps(ctx.doctor);
+   var token;
+   if (ctx.overtime) {
+      token = offlineExisting.length + 1;   // continue the day's offline sequence
+   } else if (isTokenMode) {
+      if (offlineExisting.length >= caps.dailyOffline) { setMsg('Offline tokens just got full. Please pick another date.'); return; }
+      token = offlineExisting.length + 1;
+   } else {
+      var inSlot = offlineExisting.filter(function(b) { return b.slot === ctx.slot; });
+      if (inSlot.length >= caps.slotOffline) { setMsg('Offline slot just filled up. Please pick another.'); return; }
+      token = inSlot.length + 1;
+   }
+
+   // user_email: real patient email if given, else a walk-in marker tied to phone
+   var userEmail = email || ('walkin+' + phone.replace(/\D/g, '') + '@offline.local');
+
+   var aptId = 'APT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 5).toUpperCase();
+   var apt = {
+      apt_id: aptId,
+      user_email: userEmail,
+      provider_id: ctx.provider.id,
+      provider_name: ctx.provider.name,
+      doctor_id: ctx.doctor.id,
+      doctor_name: ctx.doctor.name,
+      speciality: ctx.doctor.speciality,
+      category: ctx.provider.category,
+      date: ctx.date,
+      slot: ctx.slot || '',
+      fee: ctx.doctor.fee,
+      status: 'Confirmed',
+      token: token,
+      booking_source: 'offline',
+      patient_name:   name,
+      patient_phone:  phone,
+      patient_reason: reason + (ctx.overtime ? ' [Overtime]' : '')
+   };
+   var ok = await AppDB.insertAppointment(apt);
+   if (!ok) { setMsg('Failed to save booking. Please try again.'); return; }
+
+   setMsg('✅ Booked — Offline Token T' + token + (ctx.slot ? ' at ' + ctx.slot : '') + ' on ' + ctx.date + (ctx.overtime ? ' (Overtime)' : '') + '.', true);
+   _shopAptsCache = null;
+   resetShopSchedule();
+}
+
 async function shopSetAptStatus(aptId, status) {
+   var apt = (_shopAptsCache || []).find(function(a) { return a.apt_id === aptId; });
    var extra = null;
    if (status === 'Cancelled') {
       var reason = prompt('Please tell the patient why you\'re cancelling:\n\n(Optional — leave blank if not applicable.)');
-      if (reason === null) return;   // user hit Cancel on the prompt
+      if (reason === null) return;
       extra = { cancelled_by: 'hospital', cancellation_reason: (reason || '').trim() };
+   } else if (status === 'Completed') {
+      // Completion is only meaningful once the slot has passed
+      if (apt && !_slotPassed(apt)) {
+         alert('This appointment time hasn\'t passed yet. You can mark it Completed after the slot time.');
+         return;
+      }
+      if (!confirm('Mark this appointment as Completed?')) return;
+   } else if (status === 'No-show') {
+      if (apt && !_slotPassed(apt)) {
+         alert('This appointment time hasn\'t passed yet. No-show can only be marked after the slot.');
+         return;
+      }
+      if (!confirm('Mark this appointment as No-show (patient did not turn up)?')) return;
    } else {
       if (!confirm('Set this appointment to "' + status + '"?')) return;
    }
    var ok = await AppDB.updateAppointmentStatus(aptId, status, extra);
    if (!ok) { alert('Failed to update.'); return; }
-   _shopAptsCache = null;     // force re-fetch
+   _shopAptsCache = null;
    renderShopAppointments();
 }
 
@@ -5038,6 +5483,10 @@ function loadSettingsForm() {
    setChecked('set-shopAnnouncementOn', !!s.shopAnnouncementOn);
    setVal('set-shopAnnouncementText',  s.shopAnnouncementText  || '');
    setVal('set-commissionRate',  s.commissionRate !== undefined ? s.commissionRate : '');
+   setVal('set-bookingsPerDoctorPerDay',   s.bookingsPerDoctorPerDay   !== undefined ? s.bookingsPerDoctorPerDay   : 3);
+   setVal('set-bookingsPerCustomerPerDay', s.bookingsPerCustomerPerDay !== undefined ? s.bookingsPerCustomerPerDay : 10);
+   setVal('set-noShowBlockThreshold',      s.noShowBlockThreshold      !== undefined ? s.noShowBlockThreshold      : 5);
+   setVal('set-noShowBlockDays',           s.noShowBlockDays           !== undefined ? s.noShowBlockDays           : 30);
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
 }
 
@@ -5119,7 +5568,11 @@ function saveAllSettings() {
       autoRefreshOrders:    document.getElementById('set-autoRefreshOrders').checked,
       shopAnnouncementOn:   document.getElementById('set-shopAnnouncementOn').checked,
       shopAnnouncementText: document.getElementById('set-shopAnnouncementText').value.trim(),
-      commissionRate:       parseFloat(document.getElementById('set-commissionRate').value) || 0
+      commissionRate:       parseFloat(document.getElementById('set-commissionRate').value) || 0,
+      bookingsPerDoctorPerDay:   parseInt(document.getElementById('set-bookingsPerDoctorPerDay').value,   10) || 3,
+      bookingsPerCustomerPerDay: parseInt(document.getElementById('set-bookingsPerCustomerPerDay').value, 10) || 10,
+      noShowBlockThreshold:      parseInt(document.getElementById('set-noShowBlockThreshold').value,      10) || 5,
+      noShowBlockDays:           parseInt(document.getElementById('set-noShowBlockDays').value,           10) || 30
    };
    _db.settings = s;
    AppDB.saveSettings(s);
@@ -5433,7 +5886,10 @@ async function renderMyAppointments() {
 
    var rows = apts.map(function(a) {
       var status = a.status || 'Confirmed';
-      var cls    = status === 'Cancelled' ? 'cancelled' : (status === 'Completed' ? 'completed' : 'confirmed');
+      var cls    = status === 'Cancelled' ? 'cancelled'
+                 : status === 'Completed' ? 'completed'
+                 : status === 'No-show'   ? 'noshow'
+                 : 'confirmed';
       var aid    = (a.apt_id || '').replace(/'/g, "\\'");
       var isCancellable = status === 'Confirmed';
       var statusLabel = status;
@@ -5463,7 +5919,9 @@ async function renderMyAppointments() {
          ? '<button class="apt-act-btn apt-act-cancel" onclick="cancelMyAppointment(\'' + aid + '\')">✕ Cancel</button>'
          : '<span style="color:#bbb">—</span>';
       var meta = APT_CAT_META[a.category] || {};
-      var tokenCell = a.token ? '<span class="apt-token-badge">T' + a.token + '</span>' : '<span style="color:#bbb">—</span>';
+      var tokenCell = a.token
+         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
+         : '<span style="color:#bbb">—</span>';
       var slotCell  = a.slot ? a.slot : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
       return '<tr>' +
                 '<td style="text-align:center">' + tokenCell + '</td>' +
@@ -5516,8 +5974,16 @@ function _fillSelectFromList(selectId, defaultLabel, values, optionLabel) {
 }
 
 async function cancelMyAppointment(aptId) {
+   // Block self-cancel once the appointment time has passed.
+   // The customer should contact the hospital directly for late issues.
+   var apts = await AppDB.getAppointments((JSON.parse(sessionStorage.getItem('loggedInUser')) || {}).email || '');
+   var apt = apts.find(function(a) { return a.apt_id === aptId; });
+   if (apt && _slotPassed(apt)) {
+      alert('This appointment time has already passed (' + apt.date + (apt.slot ? ' ' + apt.slot : '') + '). Please contact the hospital directly to resolve.');
+      return;
+   }
    var reason = prompt('Please tell us why you\'re cancelling (so the hospital knows):\n\n(Optional — leave blank if you prefer.)');
-   if (reason === null) return;   // user hit Cancel on the prompt
+   if (reason === null) return;
    var ok = await AppDB.updateAppointmentStatus(aptId, 'Cancelled', {
       cancelled_by: 'customer',
       cancellation_reason: (reason || '').trim()

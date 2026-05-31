@@ -32,7 +32,8 @@
    <div class="shop-main-tabs">
       <button class="shop-main-tab hidden" id="shop-tab-orders"       onclick="switchShopTab('orders')">📋 Orders</button>
       <button class="shop-main-tab hidden" id="shop-tab-appointments" onclick="switchShopTab('appointments')">📅 Appointments</button>
-      <button class="shop-main-tab hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')">👨‍⚕️ Doctors <button class="shop-add-prod-btn" onclick="event.stopPropagation();shopQuickAddDoctor()">➕ Add Doctor</button></button>
+      <button class="shop-main-tab hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')">👨‍⚕️ Doctors</button>
+      <button class="shop-main-tab hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')">📞 Schedule</button>
       <button class="shop-main-tab hidden" id="shop-tab-products"     onclick="switchShopTab('products')">🛍️ My Products</button>
    </div>
 
@@ -111,12 +112,10 @@
             <button class="shop-tab"        id="apt-tab-Confirmed" data-filter="Confirmed" onclick="renderShopAppointments('Confirmed')">⏳ Confirmed</button>
             <button class="shop-tab"        id="apt-tab-Completed" data-filter="Completed" onclick="renderShopAppointments('Completed')">✅ Completed</button>
             <button class="shop-tab"        id="apt-tab-Cancelled" data-filter="Cancelled" onclick="renderShopAppointments('Cancelled')">✕ Cancelled</button>
+            <button class="shop-tab"        id="apt-tab-No-show"   data-filter="No-show"   onclick="renderShopAppointments('No-show')">🚫 No-show</button>
             <input type="search" id="shopAptSearch" class="apt-search-input" placeholder="🔍 Search patient / email / phone" oninput="renderShopAppointments(window._shopAptCurrentFilter)"/>
          </div>
          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <select id="shopAptDoctorFilter" class="admin-filter-select" onchange="renderShopAppointments(window._shopAptCurrentFilter)">
-               <option value="">👨‍⚕️ All doctors</option>
-            </select>
             <select id="shopAptDateFilter" class="admin-filter-select" onchange="renderShopAppointments(window._shopAptCurrentFilter)">
                <option value="all">📅 All time</option>
                <option value="today">Today</option>
@@ -131,8 +130,61 @@
             <input type="date" id="shopAptRangeTo"     class="admin-filter-select" style="display:none" title="To"   onchange="renderShopAppointments(window._shopAptCurrentFilter)"/>
          </div>
       </div>
+      <!-- Doctor tabs row — populated dynamically from existing appointments -->
+      <div class="shop-tabs" id="shopAptDoctorTabs" style="padding:0.4rem 1rem;overflow-x:auto"></div>
       <div class="shop-order-list" id="shopAppointmentList">
          <div class="shop-empty">Loading…</div>
+      </div>
+   </div>
+
+   <!-- SCHEDULE PANEL — owner books on behalf of phone/walk-in customers -->
+   <div id="shop-panel-schedule" class="hidden">
+      <div style="max-width:680px;margin:1rem auto;padding:1.5rem;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.07)">
+         <h3 style="margin:0 0 0.4rem;color:#1a1a2e;font-size:1.1rem">📞 Schedule for Offline Customer</h3>
+         <p style="color:#666;font-size:0.85rem;margin:0 0 1.2rem">Walk-in / phone-in bookings made on the patient's behalf. Standard slot capacity &amp; token rules apply.</p>
+
+         <div class="modal-field">
+            <label>Doctor</label>
+            <select id="schedDoctor" class="modal-select" onchange="onSchedDoctorChange()">
+               <option value="">— Select doctor —</option>
+            </select>
+         </div>
+
+         <div id="schedDateSection" class="hidden" style="margin-top:0.8rem">
+            <label class="apt-form-label">Date</label>
+            <div class="apt-date-scroll" id="schedDateButtons"></div>
+         </div>
+
+         <div id="schedSlotSection" class="hidden" style="margin-top:0.8rem">
+            <label class="apt-form-label">Time Slot</label>
+            <div class="apt-slots-grid" id="schedSlotButtons"></div>
+         </div>
+
+         <div id="schedPatientSection" class="hidden" style="margin-top:0.8rem">
+            <label class="apt-form-label" style="margin-top:6px">Patient Details</label>
+            <div class="apt-field">
+               <label>Full Name</label>
+               <input type="text" id="schedPatientName" placeholder="Patient's full name"/>
+            </div>
+            <div class="apt-field">
+               <label>Phone</label>
+               <input type="tel" id="schedPatientPhone" placeholder="+91 98765 43210"/>
+            </div>
+            <div class="apt-field">
+               <label>Email <small style="font-weight:400;color:#aaa">(optional — for future tracking)</small></label>
+               <input type="email" id="schedPatientEmail" placeholder="patient@example.com"/>
+            </div>
+            <div class="apt-field">
+               <label>Reason / Symptoms <small style="font-weight:400;color:#aaa">(optional)</small></label>
+               <textarea id="schedPatientReason" rows="2" placeholder="e.g. Fever, routine check-up…"></textarea>
+            </div>
+         </div>
+
+         <div style="margin-top:1rem;display:flex;gap:8px">
+            <button class="profile-save-btn" id="schedConfirmBtn" onclick="confirmShopSchedule()" disabled>📅 Confirm Booking</button>
+            <button class="addr-cancel-btn"   onclick="resetShopSchedule()">Reset</button>
+         </div>
+         <p id="schedMsg" style="margin:0.8rem 0 0;font-size:0.85rem"></p>
       </div>
    </div>
 
@@ -174,13 +226,39 @@
                   <option value="token">🎟 Token only (no time, just daily token)</option>
                </select>
             </div>
+            <div class="modal-field" id="aptDocSlotDurationRow">
+               <label>Slot Duration (min)</label>
+               <select id="aptDocSlotDuration" class="modal-select">
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60" selected>1 hour</option>
+               </select>
+            </div>
             <div class="modal-field" id="aptDocCapacityRow">
-               <label>Patients per 30-min Slot <small style="font-weight:400;color:#aaa">(how many can book the same time)</small></label>
-               <input type="number" id="aptDocCapacity" min="1" step="1" value="1"/>
+               <label>Patients per slot <small style="font-weight:400;color:#aaa">(split between online + offline)</small></label>
+               <div style="display:flex;gap:10px">
+                  <div style="flex:1">
+                     <small style="display:block;color:#666;margin-bottom:3px">🌐 Online (website)</small>
+                     <input type="number" id="aptDocCapacityOnline" min="0" step="1" value="5"/>
+                  </div>
+                  <div style="flex:1">
+                     <small style="display:block;color:#666;margin-bottom:3px">📞 Offline (phone / walk-in)</small>
+                     <input type="number" id="aptDocCapacityOffline" min="0" step="1" value="5"/>
+                  </div>
+               </div>
             </div>
             <div class="modal-field" id="aptDocDailyCapRow" style="display:none">
-               <label>Daily Token Cap <small style="font-weight:400;color:#aaa">(max patients in one day)</small></label>
-               <input type="number" id="aptDocDailyCap" min="1" step="1" value="100"/>
+               <label>Daily Token Caps <small style="font-weight:400;color:#aaa">(token mode)</small></label>
+               <div style="display:flex;gap:10px">
+                  <div style="flex:1">
+                     <small style="display:block;color:#666;margin-bottom:3px">🌐 Online</small>
+                     <input type="number" id="aptDocDailyCapOnline" min="0" step="1" value="100"/>
+                  </div>
+                  <div style="flex:1">
+                     <small style="display:block;color:#666;margin-bottom:3px">📞 Offline</small>
+                     <input type="number" id="aptDocDailyCapOffline" min="0" step="1" value="100"/>
+                  </div>
+               </div>
             </div>
             <label class="apt-form-label" style="margin-top:6px" id="aptDocAvailLabel">Weekly Availability</label>
             <p style="font-size:0.78rem;color:#888;margin-bottom:6px">Format: <code>09:00-12:00, 14:00-18:00</code> or <code>off</code></p>

@@ -1735,6 +1735,81 @@ body.guest .store-section-divider {
 	border-radius: 6px;
 	letter-spacing: 0.04em;
 }
+
+/* ── Doctor box-cards (customer + owner views) ── */
+.apt-doctor-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 1.2rem;
+	padding: 0.6rem 0;
+}
+.apt-doc-card {
+	background: #fff;
+	border: 1px solid #e8e8ec;
+	border-radius: 14px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	transition: transform 0.15s, box-shadow 0.15s;
+}
+.apt-doc-card:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+}
+.apt-doc-photo {
+	width: 100%;
+	aspect-ratio: 4/3;
+	object-fit: cover;
+	background: #f5f6fb;
+	display: block;
+}
+.apt-doc-photo-fallback {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, #1a1a2e 0%, #4a4a8f 100%);
+	color: #fff;
+	font-size: 2.4rem;
+	font-weight: 800;
+	letter-spacing: 0.05em;
+}
+.apt-doc-body {
+	padding: 0.85rem 1rem 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1;
+}
+.apt-doc-name  { font-size: 1rem;  font-weight: 700; color: #1a1a2e; }
+.apt-doc-qual  { font-size: 0.82rem; color: #1a73e8; font-style: italic; }
+.apt-doc-spec  { font-size: 0.82rem; color: #444; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.apt-doc-days  { font-size: 0.78rem; color: #666; }
+.apt-doc-footer {
+	margin-top: auto;
+	padding-top: 0.7rem;
+	border-top: 1px solid #f0f0f0;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+}
+.apt-doc-fee {
+	font-size: 1rem; font-weight: 700; color: #1a1a2e;
+}
+.apt-doc-fee span { font-size: 0.72rem; font-weight: 400; color: #999; }
+
+.apt-mode-badge {
+	display: inline-block;
+	font-size: 0.7rem;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 5px;
+	margin-top: 2px;
+	width: fit-content;
+}
+.apt-mode-badge.mode-slot  { background: #e3f2fd; color: #1565c0; }
+.apt-mode-badge.mode-token { background: #fce4ec; color: #c2185b; }
 .apt-tbl-id      { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
                    font-size: 0.72rem; color: #888; }
 .apt-tbl-symptom {

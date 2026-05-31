@@ -357,7 +357,7 @@ window.AppDB = {
    // compute slot-fill counts and the next token within a slot.
    async getDoctorBookings(doctorId, dateStr) {
       const { data, error } = await _sb.from('appointments')
-         .select('slot, token, status')
+         .select('slot, token, status, booking_source')
          .eq('doctor_id', doctorId)
          .eq('date', dateStr)
          .neq('status', 'Cancelled');

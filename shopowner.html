@@ -220,6 +220,10 @@
                <input type="number" id="aptDocFee" min="0" placeholder="500"/>
             </div>
             <div class="modal-field">
+               <label>Photo URL <small style="font-weight:400;color:#aaa">(optional — shown on doctor card)</small></label>
+               <input type="text" id="aptDocPhoto" placeholder="https://..."/>
+            </div>
+            <div class="modal-field">
                <label>Booking Mode</label>
                <select id="aptDocBookingMode" class="modal-select" onchange="_aptDocModeChanged()">
                   <option value="slot">🕒 Time slots (customer picks a 30-min slot)</option>

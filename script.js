@@ -1253,21 +1253,28 @@ function showAptProvider(catKey, providerId) {
    if (!doctors.length) {
       html += '<p style="text-align:center;color:#999;padding:40px">No doctors listed yet.</p>';
    } else {
-      html += '<div class="apt-doctors-list">';
+      html += '<div class="apt-doctor-grid">';
       doctors.forEach(function(d) {
          var initials = d.name.replace(/^Dr\.?\s*/i, '').split(' ').map(function(s) { return s[0]; }).slice(0, 2).join('').toUpperCase();
          var daysSummary = summarizeDoctorDays(d.availability);
-         html += '<div class="apt-doctor-card">' +
-                   '<div class="apt-doctor-avatar">' + initials + '</div>' +
-                   '<div class="apt-doctor-info">' +
-                      '<div class="apt-doctor-name">' + d.name + '</div>' +
-                      '<div class="apt-doctor-spec">' + (d.speciality || '') + '</div>' +
-                      '<div class="apt-doctor-qual">' + (d.qual || '') + '</div>' +
-                      '<div class="apt-doctor-days">📅 ' + daysSummary + '</div>' +
-                   '</div>' +
-                   '<div class="apt-doctor-right">' +
-                      '<div class="apt-doctor-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
-                      '<button class="apt-book-btn" onclick="openAptBookModal(\'' + catKey + '\',\'' + providerId + '\',\'' + d.id + '\')">Book</button>' +
+         var modeBadge = d.booking_mode === 'token'
+            ? '<span class="apt-mode-badge mode-token">🎟 Token-only</span>'
+            : '<span class="apt-mode-badge mode-slot">🕒 Slot booking</span>';
+         var photoBlock = d.photo
+            ? '<img class="apt-doc-photo" src="' + d.photo.replace(/"/g,'&quot;') + '" alt="' + d.name + '" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'apt-doc-photo apt-doc-photo-fallback\',textContent:\'' + initials + '\'}))"/>'
+            : '<div class="apt-doc-photo apt-doc-photo-fallback">' + initials + '</div>';
+         html += '<div class="apt-doc-card">' +
+                   photoBlock +
+                   '<div class="apt-doc-body">' +
+                      '<div class="apt-doc-name">' + d.name + '</div>' +
+                      '<div class="apt-doc-qual">' + (d.qual || '') + '</div>' +
+                      '<div class="apt-doc-spec">' + (d.speciality || '') + '</div>' +
+                      modeBadge +
+                      '<div class="apt-doc-days">📅 ' + daysSummary + '</div>' +
+                      '<div class="apt-doc-footer">' +
+                         '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
+                         '<button class="apt-book-btn" onclick="openAptBookModal(\'' + catKey + '\',\'' + providerId + '\',\'' + d.id + '\')">Book</button>' +
+                      '</div>' +
                    '</div>' +
                 '</div>';
       });
@@ -1456,6 +1463,18 @@ async function selectAptDate(dateStr, btn) {
 function _hhmmToMin(s) {
    var p = String(s).split(':');
    return parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10);
+}
+
+// "14:00" → "2:00 PM"  · "09:30" → "9:30 AM"  · "" / undefined → ""
+function _formatSlot12(slot24) {
+   if (!slot24) return '';
+   var p = String(slot24).split(':');
+   var hh = parseInt(p[0], 10);
+   var mm = String(p[1] || '00').padStart(2, '0');
+   if (isNaN(hh)) return slot24;
+   var hour12 = (hh % 12) || 12;
+   var ampm = hh < 12 ? 'AM' : 'PM';
+   return hour12 + ':' + mm + ' ' + ampm;
 }
 
 // Pick a stable colour for the token badge based on doctor + date + slot.
@@ -1871,6 +1890,7 @@ function openAptDoctorModal(providerId, doctorId) {
    document.getElementById('aptDocSpec').value       = doctor ? (doctor.speciality || '') : '';
    document.getElementById('aptDocQual').value       = doctor ? (doctor.qual || '') : '';
    document.getElementById('aptDocFee').value        = doctor ? (doctor.fee || '') : '';
+   document.getElementById('aptDocPhoto').value      = doctor ? (doctor.photo || '') : '';
    document.getElementById('aptDocBookingMode').value = doctor && doctor.booking_mode === 'token' ? 'token' : 'slot';
    // Slot duration (default 60 minutes for new doctors). Backward compat: existing doctors default to 30.
    document.getElementById('aptDocSlotDuration').value = doctor && doctor.slot_duration
@@ -1916,8 +1936,10 @@ function _aptDocModeChanged() {
    var mode = document.getElementById('aptDocBookingMode').value;
    var slotRow = document.getElementById('aptDocCapacityRow');
    var dayRow  = document.getElementById('aptDocDailyCapRow');
+   var durRow  = document.getElementById('aptDocSlotDurationRow');
    var avLabel = document.getElementById('aptDocAvailLabel');
    if (slotRow) slotRow.style.display = mode === 'token' ? 'none' : '';
+   if (durRow)  durRow.style.display  = mode === 'token' ? 'none' : '';
    if (dayRow)  dayRow.style.display  = mode === 'token' ? '' : 'none';
    if (avLabel) avLabel.textContent   = mode === 'token'
       ? 'Working Days (time windows ignored — only the days marked "on" matter)'
@@ -1946,6 +1968,7 @@ async function saveAptDoctor() {
       speciality:           document.getElementById('aptDocSpec').value.trim(),
       qual:                 document.getElementById('aptDocQual').value.trim(),
       fee:                  parseInt(document.getElementById('aptDocFee').value, 10) || 0,
+      photo:                document.getElementById('aptDocPhoto').value.trim(),
       booking_mode:         document.getElementById('aptDocBookingMode').value || 'slot',
       slot_duration:        parseInt(document.getElementById('aptDocSlotDuration').value, 10) || 60,
       slot_capacity_online:  Math.max(0, parseInt(document.getElementById('aptDocCapacityOnline').value,  10) || 0),
@@ -2181,7 +2204,7 @@ async function renderAllAppointments() {
          : '<span style="color:#bbb">—</span>';
       return '<tr>' +
                 '<td style="text-align:center">' + tokenCell + '</td>' +
-                '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
+                '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + (a.slot ? _formatSlot12(a.slot) : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div><div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.provider_name || '') + '</div><div class="apt-tbl-sub">' + (meta.icon || '') + ' ' + (meta.label || a.category || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.patient_name || '—') + '</div>' + (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + '</td>' +
@@ -3954,24 +3977,31 @@ async function renderShopDoctors() {
       if (!docs.length) {
          html += '<p style="color:#999;font-size:0.85rem;padding:0.5rem 0">No ' + s.label.toLowerCase() + ' added yet.</p>';
       } else {
-         html += '<div class="apt-doctors-list" style="margin-top:0.7rem">';
+         html += '<div class="apt-doctor-grid" style="margin-top:0.7rem">';
          docs.forEach(function(d) {
             var initials = d.name.replace(/^Dr\.?\s*/i, '').split(' ').map(function(x) { return x[0]; }).slice(0,2).join('').toUpperCase();
             var did = d.id.replace(/'/g, "\\'");
             var daysSummary = summarizeDoctorDays(d.availability);
-            html += '<div class="apt-doctor-card">' +
-                      '<div class="apt-doctor-avatar">' + initials + '</div>' +
-                      '<div class="apt-doctor-info">' +
-                         '<div class="apt-doctor-name">' + d.name + '</div>' +
-                         '<div class="apt-doctor-spec">' + (d.speciality || '') + '</div>' +
-                         '<div class="apt-doctor-qual">' + (d.qual || '') + '</div>' +
-                         '<div class="apt-doctor-days">📅 ' + daysSummary + '</div>' +
-                      '</div>' +
-                      '<div class="apt-doctor-right">' +
-                         '<div class="apt-doctor-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
-                         '<div style="display:flex;gap:4px">' +
-                            '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️</button>' +
-                            '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem;background:#c62828" onclick="deleteAptDoctor(\'' + pid + '\',\'' + did + '\')">🗑</button>' +
+            var modeBadge = d.booking_mode === 'token'
+               ? '<span class="apt-mode-badge mode-token">🎟 Token-only</span>'
+               : '<span class="apt-mode-badge mode-slot">🕒 Slot booking</span>';
+            var photoBlock = d.photo
+               ? '<img class="apt-doc-photo" src="' + d.photo.replace(/"/g,'&quot;') + '" alt="' + d.name + '" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'apt-doc-photo apt-doc-photo-fallback\',textContent:\'' + initials + '\'}))"/>'
+               : '<div class="apt-doc-photo apt-doc-photo-fallback">' + initials + '</div>';
+            html += '<div class="apt-doc-card">' +
+                      photoBlock +
+                      '<div class="apt-doc-body">' +
+                         '<div class="apt-doc-name">' + d.name + '</div>' +
+                         '<div class="apt-doc-qual">' + (d.qual || '') + '</div>' +
+                         '<div class="apt-doc-spec">' + (d.speciality || '') + '</div>' +
+                         modeBadge +
+                         '<div class="apt-doc-days">📅 ' + daysSummary + '</div>' +
+                         '<div class="apt-doc-footer">' +
+                            '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
+                            '<div style="display:flex;gap:4px">' +
+                               '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️ Edit</button>' +
+                               '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem;background:#c62828" onclick="deleteAptDoctor(\'' + pid + '\',\'' + did + '\')">🗑</button>' +
+                            '</div>' +
                          '</div>' +
                       '</div>' +
                    '</div>';
@@ -4106,8 +4136,7 @@ async function renderShopAppointments(filterStatus) {
    var doctorsTabsEl = document.getElementById('shopAptDoctorTabs');
    var uniqueDoctors = Array.from(new Set(all.map(function(a) { return a.doctor_name; }).filter(Boolean))).sort();
    if (doctorsTabsEl) {
-      if (uniqueDoctors.length <= 1) {
-         // No point showing tabs if there's only one (or no) doctor
+      if (uniqueDoctors.length === 0) {
          doctorsTabsEl.style.display = 'none';
          doctorFilter = '';
       } else {
@@ -4219,7 +4248,7 @@ async function renderShopAppointments(filterStatus) {
       var tokenCell = a.token
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
          : '<span style="color:#bbb">—</span>';
-      var slotCell  = a.slot ? a.slot : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
+      var slotCell  = a.slot ? _formatSlot12(a.slot) : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
       return '<tr>' +
                 '<td style="text-align:center">' + tokenCell + '</td>' +
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div>' +
@@ -5922,7 +5951,7 @@ async function renderMyAppointments() {
       var tokenCell = a.token
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
          : '<span style="color:#bbb">—</span>';
-      var slotCell  = a.slot ? a.slot : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
+      var slotCell  = a.slot ? _formatSlot12(a.slot) : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
       return '<tr>' +
                 '<td style="text-align:center">' + tokenCell + '</td>' +
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + slotCell + '</div></td>' +

@@ -6537,11 +6537,23 @@ async function printConsultationReceipt(aptId) {
    await loadAptProviders(true);
    var prov = _aptGetProvider(apt.provider_id) || {};
 
-   // Build derived bill identifiers from the appointment id
-   var shortId   = (apt.apt_id || '').replace(/[^A-Za-z0-9]/g, '').slice(-10).toUpperCase();
-   var umrNo     = 'UMR' + shortId;
-   var billNo    = 'OC'  + shortId;
-   var receiptNo = 'REC' + shortId;
+   // Build bill identifiers in the standard hospital format:
+   //   <prefix> + YYMMDD (bill date) + 4-digit serial derived from apt_id
+   // The serial is a deterministic hash of apt_id so reprints always match
+   // the original receipt and there are no DB sequences to maintain.
+   var createDtForId = apt.created_at ? new Date(apt.created_at) : new Date();
+   var _yy = String(createDtForId.getFullYear()).slice(-2);
+   var _mm = String(createDtForId.getMonth() + 1).padStart(2, '0');
+   var _dd = String(createDtForId.getDate()).padStart(2, '0');
+   var dateSuffix = _yy + _mm + _dd;
+   var _hash = 0;
+   var _src  = String(apt.apt_id || '');
+   for (var _i = 0; _i < _src.length; _i++) {
+      _hash = ((_hash << 5) - _hash + _src.charCodeAt(_i)) | 0;
+   }
+   var serial    = String(Math.abs(_hash) % 10000).padStart(4, '0');
+   var billNo    = 'OC'  + dateSuffix + serial;   // e.g. OC2605310042
+   var receiptNo = 'REC' + dateSuffix + serial;   // e.g. REC2605310042  (mirrors Bill No)
 
    // Format dates
    var now      = new Date();
@@ -6555,6 +6567,15 @@ async function printConsultationReceipt(aptId) {
       var mn = String(d.getMinutes()).padStart(2,'0');
       return dd + '-' + mm + '-' + yy + ' ' + hr + ':' + mn;
    };
+   var fmtDateOnly = function(d) {
+      if (!d || isNaN(d.getTime())) return '';
+      var dd = String(d.getDate()).padStart(2,'0');
+      var mm = d.toLocaleString('en-US', { month: 'short' });
+      var yy = d.getFullYear();
+      return dd + '-' + mm + '-' + yy;
+   };
+   var followUpEnd = new Date(createDt.getTime() + 7 * 24 * 60 * 60 * 1000);
+
    var fmtDTAmPm = function(d) {
       if (!d || isNaN(d.getTime())) return '';
       var dd = String(d.getDate()).padStart(2,'0');
@@ -6572,9 +6593,8 @@ async function printConsultationReceipt(aptId) {
    var fee         = Number(apt.fee || 0);
    var status      = apt.status || 'Confirmed';
 
-   // Logged-in user's identifier appears on Create By / Print By
-   var loggedUser = (function() { try { return JSON.parse(sessionStorage.getItem('loggedInUser')); } catch(e) { return null; } })() || {};
-   var operator   = loggedUser.email || 'system';
+   // Hospital name appears on Create By / Print By
+   var operator = prov.name || 'Hospital';
 
    var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
 
@@ -6633,13 +6653,11 @@ async function printConsultationReceipt(aptId) {
 
          '<div class="info">' +
             '<div class="col">' +
-               '<div class="row"><div class="lbl">UMR No</div><div class="sep">:</div><div>' + esc(umrNo) + '</div></div>' +
                '<div class="row"><div class="lbl">Patient Name</div><div class="sep">:</div><div>' + esc(apt.patient_name || apt.user_email || '') + '</div></div>' +
                '<div class="row"><div class="lbl">Age/Sex</div><div class="sep">:</div><div>' + esc(apt.patient_age ? (apt.patient_age + 'Y(s)' + (apt.patient_sex ? '/' + apt.patient_sex : '')) : '—') + '</div></div>' +
                '<div class="row"><div class="lbl">Relative Name</div><div class="sep">:</div><div>—</div></div>' +
                '<div class="row"><div class="lbl">Address</div><div class="sep">:</div><div>—</div></div>' +
                '<div class="row"><div class="lbl">Referred By</div><div class="sep">:</div><div>—</div></div>' +
-               '<div class="row"><div class="lbl">Patient Type</div><div class="sep">:</div><div>' + esc(paymentMode) + '</div></div>' +
             '</div>' +
             '<div class="col right">' +
                '<div class="row"><div class="lbl">Location</div><div class="sep">:</div><div>' + esc((prov.address || '').split(',').pop().trim() || '—') + '</div></div>' +
@@ -6647,7 +6665,6 @@ async function printConsultationReceipt(aptId) {
                '<div class="row"><div class="lbl">Bill No.</div><div class="sep">:</div><div>' + esc(billNo) + '</div></div>' +
                '<div class="row"><div class="lbl">Receipt No.</div><div class="sep">:</div><div>' + esc(receiptNo) + '</div></div>' +
                '<div class="row"><div class="lbl">Mobile No</div><div class="sep">:</div><div>' + esc(apt.patient_phone || '—') + '</div></div>' +
-               '<div class="row"><div class="lbl">HC No</div><div class="sep">:</div><div>—</div></div>' +
             '</div>' +
          '</div>' +
 
@@ -6672,18 +6689,7 @@ async function printConsultationReceipt(aptId) {
             '<div class="amt">Total Amount &nbsp;&nbsp; ' + fee.toFixed(2) + '</div>' +
          '</div>' +
 
-         '<div class="barcode">' +
-            '<div class="bcol">' +
-               '<div class="bcimg">' + esc(umrNo) + '</div>' +
-               '<div class="btxt">' + esc(umrNo) + '</div>' +
-            '</div>' +
-            '<div class="bcol">' +
-               '<div class="bcimg">' + esc(billNo) + '</div>' +
-               '<div class="btxt">' + esc(billNo) + '</div>' +
-            '</div>' +
-         '</div>' +
-
-         '<div class="signrow">' +
+         '<div class="signrow" style="margin-top:18px">' +
             '<div>Create By : ' + esc(operator) + '</div>' +
             '<div class="mid">(Authorised Signatory)</div>' +
             '<div class="right">Create Date : ' + esc(fmtDTAmPm(createDt)) + '</div>' +
@@ -6694,7 +6700,7 @@ async function printConsultationReceipt(aptId) {
             '<div class="right">Print Date &nbsp;: ' + esc(fmtDTAmPm(now)) + '</div>' +
          '</div>' +
 
-         '<div class="followup">&lt; Free FOLLOW-UP &gt;</div>' +
+         '<div class="followup">&lt; Free FOLLOW-UP upto ' + esc(fmtDateOnly(followUpEnd)) + ' &gt;</div>' +
       '</div>' +
 
       '<div class="actions">' +

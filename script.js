@@ -6633,7 +6633,7 @@ async function printConsultationReceipt(aptId) {
          '.signrow{display:grid;grid-template-columns:1fr 1fr 1fr;font-size:12px;padding:4px 8px}' +
          '.signrow .mid{text-align:center;font-weight:700}' +
          '.signrow .right{text-align:right}' +
-         '.signblock{text-align:center;margin:48px 8px 0}' +
+         '.signblock{text-align:center;margin:22px 8px 0}' +
          '.signline{display:inline-block;border-top:1px solid #000;padding-top:3px;min-width:220px;font-weight:700;font-size:12px}' +
          '.followup{text-align:center;font-size:13px;font-weight:700;padding:8px 0 0;letter-spacing:1px}' +
          '.actions{max-width:780px;margin:14px auto 0;display:flex;gap:8px;justify-content:center}' +
@@ -6644,7 +6644,7 @@ async function printConsultationReceipt(aptId) {
             '.actions{display:none}' +
             'html,body{margin:0;padding:0;width:210mm;background:#fff}' +
             '.rcpt{width:210mm;height:148.5mm;padding:5mm 10mm;border:none;box-sizing:border-box;page-break-after:always;overflow:hidden}' +
-            '.signblock{margin-top:32px}' +
+            '.signblock{margin-top:14px}' +
          '}' +
       '</style>' +
       '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap">' +

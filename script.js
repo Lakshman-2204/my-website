@@ -1377,7 +1377,7 @@ async function selectAptDate(dateStr, btn) {
          document.getElementById('aptConfirmBtn').disabled = true;
          return;
       }
-      var nextToken = onlineCount + 1;
+      var nextToken = existing.length + 1;   // unique across online+offline
       _aptBookCtx.slot = '';
       btnsEl.innerHTML =
          '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:14px;text-align:center">' +
@@ -1395,13 +1395,12 @@ async function selectAptDate(dateStr, btn) {
    var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
    var duration = caps.duration;
 
-   // If picked date is today, hide any slot ≤ now + buffer (so user has time
-   // to fill the form and actually arrive). Buffer = 20 minutes.
+   // For today: a slot is still bookable as long as its END time is in the future
+   // (e.g. 2:00 PM slot with 60-min duration is bookable until 3:00 PM).
    var now = new Date();
    var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
    var isToday = dateStr === todayStr;
-   var BUFFER_MIN = 20;
-   var earliestMin = isToday ? (now.getHours() * 60 + now.getMinutes() + BUFFER_MIN) : -1;
+   var nowMin = isToday ? (now.getHours() * 60 + now.getMinutes()) : -1;
 
    document.getElementById('aptSlotSection').classList.remove('hidden');
    document.getElementById('aptSlotButtons').innerHTML = '<p style="color:#999;font-size:0.85rem">Loading slots…</p>';
@@ -1422,7 +1421,8 @@ async function selectAptDate(dateStr, btn) {
       var startMin = _hhmmToMin(w.start);
       var endMin   = _hhmmToMin(w.end);
       for (var t = startMin; t + duration <= endMin; t += duration) {
-         if (t < earliestMin) continue;
+         // For today, hide slot only if its END time has already passed
+         if (isToday && (t + duration) <= nowMin) continue;
          var hh = Math.floor(t / 60);
          var mm = t % 60;
          var slot24 = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
@@ -1435,17 +1435,17 @@ async function selectAptDate(dateStr, btn) {
 
          if (onlineFull && !offlineFull) {
             var callTxt = phone ? ('📞 ' + phone) : '📞 Call hospital';
-            slotHtml += '<button class="apt-slot-btn" disabled style="opacity:0.7;cursor:not-allowed;background:#fff3e0;border-color:#ffcc80;color:#bf6000" title="Online slots full — call to book offline">' +
+            slotHtml += '<button class="apt-slot-btn slot-callbook" disabled title="Online slots full — call to book offline">' +
                           label + '<br><small style="font-weight:600">' + callTxt + '</small>' +
                         '</button>';
          } else if (onlineFull && offlineFull) {
-            slotHtml += '<button class="apt-slot-btn" disabled style="opacity:0.4;cursor:not-allowed">' +
+            slotHtml += '<button class="apt-slot-btn slot-full" disabled>' +
                           label + '<br><small style="font-weight:400">Full</small>' +
                         '</button>';
          } else {
             var remaining = caps.slotOnline - onCnt;
             var subtitle = caps.slotOnline === 1 ? 'Available' : (remaining + ' of ' + caps.slotOnline + ' left');
-            slotHtml += '<button class="apt-slot-btn" onclick="selectAptSlot(\'' + slot24 + '\', this)">' +
+            slotHtml += '<button class="apt-slot-btn slot-available" onclick="selectAptSlot(\'' + slot24 + '\', this)">' +
                           label + (caps.slotOnline > 1 ? '<br><small style="font-weight:400;opacity:0.7">' + subtitle + '</small>' : '') +
                         '</button>';
          }
@@ -1593,8 +1593,10 @@ async function confirmAptBooking() {
    var abuseError = await _checkBookingAbuse(user, doctor, _aptBookCtx.providerId, _aptBookCtx.date);
    if (abuseError) { alert(abuseError); return; }
 
-   // Re-check ONLINE capacity & compute token (handles the race where someone
-   // else booked the same slot/day while this form was open).
+   // Re-check ONLINE capacity (only counts online bookings against online cap).
+   // Token = total bookings in that slot/day (across online + offline) + 1, so
+   // online & offline never share a token number — the owner calls patients
+   // in T1, T2, T3 order regardless of how they were booked.
    var caps2 = _doctorCaps(doctor);
    var existing = await AppDB.getDoctorBookings(doctor.id, _aptBookCtx.date);
    var onlineExisting = existing.filter(function(b) { return b.booking_source !== 'offline'; });
@@ -1606,16 +1608,17 @@ async function confirmAptBooking() {
          if (activeBtnT) selectAptDate(_aptBookCtx.date, activeBtnT);
          return;
       }
-      token = onlineExisting.length + 1;
+      token = existing.length + 1;
    } else {
-      var inSlot   = onlineExisting.filter(function(b) { return b.slot === _aptBookCtx.slot; });
-      if (inSlot.length >= caps2.slotOnline) {
+      var inSlotOnline = onlineExisting.filter(function(b) { return b.slot === _aptBookCtx.slot; });
+      if (inSlotOnline.length >= caps2.slotOnline) {
          alert('Sorry — online slots for this time just filled up. Please pick another time or call the hospital.');
          var activeBtn = document.querySelector('.apt-date-btn.active');
          if (activeBtn) selectAptDate(_aptBookCtx.date, activeBtn);
          return;
       }
-      token = inSlot.length + 1;
+      var inSlotAll = existing.filter(function(b) { return b.slot === _aptBookCtx.slot; });
+      token = inSlotAll.length + 1;
    }
 
    var aptId = 'APT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 5).toUpperCase();
@@ -4388,12 +4391,12 @@ async function schedSelectDate(dateStr, btn) {
          document.getElementById('schedConfirmBtn').disabled = true;
          return;
       }
-      var nextToken = offlineExisting.length + 1;
+      var nextToken = existing.length + 1;   // unique across online+offline
       _schedCtx.slot = '';
       _schedCtx.overtime = false;
       btnsEl.innerHTML =
          '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:12px;text-align:center">' +
-            '<div style="font-size:0.78rem;color:#555">Patient\'s offline token will be</div>' +
+            '<div style="font-size:0.78rem;color:#555">Patient\'s token will be</div>' +
             '<div style="font-size:1.5rem;font-weight:800;color:#1a73e8">T' + nextToken + '</div>' +
             '<div style="font-size:0.75rem;color:#777">' + offlineExisting.length + ' of ' + caps.dailyOffline + ' offline tokens used today</div>' +
          '</div>';
@@ -4412,6 +4415,7 @@ async function schedSelectDate(dateStr, btn) {
    var offlineCountsBySlot = {};
    offlineExisting.forEach(function(b) { offlineCountsBySlot[b.slot] = (offlineCountsBySlot[b.slot] || 0) + 1; });
 
+   var nowMinOwner = isToday ? (now.getHours() * 60 + now.getMinutes()) : -1;
    var slotHtml = '';
    var anyShown = false;
    windows.forEach(function(w) {
@@ -4425,11 +4429,16 @@ async function schedSelectDate(dateStr, btn) {
          var label = hour12 + ':' + String(mm).padStart(2,'0') + ' ' + (hh < 12 ? 'AM' : 'PM');
          var count = offlineCountsBySlot[slot24] || 0;
          var full  = count >= caps.slotOffline;
+         var isPast = isToday && (t + caps.duration) <= nowMinOwner;
          anyShown = true;
          if (full) {
-            slotHtml += '<button class="apt-slot-btn" disabled style="opacity:0.4;cursor:not-allowed">' + label + '<br><small>Full</small></button>';
+            slotHtml += '<button class="apt-slot-btn slot-full" disabled>' + label + '<br><small>Full</small></button>';
+         } else if (isPast) {
+            // Option B: past slots dimmed but still clickable for retroactive entry
+            slotHtml += '<button class="apt-slot-btn slot-past" onclick="schedSelectSlot(\'' + slot24 + '\', this)" title="This slot has already passed — clickable for retroactive entry">' +
+                        label + '<br><small>(past) ' + (caps.slotOffline - count) + ' of ' + caps.slotOffline + ' left</small></button>';
          } else {
-            slotHtml += '<button class="apt-slot-btn" onclick="schedSelectSlot(\'' + slot24 + '\', this)">' + label +
+            slotHtml += '<button class="apt-slot-btn slot-available" onclick="schedSelectSlot(\'' + slot24 + '\', this)">' + label +
                         (caps.slotOffline > 1 ? '<br><small>' + (caps.slotOffline - count) + ' of ' + caps.slotOffline + ' left</small>' : '') + '</button>';
          }
       }
@@ -4492,22 +4501,23 @@ async function confirmShopSchedule() {
    var setMsg = function(t, ok) { msg.textContent = t; msg.style.color = ok ? '#2e7d32' : '#c62828'; };
    if (!name || !phone) { setMsg('Patient name and phone are required.'); return; }
 
-   // Re-check OFFLINE capacity & assign token within the offline pool.
-   // Overtime bypasses capacity since it's after hours / extra effort.
+   // Re-check OFFLINE capacity, but issue tokens from the COMBINED pool so
+   // online & offline tokens never collide. Overtime bypasses capacity.
    var existing = await AppDB.getDoctorBookings(ctx.doctor.id, ctx.date);
    var offlineExisting = existing.filter(function(b) { return b.booking_source === 'offline'; });
    var isTokenMode = ctx.doctor.booking_mode === 'token';
    var caps = _doctorCaps(ctx.doctor);
    var token;
    if (ctx.overtime) {
-      token = offlineExisting.length + 1;   // continue the day's offline sequence
+      token = existing.length + 1;   // unique across all sources
    } else if (isTokenMode) {
       if (offlineExisting.length >= caps.dailyOffline) { setMsg('Offline tokens just got full. Please pick another date.'); return; }
-      token = offlineExisting.length + 1;
+      token = existing.length + 1;
    } else {
-      var inSlot = offlineExisting.filter(function(b) { return b.slot === ctx.slot; });
-      if (inSlot.length >= caps.slotOffline) { setMsg('Offline slot just filled up. Please pick another.'); return; }
-      token = inSlot.length + 1;
+      var inSlotOffline = offlineExisting.filter(function(b) { return b.slot === ctx.slot; });
+      if (inSlotOffline.length >= caps.slotOffline) { setMsg('Offline slot just filled up. Please pick another.'); return; }
+      var inSlotAll = existing.filter(function(b) { return b.slot === ctx.slot; });
+      token = inSlotAll.length + 1;
    }
 
    // user_email: real patient email if given, else a walk-in marker tied to phone

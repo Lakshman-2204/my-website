@@ -6,49 +6,53 @@
       <title>Login</title>
       <link rel="stylesheet" href="style.css"/>
       <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-      <script src="supabase.js"></script>
+      <script src="supabase.js" defer></script>
+      <script src="script.js" defer></script>
    </head>
    <body class="auth-page">
-      <div class="auth-box">
-         <h1>Welcome Back</h1>
-         <p class="subtitle">Login to your account</p>
-         <div class="form-group">
-            <label>Email</label>
-            <input type="email" id="loginEmail" placeholder="gajula@example.com"/>
-         </div>
-         <div class="form-group">
-            <label>Password</label>
-            <div class="pw-wrap">
-               <input type="password" id="loginPassword" placeholder="Your password"/>
-               <button type="button" class="pw-toggle" onclick="togglePassword('loginPassword', this)" title="Show password">👁</button>
+      <canvas id="bg"></canvas>
+      <div class="auth-wrapper">
+         <div class="auth-border">
+            <div class="auth-box" id="loginBox">
+               <h1>Welcome Back</h1>
+               <p class="subtitle">Login to your account</p>
+               <div class="form-group">
+                  <label>Email</label>
+                  <input type="email" id="loginEmail" placeholder="gajula@example.com"/>
+               </div>
+               <div class="form-group">
+                  <label>Password</label>
+                  <div class="pw-wrap">
+                     <input type="password" id="loginPassword" placeholder="Your password"/>
+                     <button type="button" class="pw-toggle" onclick="togglePassword('loginPassword', this)" title="Show password">👁</button>
+                  </div>
+               </div>
+               <div id="loginError" class="error-msg hidden">
+                  Invalid email or password.
+               </div>
+               <button class="btn-primary" onclick="login()">Login</button>
+               <p class="switch-link" style="margin-top:0.6rem">
+                  <a href="#" onclick="showForgotPassword(event)">Forgot password?</a>
+               </p>
+               <p class="switch-link">
+                  No account yet? <a href="signup.html">Sign up here</a>
+               </p>
+            </div>
+            <div class="auth-box" id="forgotBox" style="display:none">
+               <h1>Reset Password</h1>
+               <p class="subtitle">We'll email you a link to set a new password.</p>
+               <div class="form-group">
+                  <label>Email</label>
+                  <input type="email" id="forgotEmail" placeholder="your@email.com"/>
+               </div>
+               <p id="forgotMsg" class="error-msg hidden"></p>
+               <button class="btn-primary" onclick="sendPasswordReset()">📧 Send Reset Link</button>
+               <p class="switch-link">
+                  <a href="#" onclick="hideForgotPassword(event)">← Back to login</a>
+               </p>
             </div>
          </div>
-         <div id="loginError" class="error-msg hidden">
-            Invalid email or password.
-         </div>
-         <button class="btn-primary" onclick="login()">Login</button>
-         <p class="switch-link" style="margin-top:0.6rem">
-            <a href="#" onclick="showForgotPassword(event)">Forgot password?</a>
-         </p>
-         <p class="switch-link">
-            No account yet? <a href="signup.html">Sign up here</a>
-         </p>
       </div>
-
-      <!-- Forgot password panel (hidden by default) -->
-      <div class="auth-box" id="forgotBox" style="display:none">
-         <h1>Reset Password</h1>
-         <p class="subtitle">We'll email you a link to set a new password.</p>
-         <div class="form-group">
-            <label>Email</label>
-            <input type="email" id="forgotEmail" placeholder="your@email.com"/>
-         </div>
-         <p id="forgotMsg" class="error-msg hidden"></p>
-         <button class="btn-primary" onclick="sendPasswordReset()">📧 Send Reset Link</button>
-         <p class="switch-link">
-            <a href="#" onclick="hideForgotPassword(event)">← Back to login</a>
-         </p>
-      </div>
-      <script src="script.js"></script>
+      <script src="dolphin.js"></script>
    </body>
 </html>

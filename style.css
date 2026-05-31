@@ -1725,6 +1725,16 @@ body.guest .store-section-divider {
 }
 .apt-tbl-fee-tag.unpaid { background: #ffebee; color: #c62828; }
 .apt-tbl-fee-tag.paid   { background: #e8f5e9; color: #2e7d32; }
+.apt-token-badge {
+	display: inline-block;
+	background: #1a73e8;
+	color: #fff;
+	font-weight: 700;
+	font-size: 0.82rem;
+	padding: 3px 9px;
+	border-radius: 6px;
+	letter-spacing: 0.04em;
+}
 .apt-tbl-id      { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
                    font-size: 0.72rem; color: #888; }
 .apt-tbl-symptom {

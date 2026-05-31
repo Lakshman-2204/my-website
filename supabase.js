@@ -338,6 +338,18 @@ window.AppDB = {
       return true;
    },
 
+   // Active (non-cancelled) bookings for a doctor on a specific date — used to
+   // compute slot-fill counts and the next token within a slot.
+   async getDoctorBookings(doctorId, dateStr) {
+      const { data, error } = await _sb.from('appointments')
+         .select('slot, token, status')
+         .eq('doctor_id', doctorId)
+         .eq('date', dateStr)
+         .neq('status', 'Cancelled');
+      if (error) { console.error('getDoctorBookings:', error.message); return []; }
+      return data || [];
+   },
+
    async getAllAppointments() {
       const { data, error } = await _sb.from('appointments').select('*')
          .order('created_at', { ascending: false });
@@ -384,15 +396,17 @@ window.AppDB = {
 
    async upsertProvider(provider) {
       const row = {
-         id:          provider.id,
-         category:    provider.category,
-         name:        provider.name,
-         tagline:     provider.tagline     || '',
-         address:     provider.address     || '',
-         timing:      provider.timing      || '',
-         icon:        provider.icon        || '🏥',
-         owner_email: (provider.owner_email || '').toLowerCase(),
-         doctors:     provider.doctors     || []
+         id:               provider.id,
+         category:         provider.category,
+         name:             provider.name,
+         tagline:          provider.tagline     || '',
+         address:          provider.address     || '',
+         timing:           provider.timing      || '',
+         icon:             provider.icon        || '🏥',
+         owner_email:      (provider.owner_email || '').toLowerCase(),
+         commission_type:  provider.commission_type  || 'percent',
+         commission_value: (provider.commission_value != null) ? Number(provider.commission_value) : 0,
+         doctors:          provider.doctors     || []
       };
       const { error } = await _sb.from('apt_providers').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertProvider:', error.message); return false; }

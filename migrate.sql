@@ -54,6 +54,13 @@ ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS owner_email text DEFAULT '';
 CREATE INDEX IF NOT EXISTS apt_providers_owner_idx ON public.apt_providers(owner_email);
 
+-- 5b. APT_PROVIDERS — commission settings per provider
+--     commission_type:  'percent' (per-transaction %) | 'fixed_monthly' (flat ₹/month)
+--     commission_value: numeric (e.g. 5 means 5% or ₹5 depending on type)
+ALTER TABLE public.apt_providers
+   ADD COLUMN IF NOT EXISTS commission_type  text    DEFAULT 'percent',
+   ADD COLUMN IF NOT EXISTS commission_value numeric DEFAULT 0;
+
 -- 6. USERS — approval gate for Business Partners
 --    is_approved=true for customers (no gate). New Business Partner signups
 --    default false until admin approves them.
@@ -81,6 +88,12 @@ ALTER TABLE public.appointments
 -- 8b. APPOINTMENTS — free-text reason captured when the booking is cancelled
 ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS cancellation_reason text DEFAULT '';
+
+-- 8c. APPOINTMENTS — sequential token within a slot (1, 2, 3…)
+--     Owner calls patients in token order so first-booked is seen first.
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS token integer DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS appointments_doctor_date_idx ON public.appointments(doctor_id, date);
 
 -- 9. APT_CATEGORIES — admin-managed list of business categories for appointments
 --    (hospitals, dental, beauty parlour, fitness, …). Used everywhere instead of

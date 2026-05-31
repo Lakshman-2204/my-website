@@ -1298,12 +1298,14 @@ function openAptBookModal(catKey, providerId, doctorId) {
    if (!doctor) return;
 
    _aptBookCtx = { catKey: catKey, providerId: providerId, doctor: doctor, provider: provider, date: null, slot: null };
+   var isTokenMode = doctor.booking_mode === 'token';
 
-   document.getElementById('aptBookModalDoc').textContent = doctor.name + ' · ' + provider.name;
-   document.getElementById('aptBookModalSpec').textContent = (doctor.speciality || '') + (doctor.qual ? ' · ' + doctor.qual : '');
-   document.getElementById('aptBookModalFee').textContent = 'Consultation fee: ₹' + (doctor.fee || 0);
+   var modeLine = isTokenMode ? ' · 🎟 Token mode' : '';
+   document.getElementById('aptBookModalDoc').textContent  = doctor.name + ' · ' + provider.name;
+   document.getElementById('aptBookModalSpec').textContent = (doctor.speciality || '') + (doctor.qual ? ' · ' + doctor.qual : '') + modeLine;
+   document.getElementById('aptBookModalFee').textContent  = 'Consultation fee: ₹' + (doctor.fee || 0);
 
-   // Next 7 dates, disable ones the doctor isn't available
+   // Next 7 dates — disable days the doctor isn't available
    var dateHtml = '';
    for (var i = 0; i < 7; i++) {
       var d = new Date();
@@ -1333,17 +1335,45 @@ function openAptBookModal(catKey, providerId, doctorId) {
    document.getElementById('aptBookModal').classList.remove('hidden');
 }
 
-function selectAptDate(dateStr, btn) {
+async function selectAptDate(dateStr, btn) {
    if (!_aptBookCtx) return;
    _aptBookCtx.date = dateStr;
    _aptBookCtx.slot = null;
    document.querySelectorAll('.apt-date-btn').forEach(function(b) { b.classList.remove('active'); });
    btn.classList.add('active');
 
-   // Build slots from doctor's availability windows for this day-of-week
+   var doctor = _aptBookCtx.doctor;
+   var isTokenMode = doctor.booking_mode === 'token';
+
+   // ── Token-only mode: no slot picker. Check daily cap, show next token, enable confirm. ──
+   if (isTokenMode) {
+      var dailyCap = Math.max(1, parseInt(doctor.daily_cap, 10) || 100);
+      var section = document.getElementById('aptSlotSection');
+      var btnsEl  = document.getElementById('aptSlotButtons');
+      section.classList.remove('hidden');
+      btnsEl.innerHTML = '<p style="color:#666;font-size:0.85rem">Checking availability…</p>';
+      var existing = await AppDB.getDoctorBookings(doctor.id, dateStr);
+      if (existing.length >= dailyCap) {
+         btnsEl.innerHTML = '<p style="color:#c62828;font-size:0.88rem;font-weight:600">This day is fully booked (' + dailyCap + ' tokens issued). Please pick another day.</p>';
+         document.getElementById('aptConfirmBtn').disabled = true;
+         return;
+      }
+      var nextToken = existing.length + 1;
+      _aptBookCtx.slot = '';   // token mode has no time slot
+      btnsEl.innerHTML =
+         '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:14px;text-align:center">' +
+            '<div style="font-size:0.82rem;color:#555;margin-bottom:4px">Your token will be</div>' +
+            '<div style="font-size:1.8rem;font-weight:800;color:#1a73e8;letter-spacing:0.04em">T' + nextToken + '</div>' +
+            '<div style="font-size:0.78rem;color:#777;margin-top:6px">' + existing.length + ' of ' + dailyCap + ' tokens used today</div>' +
+         '</div>';
+      document.getElementById('aptConfirmBtn').disabled = false;
+      return;
+   }
+
+   // ── Slot mode (default): generate 30-min slots, respecting capacity ──
    var d = new Date(dateStr + 'T00:00:00');
    var dayIdx = d.getDay();
-   var doctor = _aptBookCtx.doctor;
+   var capacity = Math.max(1, parseInt(doctor.slot_capacity, 10) || 1);
    var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
 
    // If picked date is today, hide any slot ≤ now + buffer (so user has time
@@ -1354,18 +1384,40 @@ function selectAptDate(dateStr, btn) {
    var BUFFER_MIN = 20;
    var earliestMin = isToday ? (now.getHours() * 60 + now.getMinutes() + BUFFER_MIN) : -1;
 
+   document.getElementById('aptSlotSection').classList.remove('hidden');
+   document.getElementById('aptSlotButtons').innerHTML = '<p style="color:#999;font-size:0.85rem">Loading slots…</p>';
+
+   // Fetch existing bookings to compute fill counts per slot
+   var existing = await AppDB.getDoctorBookings(doctor.id, dateStr);
+   var slotCounts = {};
+   existing.forEach(function(b) { slotCounts[b.slot] = (slotCounts[b.slot] || 0) + 1; });
+
    var slotHtml = '';
    windows.forEach(function(w) {
       var startMin = _hhmmToMin(w.start);
       var endMin   = _hhmmToMin(w.end);
       for (var t = startMin; t + 30 <= endMin; t += 30) {
-         if (t < earliestMin) continue;     // skip past slots for today
+         if (t < earliestMin) continue;
          var hh = Math.floor(t / 60);
          var mm = t % 60;
          var slot24 = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
          var hour12 = ((hh % 12) || 12);
-         var label = hour12 + ':' + String(mm).padStart(2, '0') + ' ' + (hh < 12 ? 'AM' : 'PM');
-         slotHtml += '<button class="apt-slot-btn" onclick="selectAptSlot(\'' + slot24 + '\', this)">' + label + '</button>';
+         var label  = hour12 + ':' + String(mm).padStart(2, '0') + ' ' + (hh < 12 ? 'AM' : 'PM');
+         var count  = slotCounts[slot24] || 0;
+         var full   = count >= capacity;
+         var remaining = capacity - count;
+         var subtitle = capacity === 1
+            ? (full ? 'Full' : 'Available')
+            : (full ? 'Full' : (remaining + ' of ' + capacity + ' left'));
+         if (full) {
+            slotHtml += '<button class="apt-slot-btn" disabled style="opacity:0.4;cursor:not-allowed">' +
+                          label + '<br><small style="font-weight:400">' + subtitle + '</small>' +
+                        '</button>';
+         } else {
+            slotHtml += '<button class="apt-slot-btn" onclick="selectAptSlot(\'' + slot24 + '\', this)">' +
+                          label + (capacity > 1 ? '<br><small style="font-weight:400;opacity:0.7">' + subtitle + '</small>' : '') +
+                        '</button>';
+         }
       }
    });
    if (!slotHtml) {
@@ -1374,7 +1426,6 @@ function selectAptDate(dateStr, btn) {
                  '</p>';
    }
    document.getElementById('aptSlotButtons').innerHTML = slotHtml;
-   document.getElementById('aptSlotSection').classList.remove('hidden');
    document.getElementById('aptConfirmBtn').disabled = true;
 }
 
@@ -1392,16 +1443,42 @@ function selectAptSlot(slot, btn) {
 }
 
 async function confirmAptBooking() {
-   if (!_aptBookCtx || !_aptBookCtx.date || !_aptBookCtx.slot) {
-      alert('Please pick a date and time slot.');
-      return;
-   }
+   if (!_aptBookCtx || !_aptBookCtx.date) { alert('Please pick a date.'); return; }
+   var doctor = _aptBookCtx.doctor;
+   var isTokenMode = doctor.booking_mode === 'token';
+   if (!isTokenMode && !_aptBookCtx.slot) { alert('Please pick a time slot.'); return; }
+
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { promptAuth('Please log in to book.'); return; }
 
    var name = document.getElementById('aptPatientName').value.trim();
    var phone = document.getElementById('aptPatientPhone').value.trim();
    if (!name || !phone) { alert('Please enter patient name and phone.'); return; }
+
+   // Re-check capacity & compute token at booking time (handles the race where
+   // someone else booked the same slot/day while this form was open).
+   var existing = await AppDB.getDoctorBookings(doctor.id, _aptBookCtx.date);
+   var token;
+   if (isTokenMode) {
+      var dailyCap = Math.max(1, parseInt(doctor.daily_cap, 10) || 100);
+      if (existing.length >= dailyCap) {
+         alert('Sorry — this day just got fully booked. Please pick another day.');
+         var activeBtnT = document.querySelector('.apt-date-btn.active');
+         if (activeBtnT) selectAptDate(_aptBookCtx.date, activeBtnT);
+         return;
+      }
+      token = existing.length + 1;
+   } else {
+      var capacity = Math.max(1, parseInt(doctor.slot_capacity, 10) || 1);
+      var inSlot   = existing.filter(function(b) { return b.slot === _aptBookCtx.slot; });
+      if (inSlot.length >= capacity) {
+         alert('Sorry — this slot just filled up. Please pick another time.');
+         var activeBtn = document.querySelector('.apt-date-btn.active');
+         if (activeBtn) selectAptDate(_aptBookCtx.date, activeBtn);
+         return;
+      }
+      token = inSlot.length + 1;
+   }
 
    var aptId = 'APT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 5).toUpperCase();
    var apt = {
@@ -1417,6 +1494,7 @@ async function confirmAptBooking() {
       slot: _aptBookCtx.slot,
       fee: _aptBookCtx.doctor.fee,
       status: 'Confirmed',
+      token: token,
       patient_name:   name,
       patient_phone:  phone,
       patient_reason: document.getElementById('aptPatientReason').value.trim()
@@ -1438,6 +1516,7 @@ async function confirmAptBooking() {
 }
 
 function showAptDone(apt) {
+   var tokenLine = apt.token ? '<div style="margin-top:6px;font-size:1rem;font-weight:700;color:#1a73e8">🎟 Your token: T' + apt.token + '</div>' : '';
    document.getElementById('aptDoneDetails').innerHTML =
       '<div style="background:#f8f9ff;border-radius:10px;padding:14px;margin-top:10px">' +
          '<div style="font-size:0.78rem;color:#888">Appointment ID</div>' +
@@ -1448,6 +1527,7 @@ function showAptDone(apt) {
             '<div>📅 ' + apt.date + ' at ' + apt.slot + '</div>' +
             '<div>💰 ₹' + apt.fee + '</div>' +
          '</div>' +
+         tokenLine +
       '</div>';
    document.getElementById('aptDoneOverlay').classList.remove('hidden');
 }
@@ -1592,7 +1672,26 @@ function openAptProviderModal(providerId) {
    }
    ownerSel.innerHTML = opts;
 
+   // Commission fields
+   document.getElementById('aptProvCommissionType').value  = (p && p.commission_type)  || 'percent';
+   document.getElementById('aptProvCommissionValue').value = (p && p.commission_value != null) ? p.commission_value : '';
+   _aptProvCommissionTypeChanged();
+
    document.getElementById('aptProviderModal').classList.remove('hidden');
+}
+
+// Toggle the commission-value field's label based on chosen type
+function _aptProvCommissionTypeChanged() {
+   var type = document.getElementById('aptProvCommissionType').value;
+   var label = document.getElementById('aptProvCommissionLabel');
+   var input = document.getElementById('aptProvCommissionValue');
+   if (type === 'fixed_monthly') {
+      label.textContent = 'Monthly Fee (₹)';
+      input.placeholder = '5000';
+   } else {
+      label.textContent = 'Commission Rate (%)';
+      input.placeholder = '5';
+   }
 }
 
 function closeAptProviderModal() {
@@ -1612,12 +1711,14 @@ async function saveAptProvider() {
       id: id,
       category: category,
       name: name,
-      tagline:     document.getElementById('aptProvTagline').value.trim(),
-      address:     document.getElementById('aptProvAddress').value.trim(),
-      timing:      document.getElementById('aptProvTiming').value.trim(),
-      icon:        icon,
-      owner_email: document.getElementById('aptProvOwner').value || '',
-      doctors:     existing ? (existing.doctors || []) : []
+      tagline:          document.getElementById('aptProvTagline').value.trim(),
+      address:          document.getElementById('aptProvAddress').value.trim(),
+      timing:           document.getElementById('aptProvTiming').value.trim(),
+      icon:             icon,
+      owner_email:      document.getElementById('aptProvOwner').value || '',
+      commission_type:  document.getElementById('aptProvCommissionType').value || 'percent',
+      commission_value: parseFloat(document.getElementById('aptProvCommissionValue').value) || 0,
+      doctors:          existing ? (existing.doctors || []) : []
    };
    var ok = await AppDB.upsertProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
@@ -1646,6 +1747,10 @@ function openAptDoctorModal(providerId, doctorId) {
    document.getElementById('aptDocSpec').value       = doctor ? (doctor.speciality || '') : '';
    document.getElementById('aptDocQual').value       = doctor ? (doctor.qual || '') : '';
    document.getElementById('aptDocFee').value        = doctor ? (doctor.fee || '') : '';
+   document.getElementById('aptDocBookingMode').value = doctor && doctor.booking_mode === 'token' ? 'token' : 'slot';
+   document.getElementById('aptDocCapacity').value   = doctor && doctor.slot_capacity ? doctor.slot_capacity : 1;
+   document.getElementById('aptDocDailyCap').value   = doctor && doctor.daily_cap ? doctor.daily_cap : 100;
+   _aptDocModeChanged();
 
    var defaultAvail = { 0: [], 1: [{start:'09:00',end:'12:00'},{start:'14:00',end:'18:00'}],
                         2: [{start:'09:00',end:'12:00'},{start:'14:00',end:'18:00'}],
@@ -1672,6 +1777,20 @@ function closeAptDoctorModal() {
    document.getElementById('aptDoctorModal').classList.add('hidden');
 }
 
+// Toggle visibility of slot-capacity vs daily-cap rows based on chosen booking mode.
+// Availability windows still apply in both modes (they decide which DAYS the doctor works).
+function _aptDocModeChanged() {
+   var mode = document.getElementById('aptDocBookingMode').value;
+   var slotRow = document.getElementById('aptDocCapacityRow');
+   var dayRow  = document.getElementById('aptDocDailyCapRow');
+   var avLabel = document.getElementById('aptDocAvailLabel');
+   if (slotRow) slotRow.style.display = mode === 'token' ? 'none' : '';
+   if (dayRow)  dayRow.style.display  = mode === 'token' ? '' : 'none';
+   if (avLabel) avLabel.textContent   = mode === 'token'
+      ? 'Working Days (time windows ignored — only the days marked "on" matter)'
+      : 'Weekly Availability';
+}
+
 async function saveAptDoctor() {
    var providerId = document.getElementById('aptDocProviderId').value;
    var provider = _aptGetProvider(providerId);
@@ -1691,9 +1810,12 @@ async function saveAptDoctor() {
    var newDoctor = {
       id: docId,
       name: name,
-      speciality: document.getElementById('aptDocSpec').value.trim(),
-      qual:       document.getElementById('aptDocQual').value.trim(),
-      fee:        parseInt(document.getElementById('aptDocFee').value, 10) || 0,
+      speciality:    document.getElementById('aptDocSpec').value.trim(),
+      qual:          document.getElementById('aptDocQual').value.trim(),
+      fee:           parseInt(document.getElementById('aptDocFee').value, 10) || 0,
+      booking_mode:  document.getElementById('aptDocBookingMode').value || 'slot',
+      slot_capacity: Math.max(1, parseInt(document.getElementById('aptDocCapacity').value, 10) || 1),
+      daily_cap:     Math.max(1, parseInt(document.getElementById('aptDocDailyCap').value, 10) || 100),
       availability: availability
    };
 
@@ -3856,6 +3978,12 @@ async function renderShopAppointments(filterStatus) {
    var cc = document.getElementById('statAptCancelled'); if (cc) cc.textContent = counts.Cancelled;
 
    var apts = filterStatus ? dateFiltered.filter(function(a) { return (a.status || 'Confirmed') === filterStatus; }) : dateFiltered;
+   // Sort by date → slot → token so owner sees patients in the order they should be called
+   apts.sort(function(a, b) {
+      if (a.date !== b.date) return (a.date || '').localeCompare(b.date || '');
+      if (a.slot !== b.slot) return (a.slot || '').localeCompare(b.slot || '');
+      return (a.token || 999) - (b.token || 999);
+   });
    if (!apts.length) {
       var msg = 'No appointments';
       if (filterStatus) msg += ' in "' + filterStatus + '"';
@@ -3903,9 +4031,12 @@ async function renderShopAppointments(filterStatus) {
          ? '<button class="apt-act-btn apt-act-ok"     title="Mark as Completed" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Complete</button>' +
            '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>'
          : '<span style="color:#bbb">—</span>';
+      var tokenCell = a.token ? '<span class="apt-token-badge">T' + a.token + '</span>' : '<span style="color:#bbb">—</span>';
+      var slotCell  = a.slot ? a.slot : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
       return '<tr>' +
+                '<td style="text-align:center">' + tokenCell + '</td>' +
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div>' +
-                    '<div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
+                    '<div class="apt-tbl-slot">' + slotCell + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div>' +
                     '<div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.patient_name || a.user_email || '') + '</div>' +
@@ -3923,6 +4054,7 @@ async function renderShopAppointments(filterStatus) {
       '<div class="apt-tbl-wrap">' +
         '<table class="apt-tbl">' +
            '<thead><tr>' +
+              '<th style="text-align:center">Token</th>' +
               '<th>Date / Slot</th>' +
               '<th>Doctor</th>' +
               '<th>Patient</th>' +
@@ -4607,7 +4739,9 @@ function switchAdminTab(tab) {
    if (tab === 'billing')      renderBillingAdmin();
 }
 
-// ── ADMIN: Billing — commission owed per business partner ──
+// ── ADMIN: Billing — commission owed per business partner / provider ──
+// Each appointment provider has its own commission setting (percent or fixed_monthly).
+// Product-only owners fall back to user-level commission_rate, then global Settings rate.
 async function renderBillingAdmin() {
    var container = document.getElementById('billingContent');
    if (!container) return;
@@ -4633,94 +4767,121 @@ async function renderBillingAdmin() {
    var providerById = {};
    (_aptProvidersCache || []).forEach(function(p) { providerById[p.id] = p; });
 
-   var summary = {};
-   function bucket(email) {
-      var lc = (email || '').toLowerCase();
-      if (!summary[lc]) summary[lc] = { email: lc, name: '', orderCount: 0, orderRevenue: 0, aptCount: 0, aptRevenue: 0 };
-      return summary[lc];
-   }
-
+   // Aggregate revenue per provider (appointment-side) and per storeId (product-side).
+   var perProvider = {};   // provider_id → { count, revenue }
+   apts.forEach(function(a) {
+      if (!providerById[a.provider_id]) return;
+      var pid = a.provider_id;
+      if (!perProvider[pid]) perProvider[pid] = { count: 0, revenue: 0 };
+      perProvider[pid].count   += 1;
+      perProvider[pid].revenue += (a.fee || 0);
+   });
+   var perStoreOrders = {};
    orders.forEach(function(o) {
       if (!o.storeId) return;
-      var b = bucket(o.storeId);
-      b.orderCount    += 1;
-      b.orderRevenue  += (o.total || 0);
-      if (!b.name && o.storeName) b.name = o.storeName;
+      var sid = o.storeId.toLowerCase();
+      if (!perStoreOrders[sid]) perStoreOrders[sid] = { count: 0, revenue: 0, name: '' };
+      perStoreOrders[sid].count   += 1;
+      perStoreOrders[sid].revenue += (o.total || 0);
+      if (!perStoreOrders[sid].name && o.storeName) perStoreOrders[sid].name = o.storeName;
    });
 
-   apts.forEach(function(a) {
-      var prov = providerById[a.provider_id];
-      if (!prov || !prov.owner_email) return;
-      var b = bucket(prov.owner_email);
-      b.aptCount   += 1;
-      b.aptRevenue += (a.fee || 0);
-      if (!b.name && prov.name) b.name = prov.name;
-   });
-
-   // Fill missing names from users table, and remember each partner's per-row rate
    var users = getUsers();
-   Object.keys(summary).forEach(function(email) {
-      var u = users.find(function(x) { return x.email.toLowerCase() === email; });
-      if (u) {
-         if (!summary[email].name) summary[email].name = u.storeName || u.name || email;
-         summary[email].partnerRate = (u.commissionRate != null) ? u.commissionRate : null;
+   var billingRows = [];
+
+   // One row per provider (appointment side)
+   (_aptProvidersCache || []).forEach(function(p) {
+      var stats = perProvider[p.id];
+      var hasFixedFee = (p.commission_type === 'fixed_monthly') && (p.commission_value > 0);
+      // Show provider if it has bookings in the period OR it has a fixed monthly fee
+      if (!stats && !hasFixedFee) return;
+      var count   = stats ? stats.count   : 0;
+      var revenue = stats ? stats.revenue : 0;
+      var ctype   = p.commission_type || 'percent';
+      var cval    = Number(p.commission_value) || 0;
+      var commission, rateLabel;
+      if (ctype === 'fixed_monthly') {
+         commission = cval;
+         rateLabel  = '<strong>₹' + cval.toLocaleString('en-IN') + '</strong>/mo';
       } else {
-         if (!summary[email].name) summary[email].name = email;
-         summary[email].partnerRate = null;
+         commission = Math.round(revenue * cval) / 100;
+         rateLabel  = '<strong>' + cval + '%</strong>';
       }
+      var pidJs = p.id.replace(/'/g, "\\'");
+      billingRows.push({
+         sortName: p.name,
+         html: '<tr>' +
+                  '<td><div class="apt-tbl-name">' + p.name + '</div>' +
+                      '<div class="apt-tbl-sub">' + (p.owner_email || '<em style="color:#999">Unassigned</em>') + '</div></td>' +
+                  '<td style="text-align:center">0</td>' +
+                  '<td style="text-align:center">' + count + '</td>' +
+                  '<td style="text-align:right;font-weight:600">₹' + revenue.toLocaleString('en-IN') + '</td>' +
+                  '<td style="text-align:center">' + rateLabel + ' ' +
+                     '<button class="apt-view-btn" style="padding:2px 8px;font-size:0.72rem;margin-left:4px" onclick="openAptProviderModal(\'' + pidJs + '\')">✏️</button>' +
+                  '</td>' +
+                  '<td style="text-align:right;font-weight:700;color:#1a73e8">₹' + commission.toLocaleString('en-IN') + '</td>' +
+               '</tr>',
+         revenue: revenue, commission: commission, count: count, isAppt: true
+      });
    });
 
-   var rows = Object.keys(summary).sort();
-   if (!rows.length) {
+   // One row per product-selling store (product side)
+   Object.keys(perStoreOrders).forEach(function(email) {
+      var b = perStoreOrders[email];
+      var u = users.find(function(x) { return x.email.toLowerCase() === email; });
+      var rate = (u && u.commissionRate != null) ? u.commissionRate : globalRate;
+      var commission = Math.round(b.revenue * rate) / 100;
+      var emailJs = email.replace(/'/g, "\\'");
+      var name = b.name || (u && (u.storeName || u.name)) || email;
+      billingRows.push({
+         sortName: name,
+         html: '<tr>' +
+                  '<td><div class="apt-tbl-name">' + name + '</div>' +
+                      '<div class="apt-tbl-sub">' + email + ' <small style="color:#888">(product seller)</small></div></td>' +
+                  '<td style="text-align:center">' + b.count + '</td>' +
+                  '<td style="text-align:center">0</td>' +
+                  '<td style="text-align:right;font-weight:600">₹' + b.revenue.toLocaleString('en-IN') + '</td>' +
+                  '<td style="text-align:center"><strong>' + rate + '%</strong>' +
+                     (u && u.commissionRate == null ? ' <small style="color:#888">(global)</small>' : '') +
+                     ' <button class="apt-view-btn" style="padding:2px 8px;font-size:0.72rem;margin-left:4px" onclick="editPartnerRate(\'' + emailJs + '\')">✏️</button>' +
+                  '</td>' +
+                  '<td style="text-align:right;font-weight:700;color:#1a73e8">₹' + commission.toLocaleString('en-IN') + '</td>' +
+               '</tr>',
+         revenue: b.revenue, commission: commission, count: b.count, isAppt: false
+      });
+   });
+
+   if (!billingRows.length) {
       container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No completed orders or appointments in the selected period.</p>';
       return;
    }
 
-   var grandRevenue = 0, grandCommission = 0, grandOrders = 0, grandApts = 0;
-   var tableRows = rows.map(function(email) {
-      var b = summary[email];
-      var effectiveRate = b.partnerRate != null ? b.partnerRate : globalRate;
-      var revenue       = b.orderRevenue + b.aptRevenue;
-      var commission    = Math.round(revenue * effectiveRate) / 100;
-      grandRevenue   += revenue;
-      grandCommission += commission;
-      grandOrders    += b.orderCount;
-      grandApts      += b.aptCount;
-      var rateBadge = b.partnerRate != null
-         ? '<strong>' + b.partnerRate + '%</strong>'
-         : '<strong>' + globalRate + '%</strong> <small style="color:#888">(global)</small>';
-      var emailJs = email.replace(/'/g, "\\'");
-      return '<tr>' +
-                '<td><div class="apt-tbl-name">' + b.name + '</div><div class="apt-tbl-sub">' + b.email + '</div></td>' +
-                '<td style="text-align:center">' + b.orderCount + '</td>' +
-                '<td style="text-align:center">' + b.aptCount + '</td>' +
-                '<td style="text-align:right;font-weight:600">₹' + revenue.toLocaleString('en-IN') + '</td>' +
-                '<td style="text-align:center">' + rateBadge + ' ' +
-                   '<button class="apt-view-btn" style="padding:2px 8px;font-size:0.72rem;margin-left:4px" onclick="editPartnerRate(\'' + emailJs + '\')">✏️</button>' +
-                '</td>' +
-                '<td style="text-align:right;font-weight:700;color:#1a73e8">₹' + commission.toLocaleString('en-IN') + '</td>' +
-             '</tr>';
-   }).join('');
+   billingRows.sort(function(a, b) { return a.sortName.localeCompare(b.sortName); });
+
+   var grandRevenue = billingRows.reduce(function(s, r) { return s + r.revenue; }, 0);
+   var grandCommission = billingRows.reduce(function(s, r) { return s + r.commission; }, 0);
+   var totalOrders = billingRows.filter(function(r){return !r.isAppt;}).reduce(function(s,r){return s+r.count;}, 0);
+   var totalApts   = billingRows.filter(function(r){return r.isAppt;}).reduce(function(s,r){return s+r.count;}, 0);
 
    container.innerHTML =
       '<div style="display:flex;gap:1.5rem;padding:0.8rem 0 1rem;font-size:0.92rem;color:#444;flex-wrap:wrap">' +
          '<div>Global rate: <strong>' + globalRate + '%</strong>' + (globalRate === 0 ? ' <small style="color:#c62828">(set in Settings)</small>' : '') + '</div>' +
-         '<div>' + rows.length + ' partner' + (rows.length === 1 ? '' : 's') + '</div>' +
-         '<div>' + grandOrders + ' orders · ' + grandApts + ' appointments</div>' +
+         '<div>' + billingRows.length + ' row' + (billingRows.length === 1 ? '' : 's') + '</div>' +
+         '<div>' + totalOrders + ' orders · ' + totalApts + ' appointments</div>' +
          '<div>Total Revenue: <strong>₹' + grandRevenue.toLocaleString('en-IN') + '</strong></div>' +
          '<div>Total Commission: <strong style="color:#1a73e8">₹' + grandCommission.toLocaleString('en-IN') + '</strong></div>' +
       '</div>' +
       '<div class="apt-tbl-wrap">' +
         '<table class="apt-tbl">' +
            '<thead><tr>' +
-              '<th>Partner</th>' +
+              '<th>Provider / Store</th>' +
               '<th style="text-align:center">Orders</th>' +
               '<th style="text-align:center">Appointments</th>' +
               '<th style="text-align:right">Revenue</th>' +
-              '<th style="text-align:center">Rate</th>' +
+              '<th style="text-align:center">Rate / Fee</th>' +
               '<th style="text-align:right">Commission Owed</th>' +
            '</tr></thead>' +
-           '<tbody>' + tableRows + '</tbody>' +
+           '<tbody>' + billingRows.map(function(r) { return r.html; }).join('') + '</tbody>' +
         '</table>' +
       '</div>';
 }
@@ -5291,8 +5452,11 @@ async function renderMyAppointments() {
          ? '<button class="apt-act-btn apt-act-cancel" onclick="cancelMyAppointment(\'' + aid + '\')">✕ Cancel</button>'
          : '<span style="color:#bbb">—</span>';
       var meta = APT_CAT_META[a.category] || {};
+      var tokenCell = a.token ? '<span class="apt-token-badge">T' + a.token + '</span>' : '<span style="color:#bbb">—</span>';
+      var slotCell  = a.slot ? a.slot : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
       return '<tr>' +
-                '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + (a.slot || '') + '</div></td>' +
+                '<td style="text-align:center">' + tokenCell + '</td>' +
+                '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + slotCell + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div><div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.provider_name || '') + '</div><div class="apt-tbl-sub">' + (meta.icon || '') + ' ' + (meta.label || a.category || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.patient_name || '—') + '</div>' + (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + '</td>' +
@@ -5309,6 +5473,7 @@ async function renderMyAppointments() {
       '<div class="apt-tbl-wrap">' +
         '<table class="apt-tbl">' +
            '<thead><tr>' +
+              '<th style="text-align:center">Token</th>' +
               '<th>Date / Slot</th>' +
               '<th>Doctor</th>' +
               '<th>Hospital / Category</th>' +

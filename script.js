@@ -2244,8 +2244,17 @@ async function renderAllAppointments() {
          }
       }
       // Admin can print receipt + delete. Complete/Cancel are done by hospital owner or customer.
+      // Receipt is enabled only when the booking is Completed; otherwise shown disabled.
+      var adminReceiptBtn;
+      if (status === 'Completed') {
+         adminReceiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="printConsultationReceipt(\'' + aid + '\')" title="Print consultation receipt">🧾 Receipt</button>';
+      } else if (status === 'Cancelled' || status === 'No-show') {
+         adminReceiptBtn = '';
+      } else {
+         adminReceiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff;opacity:0.4;cursor:not-allowed" title="Available after the appointment is marked Completed" disabled>🧾 Receipt</button>';
+      }
       var actions =
-         '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="printConsultationReceipt(\'' + aid + '\')" title="Print consultation receipt">🧾 Receipt</button>' +
+         adminReceiptBtn +
          '<button class="apt-act-btn" style="background:#555;color:#fff" onclick="deleteAdminAppointment(\'' + aid + '\')" title="Delete (permanent)">🗑 Delete</button>';
       var meta = APT_CAT_META[a.category] || {};
       var tokenCell = a.token
@@ -4284,10 +4293,16 @@ async function renderShopAppointments(filterStatus) {
       }
 
       // Action buttons depend on status + whether the slot has passed yet.
-      // Receipt is available for any non-cancelled booking.
-      var receiptBtn = (status !== 'Cancelled')
-         ? '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" title="Print consultation receipt" onclick="printConsultationReceipt(\'' + aid + '\')">🧾 Receipt</button>'
-         : '';
+      // Receipt becomes available only AFTER the booking is marked Completed
+      // (= patient was seen, fee paid). Before that it's shown disabled.
+      var receiptBtn;
+      if (status === 'Completed') {
+         receiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" title="Print consultation receipt" onclick="printConsultationReceipt(\'' + aid + '\')">🧾 Receipt</button>';
+      } else if (status === 'Cancelled' || status === 'No-show') {
+         receiptBtn = '';
+      } else {
+         receiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff;opacity:0.4;cursor:not-allowed" title="Available after marking the appointment as Completed" disabled>🧾 Receipt</button>';
+      }
       var actions;
       if (!canChange) {
          actions = receiptBtn || '<span style="color:#bbb">—</span>';

@@ -1894,6 +1894,9 @@ function openAptDoctorModal(providerId, doctorId) {
    document.getElementById('aptDocQual').value       = doctor ? (doctor.qual || '') : '';
    document.getElementById('aptDocFee').value        = doctor ? (doctor.fee || '') : '';
    document.getElementById('aptDocPhoto').value      = doctor ? (doctor.photo || '') : '';
+   var fileInput = document.getElementById('aptDocPhotoFile'); if (fileInput) fileInput.value = '';
+   var statusEl  = document.getElementById('aptDocPhotoStatus'); if (statusEl) statusEl.textContent = '';
+   _aptDocPhotoPreview();
    document.getElementById('aptDocBookingMode').value = doctor && doctor.booking_mode === 'token' ? 'token' : 'slot';
    // Slot duration (default 60 minutes for new doctors). Backward compat: existing doctors default to 30.
    document.getElementById('aptDocSlotDuration').value = doctor && doctor.slot_duration
@@ -1931,6 +1934,41 @@ function openAptDoctorModal(providerId, doctorId) {
 
 function closeAptDoctorModal() {
    document.getElementById('aptDoctorModal').classList.add('hidden');
+}
+
+// File-upload handler for doctor photo: uploads to Supabase Storage and writes
+// the public URL into the URL field so saveAptDoctor picks it up normally.
+async function uploadDoctorPhotoFile(input) {
+   if (!input.files || !input.files[0]) return;
+   var file = input.files[0];
+   var status = document.getElementById('aptDocPhotoStatus');
+   if (file.size > 2 * 1024 * 1024) {
+      status.textContent = '❌ Image too large. Please pick one under 2 MB.';
+      status.style.color = '#c62828';
+      input.value = '';
+      return;
+   }
+   status.textContent = '⏳ Uploading…';
+   status.style.color = '#666';
+   var url = await AppDB.uploadDoctorPhoto(file);
+   if (!url) {
+      status.textContent = '❌ Upload failed. Check console.';
+      status.style.color = '#c62828';
+      return;
+   }
+   document.getElementById('aptDocPhoto').value = url;
+   _aptDocPhotoPreview();
+   status.textContent = '✅ Uploaded';
+   status.style.color = '#2e7d32';
+}
+
+// Show / hide a thumbnail under the URL field
+function _aptDocPhotoPreview() {
+   var url = document.getElementById('aptDocPhoto').value.trim();
+   var img = document.getElementById('aptDocPhotoPreview');
+   if (!img) return;
+   if (url) { img.src = url; img.style.display = ''; }
+   else     { img.removeAttribute('src'); img.style.display = 'none'; }
 }
 
 // Toggle visibility of slot-capacity vs daily-cap rows based on chosen booking mode.
@@ -3639,11 +3677,13 @@ async function checkShopOwnerLogin() {
    var bizEl = document.getElementById('shopBusinessName');
    if (bizEl) bizEl.textContent = businessName;
 
+   var dashTab   = document.getElementById('shop-tab-dashboard');
    var ordersTab = document.getElementById('shop-tab-orders');
    var aptTab    = document.getElementById('shop-tab-appointments');
    var docTab    = document.getElementById('shop-tab-doctors');
    var schedTab  = document.getElementById('shop-tab-schedule');
    var prodTab   = document.getElementById('shop-tab-products');
+   if (dashTab)   dashTab.classList.toggle('hidden',   !ownsHospital);
    if (ordersTab) ordersTab.classList.toggle('hidden', !ownsProducts);
    if (prodTab)   prodTab.classList.toggle('hidden',   !ownsProducts);
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
@@ -3661,7 +3701,8 @@ async function checkShopOwnerLogin() {
 
    // Render whichever panel makes sense
    if (ownsProducts) renderShopDashboard();
-   var defaultTab = ownsProducts ? 'orders' : 'appointments';
+   // Hospital owners land on Dashboard; product-only owners land on Orders
+   var defaultTab = ownsHospital ? 'dashboard' : 'orders';
    switchShopTab(defaultTab);
 
    // Auto-refresh if admin enabled it
@@ -3910,12 +3951,13 @@ function deleteStoreProduct(idx) {
 }
 
 function switchShopTab(tab) {
-   ['orders', 'appointments', 'doctors', 'schedule', 'products'].forEach(function(t) {
+   ['dashboard', 'orders', 'appointments', 'doctors', 'schedule', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
       if (btn)   btn.classList.toggle('active',   t === tab);
    });
+   if (tab === 'dashboard')    renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'appointments') renderShopAppointments();
    if (tab === 'doctors')      renderShopDoctors();
@@ -4293,6 +4335,90 @@ async function renderShopAppointments(filterStatus) {
 function setShopAptDoctor(doctorName) {
    window._shopAptDoctorFilter = doctorName || '';
    renderShopAppointments(window._shopAptCurrentFilter);
+}
+
+// ── DASHBOARD overview (hospital owner's landing page) ──
+async function renderShopOverview() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var container = document.getElementById('shopDashboardContent');
+   if (!user || !container) return;
+   _liveSubscribe('shopDash', 'appointments', renderShopOverview);
+   _liveSubscribe('shopDashProvs', 'apt_providers', renderShopOverview);
+   await loadAptCategories();
+   await loadAptProviders(true);
+
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase();
+   });
+   if (!mine.length) {
+      container.innerHTML = '<div style="background:#fff;padding:2rem;text-align:center;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);color:#666">' +
+         '<h2 style="margin-top:0">👋 Welcome, ' + (user.name || '') + '</h2>' +
+         '<p>No hospital/clinic is linked to your account yet. Ask the admin to assign one — once linked, you\'ll see your dashboard, doctors, appointments and scheduling tools here.</p>' +
+      '</div>';
+      return;
+   }
+
+   // Fetch all my bookings for stats
+   var apts = await AppDB.getAppointmentsByOwner(user.email);
+   var todayYmd  = new Date().toISOString().slice(0, 10);
+   var now = new Date();
+   var weekStart = new Date(now);
+   weekStart.setDate(now.getDate() - now.getDay());   // Sunday
+   weekStart.setHours(0, 0, 0, 0);
+   var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+   var html = '';
+   mine.forEach(function(p) {
+      var meta = APT_CAT_META[p.category] || {};
+      var docCount = (p.doctors || []).length;
+      var provApts = apts.filter(function(a) { return a.provider_id === p.id; });
+      var todayApts     = provApts.filter(function(a) { return a.date === todayYmd && a.status !== 'Cancelled'; });
+      var todayPending  = todayApts.filter(function(a) { return a.status === 'Confirmed'; });
+      var todayDone     = todayApts.filter(function(a) { return a.status === 'Completed'; });
+      var thisWeek      = provApts.filter(function(a) { var d = new Date(a.date + 'T00:00:00'); return !isNaN(d) && d >= weekStart && a.status !== 'Cancelled'; });
+      var thisMonth     = provApts.filter(function(a) { var d = new Date(a.date + 'T00:00:00'); return !isNaN(d) && d >= monthStart && a.status === 'Completed'; });
+      var monthRevenue  = thisMonth.reduce(function(s, a) { return s + (a.fee || 0); }, 0);
+
+      var photoBlock = '';
+      if (p.icon) photoBlock = '<div class="shop-ov-icon">' + p.icon + '</div>';
+
+      html +=
+         '<div class="shop-ov-card">' +
+            '<div class="shop-ov-header">' +
+               photoBlock +
+               '<div style="flex:1;min-width:0">' +
+                  '<h2 class="shop-ov-name">' + p.name + '</h2>' +
+                  (p.tagline ? '<div class="shop-ov-tagline">' + p.tagline + '</div>' : '') +
+                  '<div class="shop-ov-meta">' +
+                     (meta.icon || '') + ' ' + (meta.label || '') +
+                  '</div>' +
+               '</div>' +
+            '</div>' +
+            '<div class="shop-ov-info">' +
+               (p.address ? '<div>📍 ' + p.address + '</div>' : '') +
+               (p.timing  ? '<div>🕒 ' + p.timing  + '</div>' : '') +
+               (p.phone   ? '<div>📞 <a href="tel:' + p.phone.replace(/\D/g,'') + '">' + p.phone + '</a></div>' : '') +
+            '</div>' +
+            '<div class="shop-ov-stats">' +
+               _statCard('👨‍⚕️', docCount,                'Doctors') +
+               _statCard('📅',  todayApts.length,        'Today\'s Bookings') +
+               _statCard('⏳',  todayPending.length,     'Pending Today') +
+               _statCard('✅',  todayDone.length,        'Completed Today') +
+               _statCard('📊',  thisWeek.length,         'This Week') +
+               _statCard('💰',  '₹' + monthRevenue.toLocaleString('en-IN'), 'Revenue (Month)') +
+            '</div>' +
+         '</div>';
+   });
+
+   container.innerHTML = html;
+}
+
+function _statCard(icon, value, label) {
+   return '<div class="shop-ov-stat">' +
+             '<div class="shop-ov-stat-icon">' + icon + '</div>' +
+             '<div class="shop-ov-stat-val">' + value + '</div>' +
+             '<div class="shop-ov-stat-label">' + label + '</div>' +
+          '</div>';
 }
 
 // ── SCHEDULE (owner books on behalf of offline customers) ──

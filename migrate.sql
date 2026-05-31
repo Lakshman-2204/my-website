@@ -105,6 +105,15 @@ ALTER TABLE public.appointments
 ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS phone text DEFAULT '';
 
+-- 10. STORAGE — public bucket for doctor profile photos
+INSERT INTO storage.buckets (id, name, public)
+   VALUES ('doctor-photos', 'doctor-photos', true)
+   ON CONFLICT (id) DO NOTHING;
+DROP POLICY IF EXISTS "Public read doctor-photos"     ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated upload doctor-photos" ON storage.objects;
+CREATE POLICY "Public read doctor-photos"     ON storage.objects FOR SELECT USING (bucket_id = 'doctor-photos');
+CREATE POLICY "Authenticated upload doctor-photos" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'doctor-photos' AND auth.role() = 'authenticated');
+
 -- 9. APT_CATEGORIES — admin-managed list of business categories for appointments
 --    (hospitals, dental, beauty parlour, fitness, …). Used everywhere instead of
 --    a hardcoded JS constant so new categories appear with no code change.

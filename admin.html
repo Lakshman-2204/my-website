@@ -675,8 +675,12 @@
                   <input type="number" id="aptDocFee" min="0" placeholder="500"/>
                </div>
                <div class="modal-field">
-                  <label>Photo URL <small style="font-weight:400;color:#aaa">(optional — shown on doctor card)</small></label>
-                  <input type="text" id="aptDocPhoto" placeholder="https://..."/>
+                  <label>Doctor Photo <small style="font-weight:400;color:#aaa">(optional — JPG/PNG, max 2 MB)</small></label>
+                  <input type="file" id="aptDocPhotoFile" accept="image/*" onchange="uploadDoctorPhotoFile(this)"/>
+                  <small style="display:block;color:#888;margin-top:6px">or paste a URL:</small>
+                  <input type="text" id="aptDocPhoto" placeholder="https://..." style="margin-top:4px" oninput="_aptDocPhotoPreview()"/>
+                  <div id="aptDocPhotoStatus" style="font-size:0.8rem;color:#666;margin-top:6px"></div>
+                  <img id="aptDocPhotoPreview" alt="Preview" style="display:none;max-width:140px;max-height:140px;margin-top:8px;border-radius:8px;border:1px solid #eee"/>
                </div>
                <div class="modal-field">
                   <label>Booking Mode</label>

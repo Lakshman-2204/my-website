@@ -1810,6 +1810,62 @@ body.guest .store-section-divider {
 }
 .apt-mode-badge.mode-slot  { background: #e3f2fd; color: #1565c0; }
 .apt-mode-badge.mode-token { background: #fce4ec; color: #c2185b; }
+
+/* ── Shopowner Dashboard (overview tab) ── */
+.shop-ov-card {
+	background: #fff;
+	border-radius: 14px;
+	box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+	margin-bottom: 1.2rem;
+	overflow: hidden;
+}
+.shop-ov-header {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 1.2rem 1.4rem;
+	background: linear-gradient(135deg, #1a1a2e 0%, #2d2d5e 100%);
+	color: #fff;
+}
+.shop-ov-icon {
+	font-size: 2.6rem;
+	width: 60px;
+	height: 60px;
+	border-radius: 12px;
+	background: rgba(255,255,255,0.15);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+.shop-ov-name    { font-size: 1.3rem; font-weight: 800; margin: 0; }
+.shop-ov-tagline { font-size: 0.88rem; opacity: 0.85; margin-top: 4px; }
+.shop-ov-meta    { font-size: 0.78rem; opacity: 0.7; margin-top: 4px; }
+.shop-ov-info {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem 2rem;
+	padding: 0.9rem 1.4rem;
+	font-size: 0.88rem;
+	color: #444;
+	border-bottom: 1px solid #f0f0f0;
+}
+.shop-ov-info a { color: #1a73e8; text-decoration: none; font-weight: 600; }
+.shop-ov-info a:hover { text-decoration: underline; }
+.shop-ov-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 1px;
+	background: #eef0f5;
+}
+.shop-ov-stat {
+	background: #fff;
+	padding: 1rem 0.6rem;
+	text-align: center;
+}
+.shop-ov-stat-icon  { font-size: 1.3rem; }
+.shop-ov-stat-val   { font-size: 1.4rem; font-weight: 800; color: #1a1a2e; margin-top: 4px; }
+.shop-ov-stat-label { font-size: 0.74rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
 .apt-tbl-id      { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
                    font-size: 0.72rem; color: #888; }
 .apt-tbl-symptom {

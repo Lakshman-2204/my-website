@@ -435,6 +435,21 @@ window.AppDB = {
       return true;
    },
 
+   // Upload a doctor's photo to the public "doctor-photos" Storage bucket and
+   // return the public URL. Caller stores that URL in the doctor JSONB.
+   async uploadDoctorPhoto(file) {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = 'dr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      const { error } = await _sb.storage.from('doctor-photos').upload(path, file, {
+         cacheControl: '3600',
+         upsert: false,
+         contentType: file.type || ('image/' + ext)
+      });
+      if (error) { console.error('uploadDoctorPhoto:', error.message); return null; }
+      const { data } = _sb.storage.from('doctor-photos').getPublicUrl(path);
+      return data && data.publicUrl ? data.publicUrl : null;
+   },
+
    // ── APT CATEGORIES (admin-managed) ─────────────
    async getCategories() {
       const { data, error } = await _sb.from('apt_categories').select('*').order('sort_order').order('label');

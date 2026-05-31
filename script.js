@@ -2798,6 +2798,15 @@ function filterUsers(filter) {
    renderUserList(filter);
 }
 
+// Re-fetch the user list from Supabase and re-render. Also subscribes to
+// realtime so new signups appear without a manual refresh.
+async function refreshAndRenderUsers() {
+   _liveSubscribe('adminUsers', 'users', refreshAndRenderUsers);
+   var fresh = await AppDB.getUsers();
+   _db.users = fresh;
+   renderUserList(_currentUserFilter || 'all');
+}
+
 function renderUserList(filter) {
    filter = filter || 'all';
    // Update filter tab active state

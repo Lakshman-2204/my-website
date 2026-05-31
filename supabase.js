@@ -78,8 +78,23 @@ window.AppDB = {
    },
 
    async updateUser(email, updates) {
-      const row = _userToDB({ ...updates, email });
-      const { error } = await _sb.from('users').update(row).eq('email', email.toLowerCase());
+      // Build a true partial patch — only include columns the caller explicitly set.
+      // (The previous version ran updates through _userToDB which filled DEFAULTS for every
+      // column and silently overwrote role/phone/etc when callers only wanted to flip one flag.)
+      const mapping = {
+         name: 'name', role: 'role', password: 'password', phone: 'phone',
+         storeName: 'store_name', storeType: 'store_type', blocked: 'blocked',
+         isAdmin: 'is_admin', isApproved: 'is_approved', gender: 'gender',
+         commissionRate: 'commission_rate'
+      };
+      const patch = {};
+      for (const jsKey in mapping) {
+         if (Object.prototype.hasOwnProperty.call(updates, jsKey) && updates[jsKey] !== undefined) {
+            patch[mapping[jsKey]] = updates[jsKey];
+         }
+      }
+      if (Object.keys(patch).length === 0) return true;
+      const { error } = await _sb.from('users').update(patch).eq('email', email.toLowerCase());
       if (error) { console.error('updateUser:', error.message); return false; }
       return true;
    },

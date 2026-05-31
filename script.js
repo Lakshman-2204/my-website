@@ -6538,9 +6538,9 @@ async function printConsultationReceipt(aptId) {
    var prov = _aptGetProvider(apt.provider_id) || {};
 
    // Build bill identifiers in the standard hospital format:
-   //   <prefix> + YYMMDD (bill date) + 4-digit serial derived from apt_id
-   // The serial is a deterministic hash of apt_id so reprints always match
-   // the original receipt and there are no DB sequences to maintain.
+   //   <prefix> + YYMMDD + 2 letters from apt_id + 4-digit serial (hash of apt_id)
+   // The 2 letters from apt_id make the number distinct between hospitals/bookings;
+   // the 4-digit serial is a deterministic hash so reprints always match.
    var createDtForId = apt.created_at ? new Date(apt.created_at) : new Date();
    var _yy = String(createDtForId.getFullYear()).slice(-2);
    var _mm = String(createDtForId.getMonth() + 1).padStart(2, '0');
@@ -6551,9 +6551,11 @@ async function printConsultationReceipt(aptId) {
    for (var _i = 0; _i < _src.length; _i++) {
       _hash = ((_hash << 5) - _hash + _src.charCodeAt(_i)) | 0;
    }
-   var serial    = String(Math.abs(_hash) % 10000).padStart(4, '0');
-   var billNo    = 'OC'  + dateSuffix + serial;   // e.g. OC2605310042
-   var receiptNo = 'REC' + dateSuffix + serial;   // e.g. REC2605310042  (mirrors Bill No)
+   var serial     = String(Math.abs(_hash) % 10000).padStart(4, '0');
+   var alphaOnly  = _src.replace(/[^A-Za-z]/g, '').toUpperCase();
+   var twoLetters = (alphaOnly.slice(-2) || 'XX').padEnd(2, 'X');
+   var billNo     = 'OC'  + dateSuffix + twoLetters + serial;  // e.g. OC260531LK6894
+   var receiptNo  = 'REC' + dateSuffix + twoLetters + serial;  // e.g. REC260531LK6894
 
    // Format dates
    var now      = new Date();
@@ -6637,7 +6639,13 @@ async function printConsultationReceipt(aptId) {
          '.actions{max-width:780px;margin:14px auto 0;display:flex;gap:8px;justify-content:center}' +
          '.actions button{padding:8px 18px;border:1px solid #000;background:#fff;cursor:pointer;font:inherit}' +
          '.actions button:hover{background:#000;color:#fff}' +
-         '@media print{.actions{display:none}body{padding:0}.rcpt{border:none}}' +
+         '@page{size:A4 portrait;margin:0}' +
+         '@media print{' +
+            '.actions{display:none}' +
+            'html,body{margin:0;padding:0;width:210mm;background:#fff}' +
+            '.rcpt{width:210mm;height:148.5mm;padding:5mm 10mm;border:none;box-sizing:border-box;page-break-after:always;overflow:hidden}' +
+            '.signblock{margin-top:32px}' +
+         '}' +
       '</style>' +
       '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap">' +
       '</head><body>' +

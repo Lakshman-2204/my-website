@@ -6631,6 +6631,8 @@ async function printConsultationReceipt(aptId) {
          '.signrow{display:grid;grid-template-columns:1fr 1fr 1fr;font-size:12px;padding:4px 8px}' +
          '.signrow .mid{text-align:center;font-weight:700}' +
          '.signrow .right{text-align:right}' +
+         '.signblock{text-align:center;margin:48px 8px 0}' +
+         '.signline{display:inline-block;border-top:1px solid #000;padding-top:3px;min-width:220px;font-weight:700;font-size:12px}' +
          '.followup{text-align:center;font-size:13px;font-weight:700;padding:8px 0 0;letter-spacing:1px}' +
          '.actions{max-width:780px;margin:14px auto 0;display:flex;gap:8px;justify-content:center}' +
          '.actions button{padding:8px 18px;border:1px solid #000;background:#fff;cursor:pointer;font:inherit}' +
@@ -6691,7 +6693,7 @@ async function printConsultationReceipt(aptId) {
 
          '<div class="signrow" style="margin-top:18px">' +
             '<div>Create By : ' + esc(operator) + '</div>' +
-            '<div class="mid">(Authorised Signatory)</div>' +
+            '<div></div>' +
             '<div class="right">Create Date : ' + esc(fmtDTAmPm(createDt)) + '</div>' +
          '</div>' +
          '<div class="signrow">' +
@@ -6699,6 +6701,8 @@ async function printConsultationReceipt(aptId) {
             '<div></div>' +
             '<div class="right">Print Date &nbsp;: ' + esc(fmtDTAmPm(now)) + '</div>' +
          '</div>' +
+
+         '<div class="signblock"><div class="signline">(Authorised Signatory)</div></div>' +
 
          '<div class="followup">&lt; Free FOLLOW-UP upto ' + esc(fmtDateOnly(followUpEnd)) + ' &gt;</div>' +
       '</div>' +

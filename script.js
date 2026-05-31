@@ -1334,9 +1334,11 @@ function openAptBookModal(catKey, providerId, doctorId) {
 
    document.getElementById('aptSlotSection').classList.add('hidden');
    document.getElementById('aptSlotButtons').innerHTML = '';
-   document.getElementById('aptPatientName').value = user.name || '';
-   document.getElementById('aptPatientPhone').value = user.phone || '';
-   document.getElementById('aptPatientReason').value = '';
+   document.getElementById('aptPatientName').value    = user.name || '';
+   document.getElementById('aptPatientPhone').value   = user.phone || '';
+   document.getElementById('aptPatientAge').value     = '';
+   document.getElementById('aptPatientAddress').value = '';
+   document.getElementById('aptPatientReason').value  = '';
    document.getElementById('aptConfirmBtn').disabled = true;
 
    document.getElementById('aptBookModal').classList.remove('hidden');
@@ -1637,9 +1639,11 @@ async function confirmAptBooking() {
       status: 'Confirmed',
       token: token,
       booking_source: 'online',
-      patient_name:   name,
-      patient_phone:  phone,
-      patient_reason: document.getElementById('aptPatientReason').value.trim()
+      patient_name:    name,
+      patient_phone:   phone,
+      patient_age:     document.getElementById('aptPatientAge').value.trim(),
+      patient_address: document.getElementById('aptPatientAddress').value.trim(),
+      patient_reason:  document.getElementById('aptPatientReason').value.trim()
    };
 
    var confirmBtn = document.getElementById('aptConfirmBtn');
@@ -6666,7 +6670,7 @@ async function printConsultationReceipt(aptId) {
                '<div class="row"><div class="lbl">Patient Name</div><div class="sep">:</div><div>' + esc(apt.patient_name || apt.user_email || '') + '</div></div>' +
                '<div class="row"><div class="lbl">Age/Sex</div><div class="sep">:</div><div>' + esc(apt.patient_age ? (apt.patient_age + 'Y(s)' + (apt.patient_sex ? '/' + apt.patient_sex : '')) : '—') + '</div></div>' +
                '<div class="row"><div class="lbl">Relative Name</div><div class="sep">:</div><div>—</div></div>' +
-               '<div class="row"><div class="lbl">Address</div><div class="sep">:</div><div>—</div></div>' +
+               '<div class="row"><div class="lbl">Address</div><div class="sep">:</div><div>' + esc(apt.patient_address || '—') + '</div></div>' +
                '<div class="row"><div class="lbl">Referred By</div><div class="sep">:</div><div>—</div></div>' +
             '</div>' +
             '<div class="col right">' +

@@ -76,9 +76,11 @@ ALTER TABLE public.users
 
 -- 7. APPOINTMENTS — save patient details collected on the booking form
 ALTER TABLE public.appointments
-   ADD COLUMN IF NOT EXISTS patient_name   text DEFAULT '',
-   ADD COLUMN IF NOT EXISTS patient_phone  text DEFAULT '',
-   ADD COLUMN IF NOT EXISTS patient_reason text DEFAULT '';
+   ADD COLUMN IF NOT EXISTS patient_name    text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS patient_phone   text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS patient_reason  text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS patient_age     text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS patient_address text DEFAULT '';
 
 -- 8. APPOINTMENTS — track who cancelled so all parties see context
 --    values: 'customer' | 'hospital' | 'admin'  (empty for non-cancelled rows)

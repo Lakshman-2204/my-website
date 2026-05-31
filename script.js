@@ -3137,8 +3137,9 @@ function checkLogin() {
       return;
    }
 
-   // Store owners who are not admin should not be on home.html
-   if (isStoreOwner(user)) { window.location.href = 'shopowner.html'; return; }
+   // Approved store owners go to their dashboard. Unapproved ones stay on home
+   // and browse as customer until admin approves them.
+   if (isStoreOwner(user) && user.isApproved !== false) { window.location.href = 'shopowner.html'; return; }
 
    document.getElementById('welcomeUser').textContent = user.name;
    document.getElementById('heroGreeting').textContent = 'Welcome, ' + user.name + '!';
@@ -3420,10 +3421,11 @@ async function checkShopOwnerLogin() {
    if (!isAdmin(user.email) && !isStoreOwner(user)) {
       window.location.href = 'home.html'; return;
    }
-   // Unapproved Business Partner trying to reach the dashboard directly via URL
+   // Unapproved Business Partner trying to reach the dashboard directly via URL.
+   // Use replace() so the back button doesn't return them here and re-trigger this alert.
    if (!isAdmin(user.email) && user.isApproved === false) {
       alert('Your Business Partner account is still awaiting admin approval.');
-      window.location.href = 'home.html';
+      window.location.replace('home.html');
       return;
    }
    var nameEl = document.getElementById('shopOwnerName');

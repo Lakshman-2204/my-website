@@ -353,6 +353,37 @@
       </div>
    </div>
 
+   <!-- RESCHEDULE MODAL: change date/slot of a confirmed booking without refund/repay -->
+   <div class="admin-modal-overlay hidden" id="rescheduleModal" onclick="if(event.target===this)closeRescheduleModal()">
+      <div class="admin-modal" style="max-width:540px">
+         <div class="admin-modal-header">
+            <h3>🔄 Reschedule Appointment</h3>
+            <button class="admin-modal-close" onclick="closeRescheduleModal()">✕</button>
+         </div>
+         <div class="admin-modal-body">
+            <div id="rescheduleCurrentInfo" style="margin-bottom:14px;padding:10px;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;font-size:0.9rem"></div>
+            <div class="modal-field">
+               <label>New Date</label>
+               <div class="apt-date-scroll" id="rescheduleDateButtons"></div>
+            </div>
+            <div class="modal-field" id="rescheduleSlotSection" style="display:none">
+               <label>New Slot</label>
+               <div class="apt-slots-grid" id="rescheduleSlotButtons"></div>
+            </div>
+            <div class="modal-field">
+               <label>Reason <small style="font-weight:400;color:#aaa">(optional, stored for records)</small></label>
+               <input type="text" id="rescheduleReason" placeholder="e.g. Doctor's request, patient request..."/>
+            </div>
+            <p id="rescheduleMsg" style="color:#c62828;font-size:0.85rem;margin-top:6px"></p>
+            <input type="hidden" id="rescheduleAptId"/>
+         </div>
+         <div class="admin-modal-footer">
+            <button class="admin-modal-btn-cancel" onclick="closeRescheduleModal()">Cancel</button>
+            <button class="admin-modal-btn-save" id="rescheduleConfirmBtn" onclick="confirmReschedule()" disabled style="background:#1a73e8">🔄 Reschedule</button>
+         </div>
+      </div>
+   </div>
+
    <!-- DOCTOR DAY-OFF MODAL: pick a date, cancel all bookings for that doctor on that date -->
    <div class="admin-modal-overlay hidden" id="dayCancelModal" onclick="if(event.target===this)closeDayCancelModal()">
       <div class="admin-modal" style="max-width:420px">

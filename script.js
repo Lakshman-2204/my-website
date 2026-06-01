@@ -4385,9 +4385,10 @@ async function renderShopAppointments(filterStatus) {
               : status === 'Completed' ? 'completed'
               : status === 'No-show'   ? 'noshow'
               : 'confirmed';
-      // Friendlier labels for the owner — DB still stores 'Completed' / 'Cancelled' / 'No-show'
-      var statusLabel = status === 'Completed' ? 'Checkup Completed'
-                      : status === 'Confirmed' ? 'Appointment Confirmed'
+      // Friendlier labels for the owner — DB still stores 'Completed' / 'Cancelled' / 'No-show'.
+      // 2-line labels keep the column narrow so other columns get more space.
+      var statusLabel = status === 'Completed' ? 'Checkup<br>Completed'
+                      : status === 'Confirmed' ? 'Appointment<br>Confirmed'
                       : status;
       if (status === 'Cancelled' && a.cancelled_by) {
          var byLabel = a.cancelled_by === 'customer' ? 'by Patient'
@@ -4454,7 +4455,7 @@ async function renderShopAppointments(filterStatus) {
       }
       var actions;
       if (!canChange) {
-         actions = paidBtn + receiptBtn || '<span style="color:#bbb">—</span>';
+         actions = (paidBtn + receiptBtn) || '<span style="color:#bbb">—</span>';
       } else {
          var slotPassed = _slotPassed(a);
          var completeBtn = slotPassed
@@ -4469,8 +4470,14 @@ async function renderShopAppointments(filterStatus) {
                noshowBtn = '<button class="apt-act-btn apt-act-noshow" title="Patient did not show up" onclick="shopSetAptStatus(\'' + aid + '\',\'No-show\')">🚫 No-show</button>';
             }
          }
-         var cancelBtn  = '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>';
-         actions = paidBtn + receiptBtn + completeBtn + noshowBtn + cancelBtn;
+         var cancelBtn     = '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>';
+         var rescheduleBtn = '<button class="apt-act-btn" style="background:#00897b;color:#fff" title="Move to a different date/slot (no refund)" onclick="openRescheduleModal(\'' + aid + '\')">🔄 Reschedule</button>';
+         // Stack actions: row 1 = Mark Paid + Receipt + Reschedule, row 2 = Complete + No-show + Cancel
+         actions =
+            '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">' +
+               '<div style="display:flex;gap:4px;flex-wrap:wrap">' + paidBtn + receiptBtn + rescheduleBtn + '</div>' +
+               '<div style="display:flex;gap:4px;flex-wrap:wrap">' + completeBtn + noshowBtn + cancelBtn + '</div>' +
+            '</div>';
       }
       var tokenCell = a.token
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
@@ -5015,6 +5022,194 @@ async function confirmDoctorDayCancel() {
    if (activeBtn && _schedCtx && _schedCtx.date === dateStr) schedSelectDate(dateStr, activeBtn);
    // Refresh the Appointments tab if it's currently open
    if (typeof renderShopAppointments === 'function') renderShopAppointments();
+}
+
+// ── Owner-side reschedule ──
+// Move a confirmed booking to a new date/slot without refund/repay churn.
+// is_paid stays as-is; status stays Confirmed; new token issued via max+1 in
+// the new slot; history appended to patient_reason for audit.
+let _rescheduleCtx = null;
+
+function openRescheduleModal(aptId) {
+   var apt = (_shopAptsCache || []).find(function(a) { return a.apt_id === aptId; });
+   if (!apt) { alert('Appointment not found.'); return; }
+   var provider = _aptGetProvider(apt.provider_id);
+   var doctor = provider && _aptGetDoctor(provider, apt.doctor_id);
+   if (!doctor) { alert('Doctor not found for this booking.'); return; }
+
+   _rescheduleCtx = { apt: apt, provider: provider, doctor: doctor, date: null, slot: null };
+
+   document.getElementById('rescheduleCurrentInfo').innerHTML =
+      '<strong>Currently:</strong> ' + apt.date + ' at ' + (apt.slot ? _formatSlot12(apt.slot) : 'Token mode') +
+      '<br><strong>Doctor:</strong> ' + (apt.doctor_name || '') +
+      '<br><strong>Patient:</strong> ' + (apt.patient_name || '—') + (apt.patient_phone ? ' (' + apt.patient_phone + ')' : '') +
+      (apt.is_paid ? '<br><span style="color:#2e7d32;font-weight:600">✓ Already paid — money stays as-is, no refund needed</span>' : '');
+
+   // Render next-7-day date buttons, vacation- & availability-aware
+   var html = '';
+   for (var i = 0; i < 7; i++) {
+      var d = new Date();
+      d.setDate(d.getDate() + i);
+      var dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      var label = i === 0 ? 'TODAY' : (i === 1 ? 'TMRW' : APT_DAYS[d.getDay()]);
+      var monthShort = d.toLocaleDateString('en-IN', { month: 'short' });
+      var dayIdx = d.getDay();
+      var avail = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+      var onVac = _isOnVacation(doctor, dateStr);
+      var off   = avail.length === 0 || onVac;
+      var click = off ? '' : ' onclick="rescheduleSelectDate(\'' + dateStr + '\', this)"';
+      var titleTxt = onVac ? 'Doctor on leave' : 'Doctor unavailable';
+      var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="' + titleTxt + '"' : '';
+      var leaveTag = onVac ? '<div style="font-size:0.62rem;color:#e65100;font-weight:700">🏖 ON LEAVE</div>' : '';
+      html += '<div class="apt-date-btn"' + click + extra + '>' +
+                 '<div class="apt-date-day">' + label + '</div>' +
+                 '<div class="apt-date-num">' + d.getDate() + ' ' + monthShort + '</div>' +
+                 leaveTag +
+              '</div>';
+   }
+   document.getElementById('rescheduleDateButtons').innerHTML = html;
+   document.getElementById('rescheduleSlotSection').style.display = 'none';
+   document.getElementById('rescheduleConfirmBtn').disabled = true;
+   document.getElementById('rescheduleReason').value = '';
+   document.getElementById('rescheduleMsg').textContent = '';
+   document.getElementById('rescheduleAptId').value = aptId;
+   document.getElementById('rescheduleModal').classList.remove('hidden');
+}
+
+function closeRescheduleModal() {
+   document.getElementById('rescheduleModal').classList.add('hidden');
+   _rescheduleCtx = null;
+}
+
+async function rescheduleSelectDate(dateStr, btn) {
+   if (!_rescheduleCtx) return;
+   _rescheduleCtx.date = dateStr;
+   _rescheduleCtx.slot = null;
+   document.querySelectorAll('#rescheduleDateButtons .apt-date-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   document.getElementById('rescheduleConfirmBtn').disabled = true;
+
+   var doctor  = _rescheduleCtx.doctor;
+   var section = document.getElementById('rescheduleSlotSection');
+   var btnsEl  = document.getElementById('rescheduleSlotButtons');
+   section.style.display = 'block';
+   btnsEl.innerHTML = '<p style="color:#999;font-size:0.85rem">Loading…</p>';
+
+   var isTokenMode = doctor.booking_mode === 'token';
+   var caps     = _doctorCaps(doctor);
+   var existing = await AppDB.getDoctorBookings(doctor.id, dateStr);
+
+   if (isTokenMode) {
+      var totalDaily = (caps.dailyOnline || 0) + (caps.dailyOffline || 0);
+      if (existing.length >= totalDaily) {
+         btnsEl.innerHTML = '<p style="color:#c62828;font-size:0.88rem">Tokens are full for this day.</p>';
+         return;
+      }
+      _rescheduleCtx.slot = '';
+      btnsEl.innerHTML =
+         '<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:12px;text-align:center">' +
+            '<div style="font-size:0.85rem;color:#2e7d32">🎟 Token mode — token will be auto-assigned</div>' +
+            '<div style="font-size:0.75rem;color:#666;margin-top:4px">' + existing.length + ' of ' + totalDaily + ' tokens used today</div>' +
+         '</div>';
+      document.getElementById('rescheduleConfirmBtn').disabled = false;
+      return;
+   }
+
+   // Slot mode
+   var d = new Date(dateStr + 'T00:00:00');
+   var dayIdx  = d.getDay();
+   var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+   var now = new Date();
+   var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+   var isToday = dateStr === todayStr;
+   var countsBySlot = {};
+   existing.forEach(function(b) { countsBySlot[b.slot] = (countsBySlot[b.slot] || 0) + 1; });
+
+   var nowMin = isToday ? (now.getHours() * 60 + now.getMinutes()) : -1;
+   var totalCap = (caps.slotOnline || 0) + (caps.slotOffline || 0);
+   var slotHtml = '';
+   var anyShown = false;
+   windows.forEach(function(w) {
+      var startMin = _hhmmToMin(w.start);
+      var endMin   = _hhmmToMin(w.end);
+      for (var t = startMin; t + caps.duration <= endMin; t += caps.duration) {
+         var hh = Math.floor(t / 60);
+         var mm = t % 60;
+         var slot24 = String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+         var hour12 = ((hh % 12) || 12);
+         var label = hour12 + ':' + String(mm).padStart(2,'0') + ' ' + (hh < 12 ? 'AM' : 'PM');
+         var count = countsBySlot[slot24] || 0;
+         var full  = count >= totalCap;
+         var isPast = isToday && (t + caps.duration) <= nowMin;
+         anyShown = true;
+         if (full) {
+            slotHtml += '<button class="apt-slot-btn slot-full" disabled>' + label + '<br><small>Full</small></button>';
+         } else if (isPast) {
+            slotHtml += '<button class="apt-slot-btn slot-past" onclick="rescheduleSelectSlot(\'' + slot24 + '\', this)" title="Past slot">' +
+                        label + '<br><small>(past) ' + (totalCap - count) + ' of ' + totalCap + '</small></button>';
+         } else {
+            slotHtml += '<button class="apt-slot-btn slot-available" onclick="rescheduleSelectSlot(\'' + slot24 + '\', this)">' +
+                        label + '<br><small>' + (totalCap - count) + ' of ' + totalCap + ' left</small></button>';
+         }
+      }
+   });
+
+   btnsEl.innerHTML = anyShown
+      ? slotHtml
+      : '<p style="color:#999;font-size:0.85rem">Doctor has no availability on this date.</p>';
+}
+
+function rescheduleSelectSlot(slot, btn) {
+   if (!_rescheduleCtx) return;
+   _rescheduleCtx.slot = slot;
+   document.querySelectorAll('#rescheduleSlotButtons .apt-slot-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   document.getElementById('rescheduleConfirmBtn').disabled = false;
+}
+
+async function confirmReschedule() {
+   var ctx = _rescheduleCtx;
+   if (!ctx || !ctx.date) return;
+   var apt = ctx.apt;
+   var newDate = ctx.date;
+   var newSlot = ctx.slot || '';
+   if (newDate === apt.date && newSlot === (apt.slot || '')) {
+      document.getElementById('rescheduleMsg').textContent = 'Pick a different date or slot to reschedule.';
+      return;
+   }
+   var reason = document.getElementById('rescheduleReason').value.trim();
+   var slotLabel = newSlot ? _formatSlot12(newSlot) : 'Token';
+   var oldSlotLabel = apt.slot ? _formatSlot12(apt.slot) : 'Token';
+   if (!confirm('Reschedule from ' + apt.date + ' ' + oldSlotLabel + ' → ' + newDate + ' ' + slotLabel + '?')) return;
+
+   // Compute new token — max+1 across all rows (incl. cancelled) for the new slot
+   var allRows = await AppDB.getDoctorBookings(ctx.doctor.id, newDate, true);
+   var poolRows = newSlot ? allRows.filter(function(b) { return b.slot === newSlot; }) : allRows;
+   var newToken = poolRows.reduce(function(m, r) { return Math.max(m, Number(r.token) || 0); }, 0) + 1;
+
+   // Append a history note to patient_reason
+   var todayIso = new Date().toISOString().slice(0,10);
+   var historyNote = '[Rescheduled from ' + apt.date + ' ' + oldSlotLabel +
+                     ' → ' + newDate + ' ' + slotLabel +
+                     ' on ' + todayIso + (reason ? ' — ' + reason : '') + ']';
+   var newReason = apt.patient_reason ? (apt.patient_reason + ' ' + historyNote) : historyNote;
+
+   var ok = await AppDB.updateAppointmentStatus(apt.apt_id, 'Confirmed', {
+      date: newDate,
+      slot: newSlot,
+      token: newToken,
+      patient_reason: newReason
+   });
+
+   if (!ok) {
+      document.getElementById('rescheduleMsg').textContent = 'Failed to reschedule. Check console.';
+      return;
+   }
+
+   closeRescheduleModal();
+   _shopAptsCache = null;
+   alert('✅ Rescheduled to ' + newDate + (newSlot ? ' at ' + slotLabel : '') + ' — new token T' + newToken);
+   renderShopAppointments();
 }
 
 // Flip is_paid=true without changing status. Used when the patient pays at
@@ -6407,10 +6602,16 @@ async function renderMyAppointments() {
                        '<div class="apt-tbl-sub">' + dt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) + '</div>';
          }
       }
+      var pidJs = (a.provider_id || '').replace(/'/g, "\\'");
+      var rescheduleBtn = isCancellable
+         ? '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="showRescheduleInfo(\'' + pidJs + '\')" title="Reschedule policy">🔄 Reschedule</button>'
+         : '';
       var actions = isCancellable
-         ? '<button class="apt-act-btn apt-act-cancel" onclick="cancelMyAppointment(\'' + aid + '\')">✕ Cancel</button>'
+         ? rescheduleBtn + '<button class="apt-act-btn apt-act-cancel" onclick="cancelMyAppointment(\'' + aid + '\')">✕ Cancel</button>'
          : '<span style="color:#bbb">—</span>';
       var meta = APT_CAT_META[a.category] || {};
+      var prov = _aptGetProvider(a.provider_id) || {};
+      var hospitalPhoneLine = prov.phone ? '<div class="apt-tbl-sub" style="color:#1a73e8;font-weight:600">📞 ' + prov.phone + '</div>' : '';
       var tokenCell = a.token
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
          : '<span style="color:#bbb">—</span>';
@@ -6419,7 +6620,7 @@ async function renderMyAppointments() {
                 '<td style="text-align:center">' + tokenCell + '</td>' +
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + slotCell + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div><div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
-                '<td><div class="apt-tbl-name">' + (a.provider_name || '') + '</div><div class="apt-tbl-sub">' + (meta.icon || '') + ' ' + (meta.label || a.category || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (a.provider_name || '') + '</div><div class="apt-tbl-sub">' + (meta.icon || '') + ' ' + (meta.label || a.category || '') + '</div>' + hospitalPhoneLine + '</td>' +
                 '<td><div class="apt-tbl-name">' + (a.patient_name || '—') + '</div>' + (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + '</td>' +
                 '<td class="apt-tbl-symptom" title="' + (a.patient_reason || '').replace(/"/g,'&quot;') + '">' + (a.patient_reason || '<span style="color:#bbb">—</span>') + '</td>' +
                 '<td style="text-align:right">' + feeHtml + '</td>' +
@@ -6463,6 +6664,20 @@ function _fillSelectFromList(selectId, defaultLabel, values, optionLabel) {
          var label = optionLabel ? optionLabel(v) : v;
          return '<option value="' + v + '"' + (v === current ? ' selected' : '') + '>' + label + '</option>';
       }).join('');
+}
+
+// Customer-side reschedule action — explains that the hospital controls reschedules.
+// Reschedule isn't customer-initiated to keep fee/refund flows clean and avoid
+// patients shuffling slots endlessly.
+function showRescheduleInfo(providerId) {
+   var prov = providerId ? _aptGetProvider(providerId) : null;
+   var phoneLine = (prov && prov.phone) ? '\n\nHospital phone: ' + prov.phone : '';
+   alert(
+      'Reschedule is handled by the hospital only.\n\n' +
+      'You can:\n' +
+      '  • Cancel this appointment and book again on a different date/slot, OR\n' +
+      '  • Call the hospital and ask them to reschedule for you.' + phoneLine
+   );
 }
 
 async function cancelMyAppointment(aptId) {

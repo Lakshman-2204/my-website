@@ -1837,6 +1837,7 @@ function openAptProviderModal(providerId) {
    // Commission fields
    document.getElementById('aptProvCommissionType').value  = (p && p.commission_type)  || 'percent';
    document.getElementById('aptProvCommissionValue').value = (p && p.commission_value != null) ? p.commission_value : '';
+   document.getElementById('aptProvFollowupDays').value    = (p && p.free_followup_days != null) ? p.free_followup_days : 0;
    _aptProvCommissionTypeChanged();
 
    document.getElementById('aptProviderModal').classList.remove('hidden');
@@ -1880,9 +1881,10 @@ async function saveAptProvider() {
       gstin:            document.getElementById('aptProvGstin').value.trim().toUpperCase(),
       icon:             icon,
       owner_email:      document.getElementById('aptProvOwner').value || '',
-      commission_type:  document.getElementById('aptProvCommissionType').value || 'percent',
-      commission_value: parseFloat(document.getElementById('aptProvCommissionValue').value) || 0,
-      doctors:          existing ? (existing.doctors || []) : []
+      commission_type:    document.getElementById('aptProvCommissionType').value || 'percent',
+      commission_value:   parseFloat(document.getElementById('aptProvCommissionValue').value) || 0,
+      free_followup_days: Math.max(0, parseInt(document.getElementById('aptProvFollowupDays').value, 10) || 0),
+      doctors:            existing ? (existing.doctors || []) : []
    };
    var ok = await AppDB.upsertProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
@@ -7284,7 +7286,12 @@ async function printConsultationReceipt(aptId) {
       var yy = d.getFullYear();
       return dd + '-' + mm + '-' + yy;
    };
-   var followUpEnd = new Date(createDt.getTime() + 7 * 24 * 60 * 60 * 1000);
+   // Free follow-up window comes from the provider's policy. 0 means no policy
+   // and the receipt won't print the follow-up line at all.
+   var followUpDays = Number(prov.free_followup_days || 0);
+   var followUpEnd  = followUpDays > 0
+      ? new Date(createDt.getTime() + followUpDays * 24 * 60 * 60 * 1000)
+      : null;
 
    var fmtDTAmPm = function(d) {
       if (!d || isNaN(d.getTime())) return '';
@@ -7432,7 +7439,7 @@ async function printConsultationReceipt(aptId) {
 
          '<div class="signblock"><div class="signline">(Authorised Signatory)</div></div>' +
 
-         '<div class="followup">&lt; Free FOLLOW-UP upto ' + esc(fmtDateOnly(followUpEnd)) + ' &gt;</div>' +
+         (followUpEnd ? '<div class="followup">&lt; Free FOLLOW-UP upto ' + esc(fmtDateOnly(followUpEnd)) + ' &gt;</div>' : '') +
       '</div>' +
 
       '<div class="actions">' +

@@ -127,6 +127,12 @@ ALTER TABLE public.apt_providers
 ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS gstin text DEFAULT '';
 
+-- 5f. APT_PROVIDERS — free follow-up window in days. Default 0 (no follow-up).
+--     The number of days a patient can come back for a free review after the
+--     original consultation. Printed on the receipt; line is hidden if 0.
+ALTER TABLE public.apt_providers
+   ADD COLUMN IF NOT EXISTS free_followup_days integer DEFAULT 0;
+
 -- 10. STORAGE — public bucket for doctor profile photos
 INSERT INTO storage.buckets (id, name, public)
    VALUES ('doctor-photos', 'doctor-photos', true)

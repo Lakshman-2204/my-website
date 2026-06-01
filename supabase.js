@@ -425,9 +425,10 @@ window.AppDB = {
          phone:            provider.phone       || '',
          gstin:            (provider.gstin || '').toUpperCase(),
          owner_email:      (provider.owner_email || '').toLowerCase(),
-         commission_type:  provider.commission_type  || 'percent',
-         commission_value: (provider.commission_value != null) ? Number(provider.commission_value) : 0,
-         doctors:          provider.doctors     || []
+         commission_type:    provider.commission_type  || 'percent',
+         commission_value:   (provider.commission_value != null) ? Number(provider.commission_value) : 0,
+         free_followup_days: (provider.free_followup_days != null) ? Math.max(0, parseInt(provider.free_followup_days, 10) || 0) : 0,
+         doctors:            provider.doctors     || []
       };
       const { error } = await _sb.from('apt_providers').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertProvider:', error.message); return false; }

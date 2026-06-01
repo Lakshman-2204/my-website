@@ -2234,7 +2234,9 @@ async function renderAllAppointments() {
       }
       var isPaid = !!a.is_paid || status === 'Completed';
       var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
-      if (status === 'Cancelled' || status === 'No-show') {
+      if (a.is_refunded) {
+         feeHtml += '<div class="apt-tbl-fee-tag" style="background:#fff3e0;color:#e65100;border:1px solid #ffb74d">refunded ₹' + Number(a.refund_amount || 0) + '</div>';
+      } else if (status === 'Cancelled' || status === 'No-show') {
          /* no payment badge */
       } else if (isPaid) {
          feeHtml += '<div class="apt-tbl-fee-tag paid">paid</div>';
@@ -2252,8 +2254,9 @@ async function renderAllAppointments() {
       // Admin can print receipt + delete. Complete/Cancel are done by hospital owner or customer.
       // Receipt is enabled once the fee is paid (Completed implies paid).
       var adminReceiptBtn;
-      if (isPaid) {
-         adminReceiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="printConsultationReceipt(\'' + aid + '\')" title="Print consultation receipt">🧾 Receipt</button>';
+      if (isPaid || a.is_refunded) {
+         var adminRTitle = a.is_refunded ? 'Print receipt (with REFUNDED stamp)' : 'Print consultation receipt';
+         adminReceiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="printConsultationReceipt(\'' + aid + '\')" title="' + adminRTitle + '">🧾 Receipt</button>';
       } else if (status === 'Cancelled' || status === 'No-show') {
          adminReceiptBtn = '';
       } else {
@@ -4285,8 +4288,10 @@ async function renderShopAppointments(filterStatus) {
       // Fee column — paid badge follows the is_paid flag (Completed implies paid)
       var isPaid = !!a.is_paid || status === 'Completed';
       var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
-      if (status === 'Cancelled' || status === 'No-show') {
-         /* no payment badge for cancelled/no-show rows */
+      if (a.is_refunded) {
+         feeHtml += '<div class="apt-tbl-fee-tag" style="background:#fff3e0;color:#e65100;border:1px solid #ffb74d">refunded ₹' + Number(a.refund_amount || 0) + '</div>';
+      } else if (status === 'Cancelled' || status === 'No-show') {
+         /* no payment badge */
       } else if (isPaid) {
          feeHtml += '<div class="apt-tbl-fee-tag paid">paid offline</div>';
       } else {
@@ -4316,8 +4321,10 @@ async function renderShopAppointments(filterStatus) {
          paidBtn = '<button class="apt-act-btn" style="background:#2e7d32;color:#fff" title="Mark fee as paid (patient paid at reception)" onclick="shopMarkPaid(\'' + aid + '\')">💰 Mark Paid</button>';
       }
       var receiptBtn;
-      if (isPaid) {
-         receiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" title="Print consultation receipt" onclick="printConsultationReceipt(\'' + aid + '\')">🧾 Receipt</button>';
+      if (isPaid || a.is_refunded) {
+         // Active for paid bookings AND refunded ones (refund stamp shows on the receipt).
+         var rTitle = a.is_refunded ? 'Print receipt (with REFUNDED stamp)' : 'Print consultation receipt';
+         receiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" title="' + rTitle + '" onclick="printConsultationReceipt(\'' + aid + '\')">🧾 Receipt</button>';
       } else if (status === 'Cancelled' || status === 'No-show') {
          receiptBtn = '';
       } else {
@@ -4331,9 +4338,15 @@ async function renderShopAppointments(filterStatus) {
          var completeBtn = slotPassed
             ? '<button class="apt-act-btn apt-act-ok"      title="Mark as Completed" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Complete</button>'
             : '<button class="apt-act-btn apt-act-ok"      title="Available after the slot time" disabled style="opacity:0.4;cursor:not-allowed">✅ Complete</button>';
-         var noshowBtn = slotPassed
-            ? '<button class="apt-act-btn apt-act-noshow"  title="Patient did not show up" onclick="shopSetAptStatus(\'' + aid + '\',\'No-show\')">🚫 No-show</button>'
-            : '';
+         var noshowBtn = '';
+         if (slotPassed) {
+            if (isPaid) {
+               // Patient paid — by definition they showed up, so No-show is invalid.
+               noshowBtn = '<button class="apt-act-btn apt-act-noshow" disabled style="opacity:0.4;cursor:not-allowed" title="Patient paid the fee — cannot be marked No-show">🚫 No-show</button>';
+            } else {
+               noshowBtn = '<button class="apt-act-btn apt-act-noshow" title="Patient did not show up" onclick="shopSetAptStatus(\'' + aid + '\',\'No-show\')">🚫 No-show</button>';
+            }
+         }
          var cancelBtn  = '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>';
          actions = paidBtn + receiptBtn + completeBtn + noshowBtn + cancelBtn;
       }
@@ -4728,9 +4741,35 @@ async function shopSetAptStatus(aptId, status) {
    var apt = (_shopAptsCache || []).find(function(a) { return a.apt_id === aptId; });
    var extra = null;
    if (status === 'Cancelled') {
-      var reason = prompt('Please tell the patient why you\'re cancelling:\n\n(Optional — leave blank if not applicable.)');
-      if (reason === null) return;
-      extra = { cancelled_by: 'hospital', cancellation_reason: (reason || '').trim() };
+      // If the patient already paid, we need to record a refund along with the
+      // cancellation. Otherwise just capture a reason like before.
+      if (apt && apt.is_paid && !apt.is_refunded) {
+         var defaultAmt = Number(apt.fee || 0);
+         var amtStr = prompt(
+            'Patient already paid ₹' + defaultAmt + '.\n' +
+            'Enter the refund amount (₹). Leave default for full refund, or enter 0 to skip the refund.',
+            String(defaultAmt)
+         );
+         if (amtStr === null) return;
+         var amt = parseFloat(amtStr);
+         if (isNaN(amt) || amt < 0) { alert('Invalid amount.'); return; }
+         if (amt > defaultAmt) {
+            if (!confirm('Refund amount ₹' + amt + ' is more than the fee paid (₹' + defaultAmt + '). Continue anyway?')) return;
+         }
+         var reason = prompt('Reason for cancellation / refund:\n\n(Shown to the patient and stored for records.)');
+         if (reason === null) return;
+         extra = {
+            cancelled_by: 'hospital',
+            cancellation_reason: (reason || '').trim(),
+            is_refunded: amt > 0,
+            refund_amount: amt,
+            refunded_at: amt > 0 ? new Date().toISOString() : null
+         };
+      } else {
+         var reason2 = prompt('Please tell the patient why you\'re cancelling:\n\n(Optional — leave blank if not applicable.)');
+         if (reason2 === null) return;
+         extra = { cancelled_by: 'hospital', cancellation_reason: (reason2 || '').trim() };
+      }
    } else if (status === 'Completed') {
       // Completion is only meaningful once the slot has passed
       if (apt && !_slotPassed(apt)) {
@@ -5451,13 +5490,16 @@ async function renderBillingAdmin() {
    (_aptProvidersCache || []).forEach(function(p) { providerById[p.id] = p; });
 
    // Aggregate revenue per provider (appointment-side) and per storeId (product-side).
+   // Skip cancelled/no-show rows and subtract refund amounts from the revenue base so
+   // commission isn't owed on money the hospital had to give back.
    var perProvider = {};   // provider_id → { count, revenue }
    apts.forEach(function(a) {
       if (!providerById[a.provider_id]) return;
+      if (a.status === 'Cancelled' || a.status === 'No-show') return;
       var pid = a.provider_id;
       if (!perProvider[pid]) perProvider[pid] = { count: 0, revenue: 0 };
       perProvider[pid].count   += 1;
-      perProvider[pid].revenue += (a.fee || 0);
+      perProvider[pid].revenue += (a.fee || 0) - Number(a.refund_amount || 0);
    });
    var perStoreOrders = {};
    orders.forEach(function(o) {
@@ -6654,6 +6696,14 @@ async function printConsultationReceipt(aptId) {
 
    var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
 
+   var isRefunded   = !!apt.is_refunded;
+   var refundAmt    = Number(apt.refund_amount || 0);
+   var refundedDate = apt.refunded_at ? new Date(apt.refunded_at) : null;
+   var refundNote   = isRefunded
+      ? '<div class="refund-note">REFUNDED ₹' + refundAmt.toFixed(2) + ' on ' + esc(fmtDateOnly(refundedDate || now)) + ' — ' + esc(apt.cancellation_reason || 'cancelled') + '</div>'
+      : '';
+   var refundStamp  = isRefunded ? '<div class="refund-stamp">REFUNDED</div>' : '';
+
    var html =
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Consultation Receipt — ' + esc(billNo) + '</title>' +
       '<style>' +
@@ -6690,6 +6740,8 @@ async function printConsultationReceipt(aptId) {
          '.signblock{text-align:center;margin:10px 8px 0}' +
          '.signline{display:inline-block;border-top:1px solid #000;padding-top:3px;min-width:220px;font-weight:700;font-size:12px}' +
          '.followup{text-align:center;font-size:13px;font-weight:700;padding:8px 0 0;letter-spacing:1px}' +
+         '.refund-note{margin:10px 8px 0;padding:6px 10px;border:1.5px dashed #b71c1c;color:#b71c1c;font-size:12px;text-align:center;font-weight:700;letter-spacing:0.5px}' +
+         '.refund-stamp{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%) rotate(-22deg);font-size:64px;font-weight:900;color:rgba(183,28,28,0.18);border:6px solid rgba(183,28,28,0.18);padding:6px 26px;border-radius:6px;pointer-events:none;letter-spacing:4px;white-space:nowrap}' +
          '.actions{max-width:780px;margin:14px auto 0;display:flex;gap:8px;justify-content:center}' +
          '.actions button{padding:8px 18px;border:1px solid #000;background:#fff;cursor:pointer;font:inherit}' +
          '.actions button:hover{background:#000;color:#fff}' +
@@ -6704,7 +6756,8 @@ async function printConsultationReceipt(aptId) {
       '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap">' +
       '</head><body>' +
 
-      '<div class="rcpt">' +
+      '<div class="rcpt" style="position:relative">' +
+         refundStamp +
          '<h1>' + esc((prov.name || 'Hospital').toUpperCase()) + '</h1>' +
          (prov.tagline ? '<div class="legal">' + esc(prov.tagline) + '</div>' : '') +
          (prov.address ? '<div class="addr">' + esc(prov.address) + '</div>' : '') +
@@ -6752,6 +6805,7 @@ async function printConsultationReceipt(aptId) {
             '<div>Mode Of Payment : ' + esc(paymentMode) + '</div>' +
             '<div class="amt">Total Amount &nbsp;&nbsp; ' + fee.toFixed(2) + '</div>' +
          '</div>' +
+         refundNote +
 
          '<div class="signrow" style="margin-top:18px">' +
             '<div>Create By : ' + esc(operator) + '</div>' +

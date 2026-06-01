@@ -1652,6 +1652,25 @@ body.guest .store-section-divider {
 @media (max-width: 700px) {
 	.shop-business-name { font-size: 0.95rem; }
 	.shop-site-name     { font-size: 0.95rem; }
+
+	/* Prevent page-level horizontal scroll. Wide inner content (tables, grids)
+	   still scrolls inside its own container thanks to overflow-x:auto wrappers. */
+	html, body, body.shopowner-page { overflow-x: hidden; max-width: 100vw; }
+
+	/* Header: tighter padding so it fits a 360px viewport */
+	.shop-header { padding-left: 12px; padding-right: 12px; }
+	.shop-header-left, .shop-header-center, .shop-header-right { min-width: 0; }
+
+	/* Tabs: already overflow-x:auto, but make them flex-shrink-0 so they don't
+	   stretch & widen the page */
+	.shop-tabs { padding: 0 12px; }
+	.shop-tab  { flex: 0 0 auto; padding: 0.6rem 0.9rem; font-size: 0.82rem; }
+
+	/* Catch-all: any direct child of the shop content area is clipped to viewport
+	   width, so a stray wide element can't push the page sideways. */
+	.shopowner-page > *,
+	#shopAppointmentList,
+	#shopAppointmentList > * { max-width: 100%; }
 }
 
 /* ── APPOINTMENTS TABLE (shopowner) ── */
@@ -3104,6 +3123,36 @@ body.guest .store-section-divider {
 	.admin-header-right span { display: none; }
 	.admin-page-title { padding: 16px 16px 4px; }
 	.admin-content { padding: 16px 16px 40px; }
+
+	/* Prevent page-level horizontal scroll caused by wide inner tables/rows */
+	html, body, body.admin-page { overflow-x: hidden; max-width: 100vw; }
+
+	/* Tabs row: scroll horizontally instead of widening the page */
+	.admin-tabs {
+		overflow-x: auto;
+		flex-wrap: nowrap;
+		-webkit-overflow-scrolling: touch;
+		padding: 0 12px;
+		scrollbar-width: thin;
+	}
+	.admin-tab {
+		flex: 0 0 auto;
+		padding: 12px 16px;
+		font-size: 0.88rem;
+		white-space: nowrap;
+	}
+
+	/* Header: tighter padding on mobile */
+	.admin-header { padding: 0 12px; }
+	.admin-brand  { font-size: 1rem; }
+	.admin-logout-btn, .admin-store-btn { padding: 5px 10px; font-size: 0.78rem; }
+
+	/* Title row: stack instead of side-by-side so the + button doesn't push width */
+	.admin-title-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+	/* Catch-all: anything inside admin-content that's too wide gets its own scrollbar
+	   rather than pushing the page width. */
+	.admin-content > * { max-width: 100%; }
 }
 
 /* ── ADMIN TABS ── */

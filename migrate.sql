@@ -111,6 +111,14 @@ ALTER TABLE public.appointments
 -- Treat all historical Completed rows as paid (matches old behaviour).
 UPDATE public.appointments SET is_paid = true WHERE status = 'Completed' AND is_paid IS NOT TRUE;
 
+-- 8f. APPOINTMENTS — refund tracking. When a paid booking is cancelled, the
+--     owner records the refund amount + timestamp. The receipt then prints
+--     with a "REFUNDED" stamp and the refund details so the patient has proof.
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS is_refunded   boolean     DEFAULT false,
+   ADD COLUMN IF NOT EXISTS refund_amount numeric     DEFAULT 0,
+   ADD COLUMN IF NOT EXISTS refunded_at   timestamptz DEFAULT NULL;
+
 -- 5d. APT_PROVIDERS — phone number for "call to book" CTA when online slots are full
 ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS phone text DEFAULT '';

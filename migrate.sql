@@ -119,6 +119,15 @@ ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS refund_amount numeric     DEFAULT 0,
    ADD COLUMN IF NOT EXISTS refunded_at   timestamptz DEFAULT NULL;
 
+-- 8g. APPOINTMENTS — free follow-up tracking. Follow-ups are booked from a
+--     completed visit within the provider's free_followup_days window; they
+--     have fee=0, get FT* tokens (separate counter from regular T*), and DON'T
+--     consume regular slot capacity. followup_of links back to the original.
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS is_followup boolean DEFAULT false,
+   ADD COLUMN IF NOT EXISTS followup_of text    DEFAULT '';
+CREATE INDEX IF NOT EXISTS appointments_followup_of_idx ON public.appointments(followup_of);
+
 -- 5d. APT_PROVIDERS — phone number for "call to book" CTA when online slots are full
 ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS phone text DEFAULT '';
@@ -132,6 +141,11 @@ ALTER TABLE public.apt_providers
 --     original consultation. Printed on the receipt; line is hidden if 0.
 ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS free_followup_days integer DEFAULT 0;
+
+-- 5g. APT_PROVIDERS — max number of free follow-ups allowed within that window.
+--     Cancelled follow-ups don't count; Confirmed/Completed/No-show do.
+ALTER TABLE public.apt_providers
+   ADD COLUMN IF NOT EXISTS free_followup_count integer DEFAULT 1;
 
 -- 10. STORAGE — public bucket for doctor profile photos
 INSERT INTO storage.buckets (id, name, public)

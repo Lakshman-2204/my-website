@@ -1299,7 +1299,14 @@ function summarizeDoctorDays(avail) {
    return openDays.join(', ');
 }
 
-function openAptBookModal(catKey, providerId, doctorId) {
+// Convenience wrapper: open the booking modal in FREE FOLLOW-UP mode for a
+// completed appointment. Same doctor/provider, fee shown as ₹0, dates restricted
+// to within the provider's free_followup_days window.
+function openAptBookModalFollowup(catKey, providerId, doctorId, originalAptId, deadlineIso) {
+   openAptBookModal(catKey, providerId, doctorId, originalAptId, deadlineIso);
+}
+
+function openAptBookModal(catKey, providerId, doctorId, followupOfAptId, followupDeadline) {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { promptAuth('Please log in or sign up to book an appointment.'); return; }
 
@@ -1307,13 +1314,22 @@ function openAptBookModal(catKey, providerId, doctorId) {
    var doctor = _aptGetDoctor(provider, doctorId);
    if (!doctor) return;
 
-   _aptBookCtx = { catKey: catKey, providerId: providerId, doctor: doctor, provider: provider, date: null, slot: null };
+   var isFollowup = !!followupOfAptId;
+   _aptBookCtx = {
+      catKey: catKey, providerId: providerId, doctor: doctor, provider: provider,
+      date: null, slot: null,
+      isFollowup: isFollowup,
+      followupOf: followupOfAptId || '',
+      followupDeadline: followupDeadline || ''
+   };
    var isTokenMode = doctor.booking_mode === 'token';
 
    var modeLine = isTokenMode ? ' · 🎟 Token mode' : '';
-   document.getElementById('aptBookModalDoc').textContent  = doctor.name + ' · ' + provider.name;
+   document.getElementById('aptBookModalDoc').textContent  = (isFollowup ? '🔁 FREE FOLLOW-UP — ' : '') + doctor.name + ' · ' + provider.name;
    document.getElementById('aptBookModalSpec').textContent = (doctor.speciality || '') + (doctor.qual ? ' · ' + doctor.qual : '') + modeLine;
-   document.getElementById('aptBookModalFee').textContent  = 'Consultation fee: ₹' + (doctor.fee || 0);
+   document.getElementById('aptBookModalFee').textContent  = isFollowup
+      ? 'Free follow-up — no fee charged'
+      : 'Consultation fee: ₹' + (doctor.fee || 0);
 
    // Next 7 dates — disable days the doctor isn't available
    var dateHtml = '';
@@ -1326,11 +1342,14 @@ function openAptBookModal(catKey, providerId, doctorId) {
       var dayIdx = d.getDay();
       var avail = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
       var onVac = _isOnVacation(doctor, dateStr);
-      var off   = avail.length === 0 || onVac;
+      var pastDeadline = isFollowup && _aptBookCtx.followupDeadline && dateStr > _aptBookCtx.followupDeadline;
+      var off   = avail.length === 0 || onVac || pastDeadline;
       var click = off ? '' : ' onclick="selectAptDate(\'' + dateStr + '\', this)"';
-      var titleTxt = onVac ? 'Doctor on leave' : 'Doctor unavailable';
+      var titleTxt = pastDeadline ? 'Past free follow-up window' : (onVac ? 'Doctor on leave' : 'Doctor unavailable');
       var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="' + titleTxt + '"' : '';
-      var leaveTag = onVac ? '<div style="font-size:0.62rem;color:#e65100;font-weight:700">🏖 ON LEAVE</div>' : '';
+      var leaveTag = onVac ? '<div style="font-size:0.62rem;color:#e65100;font-weight:700">🏖 ON LEAVE</div>'
+                   : pastDeadline ? '<div style="font-size:0.62rem;color:#c62828;font-weight:700">⏰ EXPIRED</div>'
+                   : '';
       dateHtml += '<div class="apt-date-btn"' + click + extra + '>' +
                      '<div class="apt-date-day">' + label + '</div>' +
                      '<div class="apt-date-num">' + d.getDate() + ' ' + monthShort + '</div>' +
@@ -1489,7 +1508,14 @@ function _formatSlot12(slot24) {
 // Pick a stable colour for the token badge based on doctor + date + slot.
 // Same slot → same colour. Different slots → different colours. Helps the
 // owner visually group bookings that belong to the same slot.
+// Token display label: 'T1' for regular, 'FT1' for free follow-ups.
+function _tokenLabel(apt) {
+   if (!apt || !apt.token) return '';
+   return (apt.is_followup ? 'FT' : 'T') + apt.token;
+}
+
 function _tokenBadgeColor(apt) {
+   if (apt && apt.is_followup) return '#00897b';   // teal for FT* — visually distinct
    var key = (apt.doctor_id || '') + '|' + (apt.date || '') + '|' + (apt.slot || 'TOKEN');
    var palette = [
       '#1a73e8', // blue
@@ -1520,18 +1546,22 @@ async function _checkBookingAbuse(user, doctor, providerId, dateStr) {
 
    var history = await AppDB.getAppointments(emailLc);
 
+   // Follow-ups are continuations of an already-paid consultation, so they
+   // never count toward abuse caps (per-doctor, per-customer, or no-show counts).
+   var regularHistory = history.filter(function(a) { return !a.is_followup; });
+
    // No-show auto-block (across all providers)
    var cutoffDate = new Date(Date.now() - noShowDays * 24 * 60 * 60 * 1000);
    var cutoffYmd  = cutoffDate.toISOString().slice(0, 10);
-   var noShows = history.filter(function(a) {
+   var noShows = regularHistory.filter(function(a) {
       return a.status === 'No-show' && (a.date || '') >= cutoffYmd;
    });
    if (noShows.length >= noShowThreshold) {
       return 'Your account has ' + noShows.length + ' unattended appointments in the last ' + noShowDays + ' days. New bookings are restricted. Please contact support.';
    }
 
-   // Per-doctor-per-day cap (active = not cancelled / no-show)
-   var activeAtDoctorToday = history.filter(function(a) {
+   // Per-doctor-per-day cap (active = not cancelled / no-show, excluding follow-ups)
+   var activeAtDoctorToday = regularHistory.filter(function(a) {
       return a.doctor_id === doctor.id && a.date === dateStr &&
              a.status !== 'Cancelled' && a.status !== 'No-show';
    });
@@ -1540,8 +1570,8 @@ async function _checkBookingAbuse(user, doctor, providerId, dateStr) {
              ' with this doctor on ' + dateStr + '. The maximum allowed per day is ' + maxPerDoctor + '.';
    }
 
-   // Per-customer-per-day cap (across all doctors)
-   var allToday = history.filter(function(a) {
+   // Per-customer-per-day cap (across all doctors, excluding follow-ups)
+   var allToday = regularHistory.filter(function(a) {
       return a.date === dateStr && a.status !== 'Cancelled' && a.status !== 'No-show';
    });
    if (allToday.length >= maxPerCustomer) {
@@ -1598,9 +1628,23 @@ async function confirmAptBooking() {
    var phone = document.getElementById('aptPatientPhone').value.trim();
    if (!name || !phone) { alert('Please enter patient name and phone.'); return; }
 
-   // Abuse defenses — caps, no-show block, provider block list
-   var abuseError = await _checkBookingAbuse(user, doctor, _aptBookCtx.providerId, _aptBookCtx.date);
-   if (abuseError) { alert(abuseError); return; }
+   // Abuse defenses — caps, no-show block, provider block list.
+   // Skipped for follow-up bookings (continuations of an already-paid visit),
+   // but follow-ups have their own per-original count limit instead.
+   if (_aptBookCtx.isFollowup) {
+      var provFU  = _aptBookCtx.provider || {};
+      var fuLimit = Math.max(1, Number(provFU.free_followup_count || 1));
+      var myFu = (await AppDB.getAppointments(user.email)).filter(function(b) {
+         return b.followup_of === _aptBookCtx.followupOf && b.status !== 'Cancelled';
+      });
+      if (myFu.length >= fuLimit) {
+         alert('You have already booked ' + myFu.length + ' free follow-up' + (myFu.length === 1 ? '' : 's') + ' for this consultation. Limit is ' + fuLimit + '.');
+         return;
+      }
+   } else {
+      var abuseError = await _checkBookingAbuse(user, doctor, _aptBookCtx.providerId, _aptBookCtx.date);
+      if (abuseError) { alert(abuseError); return; }
+   }
 
    // Re-check ONLINE capacity (only counts online bookings against online cap).
    // Token = total bookings in that slot/day (across online + offline) + 1, so
@@ -1610,31 +1654,40 @@ async function confirmAptBooking() {
    // Fetch with cancelled rows included — needed so the next token is MAX(token)+1
    // across the whole history (cancelled tokens stay as gaps, never get reused).
    var allRows  = await AppDB.getDoctorBookings(doctor.id, _aptBookCtx.date, true);
-   var existing = allRows.filter(function(b) { return b.status !== 'Cancelled'; });
-   var onlineExisting = existing.filter(function(b) { return b.booking_source !== 'offline'; });
-   // Helper: max token from a list of rows, 0 if list is empty.
+   var isFollowupBooking = !!_aptBookCtx.isFollowup;
    var _maxTok = function(arr) {
       return arr.reduce(function(m, r) { return Math.max(m, Number(r.token) || 0); }, 0);
    };
    var token;
-   if (isTokenMode) {
-      if (onlineExisting.length >= caps2.dailyOnline) {
-         alert('Sorry — online tokens for this day just got fully booked. Please pick another day or call the hospital.');
-         var activeBtnT = document.querySelector('.apt-date-btn.active');
-         if (activeBtnT) selectAptDate(_aptBookCtx.date, activeBtnT);
-         return;
-      }
-      token = _maxTok(allRows) + 1;
+   if (isFollowupBooking) {
+      // Follow-ups bypass slot capacity entirely. They get their own FT* token
+      // counter, independent of regular T* tokens.
+      var fuRows = allRows.filter(function(b) { return b.is_followup; });
+      token = _maxTok(fuRows) + 1;
    } else {
-      var inSlotOnline = onlineExisting.filter(function(b) { return b.slot === _aptBookCtx.slot; });
-      if (inSlotOnline.length >= caps2.slotOnline) {
-         alert('Sorry — online slots for this time just filled up. Please pick another time or call the hospital.');
-         var activeBtn = document.querySelector('.apt-date-btn.active');
-         if (activeBtn) selectAptDate(_aptBookCtx.date, activeBtn);
-         return;
+      // Regular booking: capacity counts only NON-followup rows.
+      var regularAll  = allRows.filter(function(b) { return !b.is_followup; });
+      var existing    = regularAll.filter(function(b) { return b.status !== 'Cancelled'; });
+      var onlineExisting = existing.filter(function(b) { return b.booking_source !== 'offline'; });
+      if (isTokenMode) {
+         if (onlineExisting.length >= caps2.dailyOnline) {
+            alert('Sorry — online tokens for this day just got fully booked. Please pick another day or call the hospital.');
+            var activeBtnT = document.querySelector('.apt-date-btn.active');
+            if (activeBtnT) selectAptDate(_aptBookCtx.date, activeBtnT);
+            return;
+         }
+         token = _maxTok(regularAll) + 1;
+      } else {
+         var inSlotOnline = onlineExisting.filter(function(b) { return b.slot === _aptBookCtx.slot; });
+         if (inSlotOnline.length >= caps2.slotOnline) {
+            alert('Sorry — online slots for this time just filled up. Please pick another time or call the hospital.');
+            var activeBtn = document.querySelector('.apt-date-btn.active');
+            if (activeBtn) selectAptDate(_aptBookCtx.date, activeBtn);
+            return;
+         }
+         var inSlotAll = regularAll.filter(function(b) { return b.slot === _aptBookCtx.slot; });
+         token = _maxTok(inSlotAll) + 1;
       }
-      var inSlotAll = allRows.filter(function(b) { return b.slot === _aptBookCtx.slot; });
-      token = _maxTok(inSlotAll) + 1;
    }
 
    var aptId = 'APT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 5).toUpperCase();
@@ -1649,10 +1702,12 @@ async function confirmAptBooking() {
       category: _aptBookCtx.catKey,
       date: _aptBookCtx.date,
       slot: _aptBookCtx.slot,
-      fee: _aptBookCtx.doctor.fee,
+      fee: isFollowupBooking ? 0 : _aptBookCtx.doctor.fee,
       status: 'Confirmed',
       token: token,
       booking_source: 'online',
+      is_followup: isFollowupBooking,
+      followup_of: isFollowupBooking ? (_aptBookCtx.followupOf || '') : '',
       patient_name:    name,
       patient_phone:   phone,
       patient_age:     document.getElementById('aptPatientAge').value.trim(),
@@ -1676,7 +1731,7 @@ async function confirmAptBooking() {
 }
 
 function showAptDone(apt) {
-   var tokenLine = apt.token ? '<div style="margin-top:6px;font-size:1rem;font-weight:700;color:#1a73e8">🎟 Your token: T' + apt.token + '</div>' : '';
+   var tokenLine = apt.token ? '<div style="margin-top:6px;font-size:1rem;font-weight:700;color:#1a73e8">🎟 Your token: ' + _tokenLabel(apt) + '</div>' : '';
    document.getElementById('aptDoneDetails').innerHTML =
       '<div style="background:#f8f9ff;border-radius:10px;padding:14px;margin-top:10px">' +
          '<div style="font-size:0.78rem;color:#888">Appointment ID</div>' +
@@ -1838,6 +1893,7 @@ function openAptProviderModal(providerId) {
    document.getElementById('aptProvCommissionType').value  = (p && p.commission_type)  || 'percent';
    document.getElementById('aptProvCommissionValue').value = (p && p.commission_value != null) ? p.commission_value : '';
    document.getElementById('aptProvFollowupDays').value    = (p && p.free_followup_days != null) ? p.free_followup_days : 0;
+   document.getElementById('aptProvFollowupCount').value   = (p && p.free_followup_count != null) ? p.free_followup_count : 1;
    _aptProvCommissionTypeChanged();
 
    document.getElementById('aptProviderModal').classList.remove('hidden');
@@ -1883,7 +1939,8 @@ async function saveAptProvider() {
       owner_email:      document.getElementById('aptProvOwner').value || '',
       commission_type:    document.getElementById('aptProvCommissionType').value || 'percent',
       commission_value:   parseFloat(document.getElementById('aptProvCommissionValue').value) || 0,
-      free_followup_days: Math.max(0, parseInt(document.getElementById('aptProvFollowupDays').value, 10) || 0),
+      free_followup_days:  Math.max(0, parseInt(document.getElementById('aptProvFollowupDays').value, 10) || 0),
+      free_followup_count: Math.max(1, parseInt(document.getElementById('aptProvFollowupCount').value, 10) || 1),
       doctors:            existing ? (existing.doctors || []) : []
    };
    var ok = await AppDB.upsertProvider(provider);
@@ -2531,7 +2588,7 @@ async function renderAllAppointments() {
          '<button class="apt-act-btn" style="background:#555;color:#fff" onclick="deleteAdminAppointment(\'' + aid + '\')" title="Delete (permanent)">🗑 Delete</button>';
       var meta = APT_CAT_META[a.category] || {};
       var tokenCell = a.token
-         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
+         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">' + _tokenLabel(a) + '</span>'
          : '<span style="color:#bbb">—</span>';
       return '<tr>' +
                 '<td style="text-align:center">' + tokenCell + '</td>' +
@@ -4631,7 +4688,7 @@ async function renderShopAppointments(filterStatus) {
             '</div>';
       }
       var tokenCell = a.token
-         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
+         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">' + _tokenLabel(a) + '</span>'
          : '<span style="color:#bbb">—</span>';
       var slotCell  = a.slot ? _formatSlot12(a.slot) : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
       return '<tr>' +
@@ -4791,9 +4848,13 @@ function resetShopSchedule() {
    ['schedDateSection', 'schedSlotSection', 'schedPatientSection'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.classList.add('hidden');
    });
-   ['schedPatientName', 'schedPatientPhone', 'schedPatientEmail', 'schedPatientAge', 'schedPatientAddress', 'schedPatientReason'].forEach(function(id) {
+   ['schedPatientName', 'schedPatientPhone', 'schedPatientEmail', 'schedPatientAge', 'schedPatientAddress', 'schedPatientReason', 'schedFollowupOf'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = '';
    });
+   var fuC = document.getElementById('schedIsFollowup');
+   if (fuC) fuC.checked = false;
+   var fuR = document.getElementById('schedFollowupOfRow');
+   if (fuR) fuR.style.display = 'none';
    document.getElementById('schedConfirmBtn').disabled = true;
    var msg = document.getElementById('schedMsg'); if (msg) msg.textContent = '';
 }
@@ -4969,32 +5030,68 @@ async function confirmShopSchedule() {
    var age     = document.getElementById('schedPatientAge').value.trim();
    var address = document.getElementById('schedPatientAddress').value.trim();
    var reason  = document.getElementById('schedPatientReason').value.trim();
+   var fuChk   = document.getElementById('schedIsFollowup');
+   var fuOfEl  = document.getElementById('schedFollowupOf');
+   ctx.isFollowup = !!(fuChk && fuChk.checked);
+   ctx.followupOf = ctx.isFollowup && fuOfEl ? fuOfEl.value.trim() : '';
+   if (ctx.isFollowup && !ctx.followupOf) {
+      document.getElementById('schedMsg').textContent = 'Please paste the original Appointment ID for the follow-up.';
+      document.getElementById('schedMsg').style.color = '#c62828';
+      return;
+   }
+   // Enforce provider's per-original follow-up count limit. Cancelled follow-ups don't count.
+   if (ctx.isFollowup) {
+      var allApts = await AppDB.getAllAppointments();
+      var orig = (allApts || []).find(function(b) { return b.apt_id === ctx.followupOf; });
+      if (!orig) {
+         document.getElementById('schedMsg').textContent = 'Original Appointment ID not found.';
+         document.getElementById('schedMsg').style.color = '#c62828';
+         return;
+      }
+      var fuLimit = Math.max(1, Number((ctx.provider && ctx.provider.free_followup_count) || 1));
+      var fuExisting = (allApts || []).filter(function(b) {
+         return b.followup_of === ctx.followupOf && b.status !== 'Cancelled';
+      });
+      if (fuExisting.length >= fuLimit) {
+         document.getElementById('schedMsg').textContent = 'This consultation already has ' + fuExisting.length + ' follow-up(s). Limit is ' + fuLimit + '.';
+         document.getElementById('schedMsg').style.color = '#c62828';
+         return;
+      }
+   }
    var msg = document.getElementById('schedMsg');
    var setMsg = function(t, ok) { msg.textContent = t; msg.style.color = ok ? '#2e7d32' : '#c62828'; };
    if (!name || !phone) { setMsg('Patient name and phone are required.'); return; }
 
    // Re-check OFFLINE capacity, but issue tokens from the COMBINED pool so
    // online & offline tokens never collide. Overtime bypasses capacity.
-   // Include cancelled rows for token max — gaps from cancellations stay as gaps.
-   var allRowsS  = await AppDB.getDoctorBookings(ctx.doctor.id, ctx.date, true);
-   var existing  = allRowsS.filter(function(b) { return b.status !== 'Cancelled'; });
-   var offlineExisting = existing.filter(function(b) { return b.booking_source === 'offline'; });
+   // Follow-ups bypass capacity entirely and use a separate FT* counter.
+   var allRowsS    = await AppDB.getDoctorBookings(ctx.doctor.id, ctx.date, true);
+   var isFuS       = !!ctx.isFollowup;
    var isTokenMode = ctx.doctor.booking_mode === 'token';
    var caps = _doctorCaps(ctx.doctor);
    var _maxTokS = function(arr) {
       return arr.reduce(function(m, r) { return Math.max(m, Number(r.token) || 0); }, 0);
    };
    var token;
-   if (ctx.overtime) {
-      token = _maxTokS(allRowsS) + 1;
-   } else if (isTokenMode) {
-      if (offlineExisting.length >= caps.dailyOffline) { setMsg('Offline tokens just got full. Please pick another date.'); return; }
-      token = _maxTokS(allRowsS) + 1;
+   if (isFuS) {
+      // Follow-up booking — no capacity check, FT* counter
+      var fuRows = allRowsS.filter(function(b) { return b.is_followup; });
+      token = _maxTokS(fuRows) + 1;
    } else {
-      var inSlotOffline = offlineExisting.filter(function(b) { return b.slot === ctx.slot; });
-      if (inSlotOffline.length >= caps.slotOffline) { setMsg('Offline slot just filled up. Please pick another.'); return; }
-      var inSlotAll = allRowsS.filter(function(b) { return b.slot === ctx.slot; });
-      token = _maxTokS(inSlotAll) + 1;
+      var regularAllS    = allRowsS.filter(function(b) { return !b.is_followup; });
+      var existing       = regularAllS.filter(function(b) { return b.status !== 'Cancelled'; });
+      var offlineExisting = existing.filter(function(b) { return b.booking_source === 'offline'; });
+      if (ctx.overtime) {
+         token = _maxTokS(regularAllS) + 1;
+      } else if (isTokenMode) {
+         if (offlineExisting.length >= caps.dailyOffline) { setMsg('Offline tokens just got full. Please pick another date.'); return; }
+         token = _maxTokS(regularAllS) + 1;
+      } else {
+         var inSlotOffline = offlineExisting.filter(function(b) { return b.slot === ctx.slot; });
+         if (inSlotOffline.length >= caps.slotOffline) { setMsg('Offline slot just filled up. Please pick another.'); return; }
+         var inSlotAll = regularAllS.filter(function(b) { return b.slot === ctx.slot; });
+         token = _maxTokS(inSlotAll) + 1;
+      }
    }
 
    // user_email: real patient email if given, else a walk-in marker tied to phone
@@ -5020,8 +5117,12 @@ async function confirmShopSchedule() {
       patient_phone:   phone,
       patient_age:     age,
       patient_address: address,
-      patient_reason:  reason + (ctx.overtime ? ' [Overtime]' : '')
+      patient_reason:  reason + (ctx.overtime ? ' [Overtime]' : '') + (isFuS ? ' [Free follow-up of ' + (ctx.followupOf || '') + ']' : ''),
+      is_followup:     isFuS,
+      followup_of:     isFuS ? (ctx.followupOf || '') : ''
    };
+   // Override fee to 0 for follow-ups
+   if (isFuS) apt.fee = 0;
    var ok = await AppDB.insertAppointment(apt);
    if (!ok) { setMsg('Failed to save booking. Please try again.'); return; }
 
@@ -6782,14 +6883,40 @@ async function renderMyAppointments() {
       var rescheduleBtn = isCancellable
          ? '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="showRescheduleInfo(\'' + pidJs + '\')" title="Reschedule policy">🔄 Reschedule</button>'
          : '';
+
+      // Free follow-up button — visible if Completed, not itself a follow-up,
+      // within the provider's free_followup_days window, AND the patient hasn't
+      // already used up the provider's free_followup_count for this original.
+      var prov = _aptGetProvider(a.provider_id) || {};
+      var fuDays  = Number(prov.free_followup_days  || 0);
+      var fuLimit = Math.max(1, Number(prov.free_followup_count || 1));
+      var followupBtn = '';
+      if (status === 'Completed' && !a.is_followup && fuDays > 0) {
+         var origDate = new Date(a.date + 'T00:00:00');
+         var deadline = new Date(origDate.getTime() + fuDays * 86400000);
+         var now0 = new Date(); now0.setHours(0,0,0,0);
+         // Count existing follow-ups for THIS original (cancelled ones don't count toward limit)
+         var existingFu = (apts || []).filter(function(b) {
+            return b.followup_of === a.apt_id && b.status !== 'Cancelled';
+         });
+         if (now0 <= deadline && existingFu.length < fuLimit) {
+            var didJs = (a.doctor_id  || '').replace(/'/g, "\\'");
+            var ckJs  = (a.category   || '').replace(/'/g, "\\'");
+            var aidJs = (a.apt_id     || '').replace(/'/g, "\\'");
+            var dlIso = deadline.getFullYear() + '-' + String(deadline.getMonth()+1).padStart(2,'0') + '-' + String(deadline.getDate()).padStart(2,'0');
+            var remainingLabel = (fuLimit > 1) ? ' (' + (fuLimit - existingFu.length) + ' left)' : '';
+            followupBtn = '<button class="apt-act-btn" style="background:#00897b;color:#fff" title="Book your free follow-up (until ' + deadline.toLocaleDateString('en-IN', {day:'2-digit',month:'short'}) + ')" onclick="openAptBookModalFollowup(\'' + ckJs + '\',\'' + pidJs + '\',\'' + didJs + '\',\'' + aidJs + '\',\'' + dlIso + '\')">🔁 Book Follow-up' + remainingLabel + '</button>';
+         }
+      }
+
       var actions = isCancellable
          ? rescheduleBtn + '<button class="apt-act-btn apt-act-cancel" onclick="cancelMyAppointment(\'' + aid + '\')">✕ Cancel</button>'
-         : '<span style="color:#bbb">—</span>';
+         : (followupBtn || '<span style="color:#bbb">—</span>');
+      if (isCancellable && followupBtn) actions += followupBtn;  // unlikely both; defensive
       var meta = APT_CAT_META[a.category] || {};
-      var prov = _aptGetProvider(a.provider_id) || {};
       var hospitalPhoneLine = prov.phone ? '<div class="apt-tbl-sub" style="color:#1a73e8;font-weight:600">📞 ' + prov.phone + '</div>' : '';
       var tokenCell = a.token
-         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
+         ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">' + _tokenLabel(a) + '</span>'
          : '<span style="color:#bbb">—</span>';
       var slotCell  = a.slot ? _formatSlot12(a.slot) : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
       return '<tr>' +
@@ -6864,6 +6991,24 @@ async function cancelMyAppointment(aptId) {
    if (apt && _slotPassed(apt)) {
       alert('This appointment time has already passed (' + apt.date + (apt.slot ? ' ' + apt.slot : '') + '). Please contact the hospital directly to resolve.');
       return;
+   }
+   // Cancel-once rule for follow-ups: customer can self-cancel at most one
+   // follow-up per original visit. Prevents the abuse loop of book → cancel
+   // → book → cancel. If they've already cancelled one, they must call the
+   // hospital for further changes.
+   if (apt && apt.is_followup && apt.followup_of) {
+      var alreadyCancelledByMe = apts.filter(function(b) {
+         return b.is_followup
+             && b.followup_of === apt.followup_of
+             && b.status === 'Cancelled'
+             && b.cancelled_by === 'customer';
+      });
+      if (alreadyCancelledByMe.length >= 1) {
+         var prov0 = _aptGetProvider(apt.provider_id) || {};
+         var phoneLine = prov0.phone ? '\n\nHospital phone: ' + prov0.phone : '';
+         alert('You\'ve already cancelled one follow-up for this consultation. To avoid abuse, further changes must be done by the hospital. Please call them.' + phoneLine);
+         return;
+      }
    }
    var reason = prompt('Please tell us why you\'re cancelling (so the hospital knows):\n\n(Optional — leave blank if you prefer.)');
    if (reason === null) return;
@@ -7439,7 +7584,7 @@ async function printConsultationReceipt(aptId) {
 
          '<div class="signblock"><div class="signline">(Authorised Signatory)</div></div>' +
 
-         (followUpEnd ? '<div class="followup">&lt; Free FOLLOW-UP upto ' + esc(fmtDateOnly(followUpEnd)) + ' &gt;</div>' : '') +
+         (followUpEnd ? '<div class="followup">&lt; ' + ((Number(prov.free_followup_count || 1) > 1) ? (Number(prov.free_followup_count) + ' Free FOLLOW-UPs') : 'Free FOLLOW-UP') + ' upto ' + esc(fmtDateOnly(followUpEnd)) + ' &gt;</div>' : '') +
       '</div>' +
 
       '<div class="actions">' +

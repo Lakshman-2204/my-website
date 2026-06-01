@@ -661,8 +661,12 @@
                   <input type="number" id="aptProvCommissionValue" min="0" step="0.1" placeholder="5"/>
                </div>
                <div class="modal-field">
-                  <label>Free Follow-up Days <small style="font-weight:400;color:#aaa">(0 = no free follow-up policy; printed on receipt)</small></label>
+                  <label>Free Follow-up Days <small style="font-weight:400;color:#aaa">(0 = no policy; printed on receipt)</small></label>
                   <input type="number" id="aptProvFollowupDays" min="0" max="60" step="1" placeholder="0"/>
+               </div>
+               <div class="modal-field">
+                  <label>Free Follow-ups Allowed <small style="font-weight:400;color:#aaa">(max visits within that window — cancelled ones don't count)</small></label>
+                  <input type="number" id="aptProvFollowupCount" min="1" max="10" step="1" placeholder="1"/>
                </div>
                <input type="hidden" id="aptProvId"/>
             </div>

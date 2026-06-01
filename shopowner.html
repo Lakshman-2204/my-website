@@ -195,6 +195,16 @@
                <label>Reason / Symptoms <small style="font-weight:400;color:#aaa">(optional)</small></label>
                <textarea id="schedPatientReason" rows="2" placeholder="e.g. Fever, routine check-up…"></textarea>
             </div>
+            <div class="apt-field" style="background:#e0f2f1;border:1px solid #80cbc4;border-radius:8px;padding:8px 10px">
+               <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input type="checkbox" id="schedIsFollowup" onchange="document.getElementById('schedFollowupOfRow').style.display=this.checked?'block':'none'"/>
+                  🔁 Mark as free follow-up <small style="color:#666;font-weight:400">(fee will be ₹0, gets an FT* token, doesn't consume regular slots)</small>
+               </label>
+               <div id="schedFollowupOfRow" style="display:none;margin-top:8px">
+                  <label style="font-size:0.82rem;color:#555">Original Appointment ID <small style="color:#aaa">(copy from the patient's earlier visit row)</small></label>
+                  <input type="text" id="schedFollowupOf" placeholder="APT-XXXXXX-XXX" style="font-family:ui-monospace,monospace"/>
+               </div>
+            </div>
          </div>
 
          <div style="margin-top:1rem;display:flex;gap:8px">

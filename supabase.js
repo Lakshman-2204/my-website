@@ -360,7 +360,7 @@ window.AppDB = {
    // increasing token, where gaps from cancelled rows must NOT be reused.
    async getDoctorBookings(doctorId, dateStr, includeCancelled) {
       let q = _sb.from('appointments')
-         .select('slot, token, status, booking_source')
+         .select('slot, token, status, booking_source, is_followup, followup_of')
          .eq('doctor_id', doctorId)
          .eq('date', dateStr);
       if (!includeCancelled) q = q.neq('status', 'Cancelled');
@@ -427,7 +427,8 @@ window.AppDB = {
          owner_email:      (provider.owner_email || '').toLowerCase(),
          commission_type:    provider.commission_type  || 'percent',
          commission_value:   (provider.commission_value != null) ? Number(provider.commission_value) : 0,
-         free_followup_days: (provider.free_followup_days != null) ? Math.max(0, parseInt(provider.free_followup_days, 10) || 0) : 0,
+         free_followup_days:  (provider.free_followup_days  != null) ? Math.max(0, parseInt(provider.free_followup_days,  10) || 0) : 0,
+         free_followup_count: (provider.free_followup_count != null) ? Math.max(1, parseInt(provider.free_followup_count, 10) || 1) : 1,
          doctors:            provider.doctors     || []
       };
       const { error } = await _sb.from('apt_providers').upsert(row, { onConflict: 'id' });

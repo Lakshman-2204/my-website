@@ -455,6 +455,40 @@ window.AppDB = {
       return data && data.publicUrl ? data.publicUrl : null;
    },
 
+   // List every file in the doctor-photos bucket (used by the admin orphan
+   // cleanup tool to find files that aren't referenced by any doctor row).
+   async listDoctorPhotoFiles() {
+      const { data, error } = await _sb.storage.from('doctor-photos').list('', { limit: 1000 });
+      if (error) { console.error('listDoctorPhotoFiles:', error.message); return []; }
+      return (data || []).filter(f => f.name && f.name !== '.emptyFolderPlaceholder').map(f => f.name);
+   },
+
+   // Delete multiple files from doctor-photos by their stored names (the
+   // filename part after the bucket prefix, not the full public URL).
+   async deleteDoctorPhotoFiles(filenames) {
+      if (!filenames || !filenames.length) return 0;
+      const { error } = await _sb.storage.from('doctor-photos').remove(filenames);
+      if (error) { console.error('deleteDoctorPhotoFiles:', error.message); return 0; }
+      return filenames.length;
+   },
+
+   // Delete a doctor photo file from the doctor-photos bucket. Pass the full
+   // public URL we stored on the doctor row — we extract the filename and
+   // call Storage's .remove(). Safe to call with a non-bucket URL or empty
+   // string (no-op). Used to clean up when a photo is replaced or a doctor
+   // is deleted, so the bucket doesn't accumulate orphaned files.
+   async deleteDoctorPhotoByUrl(publicUrl) {
+      if (!publicUrl) return false;
+      const marker = '/doctor-photos/';
+      const idx = publicUrl.indexOf(marker);
+      if (idx === -1) return false;             // not one of our bucket files
+      const path = publicUrl.substring(idx + marker.length);
+      if (!path) return false;
+      const { error } = await _sb.storage.from('doctor-photos').remove([path]);
+      if (error) { console.error('deleteDoctorPhotoByUrl:', error.message); return false; }
+      return true;
+   },
+
    // ── APT CATEGORIES (admin-managed) ─────────────
    async getCategories() {
       const { data, error } = await _sb.from('apt_categories').select('*').order('sort_order').order('label');

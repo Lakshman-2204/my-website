@@ -2143,11 +2143,19 @@ async function saveAptDoctor() {
 
    var doctors = (provider.doctors || []).slice();
    var idx = doctors.findIndex(function(d) { return d.id === docId; });
+   var oldPhoto = (idx >= 0) ? (doctors[idx].photo || '') : '';
    if (idx >= 0) doctors[idx] = newDoctor; else doctors.push(newDoctor);
 
    provider.doctors = doctors;
    var ok = await AppDB.upsertProvider(provider);
    if (!ok) { alert('Failed to save doctor.'); return; }
+
+   // Cleanup: if the photo changed, delete the old file from the storage bucket
+   // so we don't accumulate orphaned images.
+   if (oldPhoto && oldPhoto !== newDoctor.photo) {
+      try { await AppDB.deleteDoctorPhotoByUrl(oldPhoto); } catch (e) { console.warn(e); }
+   }
+
    closeAptDoctorModal();
    await _aptRerenderActiveList();
 }
@@ -2158,10 +2166,147 @@ async function deleteAptDoctor(providerId, doctorId) {
    var doctor = _aptGetDoctor(provider, doctorId);
    if (!doctor) return;
    if (!confirm('Remove Dr. ' + doctor.name.replace(/^Dr\.?\s*/i,'') + ' from ' + provider.name + '?')) return;
+   var photoToCleanup = doctor.photo || '';
    provider.doctors = (provider.doctors || []).filter(function(d) { return d.id !== doctorId; });
    var ok = await AppDB.upsertProvider(provider);
    if (!ok) { alert('Failed to delete doctor.'); return; }
+   // Cleanup the photo from storage so it doesn't sit orphaned in the bucket.
+   if (photoToCleanup) {
+      try { await AppDB.deleteDoctorPhotoByUrl(photoToCleanup); } catch (e) { console.warn(e); }
+   }
    await _aptRerenderActiveList();
+}
+
+// ── CSV export helpers ──
+// Convert an array of plain objects → CSV (UTF-8 with BOM so Excel renders ₹
+// and other unicode correctly). Triggers an immediate browser download.
+function _downloadCsv(filename, rows) {
+   if (!rows || !rows.length) { alert('Nothing to export — the current filter has no rows.'); return; }
+   var headers = Object.keys(rows[0]);
+   var esc = function(v) {
+      if (v === null || v === undefined) return '';
+      var s = String(v);
+      if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) {
+         return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+   };
+   var lines = [ headers.map(esc).join(',') ];
+   rows.forEach(function(r) { lines.push(headers.map(function(h) { return esc(r[h]); }).join(',')); });
+   var csv = '﻿' + lines.join('\r\n');                      // BOM + CRLF for Excel
+   var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+   var url  = URL.createObjectURL(blob);
+   var a    = document.createElement('a');
+   a.href = url; a.download = filename;
+   document.body.appendChild(a); a.click(); document.body.removeChild(a);
+   URL.revokeObjectURL(url);
+}
+
+function _aptRowToCsv(a) {
+   return {
+      'Date'              : a.date || '',
+      'Slot'              : a.slot || '',
+      'Token'             : a.token || '',
+      'Doctor'            : a.doctor_name || '',
+      'Speciality'        : a.speciality || '',
+      'Provider'          : a.provider_name || '',
+      'Category'          : a.category || '',
+      'Patient Name'      : a.patient_name || '',
+      'Patient Phone'     : a.patient_phone || '',
+      'Patient Age'       : a.patient_age || '',
+      'Patient Address'   : a.patient_address || '',
+      'Symptom / Reason'  : a.patient_reason || '',
+      'Fee (Rs)'          : a.fee || 0,
+      'Status'            : a.status || '',
+      'Paid'              : a.is_paid ? 'Yes' : 'No',
+      'Refunded'          : a.is_refunded ? 'Yes' : 'No',
+      'Refund Amount (Rs)': a.refund_amount || 0,
+      'Booking Source'    : a.booking_source || '',
+      'Customer Email'    : a.user_email || '',
+      'Cancelled By'      : a.cancelled_by || '',
+      'Cancellation Reason': a.cancellation_reason || '',
+      'Booked At'         : a.created_at || '',
+      'Appointment ID'    : a.apt_id || ''
+   };
+}
+
+// Export the currently-filtered appointments shown on the shopowner Appointments tab.
+function exportShopAppointmentsCsv() {
+   var rows = (window._shopAptsFiltered || []).map(_aptRowToCsv);
+   var today = new Date().toISOString().slice(0, 10);
+   _downloadCsv('bookings_' + today + '.csv', rows);
+}
+
+// Export the currently-filtered appointments shown on the admin All Bookings sub-tab.
+function exportAdminAppointmentsCsv() {
+   var rows = (window._adminAptsFiltered || []).map(_aptRowToCsv);
+   var today = new Date().toISOString().slice(0, 10);
+   _downloadCsv('all_bookings_' + today + '.csv', rows);
+}
+
+// Export the currently-rendered billing table from the admin Billing tab.
+function exportAdminBillingCsv() {
+   var rows = window._billingExportRows || [];
+   var today = new Date().toISOString().slice(0, 10);
+   _downloadCsv('billing_' + today + '.csv', rows);
+}
+
+// ── Admin: clean orphan doctor photos ──
+// Lists every file in the doctor-photos storage bucket, collects every photo
+// URL referenced by any doctor across all providers, and deletes files in the
+// bucket that nobody references. Safe — interactive confirmation, no data loss
+// to live doctors. Use after bulk testing or to tidy up legacy orphans.
+async function cleanOrphanDoctorPhotos() {
+   var btn    = document.getElementById('cleanOrphansBtn');
+   var status = document.getElementById('cleanOrphansStatus');
+   if (btn) { btn.disabled = true; btn.textContent = '🔎 Scanning…'; }
+   if (status) { status.style.color = '#555'; status.textContent = 'Scanning bucket and provider records…'; }
+
+   try {
+      // 1. All files actually in the bucket
+      var bucketFiles = await AppDB.listDoctorPhotoFiles();
+
+      // 2. All filenames referenced by any doctor row (any provider, any category)
+      var providers = await AppDB.getProviders();
+      var referenced = new Set();
+      var marker = '/doctor-photos/';
+      (providers || []).forEach(function(p) {
+         (p.doctors || []).forEach(function(d) {
+            if (!d || !d.photo) return;
+            var idx = d.photo.indexOf(marker);
+            if (idx !== -1) referenced.add(d.photo.substring(idx + marker.length));
+         });
+      });
+
+      // 3. Orphans = in bucket but not referenced
+      var orphans = bucketFiles.filter(function(f) { return !referenced.has(f); });
+
+      if (orphans.length === 0) {
+         if (status) { status.style.color = '#2e7d32'; status.textContent = '✅ Bucket is clean — ' + bucketFiles.length + ' files, all referenced.'; }
+         return;
+      }
+
+      var ok = confirm(
+         'Found ' + orphans.length + ' orphan file' + (orphans.length === 1 ? '' : 's') +
+         ' in the doctor-photos bucket (out of ' + bucketFiles.length + ' total).\n\n' +
+         'These files are not referenced by any doctor record. Delete them now?'
+      );
+      if (!ok) {
+         if (status) { status.style.color = '#777'; status.textContent = 'Cancelled. ' + orphans.length + ' orphan' + (orphans.length === 1 ? '' : 's') + ' left untouched.'; }
+         return;
+      }
+
+      var deleted = await AppDB.deleteDoctorPhotoFiles(orphans);
+      if (status) {
+         status.style.color = '#2e7d32';
+         status.textContent = '✅ Removed ' + deleted + ' orphan file' + (deleted === 1 ? '' : 's') + '. Bucket now has ' + (bucketFiles.length - deleted) + ' file' + ((bucketFiles.length - deleted) === 1 ? '' : 's') + '.';
+      }
+   } catch (e) {
+      console.error(e);
+      if (status) { status.style.color = '#c62828'; status.textContent = '❌ Cleanup failed — see browser console for details.'; }
+   } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🧹 Clean Orphan Doctor Photos'; }
+   }
 }
 
 // Re-render whichever doctor/provider list is on the current page (admin or shopowner)
@@ -2322,6 +2467,7 @@ async function renderAllAppointments() {
       }
       return true;
    });
+   window._adminAptsFiltered = apts;     // for CSV export
 
    if (!apts.length) {
       container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No appointments match the current filters.</p>';
@@ -4367,6 +4513,7 @@ async function renderShopAppointments(filterStatus) {
    var cc = document.getElementById('statAptCancelled'); if (cc) cc.textContent = counts.Cancelled;
 
    var apts = filterStatus ? dateFiltered.filter(function(a) { return (a.status || 'Confirmed') === filterStatus; }) : dateFiltered;
+   window._shopAptsFiltered = apts;       // for CSV export
    // Sort by date → slot → token so owner sees patients in the order they should be called
    apts.sort(function(a, b) {
       if (a.date !== b.date) return (a.date || '').localeCompare(b.date || '');
@@ -5966,7 +6113,18 @@ async function renderBillingAdmin() {
                   '</td>' +
                   '<td style="text-align:right;font-weight:700;color:#1a73e8">₹' + commission.toLocaleString('en-IN') + '</td>' +
                '</tr>',
-         revenue: revenue, commission: commission, count: count, isAppt: true
+         revenue: revenue, commission: commission, count: count, isAppt: true,
+         csv: {
+            'Partner Name'    : p.name,
+            'Owner Email'     : p.owner_email || '',
+            'Type'            : 'Appointments (' + (p.category || '') + ')',
+            'Orders Count'    : 0,
+            'Bookings Count'  : count,
+            'Revenue (Rs)'    : revenue,
+            'Commission Type' : (p.commission_type || 'percent'),
+            'Commission Value': cval,
+            'Commission Owed (Rs)': commission
+         }
       });
    });
 
@@ -5992,9 +6150,21 @@ async function renderBillingAdmin() {
                   '</td>' +
                   '<td style="text-align:right;font-weight:700;color:#1a73e8">₹' + commission.toLocaleString('en-IN') + '</td>' +
                '</tr>',
-         revenue: b.revenue, commission: commission, count: b.count, isAppt: false
+         revenue: b.revenue, commission: commission, count: b.count, isAppt: false,
+         csv: {
+            'Partner Name'    : name,
+            'Owner Email'     : email,
+            'Type'            : 'Products',
+            'Orders Count'    : b.count,
+            'Bookings Count'  : 0,
+            'Revenue (Rs)'    : b.revenue,
+            'Commission Type' : 'percent',
+            'Commission Value': rate,
+            'Commission Owed (Rs)': commission
+         }
       });
    });
+   window._billingExportRows = billingRows.map(function(r){ return r.csv; });
 
    if (!billingRows.length) {
       container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No completed orders or appointments in the selected period.</p>';

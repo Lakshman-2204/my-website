@@ -136,6 +136,7 @@
             <input type="date" id="shopAptCustomDate"  class="admin-filter-select" style="display:none" onchange="renderShopAppointments(window._shopAptCurrentFilter)"/>
             <input type="date" id="shopAptRangeFrom"   class="admin-filter-select" style="display:none" title="From" onchange="renderShopAppointments(window._shopAptCurrentFilter)"/>
             <input type="date" id="shopAptRangeTo"     class="admin-filter-select" style="display:none" title="To"   onchange="renderShopAppointments(window._shopAptCurrentFilter)"/>
+            <button type="button" class="apt-view-btn" style="background:#2e7d32" onclick="exportShopAppointmentsCsv()" title="Download the currently-shown rows as a CSV file (opens in Excel)">📊 Export CSV</button>
          </div>
       </div>
       <!-- Doctor tabs row — populated dynamically from existing appointments -->

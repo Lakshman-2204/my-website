@@ -81,6 +81,7 @@
             </select>
             <input type="date" id="billingRangeFrom" class="admin-filter-select" style="display:none" title="From" onchange="renderBillingAdmin()"/>
             <input type="date" id="billingRangeTo"   class="admin-filter-select" style="display:none" title="To"   onchange="renderBillingAdmin()"/>
+            <button class="apt-view-btn" style="background:#2e7d32" onclick="exportAdminBillingCsv()" title="Download billing summary as CSV">📊 Export CSV</button>
          </div>
          <div class="admin-content" id="billingContent">
             <p style="color:#999;text-align:center;padding:40px">Loading…</p>
@@ -278,6 +279,19 @@
                </div>
             </div>
 
+            <!-- STORAGE MAINTENANCE -->
+            <div class="settings-card">
+               <div class="settings-card-header">🧹 Storage Maintenance</div>
+               <div class="settings-card-body">
+                  <p style="font-size:0.83rem;color:#888;margin-bottom:12px">
+                     Doctor / staff photos live in Supabase Storage. New uploads automatically replace old files,
+                     but historical orphans from earlier tests may still sit in the bucket. Click below to scan and remove them.
+                  </p>
+                  <button class="menu-add-btn" onclick="cleanOrphanDoctorPhotos()" id="cleanOrphansBtn">🧹 Clean Orphan Doctor Photos</button>
+                  <p id="cleanOrphansStatus" style="font-size:0.85rem;color:#555;margin-top:10px"></p>
+               </div>
+            </div>
+
          </div><!-- /settings-content -->
       </div><!-- /tab-settings -->
 
@@ -441,6 +455,7 @@
                   <input type="date" id="adminAptCustomDate" class="admin-filter-select" style="display:none" onchange="renderAllAppointments()"/>
                   <input type="date" id="adminAptRangeFrom"  class="admin-filter-select" style="display:none" title="From" onchange="renderAllAppointments()"/>
                   <input type="date" id="adminAptRangeTo"    class="admin-filter-select" style="display:none" title="To"   onchange="renderAllAppointments()"/>
+                  <button class="apt-view-btn" style="background:#2e7d32" onclick="exportAdminAppointmentsCsv()" title="Download the currently-shown rows as CSV">📊 Export CSV</button>
                </div>
                <button class="apt-view-btn" style="background:#c62828" onclick="deleteAllShownAppointments()">🗑 Delete All Shown</button>
             </div>

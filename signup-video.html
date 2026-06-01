@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8"/>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Sign Up</title>
+      <link rel="stylesheet" href="style.css"/>
+      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+      <script src="supabase.js"></script>
+      <style>
+         body.auth-page { background: #1a1a2e; }
+         .auth-bg-video {
+            position: fixed; inset: 0; z-index: -2;
+            width: 100vw; height: 100vh;
+            object-fit: cover;
+            pointer-events: none;
+         }
+         .auth-bg-overlay {
+            position: fixed; inset: 0; z-index: -1;
+            background: rgba(0, 0, 0, 0.45);
+            pointer-events: none;
+         }
+         .auth-box {
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+         }
+      </style>
+   </head>
+   <body class="auth-page">
+      <video class="auth-bg-video" autoplay muted loop playsinline preload="auto">
+         <source src="bg.mp4" type="video/mp4"/>
+      </video>
+      <div class="auth-bg-overlay"></div>
+
+      <div class="auth-box" id="signupBox">
+         <h1>Create Account</h1>
+         <p class="subtitle">Sign up to get started</p>
+         <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="signupName" placeholder="firstname lastname"/>
+         </div>
+         <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="signupEmail" placeholder="gajula@example.com"/>
+         </div>
+         <div class="form-group">
+            <label>Password</label>
+            <div class="pw-wrap">
+               <input type="password" id="signupPassword" placeholder="Min 6 characters" oninput="checkPwMatch('signupPassword','signupConfirm')"/>
+               <button type="button" class="pw-toggle" onclick="togglePassword('signupPassword', this)" title="Show password">👁</button>
+            </div>
+         </div>
+         <div class="form-group">
+            <label>Confirm Password</label>
+            <div class="pw-wrap">
+               <input type="password" id="signupConfirm" placeholder="Repeat password" oninput="checkPwMatch('signupPassword','signupConfirm')"/>
+               <button type="button" class="pw-toggle" onclick="togglePassword('signupConfirm', this)" title="Show password">👁</button>
+            </div>
+         </div>
+         <div class="form-group">
+            <label>I am a</label>
+            <div class="role-selector">
+               <label class="role-option" id="role-customer-label">
+                  <input type="radio" name="userRole" id="role-customer" value="customer" checked/>
+                  <div class="role-card">
+                     <div class="role-icon">🛍️</div>
+                     <div class="role-name">Customer</div>
+                     <div class="role-desc">Browse & order products</div>
+                  </div>
+               </label>
+               <label class="role-option" id="role-owner-label">
+                  <input type="radio" name="userRole" id="role-storeowner" value="storeowner"/>
+                  <div class="role-card">
+                     <div class="role-icon">🏪</div>
+                     <div class="role-name">Business Partner</div>
+                     <div class="role-desc">Sell products or manage appointments</div>
+                  </div>
+               </label>
+            </div>
+         </div>
+         <button class="btn-primary" onclick="signUp()">Create Account</button>
+         <p class="switch-link">
+            Already have an account? <a href="login-video.html">Login here</a>
+         </p>
+      </div>
+
+      <div class="auth-box" id="otpBox" style="display:none">
+         <h1>Verify Your Email</h1>
+         <p class="subtitle">We sent a 6-digit code to <strong id="otpEmail"></strong></p>
+         <div class="form-group">
+            <label>Verification Code</label>
+            <input type="text" id="otpCode" placeholder="Enter the code from your email" maxlength="10" inputmode="numeric" autocomplete="one-time-code"/>
+         </div>
+         <p id="otpError" class="error-msg hidden"></p>
+         <button class="btn-primary" onclick="verifySignupOtp()">Verify & Create Account</button>
+         <p class="switch-link">
+            Didn't receive it? <a href="#" onclick="resendOtp(event)">Resend code</a>
+         </p>
+         <p class="switch-link">
+            <a href="#" onclick="backToSignup(event)">← Back to signup</a>
+         </p>
+      </div>
+      <script src="script.js"></script>
+   </body>
+</html>

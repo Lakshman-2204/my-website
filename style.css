@@ -1666,6 +1666,11 @@ body.guest .store-section-divider {
 	.shop-tabs { padding: 0 12px; }
 	.shop-tab  { flex: 0 0 auto; padding: 0.6rem 0.9rem; font-size: 0.82rem; }
 
+	/* Top main tab bar (Dashboard / Appointments / Doctors / Schedule / Products):
+	   reduce padding on mobile so more tabs fit per swipe */
+	.shop-main-tabs { padding: 0 12px; }
+	.shop-main-tab  { padding: 10px 12px; font-size: 0.82rem; gap: 4px; }
+
 	/* Catch-all: any direct child of the shop content area is clipped to viewport
 	   width, so a stray wide element can't push the page sideways. */
 	.shopowner-page > *,
@@ -4494,6 +4499,9 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	background: #fff;
 	border-bottom: 2px solid #eee;
 	padding: 0 20px;
+	overflow-x: auto;            /* tabs scroll horizontally on narrow viewports */
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: thin;
 }
 .shop-main-tab {
 	padding: 12px 20px;
@@ -4508,6 +4516,8 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	flex: 0 0 auto;              /* never shrink — keeps tab labels intact */
+	white-space: nowrap;
 }
 .shop-main-tab.active { color: #1a237e; border-bottom-color: #1a237e; }
 .shop-add-prod-btn {

@@ -2232,9 +2232,15 @@ async function renderAllAppointments() {
             }
          }
       }
+      var isPaid = !!a.is_paid || status === 'Completed';
       var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
-      if (status === 'Confirmed')      feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
-      else if (status === 'Completed') feeHtml += '<div class="apt-tbl-fee-tag paid">paid</div>';
+      if (status === 'Cancelled' || status === 'No-show') {
+         /* no payment badge */
+      } else if (isPaid) {
+         feeHtml += '<div class="apt-tbl-fee-tag paid">paid</div>';
+      } else {
+         feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
+      }
       var bookedAt = '';
       if (a.created_at) {
          var dt = new Date(a.created_at);
@@ -2244,14 +2250,14 @@ async function renderAllAppointments() {
          }
       }
       // Admin can print receipt + delete. Complete/Cancel are done by hospital owner or customer.
-      // Receipt is enabled only when the booking is Completed; otherwise shown disabled.
+      // Receipt is enabled once the fee is paid (Completed implies paid).
       var adminReceiptBtn;
-      if (status === 'Completed') {
+      if (isPaid) {
          adminReceiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="printConsultationReceipt(\'' + aid + '\')" title="Print consultation receipt">🧾 Receipt</button>';
       } else if (status === 'Cancelled' || status === 'No-show') {
          adminReceiptBtn = '';
       } else {
-         adminReceiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff;opacity:0.4;cursor:not-allowed" title="Available after the appointment is marked Completed" disabled>🧾 Receipt</button>';
+         adminReceiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff;opacity:0.4;cursor:not-allowed" title="Available once the hospital marks fee as paid" disabled>🧾 Receipt</button>';
       }
       var actions =
          adminReceiptBtn +
@@ -4276,10 +4282,16 @@ async function renderShopAppointments(filterStatus) {
       var aid = (a.apt_id || '').replace(/'/g, "\\'");
       var canChange = status === 'Confirmed';
 
-      // Fee column — show "(not paid)" hint for pending bookings
+      // Fee column — paid badge follows the is_paid flag (Completed implies paid)
+      var isPaid = !!a.is_paid || status === 'Completed';
       var feeHtml = '<div class="apt-tbl-fee">₹' + (a.fee || 0) + '</div>';
-      if (status === 'Confirmed')        feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
-      else if (status === 'Completed')   feeHtml += '<div class="apt-tbl-fee-tag paid">paid offline</div>';
+      if (status === 'Cancelled' || status === 'No-show') {
+         /* no payment badge for cancelled/no-show rows */
+      } else if (isPaid) {
+         feeHtml += '<div class="apt-tbl-fee-tag paid">paid offline</div>';
+      } else {
+         feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
+      }
 
       // Booked At — when the customer placed the booking (uses created_at)
       var bookedAt = '';
@@ -4292,20 +4304,28 @@ async function renderShopAppointments(filterStatus) {
          }
       }
 
-      // Action buttons depend on status + whether the slot has passed yet.
-      // Receipt becomes available only AFTER the booking is marked Completed
-      // (= patient was seen, fee paid). Before that it's shown disabled.
+      // Action buttons depend on status, payment, and slot time.
+      // Mark-Paid: shown when not yet paid + booking still active.
+      // Receipt:   enabled once is_paid OR Completed (=implies paid).
+      var paidBtn;
+      if (isPaid) {
+         paidBtn = '<span class="apt-act-btn" style="background:#e8f5e9;color:#1b5e20;cursor:default" title="Fee already collected">✓ Paid</span>';
+      } else if (status === 'Cancelled' || status === 'No-show') {
+         paidBtn = '';
+      } else {
+         paidBtn = '<button class="apt-act-btn" style="background:#2e7d32;color:#fff" title="Mark fee as paid (patient paid at reception)" onclick="shopMarkPaid(\'' + aid + '\')">💰 Mark Paid</button>';
+      }
       var receiptBtn;
-      if (status === 'Completed') {
+      if (isPaid) {
          receiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" title="Print consultation receipt" onclick="printConsultationReceipt(\'' + aid + '\')">🧾 Receipt</button>';
       } else if (status === 'Cancelled' || status === 'No-show') {
          receiptBtn = '';
       } else {
-         receiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff;opacity:0.4;cursor:not-allowed" title="Available after marking the appointment as Completed" disabled>🧾 Receipt</button>';
+         receiptBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff;opacity:0.4;cursor:not-allowed" title="Mark fee as paid first" disabled>🧾 Receipt</button>';
       }
       var actions;
       if (!canChange) {
-         actions = receiptBtn || '<span style="color:#bbb">—</span>';
+         actions = paidBtn + receiptBtn || '<span style="color:#bbb">—</span>';
       } else {
          var slotPassed = _slotPassed(a);
          var completeBtn = slotPassed
@@ -4315,7 +4335,7 @@ async function renderShopAppointments(filterStatus) {
             ? '<button class="apt-act-btn apt-act-noshow"  title="Patient did not show up" onclick="shopSetAptStatus(\'' + aid + '\',\'No-show\')">🚫 No-show</button>'
             : '';
          var cancelBtn  = '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>';
-         actions = receiptBtn + completeBtn + noshowBtn + cancelBtn;
+         actions = paidBtn + receiptBtn + completeBtn + noshowBtn + cancelBtn;
       }
       var tokenCell = a.token
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">T' + a.token + '</span>'
@@ -4718,6 +4738,8 @@ async function shopSetAptStatus(aptId, status) {
          return;
       }
       if (!confirm('Mark this appointment as Completed?')) return;
+      // Completed implies fee was paid — set the flag too.
+      extra = { is_paid: true };
    } else if (status === 'No-show') {
       if (apt && !_slotPassed(apt)) {
          alert('This appointment time hasn\'t passed yet. No-show can only be marked after the slot.');
@@ -4728,6 +4750,19 @@ async function shopSetAptStatus(aptId, status) {
       if (!confirm('Set this appointment to "' + status + '"?')) return;
    }
    var ok = await AppDB.updateAppointmentStatus(aptId, status, extra);
+   if (!ok) { alert('Failed to update.'); return; }
+   _shopAptsCache = null;
+   renderShopAppointments();
+}
+
+// Flip is_paid=true without changing status. Used when the patient pays at
+// reception but the consultation hasn't happened yet — they still need a receipt.
+async function shopMarkPaid(aptId) {
+   var apt = (_shopAptsCache || []).find(function(a) { return a.apt_id === aptId; });
+   if (!apt) { alert('Appointment not found.'); return; }
+   if (apt.is_paid) { alert('Already marked as paid.'); return; }
+   if (!confirm('Mark fee of ₹' + (apt.fee || 0) + ' as paid? The patient will be able to print a receipt.')) return;
+   var ok = await AppDB.updateAppointmentStatus(aptId, apt.status || 'Confirmed', { is_paid: true });
    if (!ok) { alert('Failed to update.'); return; }
    _shopAptsCache = null;
    renderShopAppointments();

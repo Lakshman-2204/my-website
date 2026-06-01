@@ -103,6 +103,14 @@ CREATE INDEX IF NOT EXISTS appointments_doctor_date_idx ON public.appointments(d
 ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS booking_source text DEFAULT 'online';
 
+-- 8e. APPOINTMENTS — payment flag (independent of consultation completion).
+--     Patient pays the fee at reception and gets a receipt before the doctor
+--     visit, so payment status is tracked separately from status='Completed'.
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS is_paid boolean DEFAULT false;
+-- Treat all historical Completed rows as paid (matches old behaviour).
+UPDATE public.appointments SET is_paid = true WHERE status = 'Completed' AND is_paid IS NOT TRUE;
+
 -- 5d. APT_PROVIDERS — phone number for "call to book" CTA when online slots are full
 ALTER TABLE public.apt_providers
    ADD COLUMN IF NOT EXISTS phone text DEFAULT '';

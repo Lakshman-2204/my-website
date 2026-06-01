@@ -164,7 +164,12 @@
          </div>
 
          <div id="schedSlotSection" class="hidden" style="margin-top:0.8rem">
-            <label class="apt-form-label">Time Slot</label>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+               <label class="apt-form-label" style="margin:0">Time Slot</label>
+               <button type="button" id="schedCancelAllBtn" onclick="bulkCancelScheduleBookings()" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.78rem;font-weight:600;cursor:pointer">
+                  🚨 Cancel All Bookings
+               </button>
+            </div>
             <div class="apt-slots-grid" id="schedSlotButtons"></div>
          </div>
 
@@ -279,6 +284,16 @@
             <label class="apt-form-label" style="margin-top:6px" id="aptDocAvailLabel">Weekly Availability</label>
             <p style="font-size:0.78rem;color:#888;margin-bottom:6px">Format: <code>09:00-12:00, 14:00-18:00</code> or <code>off</code></p>
             <div id="aptDocAvail"></div>
+
+            <label class="apt-form-label" style="margin-top:14px">🏖 Vacation Dates <small style="font-weight:400;color:#aaa">(no bookings allowed in these ranges)</small></label>
+            <div id="aptDocVacations" style="margin-bottom:6px"></div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+               <input type="date" id="aptDocVacStart" style="padding:5px;border:1px solid #ccc;border-radius:5px;font-size:0.85rem"/>
+               <span style="color:#888">to</span>
+               <input type="date" id="aptDocVacEnd" style="padding:5px;border:1px solid #ccc;border-radius:5px;font-size:0.85rem"/>
+               <button type="button" onclick="addDoctorVacationRange()" style="padding:5px 12px;background:#1a73e8;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:0.82rem">➕ Add</button>
+            </div>
+
             <input type="hidden" id="aptDocProviderId"/>
             <input type="hidden" id="aptDocId"/>
          </div>

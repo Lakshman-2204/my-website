@@ -1898,10 +1898,10 @@ body.guest .store-section-divider {
 .apt-act-noshow    { background: #ef6c00; color: #fff; }
 
 @media (max-width: 900px) {
-	/* Hide Booked At, Appt ID, and Symptom columns on tablets/phones */
-	.apt-tbl tr > .apt-tbl-booked,
-	.apt-tbl tr > .apt-tbl-id,
-	.apt-tbl tr > .apt-tbl-symptom { display: none; }
+	/* Below 900px the table can't fit naturally, so it grows past the viewport
+	   and the .apt-tbl-wrap (overflow-x: auto) gives a horizontal swipe.
+	   All columns stay visible — user just swipes left to see Booked / Appt ID. */
+	.apt-tbl { min-width: 980px; }
 }
 @media (max-width: 700px) {
 	#shopAppointmentList { padding: 0.6rem 0.6rem; }

@@ -14,6 +14,14 @@
             width: 100vw; height: 100vh;
             object-fit: cover;
             pointer-events: none;
+            background: linear-gradient(180deg, #1e3a5f 0%, #0a1929 100%);
+         }
+         @media (prefers-reduced-motion: reduce) {
+            .auth-bg-video { display: none; }
+            .auth-box::before { animation: none; }
+            body.auth-page {
+               background: linear-gradient(135deg, #1a2a5e 0%, #1a1a2e 100%);
+            }
          }
          .auth-bg-overlay {
             position: fixed; inset: 0; z-index: -1;
@@ -160,5 +168,15 @@
          </p>
       </div>
       <script src="script.js"></script>
+      <script>
+         (function() {
+            var v = document.querySelector('.auth-bg-video');
+            if (!v) return;
+            document.addEventListener('visibilitychange', function() {
+               if (document.hidden) v.pause();
+               else v.play().catch(function(){});
+            });
+         })();
+      </script>
    </body>
 </html>

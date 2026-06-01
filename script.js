@@ -1271,6 +1271,7 @@ function showAptProvider(catKey, providerId) {
                       '<div class="apt-doc-spec">' + (d.speciality || '') + '</div>' +
                       modeBadge +
                       '<div class="apt-doc-days">📅 ' + daysSummary + '</div>' +
+                      _doctorVacationBanner(d) +
                       '<div class="apt-doc-footer">' +
                          '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
                          '<button class="apt-book-btn" onclick="openAptBookModal(\'' + catKey + '\',\'' + providerId + '\',\'' + d.id + '\')">Book</button>' +
@@ -1322,12 +1323,16 @@ function openAptBookModal(catKey, providerId, doctorId) {
       var monthShort = d.toLocaleDateString('en-IN', { month: 'short' });
       var dayIdx = d.getDay();
       var avail = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
-      var off = avail.length === 0;
+      var onVac = _isOnVacation(doctor, dateStr);
+      var off   = avail.length === 0 || onVac;
       var click = off ? '' : ' onclick="selectAptDate(\'' + dateStr + '\', this)"';
-      var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="Doctor unavailable"' : '';
+      var titleTxt = onVac ? 'Doctor on leave' : 'Doctor unavailable';
+      var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="' + titleTxt + '"' : '';
+      var leaveTag = onVac ? '<div style="font-size:0.62rem;color:#e65100;font-weight:700">🏖 ON LEAVE</div>' : '';
       dateHtml += '<div class="apt-date-btn"' + click + extra + '>' +
                      '<div class="apt-date-day">' + label + '</div>' +
                      '<div class="apt-date-num">' + d.getDate() + ' ' + monthShort + '</div>' +
+                     leaveTag +
                   '</div>';
    }
    document.getElementById('aptDateButtons').innerHTML = dateHtml;
@@ -1935,11 +1940,112 @@ function openAptDoctorModal(providerId, doctorId) {
              '</div>';
    }
    document.getElementById('aptDocAvail').innerHTML = html;
+
+   // Vacation editor — held in a window-scoped array while the modal is open
+   window._aptDocVacWorking = (doctor && Array.isArray(doctor.vacations)) ? doctor.vacations.slice() : [];
+   _renderDoctorVacations();
+   var vs = document.getElementById('aptDocVacStart'); if (vs) vs.value = '';
+   var ve = document.getElementById('aptDocVacEnd');   if (ve) ve.value = '';
+
    document.getElementById('aptDoctorModal').classList.remove('hidden');
 }
 
 function closeAptDoctorModal() {
    document.getElementById('aptDoctorModal').classList.add('hidden');
+}
+
+// ── Doctor vacation date ranges ──
+// Render the list of vacation ranges currently in the working array.
+function _renderDoctorVacations() {
+   var box = document.getElementById('aptDocVacations');
+   if (!box) return;
+   var list = window._aptDocVacWorking || [];
+   if (list.length === 0) {
+      box.innerHTML = '<div style="color:#999;font-size:0.8rem;font-style:italic">No vacation dates set.</div>';
+      return;
+   }
+   box.innerHTML = list.map(function(r, i) {
+      var label = (r.start === r.end)
+         ? _fmtDateLabel(r.start)
+         : (_fmtDateLabel(r.start) + ' → ' + _fmtDateLabel(r.end));
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#fff3e0;border:1px solid #ffb74d;border-radius:5px;margin-bottom:4px;font-size:0.85rem">' +
+                '<span>🏖 ' + label + '</span>' +
+                '<button type="button" onclick="removeDoctorVacationRange(' + i + ')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:0.9rem" title="Remove">✕</button>' +
+             '</div>';
+   }).join('');
+}
+
+function _fmtDateLabel(yyyy_mm_dd) {
+   if (!yyyy_mm_dd) return '';
+   var p = yyyy_mm_dd.split('-');
+   if (p.length !== 3) return yyyy_mm_dd;
+   var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function addDoctorVacationRange() {
+   var s = document.getElementById('aptDocVacStart').value;
+   var e = document.getElementById('aptDocVacEnd').value || s;
+   if (!s) { alert('Please pick a start date.'); return; }
+   if (e < s) { alert('End date must be on or after start date.'); return; }
+   if (!Array.isArray(window._aptDocVacWorking)) window._aptDocVacWorking = [];
+   window._aptDocVacWorking.push({ start: s, end: e });
+   _renderDoctorVacations();
+   document.getElementById('aptDocVacStart').value = '';
+   document.getElementById('aptDocVacEnd').value   = '';
+}
+
+function removeDoctorVacationRange(idx) {
+   if (!Array.isArray(window._aptDocVacWorking)) return;
+   window._aptDocVacWorking.splice(idx, 1);
+   _renderDoctorVacations();
+}
+
+// True if the given YYYY-MM-DD falls within any of the doctor's vacation ranges.
+function _isOnVacation(doctor, dateStr) {
+   if (!doctor || !Array.isArray(doctor.vacations) || !dateStr) return false;
+   return doctor.vacations.some(function(r) {
+      return r && r.start && r.end && dateStr >= r.start && dateStr <= r.end;
+   });
+}
+
+// Return the matching vacation range object if the date is on leave, else null.
+function _vacationFor(doctor, dateStr) {
+   if (!doctor || !Array.isArray(doctor.vacations) || !dateStr) return null;
+   for (var i = 0; i < doctor.vacations.length; i++) {
+      var r = doctor.vacations[i];
+      if (r && r.start && r.end && dateStr >= r.start && dateStr <= r.end) return r;
+   }
+   return null;
+}
+
+// Returns an HTML banner string describing the doctor's vacation status, or ''.
+// Shows current leave (red), or an upcoming leave within 14 days (orange info).
+function _doctorVacationBanner(doctor) {
+   if (!doctor || !Array.isArray(doctor.vacations) || doctor.vacations.length === 0) return '';
+   var t = new Date();
+   var today = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+   var current = _vacationFor(doctor, today);
+   if (current) {
+      var endLabel = (current.start === current.end) ? '' : ' until ' + _fmtDateLabel(current.end);
+      return '<div style="background:#ffebee;color:#c62828;border:1px solid #ef9a9a;border-radius:6px;padding:5px 8px;margin:6px 0;font-size:0.78rem;font-weight:600">🏖 On leave' + endLabel + '</div>';
+   }
+   // Find soonest upcoming vacation within 14 days
+   var upcoming = doctor.vacations
+      .filter(function(v) { return v && v.start && v.start > today; })
+      .sort(function(a, b) { return a.start < b.start ? -1 : 1; })[0];
+   if (upcoming) {
+      var startMs = new Date(upcoming.start + 'T00:00:00').getTime();
+      var todayMs = new Date(today + 'T00:00:00').getTime();
+      var days = Math.round((startMs - todayMs) / 86400000);
+      if (days <= 14) {
+         var range = (upcoming.start === upcoming.end)
+            ? _fmtDateLabel(upcoming.start)
+            : _fmtDateLabel(upcoming.start) + ' → ' + _fmtDateLabel(upcoming.end);
+         return '<div style="background:#fff3e0;color:#e65100;border:1px solid #ffb74d;border-radius:6px;padding:5px 8px;margin:6px 0;font-size:0.78rem;font-weight:600">🏖 Upcoming leave: ' + range + '</div>';
+      }
+   }
+   return '';
 }
 
 // File-upload handler for doctor photo: uploads to Supabase Storage and writes
@@ -2022,7 +2128,8 @@ async function saveAptDoctor() {
       slot_capacity_offline: Math.max(0, parseInt(document.getElementById('aptDocCapacityOffline').value, 10) || 0),
       daily_cap_online:      Math.max(0, parseInt(document.getElementById('aptDocDailyCapOnline').value,  10) || 0),
       daily_cap_offline:     Math.max(0, parseInt(document.getElementById('aptDocDailyCapOffline').value, 10) || 0),
-      availability: availability
+      availability: availability,
+      vacations: Array.isArray(window._aptDocVacWorking) ? window._aptDocVacWorking.slice() : []
    };
 
    var doctors = (provider.doctors || []).slice();
@@ -4067,6 +4174,7 @@ async function renderShopDoctors() {
                          '<div class="apt-doc-spec">' + (d.speciality || '') + '</div>' +
                          modeBadge +
                          '<div class="apt-doc-days">📅 ' + daysSummary + '</div>' +
+                         _doctorVacationBanner(d) +
                          '<div class="apt-doc-footer">' +
                             '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
                             '<div style="display:flex;gap:4px">' +
@@ -4537,12 +4645,16 @@ function onSchedDoctorChange() {
       var monthShort = d.toLocaleDateString('en-IN', { month: 'short' });
       var dayIdx = d.getDay();
       var avail = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
-      var off = avail.length === 0;
+      var onVac = _isOnVacation(doctor, dateStr);
+      var off   = avail.length === 0 || onVac;
       var click = off ? '' : ' onclick="schedSelectDate(\'' + dateStr + '\', this)"';
-      var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="Doctor unavailable"' : '';
+      var titleTxt = onVac ? 'Doctor on leave' : 'Doctor unavailable';
+      var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="' + titleTxt + '"' : '';
+      var leaveTag = onVac ? '<div style="font-size:0.62rem;color:#e65100;font-weight:700">🏖 ON LEAVE</div>' : '';
       dateHtml += '<div class="apt-date-btn"' + click + extra + '>' +
                      '<div class="apt-date-day">' + label + '</div>' +
                      '<div class="apt-date-num">' + d.getDate() + ' ' + monthShort + '</div>' +
+                     leaveTag +
                   '</div>';
    }
    document.getElementById('schedDateButtons').innerHTML = dateHtml;
@@ -4792,6 +4904,60 @@ async function shopSetAptStatus(aptId, status) {
    if (!ok) { alert('Failed to update.'); return; }
    _shopAptsCache = null;
    renderShopAppointments();
+}
+
+// Cancel ALL Confirmed bookings for the currently-selected doctor + date in the
+// Schedule tab. For paid bookings, refund the full fee automatically. One reason
+// captured for the whole batch — saves clicking ✕ Cancel on every row separately.
+async function bulkCancelScheduleBookings() {
+   var ctx = _schedCtx;
+   if (!ctx || !ctx.doctor || !ctx.date) { alert('Pick a doctor and date first.'); return; }
+   var doctor = ctx.doctor;
+   var dateStr = ctx.date;
+
+   // Fetch every booking for this doctor on this date
+   var rows = await AppDB.getDoctorBookings(doctor.id, dateStr);
+   var active = (rows || []).filter(function(r) { return r.status === 'Confirmed'; });
+   if (active.length === 0) {
+      alert('No active bookings to cancel for ' + doctor.name + ' on ' + _fmtDateLabel(dateStr) + '.');
+      return;
+   }
+   var paidCount   = active.filter(function(r) { return r.is_paid && !r.is_refunded; }).length;
+   var unpaidCount = active.length - paidCount;
+
+   var summary = 'Cancel ' + active.length + ' booking' + (active.length === 1 ? '' : 's') + ' for ' + doctor.name + ' on ' + _fmtDateLabel(dateStr) + '?\n\n';
+   if (paidCount > 0)   summary += '• ' + paidCount   + ' paid → full refund processed automatically\n';
+   if (unpaidCount > 0) summary += '• ' + unpaidCount + ' unpaid → just cancelled\n';
+   summary += '\nThis cannot be undone.';
+   if (!confirm(summary)) return;
+
+   var reason = prompt('Reason for cancellation (shown to patients):', 'Doctor unavailable due to emergency');
+   if (reason === null) return;
+   reason = (reason || 'Doctor unavailable').trim();
+
+   var nowIso = new Date().toISOString();
+   var ok = 0, fail = 0;
+   for (var i = 0; i < active.length; i++) {
+      var apt = active[i];
+      var extra = {
+         cancelled_by: 'hospital',
+         cancellation_reason: reason
+      };
+      if (apt.is_paid && !apt.is_refunded) {
+         extra.is_refunded   = true;
+         extra.refund_amount = Number(apt.fee || 0);
+         extra.refunded_at   = nowIso;
+      }
+      var success = await AppDB.updateAppointmentStatus(apt.apt_id, 'Cancelled', extra);
+      if (success) ok++; else fail++;
+   }
+
+   alert('Cancelled ' + ok + ' of ' + active.length + ' booking' + (active.length === 1 ? '' : 's') +
+         (fail > 0 ? ' (' + fail + ' failed — check console).' : '.'));
+   _shopAptsCache = null;
+   // Refresh the slot view so capacity numbers update
+   var activeBtn = document.querySelector('#schedDateButtons .apt-date-btn.active');
+   if (activeBtn) schedSelectDate(dateStr, activeBtn);
 }
 
 // Flip is_paid=true without changing status. Used when the patient pays at

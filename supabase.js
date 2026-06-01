@@ -355,12 +355,16 @@ window.AppDB = {
 
    // Active (non-cancelled) bookings for a doctor on a specific date — used to
    // compute slot-fill counts and the next token within a slot.
-   async getDoctorBookings(doctorId, dateStr) {
-      const { data, error } = await _sb.from('appointments')
+   // Returns active (non-cancelled) bookings by default. Pass includeCancelled=true
+   // when you need the full set — e.g. for computing the next monotonically-
+   // increasing token, where gaps from cancelled rows must NOT be reused.
+   async getDoctorBookings(doctorId, dateStr, includeCancelled) {
+      let q = _sb.from('appointments')
          .select('slot, token, status, booking_source')
          .eq('doctor_id', doctorId)
-         .eq('date', dateStr)
-         .neq('status', 'Cancelled');
+         .eq('date', dateStr);
+      if (!includeCancelled) q = q.neq('status', 'Cancelled');
+      const { data, error } = await q;
       if (error) { console.error('getDoctorBookings:', error.message); return []; }
       return data || [];
    },

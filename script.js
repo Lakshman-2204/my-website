@@ -1605,8 +1605,15 @@ async function confirmAptBooking() {
    // online & offline never share a token number — the owner calls patients
    // in T1, T2, T3 order regardless of how they were booked.
    var caps2 = _doctorCaps(doctor);
-   var existing = await AppDB.getDoctorBookings(doctor.id, _aptBookCtx.date);
+   // Fetch with cancelled rows included — needed so the next token is MAX(token)+1
+   // across the whole history (cancelled tokens stay as gaps, never get reused).
+   var allRows  = await AppDB.getDoctorBookings(doctor.id, _aptBookCtx.date, true);
+   var existing = allRows.filter(function(b) { return b.status !== 'Cancelled'; });
    var onlineExisting = existing.filter(function(b) { return b.booking_source !== 'offline'; });
+   // Helper: max token from a list of rows, 0 if list is empty.
+   var _maxTok = function(arr) {
+      return arr.reduce(function(m, r) { return Math.max(m, Number(r.token) || 0); }, 0);
+   };
    var token;
    if (isTokenMode) {
       if (onlineExisting.length >= caps2.dailyOnline) {
@@ -1615,7 +1622,7 @@ async function confirmAptBooking() {
          if (activeBtnT) selectAptDate(_aptBookCtx.date, activeBtnT);
          return;
       }
-      token = existing.length + 1;
+      token = _maxTok(allRows) + 1;
    } else {
       var inSlotOnline = onlineExisting.filter(function(b) { return b.slot === _aptBookCtx.slot; });
       if (inSlotOnline.length >= caps2.slotOnline) {
@@ -1624,8 +1631,8 @@ async function confirmAptBooking() {
          if (activeBtn) selectAptDate(_aptBookCtx.date, activeBtn);
          return;
       }
-      var inSlotAll = existing.filter(function(b) { return b.slot === _aptBookCtx.slot; });
-      token = inSlotAll.length + 1;
+      var inSlotAll = allRows.filter(function(b) { return b.slot === _aptBookCtx.slot; });
+      token = _maxTok(inSlotAll) + 1;
    }
 
    var aptId = 'APT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 5).toUpperCase();
@@ -4379,7 +4386,9 @@ async function renderShopAppointments(filterStatus) {
               : status === 'No-show'   ? 'noshow'
               : 'confirmed';
       // Friendlier labels for the owner — DB still stores 'Completed' / 'Cancelled' / 'No-show'
-      var statusLabel = status === 'Completed' ? 'Checkup Completed' : status;
+      var statusLabel = status === 'Completed' ? 'Checkup Completed'
+                      : status === 'Confirmed' ? 'Appointment Confirmed'
+                      : status;
       if (status === 'Cancelled' && a.cancelled_by) {
          var byLabel = a.cancelled_by === 'customer' ? 'by Patient'
                       : a.cancelled_by === 'hospital' ? 'by You'
@@ -4407,14 +4416,18 @@ async function renderShopAppointments(filterStatus) {
          feeHtml += '<div class="apt-tbl-fee-tag unpaid">not paid</div>';
       }
 
-      // Booked At — when the customer placed the booking (uses created_at)
+      // Booked At — when the customer placed the booking (uses created_at).
+      // Also includes the booking source so owner sees online vs offline at a glance.
       var bookedAt = '';
       if (a.created_at) {
          var dt = new Date(a.created_at);
          if (!isNaN(dt.getTime())) {
             var dStr = dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
             var tStr = dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-            bookedAt = '<div class="apt-tbl-name">' + dStr + '</div><div class="apt-tbl-sub">' + tStr + '</div>';
+            var src = a.booking_source === 'offline' ? '📞 offline' : '🌐 online';
+            bookedAt = '<div class="apt-tbl-name">' + dStr + '</div>' +
+                       '<div class="apt-tbl-sub">' + tStr + '</div>' +
+                       '<div class="apt-tbl-sub" style="color:#1a73e8;font-weight:600">' + src + '</div>';
          }
       }
 
@@ -4620,7 +4633,7 @@ function resetShopSchedule() {
    ['schedDateSection', 'schedSlotSection', 'schedPatientSection'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.classList.add('hidden');
    });
-   ['schedPatientName', 'schedPatientPhone', 'schedPatientEmail', 'schedPatientReason'].forEach(function(id) {
+   ['schedPatientName', 'schedPatientPhone', 'schedPatientEmail', 'schedPatientAge', 'schedPatientAddress', 'schedPatientReason'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = '';
    });
    document.getElementById('schedConfirmBtn').disabled = true;
@@ -4792,31 +4805,38 @@ function _schedReevaluateConfirmEnabled() {
 async function confirmShopSchedule() {
    var ctx = _schedCtx;
    if (!ctx) return;
-   var name  = document.getElementById('schedPatientName').value.trim();
-   var phone = document.getElementById('schedPatientPhone').value.trim();
-   var email = document.getElementById('schedPatientEmail').value.trim().toLowerCase();
-   var reason = document.getElementById('schedPatientReason').value.trim();
+   var name    = document.getElementById('schedPatientName').value.trim();
+   var phone   = document.getElementById('schedPatientPhone').value.trim();
+   var email   = document.getElementById('schedPatientEmail').value.trim().toLowerCase();
+   var age     = document.getElementById('schedPatientAge').value.trim();
+   var address = document.getElementById('schedPatientAddress').value.trim();
+   var reason  = document.getElementById('schedPatientReason').value.trim();
    var msg = document.getElementById('schedMsg');
    var setMsg = function(t, ok) { msg.textContent = t; msg.style.color = ok ? '#2e7d32' : '#c62828'; };
    if (!name || !phone) { setMsg('Patient name and phone are required.'); return; }
 
    // Re-check OFFLINE capacity, but issue tokens from the COMBINED pool so
    // online & offline tokens never collide. Overtime bypasses capacity.
-   var existing = await AppDB.getDoctorBookings(ctx.doctor.id, ctx.date);
+   // Include cancelled rows for token max — gaps from cancellations stay as gaps.
+   var allRowsS  = await AppDB.getDoctorBookings(ctx.doctor.id, ctx.date, true);
+   var existing  = allRowsS.filter(function(b) { return b.status !== 'Cancelled'; });
    var offlineExisting = existing.filter(function(b) { return b.booking_source === 'offline'; });
    var isTokenMode = ctx.doctor.booking_mode === 'token';
    var caps = _doctorCaps(ctx.doctor);
+   var _maxTokS = function(arr) {
+      return arr.reduce(function(m, r) { return Math.max(m, Number(r.token) || 0); }, 0);
+   };
    var token;
    if (ctx.overtime) {
-      token = existing.length + 1;   // unique across all sources
+      token = _maxTokS(allRowsS) + 1;
    } else if (isTokenMode) {
       if (offlineExisting.length >= caps.dailyOffline) { setMsg('Offline tokens just got full. Please pick another date.'); return; }
-      token = existing.length + 1;
+      token = _maxTokS(allRowsS) + 1;
    } else {
       var inSlotOffline = offlineExisting.filter(function(b) { return b.slot === ctx.slot; });
       if (inSlotOffline.length >= caps.slotOffline) { setMsg('Offline slot just filled up. Please pick another.'); return; }
-      var inSlotAll = existing.filter(function(b) { return b.slot === ctx.slot; });
-      token = inSlotAll.length + 1;
+      var inSlotAll = allRowsS.filter(function(b) { return b.slot === ctx.slot; });
+      token = _maxTokS(inSlotAll) + 1;
    }
 
    // user_email: real patient email if given, else a walk-in marker tied to phone
@@ -4838,9 +4858,11 @@ async function confirmShopSchedule() {
       status: 'Confirmed',
       token: token,
       booking_source: 'offline',
-      patient_name:   name,
-      patient_phone:  phone,
-      patient_reason: reason + (ctx.overtime ? ' [Overtime]' : '')
+      patient_name:    name,
+      patient_phone:   phone,
+      patient_age:     age,
+      patient_address: address,
+      patient_reason:  reason + (ctx.overtime ? ' [Overtime]' : '')
    };
    var ok = await AppDB.insertAppointment(apt);
    if (!ok) { setMsg('Failed to save booking. Please try again.'); return; }

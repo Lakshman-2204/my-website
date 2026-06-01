@@ -116,8 +116,8 @@
       </div>
       <div class="shop-tabs" style="justify-content:space-between;flex-wrap:wrap;gap:8px;padding:0.6rem 1rem">
          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <button class="shop-tab active" id="apt-tab-all"       data-filter=""          onclick="renderShopAppointments()">All</button>
-            <button class="shop-tab"        id="apt-tab-Confirmed" data-filter="Confirmed" onclick="renderShopAppointments('Confirmed')">⏳ Confirmed</button>
+            <button class="shop-tab"        id="apt-tab-all"       data-filter=""          onclick="renderShopAppointments()">All</button>
+            <button class="shop-tab active" id="apt-tab-Confirmed" data-filter="Confirmed" onclick="renderShopAppointments('Confirmed')">⏳ Confirmed</button>
             <button class="shop-tab"        id="apt-tab-Completed" data-filter="Completed" onclick="renderShopAppointments('Completed')">✅ Completed</button>
             <button class="shop-tab"        id="apt-tab-Cancelled" data-filter="Cancelled" onclick="renderShopAppointments('Cancelled')">✕ Cancelled</button>
             <button class="shop-tab"        id="apt-tab-No-show"   data-filter="No-show"   onclick="renderShopAppointments('No-show')">🚫 No-show</button>
@@ -126,7 +126,7 @@
          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select id="shopAptDateFilter" class="admin-filter-select" onchange="renderShopAppointments(window._shopAptCurrentFilter)">
                <option value="all">📅 All time</option>
-               <option value="today">Today</option>
+               <option value="today" selected>Today</option>
                <option value="week">This Week</option>
                <option value="month">This Month</option>
                <option value="year">This Year</option>

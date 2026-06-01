@@ -1226,6 +1226,7 @@ function showAptCategory(catKey) {
                    '</div>' +
                    (p.address ? '<div class="apt-provider-meta">📍 ' + p.address + '</div>' : '') +
                    (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
+                   (p.phone   ? '<div class="apt-provider-meta" style="color:#1a73e8;font-weight:600">📞 ' + p.phone + '</div>' : '') +
                    '<div class="apt-provider-footer">' +
                       '<span>' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + '</span>' +
                       '<button class="apt-view-btn" onclick="showAptProvider(\'' + catKey + '\',\'' + p.id + '\')">View Doctors →</button>' +
@@ -1248,6 +1249,7 @@ function showAptProvider(catKey, providerId) {
               '<div class="apt-provider-info-bar">' +
                  (provider.address ? '<span>📍 ' + provider.address + '</span>' : '') +
                  (provider.timing  ? '<span>🕒 ' + provider.timing  + '</span>' : '') +
+                 (provider.phone   ? '<span style="color:#1a73e8;font-weight:600">📞 ' + provider.phone + '</span>' : '') +
               '</div>';
    var doctors = provider.doctors || [];
    if (!doctors.length) {
@@ -4099,7 +4101,7 @@ function switchShopTab(tab) {
    });
    if (tab === 'dashboard')    renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
-   if (tab === 'appointments') renderShopAppointments();
+   if (tab === 'appointments') renderShopAppointments('Confirmed');
    if (tab === 'doctors')      renderShopDoctors();
    if (tab === 'schedule')     renderShopSchedule();
 }
@@ -6552,13 +6554,15 @@ async function renderMyAppointments() {
    var docF     =  (document.getElementById('myAptDoctorFilter')   || {}).value || '';
    var hospF    =  (document.getElementById('myAptHospitalFilter') || {}).value || '';
    var catF     =  (document.getElementById('myAptCategoryFilter') || {}).value || '';
+   var statusF  =  (document.getElementById('myAptStatusFilter')   || {}).value || '';
    var df       = _readDateFilter('myAptDateFilter', 'myAptCustomDate', 'myAptRangeFrom', 'myAptRangeTo');
 
    var apts = all.filter(function(a) {
-      if (docF  && a.doctor_name   !== docF)  return false;
-      if (hospF && a.provider_name !== hospF) return false;
-      if (catF  && a.category      !== catF)  return false;
-      if (!_isDateInRange(a.date, df.range, df)) return false;
+      if (docF    && a.doctor_name   !== docF)    return false;
+      if (hospF   && a.provider_name !== hospF)   return false;
+      if (catF    && a.category      !== catF)    return false;
+      if (statusF && (a.status || 'Confirmed') !== statusF) return false;
+      if (!_isDateInRange(a.date, df.range, df))  return false;
       if (search) {
          var hay = ((a.patient_name || '') + ' ' + (a.patient_phone || '')).toLowerCase();
          if (hay.indexOf(search) === -1) return false;

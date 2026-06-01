@@ -1718,12 +1718,12 @@ body.guest .store-section-divider {
 	letter-spacing: 0.04em;
 	padding: 10px 12px;
 	text-align: left;
-	border-bottom: 1.5px solid #e8e8ec;
+	border-bottom: 2px solid #c5cae9;
 	white-space: nowrap;
 }
 .apt-tbl tbody td {
 	padding: 12px;
-	border-bottom: 1px solid #f0f0f5;
+	border-bottom: 1px solid #d6dce8;
 	vertical-align: middle;
 }
 .apt-tbl tbody tr:hover {

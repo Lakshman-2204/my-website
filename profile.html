@@ -130,12 +130,19 @@
                   <select id="myAptCategoryFilter" class="admin-filter-select" onchange="renderMyAppointments()"><option value="">🗂 All categories</option></select>
                   <select id="myAptDateFilter"     class="admin-filter-select" onchange="renderMyAppointments()">
                      <option value="all">📅 All time</option>
-                     <option value="today">Today</option>
+                     <option value="today" selected>Today</option>
                      <option value="week">This Week</option>
                      <option value="month">This Month</option>
                      <option value="year">This Year</option>
                      <option value="custom">📆 Specific date…</option>
                      <option value="range">📆 Custom range…</option>
+                  </select>
+                  <select id="myAptStatusFilter"   class="admin-filter-select" onchange="renderMyAppointments()">
+                     <option value="">📋 All statuses</option>
+                     <option value="Confirmed" selected>⏳ Confirmed</option>
+                     <option value="Completed">✅ Completed</option>
+                     <option value="Cancelled">✕ Cancelled</option>
+                     <option value="No-show">🚫 No-show</option>
                   </select>
                   <input type="date" id="myAptCustomDate" class="admin-filter-select" style="display:none" onchange="renderMyAppointments()"/>
                   <input type="date" id="myAptRangeFrom"  class="admin-filter-select" style="display:none" title="From" onchange="renderMyAppointments()"/>

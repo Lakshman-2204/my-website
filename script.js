@@ -4177,7 +4177,8 @@ async function renderShopDoctors() {
                          _doctorVacationBanner(d) +
                          '<div class="apt-doc-footer">' +
                             '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
-                            '<div style="display:flex;gap:4px">' +
+                            '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' +
+                               '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem;background:#ef6c00" onclick="openDoctorDayCancel(\'' + pid + '\',\'' + did + '\')" title="Cancel all bookings for a day (emergency)">🚨 Day Off</button>' +
                                '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️ Edit</button>' +
                                '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem;background:#c62828" onclick="deleteAptDoctor(\'' + pid + '\',\'' + did + '\')">🗑</button>' +
                             '</div>' +
@@ -4906,18 +4907,49 @@ async function shopSetAptStatus(aptId, status) {
    renderShopAppointments();
 }
 
-// Cancel ALL Confirmed bookings for the currently-selected doctor + date in the
-// Schedule tab. For paid bookings, refund the full fee automatically. One reason
-// captured for the whole batch — saves clicking ✕ Cancel on every row separately.
-async function bulkCancelScheduleBookings() {
-   var ctx = _schedCtx;
-   if (!ctx || !ctx.doctor || !ctx.date) { alert('Pick a doctor and date first.'); return; }
-   var doctor = ctx.doctor;
-   var dateStr = ctx.date;
+// ── Doctor Day-Off (bulk cancel all bookings for one doctor + one date) ──
+// Opens the small day-cancel modal pre-filled for the given doctor.
+function openDoctorDayCancel(providerId, doctorId) {
+   var provider = _aptGetProvider(providerId);
+   var doctor   = provider && _aptGetDoctor(provider, doctorId);
+   if (!doctor) { alert('Doctor not found.'); return; }
 
-   // Fetch every booking for this doctor on this date
-   var rows = await AppDB.getDoctorBookings(doctor.id, dateStr);
-   var active = (rows || []).filter(function(r) { return r.status === 'Confirmed'; });
+   document.getElementById('dayCancelProviderId').value = providerId;
+   document.getElementById('dayCancelDoctorId').value   = doctorId;
+   document.getElementById('dayCancelDoctorInfo').innerHTML =
+      '<strong>' + doctor.name + '</strong>' +
+      (doctor.speciality ? ' · ' + doctor.speciality : '') +
+      '<br><span style="color:#666">' + provider.name + '</span>';
+
+   // Default to today's date
+   var t = new Date();
+   var today = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+   document.getElementById('dayCancelDate').value = today;
+
+   document.getElementById('dayCancelModal').classList.remove('hidden');
+}
+
+function closeDayCancelModal() {
+   document.getElementById('dayCancelModal').classList.add('hidden');
+}
+
+// Triggered by the modal's "🚨 Cancel All Bookings" button.
+async function confirmDoctorDayCancel() {
+   var providerId = document.getElementById('dayCancelProviderId').value;
+   var doctorId   = document.getElementById('dayCancelDoctorId').value;
+   var dateStr    = document.getElementById('dayCancelDate').value;
+   if (!dateStr) { alert('Please pick a date.'); return; }
+
+   var provider = _aptGetProvider(providerId);
+   var doctor   = provider && _aptGetDoctor(provider, doctorId);
+   if (!doctor) { alert('Doctor not found.'); return; }
+
+   var all = await AppDB.getAllAppointments();
+   var active = (all || []).filter(function(r) {
+      return r && r.doctor_id === doctor.id
+                && r.date === dateStr
+                && r.status === 'Confirmed';
+   });
    if (active.length === 0) {
       alert('No active bookings to cancel for ' + doctor.name + ' on ' + _fmtDateLabel(dateStr) + '.');
       return;
@@ -4955,9 +4987,12 @@ async function bulkCancelScheduleBookings() {
    alert('Cancelled ' + ok + ' of ' + active.length + ' booking' + (active.length === 1 ? '' : 's') +
          (fail > 0 ? ' (' + fail + ' failed — check console).' : '.'));
    _shopAptsCache = null;
-   // Refresh the slot view so capacity numbers update
+   closeDayCancelModal();
+   // Refresh any open Schedule view in case it was on the same date
    var activeBtn = document.querySelector('#schedDateButtons .apt-date-btn.active');
-   if (activeBtn) schedSelectDate(dateStr, activeBtn);
+   if (activeBtn && _schedCtx && _schedCtx.date === dateStr) schedSelectDate(dateStr, activeBtn);
+   // Refresh the Appointments tab if it's currently open
+   if (typeof renderShopAppointments === 'function') renderShopAppointments();
 }
 
 // Flip is_paid=true without changing status. Used when the patient pays at

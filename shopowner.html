@@ -164,12 +164,7 @@
          </div>
 
          <div id="schedSlotSection" class="hidden" style="margin-top:0.8rem">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-               <label class="apt-form-label" style="margin:0">Time Slot</label>
-               <button type="button" id="schedCancelAllBtn" onclick="bulkCancelScheduleBookings()" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.78rem;font-weight:600;cursor:pointer">
-                  🚨 Cancel All Bookings
-               </button>
-            </div>
+            <label class="apt-form-label">Time Slot</label>
             <div class="apt-slots-grid" id="schedSlotButtons"></div>
          </div>
 
@@ -346,6 +341,30 @@
          <div class="sp-modal-footer">
             <button class="sp-btn-save" onclick="saveStoreProduct()">💾 Save Product</button>
             <button class="sp-btn-cancel" onclick="closeStoreProductModal()">Cancel</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- DOCTOR DAY-OFF MODAL: pick a date, cancel all bookings for that doctor on that date -->
+   <div class="admin-modal-overlay hidden" id="dayCancelModal" onclick="if(event.target===this)closeDayCancelModal()">
+      <div class="admin-modal" style="max-width:420px">
+         <div class="admin-modal-header">
+            <h3>🚨 Cancel a Doctor's Day</h3>
+            <button class="admin-modal-close" onclick="closeDayCancelModal()">✕</button>
+         </div>
+         <div class="admin-modal-body">
+            <div id="dayCancelDoctorInfo" style="margin-bottom:14px;padding:10px;background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;font-size:0.9rem"></div>
+            <div class="modal-field">
+               <label>Select date</label>
+               <input type="date" id="dayCancelDate" style="width:100%;padding:8px;border:1.5px solid #ccc;border-radius:6px;font-size:0.95rem"/>
+            </div>
+            <p style="font-size:0.8rem;color:#666;margin-top:10px;line-height:1.5">All Confirmed bookings (online &amp; offline) for this doctor on the selected date will be cancelled. Paid bookings will be auto-refunded.</p>
+            <input type="hidden" id="dayCancelProviderId"/>
+            <input type="hidden" id="dayCancelDoctorId"/>
+         </div>
+         <div class="admin-modal-footer">
+            <button class="admin-modal-btn-cancel" onclick="closeDayCancelModal()">Cancel</button>
+            <button class="admin-modal-btn-save" style="background:#c62828" onclick="confirmDoctorDayCancel()">🚨 Cancel All Bookings</button>
          </div>
       </div>
    </div>

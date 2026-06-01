@@ -7,8 +7,86 @@
       <link rel="stylesheet" href="style.css"/>
       <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
       <script src="supabase.js"></script>
+      <style>
+         /* Video-bg + frosted-glass card with animated gradient border */
+         body.auth-page { background: #1a1a2e; }
+         .auth-bg-video {
+            position: fixed; inset: 0; z-index: -2;
+            width: 100vw; height: 100vh;
+            object-fit: cover;
+            pointer-events: none;
+            background: linear-gradient(180deg, #1e3a5f 0%, #0a1929 100%);
+         }
+         @media (prefers-reduced-motion: reduce) {
+            .auth-bg-video { display: none; }
+            .auth-box::before { animation: none; }
+            body.auth-page {
+               background: linear-gradient(135deg, #1a2a5e 0%, #1a1a2e 100%);
+            }
+         }
+         .auth-bg-overlay {
+            position: fixed; inset: 0; z-index: -1;
+            background: rgba(0, 0, 0, 0.30);
+            pointer-events: none;
+         }
+         .auth-box {
+            position: relative;
+            background: rgba(255, 255, 255, 0.14) !important;
+            backdrop-filter: blur(28px) saturate(180%);
+            -webkit-backdrop-filter: blur(28px) saturate(180%);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.20);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35), 0 0 40px rgba(74, 144, 226, 0.10);
+            color: #fff;
+            overflow: visible;
+         }
+         .auth-box::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 22px;
+            padding: 2px;
+            background: linear-gradient(135deg, #4a90e2 0%, #9b59de 35%, #4adcd1 70%, #4a90e2 100%);
+            background-size: 300% 300%;
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+                    mask-composite: exclude;
+            pointer-events: none;
+            animation: gradBorderShift 6s linear infinite;
+         }
+         @keyframes gradBorderShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+         }
+         .auth-box h1 { color: #fff; }
+         .auth-box .subtitle { color: rgba(255,255,255,0.78); }
+         .auth-box label { color: rgba(255,255,255,0.92); }
+         .auth-box .switch-link { color: rgba(255,255,255,0.78); }
+         .auth-box .switch-link a { color: #7dd3fc; }
+         .auth-box .switch-link a:hover { color: #bae6fd; }
+         .auth-box input[type="email"],
+         .auth-box input[type="password"],
+         .auth-box input[type="text"],
+         .auth-box input[type="tel"] {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            color: #1a1a2e;
+         }
+         .auth-box input::placeholder { color: rgba(26, 26, 46, 0.5); }
+         .auth-box .btn-primary {
+            background: rgba(26, 26, 46, 0.85);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+         }
+         .auth-box .btn-primary:hover { background: rgba(26, 26, 46, 0.95); }
+      </style>
    </head>
    <body class="auth-page">
+      <video class="auth-bg-video" autoplay muted loop playsinline preload="auto">
+         <source src="Dolphins_playing_in_sea_202605311737.mp4" type="video/mp4"/>
+      </video>
+      <div class="auth-bg-overlay"></div>
+
       <div class="auth-box">
          <h1>Welcome Back</h1>
          <p class="subtitle">Login to your account</p>
@@ -50,5 +128,16 @@
          </p>
       </div>
       <script src="script.js"></script>
+      <script>
+         /* Pause the background video when the tab is hidden — saves battery on mobile */
+         (function() {
+            var v = document.querySelector('.auth-bg-video');
+            if (!v) return;
+            document.addEventListener('visibilitychange', function() {
+               if (document.hidden) v.pause();
+               else v.play().catch(function(){});
+            });
+         })();
+      </script>
    </body>
 </html>

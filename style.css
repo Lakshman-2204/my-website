@@ -1847,6 +1847,9 @@ body.guest .store-section-divider {
 	box-shadow: 0 2px 16px rgba(0,0,0,0.06);
 	margin-bottom: 1.2rem;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	min-height: calc(100vh - 140px);   /* fill viewport below the header + tabs */
 }
 .shop-ov-header {
 	display: flex;
@@ -2036,15 +2039,15 @@ body.guest .store-section-divider {
 	cursor: pointer;
 }
 .shop-profile-btn {
-	padding: 6px 14px;
+	padding: 4px 10px;
 	background: rgba(255,255,255,0.12);
 	color: white;
 	border: 1px solid rgba(255,255,255,0.25);
 	border-radius: 6px;
-	font-size: 0.82rem;
+	font-size: 1.05rem;
+	line-height: 1;
 	cursor: pointer;
 	margin-right: 6px;
-	font-weight: 600;
 }
 .shop-profile-btn:hover { background: rgba(255,255,255,0.22); }
 

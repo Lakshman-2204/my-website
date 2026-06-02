@@ -1569,7 +1569,9 @@ function _tokenLabel(apt) {
 }
 
 function _tokenBadgeColor(apt) {
-   if (apt && apt.is_followup) return '#00897b';   // teal for FT* — visually distinct
+   // Same hash for regular and follow-up tokens — different slots get different
+   // colours so the owner can group by slot visually. The "FT" prefix already
+   // distinguishes follow-ups from regular bookings.
    var key = (apt.doctor_id || '') + '|' + (apt.date || '') + '|' + (apt.slot || 'TOKEN');
    var palette = [
       '#1a73e8', // blue
@@ -5389,7 +5391,17 @@ async function confirmShopSchedule() {
    }
 
    // user_email: real patient email if given, else a walk-in marker tied to phone
-   var userEmail = email || ('walkin+' + phone.replace(/\D/g, '') + '@offline.local');
+   // For follow-ups, preserve the original booking's user_email so the customer
+   // sees the new follow-up in their own My Appointments page.
+   var userEmail;
+   if (isFuS && ctx.followupOf) {
+      var _origForEmail = (await AppDB.getAllAppointments()).find(function(b) { return b.apt_id === ctx.followupOf; });
+      userEmail = _origForEmail && _origForEmail.user_email
+                  ? _origForEmail.user_email
+                  : (email || ('walkin+' + phone.replace(/\D/g, '') + '@offline.local'));
+   } else {
+      userEmail = email || ('walkin+' + phone.replace(/\D/g, '') + '@offline.local');
+   }
 
    var aptId = 'APT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 5).toUpperCase();
    var apt = {
@@ -5642,12 +5654,18 @@ async function selectFollowupDate(dateStr, btn) {
    var d = new Date(dateStr + 'T00:00:00');
    var dayIdx = d.getDay();
    var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+   // Skip slots whose END time has already passed when booking for today
+   var now = new Date();
+   var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+   var isToday = dateStr === todayStr;
+   var nowMin  = isToday ? (now.getHours() * 60 + now.getMinutes()) : -1;
    var slotHtml = '';
    var anyShown = false;
    windows.forEach(function(w) {
       var startMin = _hhmmToMin(w.start);
       var endMin   = _hhmmToMin(w.end);
       for (var t = startMin; t + caps.duration <= endMin; t += caps.duration) {
+         if (isToday && (t + caps.duration) <= nowMin) continue;   // past slot — skip
          var hh = Math.floor(t / 60), mm = t % 60;
          var slot24 = String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
          var hour12 = ((hh % 12) || 12);
@@ -5656,7 +5674,7 @@ async function selectFollowupDate(dateStr, btn) {
          anyShown = true;
       }
    });
-   btnsEl.innerHTML = anyShown ? slotHtml : '<p style="color:#999;font-size:0.85rem">Doctor has no availability on this date.</p>';
+   btnsEl.innerHTML = anyShown ? slotHtml : '<p style="color:#999;font-size:0.85rem">No remaining slots today — pick another date.</p>';
 }
 
 function selectFollowupSlot(slot, btn) {
@@ -8164,7 +8182,7 @@ async function printConsultationReceipt(aptId) {
                '<div class="row"><div class="lbl">Age/Sex</div><div class="sep">:</div><div>' + esc(apt.patient_age ? (apt.patient_age + 'Y(s)' + (apt.patient_sex ? '/' + apt.patient_sex : '')) : '—') + '</div></div>' +
                '<div class="row"><div class="lbl">Relative Name</div><div class="sep">:</div><div>—</div></div>' +
                '<div class="row"><div class="lbl">Address</div><div class="sep">:</div><div>' + esc(apt.patient_address || '—') + '</div></div>' +
-               '<div class="row"><div class="lbl">Referred By</div><div class="sep">:</div><div>—</div></div>' +
+               '<div class="row"><div class="lbl">Appointment ID</div><div class="sep">:</div><div style="font-family:ui-monospace,monospace;font-size:11px">' + esc(apt.apt_id || '—') + '</div></div>' +
             '</div>' +
             '<div class="col right">' +
                '<div class="row"><div class="lbl">Location</div><div class="sep">:</div><div>' + esc((prov.address || '').split(',').pop().trim() || '—') + '</div></div>' +

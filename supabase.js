@@ -357,6 +357,9 @@ window.AppDB = {
    },
 
    async insertAppointment(apt) {
+      // Normalize email to lowercase so customer's My Appointments query
+      // (which lowercases the filter) always matches.
+      if (apt && apt.user_email) apt.user_email = String(apt.user_email).toLowerCase();
       const { error } = await _sb.from('appointments').insert(apt);
       if (error) { console.error('insertAppointment:', error.message); return false; }
       return true;

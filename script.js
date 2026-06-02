@@ -1743,12 +1743,22 @@ function _doctorCaps(doctor) {
    };
 }
 
+// Today's date as YYYY-MM-DD in the LOCAL timezone (NOT UTC). Critical for
+// India users — UTC at, say, 19:30 UTC is "today" by UTC but "tomorrow" in IST.
+// Use this everywhere we compare against apt.date (which is stored as IST).
+function _todayLocalYmd() {
+   var d = new Date();
+   return d.getFullYear() + '-' +
+          String(d.getMonth() + 1).padStart(2, '0') + '-' +
+          String(d.getDate()).padStart(2, '0');
+}
+
 // Has this appointment's scheduled time come and gone?
 // Past date → true; future date → false; today → compare with slot time (token-mode
 // bookings have no slot, so they remain "active" all day until the date rolls over).
 function _slotPassed(apt) {
    if (!apt || !apt.date) return false;
-   var todayYmd = new Date().toISOString().slice(0, 10);
+   var todayYmd = _todayLocalYmd();
    if (apt.date < todayYmd) return true;
    if (apt.date > todayYmd) return false;
    if (!apt.slot) return false;   // token-mode: day still active
@@ -1762,7 +1772,7 @@ function _slotPassed(apt) {
 // flagged). Returns true once slot_start + duration <= now.
 function _slotEnded(apt) {
    if (!apt || !apt.date) return false;
-   var todayYmd = new Date().toISOString().slice(0, 10);
+   var todayYmd = _todayLocalYmd();
    if (apt.date < todayYmd) return true;
    if (apt.date > todayYmd) return false;
    if (!apt.slot) return false;
@@ -2487,21 +2497,21 @@ function _aptRowToCsv(a) {
 // Export the currently-filtered appointments shown on the shopowner Appointments tab.
 function exportShopAppointmentsCsv() {
    var rows = (window._shopAptsFiltered || []).map(_aptRowToCsv);
-   var today = new Date().toISOString().slice(0, 10);
+   var today = _todayLocalYmd();
    _downloadCsv('bookings_' + today + '.csv', rows);
 }
 
 // Export the currently-filtered appointments shown on the admin All Bookings sub-tab.
 function exportAdminAppointmentsCsv() {
    var rows = (window._adminAptsFiltered || []).map(_aptRowToCsv);
-   var today = new Date().toISOString().slice(0, 10);
+   var today = _todayLocalYmd();
    _downloadCsv('all_bookings_' + today + '.csv', rows);
 }
 
 // Export the currently-rendered billing table from the admin Billing tab.
 function exportAdminBillingCsv() {
    var rows = window._billingExportRows || [];
-   var today = new Date().toISOString().slice(0, 10);
+   var today = _todayLocalYmd();
    _downloadCsv('billing_' + today + '.csv', rows);
 }
 
@@ -2535,19 +2545,19 @@ async function _downloadXls(filename, rows) {
 
 async function exportShopAppointmentsXls() {
    var rows = (window._shopAptsFiltered || []).map(_aptRowToCsv);
-   var today = new Date().toISOString().slice(0, 10);
+   var today = _todayLocalYmd();
    await _downloadXls('bookings_' + today + '.xlsx', rows);
 }
 
 async function exportAdminAppointmentsXls() {
    var rows = (window._adminAptsFiltered || []).map(_aptRowToCsv);
-   var today = new Date().toISOString().slice(0, 10);
+   var today = _todayLocalYmd();
    await _downloadXls('all_bookings_' + today + '.xlsx', rows);
 }
 
 async function exportAdminBillingXls() {
    var rows = window._billingExportRows || [];
-   var today = new Date().toISOString().slice(0, 10);
+   var today = _todayLocalYmd();
    await _downloadXls('billing_' + today + '.xlsx', rows);
 }
 
@@ -5079,7 +5089,7 @@ async function renderShopOverview() {
 
    // Fetch all my bookings for stats
    var apts = await AppDB.getAppointmentsByOwner(user.email);
-   var todayYmd  = new Date().toISOString().slice(0, 10);
+   var todayYmd  = _todayLocalYmd();
    var now = new Date();
    var weekStart = new Date(now);
    weekStart.setDate(now.getDate() - now.getDay());   // Sunday

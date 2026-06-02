@@ -1895,6 +1895,78 @@ body.guest .store-section-divider {
 .shop-ov-stat-icon  { font-size: 1.3rem; }
 .shop-ov-stat-val   { font-size: 1.4rem; font-weight: 800; color: #1a1a2e; margin-top: 4px; }
 .shop-ov-stat-label { font-size: 0.74rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+/* ── New dashboard layout: content on left, stats column on right ── */
+.shop-ov-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 280px;
+	gap: 1rem;
+	padding: 1rem 1.4rem 1.4rem;
+}
+.shop-ov-main    { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.shop-ov-sidebar { display: flex; flex-direction: column; gap: 8px; }
+
+/* Sidebar stat rows */
+.shop-stat-row {
+	display: flex; align-items: center; gap: 12px;
+	background: #f8f9ff;
+	padding: 12px 14px;
+	border-radius: 10px;
+	border: 1px solid #e8eaf2;
+}
+.shop-stat-row-icon { font-size: 1.6rem; line-height: 1; }
+.shop-stat-row-body { flex: 1; min-width: 0; }
+.shop-stat-row-val  { font-size: 1.2rem; font-weight: 800; color: #1a1a2e; line-height: 1.1; }
+.shop-stat-row-lbl  { font-size: 0.74rem; color: #888; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+/* Today's Queue widget */
+.shop-queue-card {
+	background: #fff;
+	border-radius: 12px;
+	border: 1px solid #e0e0e0;
+	overflow: hidden;
+}
+.shop-queue-head {
+	display: flex; justify-content: space-between; align-items: center;
+	background: linear-gradient(135deg, #1a73e8 0%, #4a90e2 100%);
+	color: #fff;
+	padding: 10px 14px;
+	font-weight: 700;
+	font-size: 0.92rem;
+}
+.shop-queue-more   { font-weight: 400; font-size: 0.78rem; opacity: 0.9; }
+.shop-queue-empty  { color: #999; padding: 28px 14px; text-align: center; font-style: italic; }
+.shop-queue-row {
+	display: grid;
+	grid-template-columns: auto 90px 1fr auto;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 14px;
+	border-bottom: 1px solid #f0f0f5;
+	font-size: 0.9rem;
+}
+.shop-queue-row:last-child { border-bottom: none; }
+.shop-queue-row:hover      { background: #fafbff; }
+.shop-queue-time { font-weight: 700; color: #1a73e8; font-size: 0.85rem; }
+.shop-queue-name { font-weight: 600; color: #1a1a2e; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-queue-doc  { color: #666; font-size: 0.78rem; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-queue-paid {
+	background: #e8f5e9; color: #1b5e20;
+	padding: 1px 6px; border-radius: 4px;
+	font-size: 0.68rem; font-weight: 700;
+	margin-left: 6px;
+}
+
+@media (max-width: 768px) {
+	.shop-ov-layout {
+		grid-template-columns: 1fr;
+		padding: 0.8rem;
+	}
+	.shop-queue-row {
+		grid-template-columns: auto 70px 1fr;
+	}
+	.shop-queue-doc { display: none; }
+}
 .apt-tbl-id      { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
                    font-size: 0.72rem; color: #888; }
 .apt-tbl-symptom {

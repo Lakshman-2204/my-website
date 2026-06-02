@@ -5112,13 +5112,18 @@ async function renderShopOverview() {
                (p.timing  ? '<div>🕒 ' + p.timing  + '</div>' : '') +
                (p.phone   ? '<div>📞 ' + _phoneLink(p.phone) + '</div>' : '') +
             '</div>' +
-            '<div class="shop-ov-stats">' +
-               _statCard('👨‍⚕️', docCount,                'Doctors') +
-               _statCard('📅',  todayApts.length,        'Today\'s Bookings') +
-               _statCard('⏳',  todayPending.length,     'Pending Today') +
-               _statCard('✅',  todayDone.length,        'Completed Today') +
-               _statCard('📊',  thisWeek.length,         'This Week') +
-               _statCard('💰',  '₹' + monthRevenue.toLocaleString('en-IN'), 'Revenue (Month)') +
+            '<div class="shop-ov-layout">' +
+               '<div class="shop-ov-main">' +
+                  _todayQueueWidget(provApts, todayYmd) +
+               '</div>' +
+               '<aside class="shop-ov-sidebar">' +
+                  _statRow('👨‍⚕️', docCount,                'Doctors') +
+                  _statRow('📅',  todayApts.length,        'Today\'s Bookings') +
+                  _statRow('⏳',  todayPending.length,     'Pending Today') +
+                  _statRow('✅',  todayDone.length,        'Completed Today') +
+                  _statRow('📊',  thisWeek.length,         'This Week') +
+                  _statRow('💰',  '₹' + monthRevenue.toLocaleString('en-IN'), 'Revenue (Month)') +
+               '</aside>' +
             '</div>' +
          '</div>';
    });
@@ -5131,6 +5136,61 @@ function _statCard(icon, value, label) {
              '<div class="shop-ov-stat-icon">' + icon + '</div>' +
              '<div class="shop-ov-stat-val">' + value + '</div>' +
              '<div class="shop-ov-stat-label">' + label + '</div>' +
+          '</div>';
+}
+
+// Sidebar row form for the new two-column dashboard layout. Icon left, label
+// stack right (number + small description).
+function _statRow(icon, value, label) {
+   return '<div class="shop-stat-row">' +
+             '<div class="shop-stat-row-icon">' + icon + '</div>' +
+             '<div class="shop-stat-row-body">' +
+                '<div class="shop-stat-row-val">' + value + '</div>' +
+                '<div class="shop-stat-row-lbl">' + label + '</div>' +
+             '</div>' +
+          '</div>';
+}
+
+// Today's Queue widget — next-to-be-seen list for the owner's dashboard.
+// Shows up to 5 upcoming Confirmed bookings sorted by slot time + token.
+// Slots that have already ENDED are skipped (they're past, not callable).
+function _todayQueueWidget(provApts, todayYmd) {
+   var queue = (provApts || []).filter(function(a) {
+      return a.date === todayYmd && a.status === 'Confirmed' && !_slotEnded(a);
+   });
+   queue.sort(function(a, b) {
+      var sa = _hhmmToMin(a.slot || '00:00');
+      var sb = _hhmmToMin(b.slot || '00:00');
+      if (sa !== sb) return sa - sb;
+      // Within same slot: regular tokens first, then follow-ups
+      if (!!a.is_followup !== !!b.is_followup) return a.is_followup ? 1 : -1;
+      return (Number(a.token) || 0) - (Number(b.token) || 0);
+   });
+   var top = queue.slice(0, 5);
+   var extra = queue.length - top.length;
+
+   var bodyHtml;
+   if (top.length === 0) {
+      bodyHtml = '<div class="shop-queue-empty">No upcoming patients today. ✓</div>';
+   } else {
+      bodyHtml = top.map(function(a) {
+         var slot = a.slot ? _formatSlot12(a.slot) : '🎟 Token';
+         var paidHtml = a.is_paid ? '<span class="shop-queue-paid" title="Fee paid">✓ Paid</span>' : '';
+         return '<div class="shop-queue-row">' +
+                   '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">' + _tokenLabel(a) + '</span>' +
+                   '<div class="shop-queue-time">' + slot + '</div>' +
+                   '<div class="shop-queue-name">' + (a.patient_name || '—') + paidHtml + '</div>' +
+                   '<div class="shop-queue-doc">' + (a.doctor_name || '') + '</div>' +
+                '</div>';
+      }).join('');
+   }
+
+   return '<div class="shop-queue-card">' +
+             '<div class="shop-queue-head">' +
+                '<span>🎟 Today\'s Queue</span>' +
+                (extra > 0 ? '<span class="shop-queue-more">+ ' + extra + ' more</span>' : '') +
+             '</div>' +
+             bodyHtml +
           '</div>';
 }
 

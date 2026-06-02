@@ -5,6 +5,24 @@
       <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
       <title>My Profile — MyStore</title>
       <link rel="stylesheet" href="style.css"/>
+      <script>
+         /* Hide customer-only tabs IMMEDIATELY for store-owners — runs before
+            the body paints so there's no flash of "all tabs visible". */
+         (function() {
+            var u = null;
+            try { u = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null'); } catch (e) {}
+            if (u && u.role && u.role !== 'customer') {
+               var s = document.createElement('style');
+               s.textContent =
+                  '#ptab-addresses-btn,' +
+                  '#ptab-orders-btn,' +
+                  '#ptab-appointments-btn,' +
+                  '#ptab-wishlist-btn,' +
+                  '#ptab-cards-btn { display: none !important; }';
+               document.head.appendChild(s);
+            }
+         })();
+      </script>
       <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
       <script src="supabase.js"></script>
    </head>

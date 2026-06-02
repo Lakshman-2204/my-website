@@ -5049,7 +5049,13 @@ async function renderShopOverview() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var container = document.getElementById('shopDashboardContent');
    if (!user || !container) return;
-   _liveSubscribe('shopDash', 'appointments', renderShopOverview);
+   // Always force a fresh fetch when the dashboard renders — keeps the queue
+   // in sync with what the Appointments table shows.
+   _shopAptsCache = null;
+   _liveSubscribe('shopDash', 'appointments', function() {
+      _shopAptsCache = null;
+      renderShopOverview();
+   });
    _liveSubscribe('shopDashProvs', 'apt_providers', renderShopOverview);
    // Run the auto-no-show sweep once per session so the dashboard counts are
    // accurate even before owner opens the Appointments tab.

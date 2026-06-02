@@ -7300,7 +7300,16 @@ async function initProfile() {
    }
    if (addrRow && isStoreOwner) {
       addrRow.classList.remove('hidden');
-      document.getElementById('prof-address').value = user.address || '';
+      // Pre-fill address from the owner's provider so editing one updates everywhere.
+      try {
+         await loadAptProviders(true);
+         var owned = (_aptProvidersCache || []).filter(function(p) {
+            return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase();
+         });
+         document.getElementById('prof-address').value = (owned[0] && owned[0].address) || user.address || '';
+      } catch (e) {
+         document.getElementById('prof-address').value = user.address || '';
+      }
    }
    // For shop-owners, the customer-only tabs (addresses, orders, appointments,
    // wishlist, cards) aren't relevant — hide them. Profile Info only.
@@ -7332,7 +7341,7 @@ function switchProfileTab(tab) {
    if (tab === 'cards')        renderCards();
 }
 
-function saveProfileInfo() {
+async function saveProfileInfo() {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) return;
    user.name   = document.getElementById('prof-name').value.trim();
@@ -7353,6 +7362,26 @@ function saveProfileInfo() {
       saveUsers(users);
    }
    sessionStorage.setItem('loggedInUser', JSON.stringify(user));
+
+   // For shop-owners: also push the new address to ALL their providers so the
+   // change is reflected on customer pages, admin, receipts, etc.
+   var isStoreOwner = (user.role === 'storeowner' || isAdmin(user.email));
+   if (isStoreOwner && addrEl) {
+      try {
+         await loadAptProviders(true);
+         var emailLc = (user.email || '').toLowerCase();
+         var owned = (_aptProvidersCache || []).filter(function(p) {
+            return (p.owner_email || '').toLowerCase() === emailLc;
+         });
+         for (var i = 0; i < owned.length; i++) {
+            if (owned[i].address !== user.address) {
+               owned[i].address = user.address;
+               await AppDB.upsertProvider(owned[i]);
+            }
+         }
+      } catch (e) { console.warn('Provider address sync failed:', e); }
+   }
+
    showProfileToast('✅ Profile updated!');
 }
 

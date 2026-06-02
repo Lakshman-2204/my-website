@@ -17,7 +17,11 @@ function _userFromDB(r) {
             blocked: r.blocked || false, isAdmin: r.is_admin || false,
             isApproved: r.is_approved !== false,   // null/missing → treat as approved (legacy rows)
             commissionRate: r.commission_rate != null ? Number(r.commission_rate) : null,
-            gender: r.gender || '' };
+            gender: r.gender || '',
+            block_appeal_reason: r.block_appeal_reason || '',
+            block_appeal_at:     r.block_appeal_at     || null,
+            block_appeal_status: r.block_appeal_status || '',
+            appeal_approved_at:  r.appeal_approved_at  || null };
 }
 function _userToDB(u) {
    const row = { name: u.name, email: (u.email || '').toLowerCase(),
@@ -85,7 +89,12 @@ window.AppDB = {
          name: 'name', role: 'role', password: 'password', phone: 'phone',
          storeName: 'store_name', storeType: 'store_type', blocked: 'blocked',
          isAdmin: 'is_admin', isApproved: 'is_approved', gender: 'gender',
-         commissionRate: 'commission_rate'
+         commissionRate: 'commission_rate',
+         // Block-appeal workflow
+         block_appeal_reason: 'block_appeal_reason',
+         block_appeal_at:     'block_appeal_at',
+         block_appeal_status: 'block_appeal_status',
+         appeal_approved_at:  'appeal_approved_at'
       };
       const patch = {};
       for (const jsKey in mapping) {
@@ -378,6 +387,10 @@ window.AppDB = {
 
    async updateAppointmentStatus(aptId, status, extra) {
       const updates = Object.assign({ status }, extra || {});
+      // Auto-stamp cancelled_at so every cancel path feeds the cooldown + daily-cap defenses.
+      if (status === 'Cancelled' && !updates.cancelled_at) {
+         updates.cancelled_at = new Date().toISOString();
+      }
       const { error } = await _sb.from('appointments').update(updates).eq('apt_id', aptId);
       if (error) { console.error('updateAppointmentStatus:', error.message); return false; }
       return true;

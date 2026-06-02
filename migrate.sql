@@ -74,6 +74,15 @@ ALTER TABLE public.users
 ALTER TABLE public.users
    ADD COLUMN IF NOT EXISTS commission_rate numeric DEFAULT NULL;
 
+-- 6c. USERS — block-appeal workflow. When a customer is blocked (no-show cap),
+--     they can submit an appeal. Admin reviews and approves/denies. Approval
+--     sets appeal_approved_at — abuse check then ignores no-shows before that.
+ALTER TABLE public.users
+   ADD COLUMN IF NOT EXISTS block_appeal_reason text        DEFAULT '',
+   ADD COLUMN IF NOT EXISTS block_appeal_at     timestamptz DEFAULT NULL,
+   ADD COLUMN IF NOT EXISTS block_appeal_status text        DEFAULT '',
+   ADD COLUMN IF NOT EXISTS appeal_approved_at  timestamptz DEFAULT NULL;
+
 -- 7. APPOINTMENTS — save patient details collected on the booking form
 ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS patient_name    text DEFAULT '',
@@ -90,6 +99,10 @@ ALTER TABLE public.appointments
 -- 8b. APPOINTMENTS — free-text reason captured when the booking is cancelled
 ALTER TABLE public.appointments
    ADD COLUMN IF NOT EXISTS cancellation_reason text DEFAULT '';
+
+-- 8b2. APPOINTMENTS — timestamp of cancellation, used for cooldown + daily caps
+ALTER TABLE public.appointments
+   ADD COLUMN IF NOT EXISTS cancelled_at timestamptz DEFAULT NULL;
 
 -- 8c. APPOINTMENTS — sequential token within a slot (1, 2, 3…)
 --     Owner calls patients in token order so first-booked is seen first.

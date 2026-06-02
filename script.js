@@ -1536,28 +1536,95 @@ function _tokenBadgeColor(apt) {
 
 // Returns null if the booking is allowed, or a friendly error string if it should be blocked.
 // Checks (in order): no-show auto-block → per-doctor cap → daily cap.
-async function _checkBookingAbuse(user, doctor, providerId, dateStr) {
+// Test / admin whitelist — these accounts bypass ALL booking-abuse checks.
+// Useful during development so the team can spam-test without locking themselves
+// out. Remove or trim this list once the site is fully live.
+var ABUSE_WHITELIST = [
+   'g.ramkumar1533@gmail.com',
+   'lakshmankumar5434@gmail.com'
+];
+
+async function _checkBookingAbuse(user, doctor, providerId, dateStr, patientName, patientPhone) {
+   var emailLc = (user.email || '').toLowerCase();
+
+   // Whitelist: skip every check for admin accounts + test accounts.
+   if (isAdmin(user.email) || ABUSE_WHITELIST.indexOf(emailLc) !== -1) {
+      return null;
+   }
+
    var settings = getAdminSettings();
    var maxPerDoctor    = parseInt(settings.bookingsPerDoctorPerDay,   10) || 3;
-   var maxPerCustomer  = parseInt(settings.bookingsPerCustomerPerDay, 10) || 10;
+   var maxPerCustomer  = parseInt(settings.bookingsPerCustomerPerDay, 10) || 5;
    var noShowThreshold = parseInt(settings.noShowBlockThreshold,      10) || 5;
    var noShowDays      = parseInt(settings.noShowBlockDays,           10) || 30;
-   var emailLc         = (user.email || '').toLowerCase();
+   var dailyCancelCap  = parseInt(settings.cancelsPerDayCap,          10) || 5;
+   var cooldownMs      = (parseInt(settings.cancelCooldownMinutes,    10) || 5) * 60 * 1000;
 
    var history = await AppDB.getAppointments(emailLc);
+
+   // ── Cancel-cooldown: most recent customer cancel < 5 min ago ──
+   var nowMs = Date.now();
+   var recentCancelMs = (history.filter(function(a) {
+      return a.cancelled_by === 'customer' && a.cancelled_at;
+   })).reduce(function(maxMs, a) {
+      var t = new Date(a.cancelled_at).getTime();
+      return isNaN(t) ? maxMs : Math.max(maxMs, t);
+   }, 0);
+   if (recentCancelMs > 0 && (nowMs - recentCancelMs) < cooldownMs) {
+      var minsLeft = Math.ceil((cooldownMs - (nowMs - recentCancelMs)) / 60000);
+      return 'Please wait ' + minsLeft + ' more minute' + (minsLeft === 1 ? '' : 's') + ' before booking again (you just cancelled an appointment).';
+   }
+
+   // ── Daily cancel cap: >5 customer cancels today → block rest of the day ──
+   var todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+   var todayStartMs = todayStart.getTime();
+   var todaysCancels = history.filter(function(a) {
+      if (a.cancelled_by !== 'customer' || !a.cancelled_at) return false;
+      var t = new Date(a.cancelled_at).getTime();
+      return !isNaN(t) && t >= todayStartMs;
+   });
+   if (todaysCancels.length >= dailyCancelCap) {
+      return 'You have cancelled ' + todaysCancels.length + ' appointment' + (todaysCancels.length === 1 ? '' : 's') + ' today. New bookings are blocked for the rest of the day. Please try again tomorrow.';
+   }
 
    // Follow-ups are continuations of an already-paid consultation, so they
    // never count toward abuse caps (per-doctor, per-customer, or no-show counts).
    var regularHistory = history.filter(function(a) { return !a.is_followup; });
 
-   // No-show auto-block (across all providers)
+   // Duplicate-patient guard: same name + same phone shouldn't book the same
+   // doctor on the same day twice. Fires first because it's the most likely
+   // mistake and gives the clearest error to the user.
+   if (patientName && patientPhone) {
+      var nameLc  = patientName.toLowerCase().trim();
+      var phoneDg = String(patientPhone).replace(/\D/g, '');
+      var dupSame = regularHistory.filter(function(a) {
+         return a.doctor_id === doctor.id
+             && a.date === dateStr
+             && a.status !== 'Cancelled' && a.status !== 'No-show'
+             && (a.patient_name  || '').toLowerCase().trim() === nameLc
+             && String(a.patient_phone || '').replace(/\D/g, '') === phoneDg;
+      });
+      if (dupSame.length > 0) {
+         return 'A booking already exists for ' + patientName + ' (' + patientPhone + ') with ' + doctor.name + ' on ' + dateStr + '. The same patient can\'t book twice with the same doctor on the same day.';
+      }
+   }
+
+   // No-show auto-block (across all providers).
+   // If an admin has approved an appeal, only no-shows AFTER approval count
+   // (gives the customer a clean slate).
    var cutoffDate = new Date(Date.now() - noShowDays * 24 * 60 * 60 * 1000);
    var cutoffYmd  = cutoffDate.toISOString().slice(0, 10);
+   var approvalDate = '';
+   try {
+      var u = (getUsers() || []).find(function(x) { return (x.email || '').toLowerCase() === emailLc; });
+      if (u && u.appeal_approved_at) approvalDate = String(u.appeal_approved_at).slice(0, 10);
+   } catch (e) { /* ignore */ }
+   var effectiveCutoff = (approvalDate && approvalDate > cutoffYmd) ? approvalDate : cutoffYmd;
    var noShows = regularHistory.filter(function(a) {
-      return a.status === 'No-show' && (a.date || '') >= cutoffYmd;
+      return a.status === 'No-show' && (a.date || '') >= effectiveCutoff;
    });
    if (noShows.length >= noShowThreshold) {
-      return 'Your account has ' + noShows.length + ' unattended appointments in the last ' + noShowDays + ' days. New bookings are restricted. Please contact support.';
+      return '__BLOCKED_NO_SHOWS__:' + noShows.length;
    }
 
    // Per-doctor-per-day cap (active = not cancelled / no-show, excluding follow-ups)
@@ -1642,8 +1709,17 @@ async function confirmAptBooking() {
          return;
       }
    } else {
-      var abuseError = await _checkBookingAbuse(user, doctor, _aptBookCtx.providerId, _aptBookCtx.date);
-      if (abuseError) { alert(abuseError); return; }
+      var abuseError = await _checkBookingAbuse(user, doctor, _aptBookCtx.providerId, _aptBookCtx.date, name, phone);
+      if (abuseError) {
+         if (abuseError.indexOf('__BLOCKED_NO_SHOWS__') === 0) {
+            var nCount = abuseError.split(':')[1] || '5+';
+            var humanMsg = 'Your account has ' + nCount + ' unattended appointments in the last 30 days, so new bookings are restricted.\n\nWould you like to submit an appeal to the admin?';
+            if (confirm(humanMsg)) openAppealModal(nCount);
+            return;
+         }
+         alert(abuseError);
+         return;
+      }
    }
 
    // Re-check ONLINE capacity (only counts online bookings against online cap).
@@ -3362,6 +3438,56 @@ async function refreshAndRenderUsers() {
    renderUserList(_currentUserFilter || 'all');
 }
 
+// Show pending block-appeals at the top of the Users tab so admin sees them
+// immediately on login. Approve clears the user's no-show count (effective
+// from approval timestamp); Deny dismisses the appeal but keeps the block.
+function _renderPendingAppeals(users) {
+   var box = document.getElementById('pendingAppealsBox');
+   if (!box) return;
+   var pending = (users || []).filter(function(u) { return u.block_appeal_status === 'pending'; });
+   if (pending.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+   var rows = pending.map(function(u) {
+      var emailJs = (u.email || '').replace(/'/g, "\\'");
+      var when = u.block_appeal_at ? new Date(u.block_appeal_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '';
+      var reason = (u.block_appeal_reason || '').replace(/</g, '&lt;');
+      return '<div style="background:#fff;border:1px solid #ffcc80;border-radius:8px;padding:10px;margin-top:8px">' +
+                '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">' +
+                   '<div><strong>' + (u.name || u.email) + '</strong> <span style="color:#888;font-size:0.82rem">· ' + u.email + '</span></div>' +
+                   '<div style="font-size:0.78rem;color:#666">submitted ' + when + '</div>' +
+                '</div>' +
+                '<div style="font-size:0.88rem;color:#444;background:#fafafa;border-left:3px solid #ffb74d;padding:8px 10px;border-radius:4px;margin-bottom:8px;white-space:pre-wrap">' + reason + '</div>' +
+                '<div style="display:flex;gap:6px;justify-content:flex-end">' +
+                   '<button class="apt-view-btn" style="background:#c62828" onclick="denyAppeal(\'' + emailJs + '\')">✕ Deny</button>' +
+                   '<button class="apt-view-btn" style="background:#2e7d32" onclick="approveAppeal(\'' + emailJs + '\')">✓ Approve &amp; Unblock</button>' +
+                '</div>' +
+             '</div>';
+   }).join('');
+   box.style.display = 'block';
+   box.innerHTML = '<div style="font-weight:700;color:#e65100">📬 Pending Appeals (' + pending.length + ')</div>' + rows;
+}
+
+async function approveAppeal(email) {
+   if (!confirm('Approve appeal and unblock this customer? Their no-show history before today will be ignored.')) return;
+   var ok = await AppDB.updateUser(email, {
+      block_appeal_status: 'approved',
+      appeal_approved_at: new Date().toISOString()
+   });
+   if (!ok) { alert('Failed to approve. Check console.'); return; }
+   await loadUsersFromDb();
+   renderUserList(_currentUserFilter || 'all');
+}
+
+async function denyAppeal(email) {
+   if (!confirm('Deny this appeal? Customer stays blocked until enough no-shows age out.')) return;
+   var ok = await AppDB.updateUser(email, {
+      block_appeal_status: 'denied'
+      // don't touch appeal_approved_at — customer stays blocked
+   });
+   if (!ok) { alert('Failed to deny. Check console.'); return; }
+   await loadUsersFromDb();
+   renderUserList(_currentUserFilter || 'all');
+}
+
 function renderUserList(filter) {
    filter = filter || 'all';
    // Update filter tab active state
@@ -3373,6 +3499,9 @@ function renderUserList(filter) {
    var users = getUsers();
    var container = document.getElementById('userListContainer');
    if (!container) return;
+
+   // Pending appeals box (above the user list)
+   _renderPendingAppeals(users);
 
    // Exclude admin accounts from the list
    var allNonAdmin = users.filter(function(u) { return !ADMIN_EMAILS.includes(u.email); });
@@ -4663,7 +4792,13 @@ async function renderShopAppointments(filterStatus) {
       }
       var actions;
       if (!canChange) {
-         actions = (paidBtn + receiptBtn) || '<span style="color:#bbb">—</span>';
+         // If the booking was wrongly marked No-show (e.g. patient arrived late
+         // due to traffic), the owner can revert it back to Confirmed and then
+         // mark Complete normally.
+         var undoBtn = (status === 'No-show')
+            ? '<button class="apt-act-btn" style="background:#1565c0;color:#fff" title="Patient arrived late — move back to Confirmed" onclick="undoNoShow(\'' + aid + '\')">↩ Undo No-show</button>'
+            : '';
+         actions = (paidBtn + receiptBtn + undoBtn) || '<span style="color:#bbb">—</span>';
       } else {
          var slotPassed = _slotPassed(a);
          var completeBtn = slotPassed
@@ -5185,7 +5320,7 @@ async function shopSetAptStatus(aptId, status) {
    var ok = await AppDB.updateAppointmentStatus(aptId, status, extra);
    if (!ok) { alert('Failed to update.'); return; }
    _shopAptsCache = null;
-   renderShopAppointments();
+   renderShopAppointments(window._shopAptCurrentFilter);
 }
 
 // ── Doctor Day-Off (bulk cancel all bookings for one doctor + one date) ──
@@ -5273,7 +5408,7 @@ async function confirmDoctorDayCancel() {
    var activeBtn = document.querySelector('#schedDateButtons .apt-date-btn.active');
    if (activeBtn && _schedCtx && _schedCtx.date === dateStr) schedSelectDate(dateStr, activeBtn);
    // Refresh the Appointments tab if it's currently open
-   if (typeof renderShopAppointments === 'function') renderShopAppointments();
+   if (typeof renderShopAppointments === 'function') renderShopAppointments(window._shopAptCurrentFilter);
 }
 
 // ── Owner-side reschedule ──
@@ -5464,6 +5599,21 @@ async function confirmReschedule() {
    renderShopAppointments();
 }
 
+// Revert a No-show back to Confirmed. Real-world case: patient was marked
+// No-show but then arrived late (traffic, ran out of fuel, etc.) — owner wants
+// to undo the marking so they can mark Complete normally.
+async function undoNoShow(aptId) {
+   if (!confirm('Mark this appointment back to Confirmed?\n\nUse this if the patient turned up late (e.g. traffic jam).')) return;
+   var ok = await AppDB.updateAppointmentStatus(aptId, 'Confirmed', {
+      cancelled_at: null,
+      cancelled_by: '',
+      cancellation_reason: ''
+   });
+   if (!ok) { alert('Failed to update. Check console.'); return; }
+   _shopAptsCache = null;
+   renderShopAppointments(window._shopAptCurrentFilter);
+}
+
 // Flip is_paid=true without changing status. Used when the patient pays at
 // reception but the consultation hasn't happened yet — they still need a receipt.
 async function shopMarkPaid(aptId) {
@@ -5474,7 +5624,7 @@ async function shopMarkPaid(aptId) {
    var ok = await AppDB.updateAppointmentStatus(aptId, apt.status || 'Confirmed', { is_paid: true });
    if (!ok) { alert('Failed to update.'); return; }
    _shopAptsCache = null;
-   renderShopAppointments();
+   renderShopAppointments(window._shopAptCurrentFilter);
 }
 
 async function logout() {
@@ -6810,6 +6960,9 @@ async function renderMyAppointments() {
    if (!user) { list.innerHTML = '<p class="prof-empty">Please log in to view your appointments.</p>'; return; }
    _liveSubscribe('myApts', 'appointments', renderMyAppointments);
    if (!list.innerHTML.trim()) list.innerHTML = '<p class="prof-empty">Loading…</p>';
+   // Make sure providers are loaded fresh so free_followup_days / phone / etc.
+   // are current — needed for the follow-up button + hospital phone column.
+   await loadAptProviders(true);
    var all = await AppDB.getAppointments(user.email);
    if (!all.length) {
       list.innerHTML = '<p class="prof-empty">No appointments booked yet.</p>';
@@ -6967,6 +7120,49 @@ function _fillSelectFromList(selectId, defaultLabel, values, optionLabel) {
          var label = optionLabel ? optionLabel(v) : v;
          return '<option value="' + v + '"' + (v === current ? ' selected' : '') + '>' + label + '</option>';
       }).join('');
+}
+
+// ── Appeal workflow for blocked customers ──
+// Customer is locked out by the no-show auto-block. This lets them submit a
+// short explanation; admin reviews from the Users tab and approves/denies.
+// On approval, only no-shows AFTER the approval timestamp count → clean slate.
+function openAppealModal(noShowCount) {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   // If they've already submitted a pending appeal, don't let them flood admin.
+   if (user.block_appeal_status === 'pending') {
+      alert('You\'ve already submitted an appeal. Admin will review it shortly.');
+      return;
+   }
+   var reason = prompt(
+      'Appeal to admin\n\n' +
+      'Your account has ' + noShowCount + ' no-shows in the last 30 days. ' +
+      'Please explain what happened and why your account should be unblocked. ' +
+      'The admin will review and respond.\n\n' +
+      '(Minimum 20 characters)'
+   );
+   if (reason === null) return;
+   reason = (reason || '').trim();
+   if (reason.length < 20) {
+      alert('Please give a more detailed reason (at least 20 characters) so admin can review properly.');
+      return;
+   }
+   submitAppeal(reason);
+}
+
+async function submitAppeal(reason) {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) return;
+   var ok = await AppDB.updateUser(user.email, {
+      block_appeal_reason: reason,
+      block_appeal_at: new Date().toISOString(),
+      block_appeal_status: 'pending'
+   });
+   if (!ok) { alert('Failed to submit appeal. Please try again later.'); return; }
+   // Reflect locally so re-clicks see the pending status
+   user.block_appeal_reason = reason;
+   user.block_appeal_status = 'pending';
+   sessionStorage.setItem('loggedInUser', JSON.stringify(user));
+   alert('✅ Appeal submitted. Admin will review and respond. Once approved, you\'ll be able to book again.');
 }
 
 // Customer-side reschedule action — explains that the hospital controls reschedules.

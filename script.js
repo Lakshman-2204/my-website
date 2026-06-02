@@ -7500,8 +7500,10 @@ async function renderMyAppointments() {
          var origDate = new Date(a.date + 'T00:00:00');
          var deadline = new Date(origDate.getTime() + fuDays * 86400000);
          var now0 = new Date(); now0.setHours(0,0,0,0);
-         // Count existing follow-ups for THIS original (cancelled ones don't count toward limit)
-         var existingFu = (apts || []).filter(function(b) {
+         // Count existing follow-ups for THIS original (cancelled ones don't count toward limit).
+         // Use the UNFILTERED list `all` — otherwise a follow-up dated tomorrow would
+         // be hidden by today's date-filter and the button would falsely re-appear.
+         var existingFu = (all || []).filter(function(b) {
             return b.followup_of === a.apt_id && b.status !== 'Cancelled';
          });
          if (now0 <= deadline && existingFu.length < fuLimit) {

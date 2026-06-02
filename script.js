@@ -1302,9 +1302,45 @@ function summarizeDoctorDays(avail) {
 // Convenience wrapper: open the booking modal in FREE FOLLOW-UP mode for a
 // completed appointment. Same doctor/provider, fee shown as ₹0, dates restricted
 // to within the provider's free_followup_days window.
+// If invoked from a page that doesn't have the booking modal (e.g. profile.html
+// where the customer's My Appointments lives), stash the context and redirect
+// to home.html — the resume handler below opens the modal after navigation.
 function openAptBookModalFollowup(catKey, providerId, doctorId, originalAptId, deadlineIso) {
+   if (!document.getElementById('aptBookModal')) {
+      sessionStorage.setItem('pendingFollowupBooking', JSON.stringify({
+         catKey: catKey,
+         providerId: providerId,
+         doctorId: doctorId,
+         originalAptId: originalAptId,
+         deadlineIso: deadlineIso
+      }));
+      window.location.href = 'home.html';
+      return;
+   }
    openAptBookModal(catKey, providerId, doctorId, originalAptId, deadlineIso);
 }
+
+// On home.html load, if a follow-up booking was queued from another page,
+// resume it once the page is ready (providers loaded, modal in the DOM).
+(function _resumePendingFollowup() {
+   if (typeof window === 'undefined') return;
+   document.addEventListener('DOMContentLoaded', function() {
+      if (!document.getElementById('aptBookModal')) return;   // not on home
+      var raw = sessionStorage.getItem('pendingFollowupBooking');
+      if (!raw) return;
+      sessionStorage.removeItem('pendingFollowupBooking');
+      var ctx;
+      try { ctx = JSON.parse(raw); } catch (e) { return; }
+      if (!ctx || !ctx.providerId || !ctx.doctorId || !ctx.originalAptId) return;
+      // Defer briefly so all init code (provider cache, etc.) settles first
+      setTimeout(async function() {
+         try {
+            if (typeof loadAptProviders === 'function') await loadAptProviders(true);
+         } catch (e) { /* ignore */ }
+         openAptBookModalFollowup(ctx.catKey, ctx.providerId, ctx.doctorId, ctx.originalAptId, ctx.deadlineIso);
+      }, 400);
+   });
+})();
 
 function openAptBookModal(catKey, providerId, doctorId, followupOfAptId, followupDeadline) {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));

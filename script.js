@@ -1224,9 +1224,9 @@ function showAptCategory(catKey) {
                          '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
                       '</div>' +
                    '</div>' +
-                   (p.address ? '<div class="apt-provider-meta">📍 ' + p.address + '</div>' : '') +
+                   (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
                    (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
-                   (p.phone   ? '<div class="apt-provider-meta" style="color:#1a73e8;font-weight:600">📞 ' + p.phone + '</div>' : '') +
+                   (p.phone   ? '<div class="apt-provider-meta" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
                    '<div class="apt-provider-footer">' +
                       '<span>' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + '</span>' +
                       '<button class="apt-view-btn" onclick="showAptProvider(\'' + catKey + '\',\'' + p.id + '\')">View Doctors →</button>' +
@@ -1247,9 +1247,9 @@ function showAptProvider(catKey, providerId) {
    document.getElementById('aptSectionTitle').textContent = icon + ' ' + provider.name;
    var html = '<button class="apt-back-btn" onclick="showAptCategory(\'' + catKey + '\')">← ' + (meta ? meta.label : 'Back') + '</button>' +
               '<div class="apt-provider-info-bar">' +
-                 (provider.address ? '<span>📍 ' + provider.address + '</span>' : '') +
+                 (provider.address ? '<span>📍 ' + _mapsLink(provider.address) + '</span>' : '') +
                  (provider.timing  ? '<span>🕒 ' + provider.timing  + '</span>' : '') +
-                 (provider.phone   ? '<span style="color:#1a73e8;font-weight:600">📞 ' + provider.phone + '</span>' : '') +
+                 (provider.phone   ? '<span style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(provider.phone) + '</span>' : '') +
               '</div>';
    var doctors = provider.doctors || [];
    if (!doctors.length) {
@@ -1566,6 +1566,23 @@ function _formatSlot12(slot24) {
 function _tokenLabel(apt) {
    if (!apt || !apt.token) return '';
    return (apt.is_followup ? 'FT' : 'T') + apt.token;
+}
+
+// Wrap a phone number with a tel: link so mobile clicks open the dialer.
+function _phoneLink(phone) {
+   if (!phone) return '';
+   var digits = String(phone).replace(/\D/g, '');
+   var safe   = String(phone).replace(/"/g, '&quot;');
+   return '<a href="tel:' + digits + '" style="color:inherit;text-decoration:underline" title="Call this number">' + safe + '</a>';
+}
+
+// Wrap an address string with a Google Maps link. Opens in a new tab. Safe
+// when address is empty (returns the empty string so concatenation still works).
+function _mapsLink(address) {
+   if (!address) return '';
+   var safe = String(address).replace(/"/g, '&quot;');
+   var url  = 'https://maps.google.com/?q=' + encodeURIComponent(address);
+   return '<a href="' + url + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline" title="Open in Google Maps">' + safe + '</a>';
 }
 
 function _tokenBadgeColor(apt) {
@@ -1983,7 +2000,7 @@ async function renderAptAdmin() {
                       '<div class="apt-provider-tagline" style="margin-top:3px;color:#1a73e8">' + meta.icon + ' ' + meta.label + '</div>' +
                    '</div>' +
                 '</div>' +
-                (p.address ? '<div class="apt-provider-meta">📍 ' + p.address + '</div>' : '') +
+                (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
                 (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
                 '<div class="apt-provider-footer">' +
                    '<span>' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + '</span>' +
@@ -4840,7 +4857,7 @@ async function renderShopAppointments(filterStatus) {
       if (doctorFilter && a.doctor_name !== doctorFilter) return false;
       if (!_isDateInRange(a.date, df.range, df)) return false;
       if (searchVal) {
-         var hay = ((a.patient_name || '') + ' ' + (a.user_email || '') + ' ' + (a.patient_phone || '')).toLowerCase();
+         var hay = ((a.patient_name || '') + ' ' + (a.user_email || '') + ' ' + (a.patient_phone || '') + ' ' + (a.apt_id || '')).toLowerCase();
          if (hay.indexOf(searchVal) === -1) return false;
       }
       return true;
@@ -5091,9 +5108,9 @@ async function renderShopOverview() {
                '</div>' +
             '</div>' +
             '<div class="shop-ov-info">' +
-               (p.address ? '<div>📍 ' + p.address + '</div>' : '') +
+               (p.address ? '<div>📍 ' + _mapsLink(p.address) + '</div>' : '') +
                (p.timing  ? '<div>🕒 ' + p.timing  + '</div>' : '') +
-               (p.phone   ? '<div>📞 <a href="tel:' + p.phone.replace(/\D/g,'') + '">' + p.phone + '</a></div>' : '') +
+               (p.phone   ? '<div>📞 ' + _phoneLink(p.phone) + '</div>' : '') +
             '</div>' +
             '<div class="shop-ov-stats">' +
                _statCard('👨‍⚕️', docCount,                'Doctors') +
@@ -7521,7 +7538,7 @@ async function renderMyAppointments() {
          : (followupBtn || '<span style="color:#bbb">—</span>');
       if (isCancellable && followupBtn) actions += followupBtn;  // unlikely both; defensive
       var meta = APT_CAT_META[a.category] || {};
-      var hospitalPhoneLine = prov.phone ? '<div class="apt-tbl-sub" style="color:#1a73e8;font-weight:600">📞 ' + prov.phone + '</div>' : '';
+      var hospitalPhoneLine = prov.phone ? '<div class="apt-tbl-sub" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(prov.phone) + '</div>' : '';
       var tokenCell = a.token
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">' + _tokenLabel(a) + '</span>'
          : '<span style="color:#bbb">—</span>';

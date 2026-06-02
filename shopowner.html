@@ -121,7 +121,7 @@
             <button class="shop-tab"        id="apt-tab-Completed" data-filter="Completed" onclick="renderShopAppointments('Completed')">✅ Completed</button>
             <button class="shop-tab"        id="apt-tab-Cancelled" data-filter="Cancelled" onclick="renderShopAppointments('Cancelled')">✕ Cancelled</button>
             <button class="shop-tab"        id="apt-tab-No-show"   data-filter="No-show"   onclick="renderShopAppointments('No-show')">🚫 No-show</button>
-            <input type="search" id="shopAptSearch" class="apt-search-input" placeholder="🔍 Search patient / email / phone" oninput="renderShopAppointments(window._shopAptCurrentFilter)"/>
+            <input type="search" id="shopAptSearch" class="apt-search-input" placeholder="🔍 Search patient / email / phone / appt ID" oninput="renderShopAppointments(window._shopAptCurrentFilter)"/>
          </div>
          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select id="shopAptDateFilter" class="admin-filter-select" onchange="renderShopAppointments(window._shopAptCurrentFilter)">

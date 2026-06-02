@@ -4886,10 +4886,15 @@ async function renderShopAppointments(filterStatus) {
    var apts = filterStatus ? dateFiltered.filter(function(a) { return (a.status || 'Confirmed') === filterStatus; }) : dateFiltered;
    window._shopAptsFiltered = apts;       // for CSV export
    // Sort by date → slot → token so owner sees patients in the order they should be called
+   // Date → slot → booking-time. Slot mode keeps slot grouping intact (9 AM
+   // slot patients stay together); within a slot it's first-booked-first-listed.
+   // Token mode has empty slots so it falls through to booking-time order.
    apts.sort(function(a, b) {
       if (a.date !== b.date) return (a.date || '').localeCompare(b.date || '');
       if (a.slot !== b.slot) return (a.slot || '').localeCompare(b.slot || '');
-      return (a.token || 999) - (b.token || 999);
+      var ta = new Date(a.created_at || 0).getTime();
+      var tb = new Date(b.created_at || 0).getTime();
+      return ta - tb;
    });
    if (!apts.length) {
       var msg = 'No appointments';
@@ -5174,13 +5179,15 @@ function _todayQueueWidget(provApts, todayYmd) {
    var queue = (provApts || []).filter(function(a) {
       return a.date === todayYmd && a.status === 'Confirmed' && !_slotEnded(a);
    });
+   // Slot mode → group by slot first (keep 9 AM slot before 10 AM), then sort
+   //   by booking time WITHIN each slot.
+   // Token mode → all slots are empty, so the slot comparison is a no-op and
+   //   we fall straight to booking time order.
    queue.sort(function(a, b) {
-      var sa = _hhmmToMin(a.slot || '00:00');
-      var sb = _hhmmToMin(b.slot || '00:00');
-      if (sa !== sb) return sa - sb;
-      // Within same slot: regular tokens first, then follow-ups
-      if (!!a.is_followup !== !!b.is_followup) return a.is_followup ? 1 : -1;
-      return (Number(a.token) || 0) - (Number(b.token) || 0);
+      if (a.slot !== b.slot) return (a.slot || '').localeCompare(b.slot || '');
+      var ta = new Date(a.created_at || 0).getTime();
+      var tb = new Date(b.created_at || 0).getTime();
+      return ta - tb;
    });
    var top = queue.slice(0, 5);
    var extra = queue.length - top.length;
@@ -5192,10 +5199,15 @@ function _todayQueueWidget(provApts, todayYmd) {
       bodyHtml = top.map(function(a) {
          var slot = a.slot ? _formatSlot12(a.slot) : '🎟 Token';
          var paidHtml = a.is_paid ? '<span class="shop-queue-paid" title="Fee paid">✓ Paid</span>' : '';
+         var reasonRaw = (a.patient_reason || '').replace(/"/g, '&quot;');
+         var reasonHtml = a.patient_reason
+            ? '<div class="shop-queue-reason" title="' + reasonRaw + '">' + a.patient_reason + '</div>'
+            : '<div class="shop-queue-reason" style="color:#bbb">—</div>';
          return '<div class="shop-queue-row">' +
                    '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">' + _tokenLabel(a) + '</span>' +
                    '<div class="shop-queue-time">' + slot + '</div>' +
                    '<div class="shop-queue-name">' + (a.patient_name || '—') + paidHtml + '</div>' +
+                   reasonHtml +
                    '<div class="shop-queue-doc">' + (a.doctor_name || '') + '</div>' +
                 '</div>';
       }).join('');

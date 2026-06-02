@@ -1948,7 +1948,7 @@ body.guest .store-section-divider {
 .shop-queue-empty  { color: #999; padding: 28px 14px; text-align: center; font-style: italic; }
 .shop-queue-row {
 	display: grid;
-	grid-template-columns: auto 90px 1fr auto;
+	grid-template-columns: auto 90px 1fr 1.2fr auto;
 	align-items: center;
 	gap: 10px;
 	padding: 10px 14px;
@@ -1957,9 +1957,10 @@ body.guest .store-section-divider {
 }
 .shop-queue-row:last-child { border-bottom: none; }
 .shop-queue-row:hover      { background: #fafbff; }
-.shop-queue-time { font-weight: 700; color: #1a73e8; font-size: 0.85rem; }
-.shop-queue-name { font-weight: 600; color: #1a1a2e; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.shop-queue-doc  { color: #666; font-size: 0.78rem; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-queue-time   { font-weight: 700; color: #1a73e8; font-size: 0.85rem; }
+.shop-queue-name   { font-weight: 600; color: #1a1a2e; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-queue-reason { color: #555; font-size: 0.82rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-queue-doc    { color: #666; font-size: 0.78rem; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shop-queue-paid {
 	background: #e8f5e9; color: #1b5e20;
 	padding: 1px 6px; border-radius: 4px;
@@ -1973,9 +1974,15 @@ body.guest .store-section-divider {
 		padding: 0.8rem;
 	}
 	.shop-queue-row {
-		grid-template-columns: auto 70px 1fr;
+		grid-template-columns: auto 70px 1fr 1fr;
 	}
 	.shop-queue-doc { display: none; }
+}
+@media (max-width: 540px) {
+	.shop-queue-row {
+		grid-template-columns: auto 70px 1fr;
+	}
+	.shop-queue-reason { display: none; }
 }
 .apt-tbl-id      { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
                    font-size: 0.72rem; color: #888; }

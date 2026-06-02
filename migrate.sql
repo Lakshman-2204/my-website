@@ -74,6 +74,10 @@ ALTER TABLE public.users
 ALTER TABLE public.users
    ADD COLUMN IF NOT EXISTS commission_rate numeric DEFAULT NULL;
 
+-- 6b2. USERS — single free-text address (used on shop-owner profile page).
+ALTER TABLE public.users
+   ADD COLUMN IF NOT EXISTS address text DEFAULT '';
+
 -- 6c. USERS — block-appeal workflow. When a customer is blocked (no-show cap),
 --     they can submit an appeal. Admin reviews and approves/denies. Approval
 --     sets appeal_approved_at — abuse check then ignores no-shows before that.

@@ -13,7 +13,7 @@
       <!-- HEADER -->
       <div class="profile-header">
          <div class="profile-brand" onclick="window.location='home.html'">🛍️ <span class="brand-name">MyStore</span></div>
-         <button class="profile-back-btn" onclick="window.location='home.html'">← Back to Store</button>
+         <button class="profile-back-btn" id="profile-back-btn" onclick="window.location='home.html'">← Back to Store</button>
       </div>
       <!-- ANNOUNCEMENT BAR (same as home — controlled from Admin → Settings) -->
       <div class="announcement-bar hidden" id="announcementBar"></div>
@@ -58,6 +58,10 @@
                <div class="profile-field hidden" id="prof-storename-row">
                   <label>Business / Store Name <span class="prof-readonly-tag">business partners only</span></label>
                   <input type="text" id="prof-storename" placeholder="e.g. Kumar Store"/>
+               </div>
+               <div class="profile-field hidden" id="prof-address-row">
+                  <label>Address <span class="prof-readonly-tag">business partners only</span></label>
+                  <textarea id="prof-address" rows="2" placeholder="House no, area, city, state — PIN"></textarea>
                </div>
                <button class="profile-save-btn" onclick="saveProfileInfo()">💾 Save Changes</button>
             </div>

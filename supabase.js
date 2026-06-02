@@ -15,9 +15,10 @@ function _userFromDB(r) {
             role: r.role || 'customer', phone: r.phone || '',
             storeName: r.store_name || '', storeType: r.store_type || '',
             blocked: r.blocked || false, isAdmin: r.is_admin || false,
-            isApproved: r.is_approved !== false,   // null/missing → treat as approved (legacy rows)
+            isApproved: r.is_approved !== false,
             commissionRate: r.commission_rate != null ? Number(r.commission_rate) : null,
             gender: r.gender || '',
+            address: r.address || '',
             block_appeal_reason: r.block_appeal_reason || '',
             block_appeal_at:     r.block_appeal_at     || null,
             block_appeal_status: r.block_appeal_status || '',
@@ -90,6 +91,7 @@ window.AppDB = {
          storeName: 'store_name', storeType: 'store_type', blocked: 'blocked',
          isAdmin: 'is_admin', isApproved: 'is_approved', gender: 'gender',
          commissionRate: 'commission_rate',
+         address: 'address',
          // Block-appeal workflow
          block_appeal_reason: 'block_appeal_reason',
          block_appeal_at:     'block_appeal_at',

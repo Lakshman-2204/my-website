@@ -4600,7 +4600,7 @@ function switchShopTab(tab) {
    });
    if (tab === 'dashboard')    renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
-   if (tab === 'appointments') renderShopAppointments('Confirmed');
+   if (tab === 'appointments') { _shopAptsCache = null; renderShopAppointments('Confirmed'); }
    if (tab === 'doctors')      renderShopDoctors();
    if (tab === 'schedule')     renderShopSchedule();
 }
@@ -7286,10 +7286,28 @@ async function initProfile() {
    document.getElementById('prof-gender').value = user.gender || '';
    document.getElementById('prof-phone').value  = user.phone  || '';
    var storeNameRow = document.getElementById('prof-storename-row');
-   if (storeNameRow) {
-      if (user.role === 'storeowner' || isAdmin(user.email)) {
-         storeNameRow.classList.remove('hidden');
-         document.getElementById('prof-storename').value = user.storeName || '';
+   var addrRow      = document.getElementById('prof-address-row');
+   var isStoreOwner = (user.role === 'storeowner' || isAdmin(user.email));
+   if (storeNameRow && isStoreOwner) {
+      storeNameRow.classList.remove('hidden');
+      document.getElementById('prof-storename').value = user.storeName || '';
+   }
+   if (addrRow && isStoreOwner) {
+      addrRow.classList.remove('hidden');
+      document.getElementById('prof-address').value = user.address || '';
+   }
+   // For shop-owners, the customer-only tabs (addresses, orders, appointments,
+   // wishlist, cards) aren't relevant — hide them. Profile Info only.
+   if (isStoreOwner) {
+      ['addresses', 'orders', 'appointments', 'wishlist', 'cards'].forEach(function(t) {
+         var btn = document.getElementById('ptab-' + t + '-btn');
+         if (btn) btn.style.display = 'none';
+      });
+      // Redirect destination of the back button is the owner's dashboard, not the store.
+      var backBtn = document.getElementById('profile-back-btn');
+      if (backBtn) {
+         backBtn.textContent = '← Back to Dashboard';
+         backBtn.onclick = function() { window.location = 'shopowner.html'; };
       }
    }
    const params = new URLSearchParams(window.location.search);
@@ -7316,6 +7334,8 @@ function saveProfileInfo() {
    user.phone  = document.getElementById('prof-phone').value.trim();
    var storeNameEl = document.getElementById('prof-storename');
    if (storeNameEl) { user.storeName = storeNameEl.value.trim(); }
+   var addrEl = document.getElementById('prof-address');
+   if (addrEl) { user.address = addrEl.value.trim(); }
    const users = getUsers();
    const idx = users.findIndex(u => u.email === user.email);
    if (idx !== -1) {
@@ -7323,6 +7343,7 @@ function saveProfileInfo() {
       users[idx].gender = user.gender;
       users[idx].phone = user.phone;
       if (storeNameEl) users[idx].storeName = user.storeName;
+      if (addrEl)      users[idx].address   = user.address;
       saveUsers(users);
    }
    sessionStorage.setItem('loggedInUser', JSON.stringify(user));

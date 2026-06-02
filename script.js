@@ -1485,11 +1485,13 @@ async function selectAptDate(dateStr, btn) {
    document.getElementById('aptSlotSection').classList.remove('hidden');
    document.getElementById('aptSlotButtons').innerHTML = '<p style="color:#999;font-size:0.85rem">Loading slots…</p>';
 
-   // Fetch existing bookings to compute online/offline fill per slot
+   // Fetch existing bookings to compute online/offline fill per slot.
+   // Follow-ups bypass capacity by design — exclude them from these counts.
    var existing = await AppDB.getDoctorBookings(doctor.id, dateStr);
    var onlineCountsBySlot  = {};
    var offlineCountsBySlot = {};
    existing.forEach(function(b) {
+      if (b.is_followup) return;
       if (b.booking_source === 'offline') offlineCountsBySlot[b.slot] = (offlineCountsBySlot[b.slot] || 0) + 1;
       else                                 onlineCountsBySlot[b.slot]  = (onlineCountsBySlot[b.slot]  || 0) + 1;
    });
@@ -1733,6 +1735,39 @@ function _slotPassed(apt) {
    if (!apt.slot) return false;   // token-mode: day still active
    var now = new Date();
    return (now.getHours() * 60 + now.getMinutes()) >= _hhmmToMin(apt.slot);
+}
+
+// Has the slot ENDED (start + doctor's slot_duration)? Used to gate No-show:
+// owner shouldn't be able to mark No-show until the patient's full slot
+// window has passed (otherwise a patient arriving 5 min late could be wrongly
+// flagged). Returns true once slot_start + duration <= now.
+function _slotEnded(apt) {
+   if (!apt || !apt.date) return false;
+   var todayYmd = new Date().toISOString().slice(0, 10);
+   if (apt.date < todayYmd) return true;
+   if (apt.date > todayYmd) return false;
+   if (!apt.slot) return false;
+   var duration = 30;
+   try {
+      var prov = _aptGetProvider(apt.provider_id);
+      var doc  = prov && _aptGetDoctor(prov, apt.doctor_id);
+      if (doc) duration = _doctorCaps(doc).duration || 30;
+   } catch (e) { /* default 30 */ }
+   var slotEndMin = _hhmmToMin(apt.slot) + duration;
+   var now = new Date();
+   return (now.getHours() * 60 + now.getMinutes()) >= slotEndMin;
+}
+
+// Has the cancel grace period expired? Customer can cancel up to N hours
+// after their slot time (default 2h) to allow for traffic / last-minute
+// "I won't make it" situations. After that, only the hospital can cancel.
+function _cancelGraceExpired(apt, graceHours) {
+   if (!apt || !apt.date) return false;
+   var hrs = (graceHours == null) ? 2 : graceHours;
+   var slotStr = apt.slot || '00:00';
+   var slotMs  = new Date(apt.date + 'T' + slotStr + ':00').getTime();
+   if (isNaN(slotMs)) return false;
+   return Date.now() > slotMs + hrs * 60 * 60 * 1000;
 }
 
 function selectAptSlot(slot, btn) {
@@ -2445,6 +2480,52 @@ function exportAdminBillingCsv() {
    var rows = window._billingExportRows || [];
    var today = new Date().toISOString().slice(0, 10);
    _downloadCsv('billing_' + today + '.csv', rows);
+}
+
+// ── XLS export (proper .xlsx, opens in Excel without warnings) ──
+// Lazy-loads SheetJS from CDN the first time a user clicks an XLS button so
+// the library doesn't bloat every page load.
+function _ensureSheetJs() {
+   if (window.XLSX) return Promise.resolve();
+   return new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload  = function() { resolve(); };
+      s.onerror = function() { reject(new Error('Failed to load XLS library')); };
+      document.head.appendChild(s);
+   });
+}
+
+async function _downloadXls(filename, rows) {
+   if (!rows || !rows.length) { alert('Nothing to export — the current filter has no rows.'); return; }
+   try {
+      await _ensureSheetJs();
+   } catch (e) {
+      alert('Could not load the XLS library. Check your internet connection and try again.');
+      return;
+   }
+   var ws = XLSX.utils.json_to_sheet(rows);
+   var wb = XLSX.utils.book_new();
+   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+   XLSX.writeFile(wb, filename);
+}
+
+async function exportShopAppointmentsXls() {
+   var rows = (window._shopAptsFiltered || []).map(_aptRowToCsv);
+   var today = new Date().toISOString().slice(0, 10);
+   await _downloadXls('bookings_' + today + '.xlsx', rows);
+}
+
+async function exportAdminAppointmentsXls() {
+   var rows = (window._adminAptsFiltered || []).map(_aptRowToCsv);
+   var today = new Date().toISOString().slice(0, 10);
+   await _downloadXls('all_bookings_' + today + '.xlsx', rows);
+}
+
+async function exportAdminBillingXls() {
+   var rows = window._billingExportRows || [];
+   var today = new Date().toISOString().slice(0, 10);
+   await _downloadXls('billing_' + today + '.xlsx', rows);
 }
 
 // ── Admin: clean orphan doctor photos ──
@@ -4874,7 +4955,9 @@ async function renderShopAppointments(filterStatus) {
             ? '<button class="apt-act-btn apt-act-ok"      title="Mark as Completed" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Complete</button>'
             : '<button class="apt-act-btn apt-act-ok"      title="Available after the slot time" disabled style="opacity:0.4;cursor:not-allowed">✅ Complete</button>';
          var noshowBtn = '';
-         if (slotPassed) {
+         // No-show available only after slot END (start + duration) so a patient
+         // arriving 5 min late isn't wrongly flagged.
+         if (_slotEnded(a)) {
             if (isPaid) {
                // Patient paid — by definition they showed up, so No-show is invalid.
                noshowBtn = '<button class="apt-act-btn apt-act-noshow" disabled style="opacity:0.4;cursor:not-allowed" title="Patient paid the fee — cannot be marked No-show">🚫 No-show</button>';
@@ -5121,7 +5204,8 @@ async function schedSelectDate(dateStr, btn) {
    btnsEl.innerHTML = '<p style="color:#999;font-size:0.85rem">Loading…</p>';
 
    var existing = await AppDB.getDoctorBookings(doctor.id, dateStr);
-   var offlineExisting = existing.filter(function(b) { return b.booking_source === 'offline'; });
+   // Follow-ups bypass capacity by design — exclude them from offline slot counts.
+   var offlineExisting = existing.filter(function(b) { return b.booking_source === 'offline' && !b.is_followup; });
    var isTokenMode = doctor.booking_mode === 'token';
    var caps = _doctorCaps(doctor);
 
@@ -5384,8 +5468,8 @@ async function shopSetAptStatus(aptId, status) {
       // Completed implies fee was paid — set the flag too.
       extra = { is_paid: true };
    } else if (status === 'No-show') {
-      if (apt && !_slotPassed(apt)) {
-         alert('This appointment time hasn\'t passed yet. No-show can only be marked after the slot.');
+      if (apt && !_slotEnded(apt)) {
+         alert('This slot hasn\'t ended yet. Patient may still arrive — wait until the slot finishes before marking No-show.');
          return;
       }
       if (!confirm('Mark this appointment as No-show (patient did not turn up)?')) return;
@@ -7109,7 +7193,10 @@ async function renderMyAppointments() {
                  : status === 'No-show'   ? 'noshow'
                  : 'confirmed';
       var aid    = (a.apt_id || '').replace(/'/g, "\\'");
-      var isCancellable = status === 'Confirmed';
+      // Customer can cancel until 2 hours after slot time (grace period for
+      // traffic / late "I won't make it" calls). After that, only the hospital
+      // can cancel. Reschedule has its own 15-min-before-slot cutoff below.
+      var isCancellable = status === 'Confirmed' && !_cancelGraceExpired(a);
       var statusLabel = status;
       if (status === 'Cancelled' && a.cancelled_by) {
          var byLabel = a.cancelled_by === 'customer' ? 'by You'
@@ -7291,12 +7378,12 @@ function showRescheduleInfo(providerId) {
 }
 
 async function cancelMyAppointment(aptId) {
-   // Block self-cancel once the appointment time has passed.
+   // Block self-cancel once the 2-hour grace period after slot time has expired.
    // The customer should contact the hospital directly for late issues.
    var apts = await AppDB.getAppointments((JSON.parse(sessionStorage.getItem('loggedInUser')) || {}).email || '');
    var apt = apts.find(function(a) { return a.apt_id === aptId; });
-   if (apt && _slotPassed(apt)) {
-      alert('This appointment time has already passed (' + apt.date + (apt.slot ? ' ' + apt.slot : '') + '). Please contact the hospital directly to resolve.');
+   if (apt && _cancelGraceExpired(apt)) {
+      alert('The cancel window for this appointment has expired (' + apt.date + (apt.slot ? ' ' + apt.slot : '') + '). Please contact the hospital directly to resolve.');
       return;
    }
    // Cancel-once rule for follow-ups: customer can self-cancel at most one

@@ -5482,6 +5482,238 @@ async function shopSetAptStatus(aptId, status) {
    renderShopAppointments(window._shopAptCurrentFilter);
 }
 
+// ── Free Follow-up Booking (offline, owner-driven) ──
+// Owner pastes the original Appointment ID; system validates eligibility
+// (status, follow-up window, count limit) and lets them pick a new slot.
+// user_email is preserved from the original so the customer sees the
+// follow-up in their My Appointments automatically.
+let _fuBookCtx = null;
+
+function openFollowupBookingModal() {
+   _fuBookCtx = null;
+   document.getElementById('fuOriginalAptId').value = '';
+   document.getElementById('fuLookupMsg').textContent = '';
+   document.getElementById('fuOriginalDetails').style.display = 'none';
+   document.getElementById('fuOriginalDetails').innerHTML = '';
+   document.getElementById('fuDateSection').style.display = 'none';
+   document.getElementById('fuSlotSection').style.display = 'none';
+   document.getElementById('fuDateButtons').innerHTML = '';
+   document.getElementById('fuSlotButtons').innerHTML = '';
+   document.getElementById('fuConfirmBtn').disabled = true;
+   document.getElementById('followupBookingModal').classList.remove('hidden');
+}
+
+function closeFollowupBookingModal() {
+   document.getElementById('followupBookingModal').classList.add('hidden');
+   _fuBookCtx = null;
+}
+
+async function lookupFollowupOriginal() {
+   var aptId = document.getElementById('fuOriginalAptId').value.trim();
+   var msg   = document.getElementById('fuLookupMsg');
+   var setErr = function(t) { msg.style.color = '#c62828'; msg.textContent = t; };
+   var setInfo = function(t) { msg.style.color = '#2e7d32'; msg.textContent = t; };
+   if (!aptId) { setErr('Please enter the original Appointment ID.'); return; }
+
+   // Fetch the original appointment by id
+   var all = await AppDB.getAllAppointments();
+   var orig = (all || []).find(function(a) { return a.apt_id === aptId; });
+   if (!orig) { setErr('No appointment found with that ID.'); return; }
+   if (orig.status !== 'Completed') { setErr('Original appointment must be Completed first. Current status: ' + (orig.status || '-')); return; }
+   if (orig.is_followup)            { setErr('That ID is itself a follow-up. Use the ID of the original visit.'); return; }
+
+   var provider = _aptGetProvider(orig.provider_id);
+   var doctor   = provider && _aptGetDoctor(provider, orig.doctor_id);
+   if (!provider || !doctor) { setErr('Doctor or hospital no longer exists for that booking.'); return; }
+
+   // Provider must offer follow-ups
+   var fuDays  = Number(provider.free_followup_days  || 0);
+   var fuLimit = Math.max(1, Number(provider.free_followup_count || 1));
+   if (fuDays <= 0) { setErr(provider.name + ' does not offer free follow-ups.'); return; }
+
+   // Within window?
+   var origDate = new Date(orig.date + 'T00:00:00');
+   var deadline = new Date(origDate.getTime() + fuDays * 86400000);
+   var today0   = new Date(); today0.setHours(0,0,0,0);
+   if (today0 > deadline) {
+      setErr('Follow-up window expired on ' + deadline.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) + '.');
+      return;
+   }
+
+   // Count limit
+   var existingFu = (all || []).filter(function(b) {
+      return b.followup_of === orig.apt_id && b.status !== 'Cancelled';
+   });
+   if (existingFu.length >= fuLimit) {
+      setErr('All ' + fuLimit + ' free follow-up(s) for this visit are already used.');
+      return;
+   }
+
+   // Owner can only book follow-ups for THEIR hospital
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   if ((provider.owner_email || '').toLowerCase() !== (user.email || '').toLowerCase() && !isAdmin(user.email)) {
+      setErr('This appointment belongs to another hospital.');
+      return;
+   }
+
+   // All good — populate the context + UI
+   _fuBookCtx = {
+      original: orig, provider: provider, doctor: doctor,
+      fuDays: fuDays, fuLimit: fuLimit, deadline: deadline,
+      remaining: fuLimit - existingFu.length,
+      date: null, slot: null
+   };
+   setInfo('✓ Valid follow-up. ' + _fuBookCtx.remaining + ' free follow-up' + (_fuBookCtx.remaining === 1 ? '' : 's') + ' remaining.');
+
+   var deadlineLabel = deadline.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+   document.getElementById('fuOriginalDetails').innerHTML =
+      '<strong>' + (orig.doctor_name || '') + '</strong> · ' + (orig.speciality || '') + ' · ' + (orig.provider_name || '') +
+      '<br><strong>Patient:</strong> ' + (orig.patient_name || '—') + (orig.patient_phone ? ' (' + orig.patient_phone + ')' : '') +
+      '<br><strong>Original visit:</strong> ' + orig.date + (orig.slot ? ' at ' + _formatSlot12(orig.slot) : '') +
+      '<br><strong>Follow-up valid until:</strong> ' + deadlineLabel;
+   document.getElementById('fuOriginalDetails').style.display = 'block';
+
+   _renderFollowupDates();
+   document.getElementById('fuDateSection').style.display = 'block';
+   document.getElementById('fuSlotSection').style.display  = 'none';
+   document.getElementById('fuConfirmBtn').disabled = true;
+}
+
+function _renderFollowupDates() {
+   var ctx = _fuBookCtx;
+   if (!ctx) return;
+   var doctor   = ctx.doctor;
+   var deadline = ctx.deadline;
+   var html = '';
+   for (var i = 0; i < 14; i++) {
+      var d = new Date();
+      d.setDate(d.getDate() + i);
+      var dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      if (d.getTime() > deadline.getTime() + 86400000) break;
+      var label = i === 0 ? 'TODAY' : (i === 1 ? 'TMRW' : APT_DAYS[d.getDay()]);
+      var monthShort = d.toLocaleDateString('en-IN', { month: 'short' });
+      var dayIdx = d.getDay();
+      var avail = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+      var onVac = _isOnVacation(doctor, dateStr);
+      var pastDeadline = new Date(dateStr + 'T00:00:00').getTime() > deadline.getTime();
+      var off   = avail.length === 0 || onVac || pastDeadline;
+      var click = off ? '' : ' onclick="selectFollowupDate(\'' + dateStr + '\', this)"';
+      var titleTxt = pastDeadline ? 'Past follow-up window' : onVac ? 'Doctor on leave' : 'Doctor unavailable';
+      var extra = off ? ' style="opacity:0.35;cursor:not-allowed" title="' + titleTxt + '"' : '';
+      var leaveTag = onVac ? '<div style="font-size:0.62rem;color:#e65100;font-weight:700">🏖 LEAVE</div>'
+                   : pastDeadline ? '<div style="font-size:0.62rem;color:#c62828;font-weight:700">⏰ EXPIRED</div>' : '';
+      html += '<div class="apt-date-btn"' + click + extra + '>' +
+                 '<div class="apt-date-day">' + label + '</div>' +
+                 '<div class="apt-date-num">' + d.getDate() + ' ' + monthShort + '</div>' +
+                 leaveTag +
+              '</div>';
+   }
+   document.getElementById('fuDateButtons').innerHTML = html;
+}
+
+async function selectFollowupDate(dateStr, btn) {
+   if (!_fuBookCtx) return;
+   _fuBookCtx.date = dateStr;
+   _fuBookCtx.slot = null;
+   document.querySelectorAll('#fuDateButtons .apt-date-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+
+   var section = document.getElementById('fuSlotSection');
+   var btnsEl  = document.getElementById('fuSlotButtons');
+   section.style.display = 'block';
+   btnsEl.innerHTML = '<p style="color:#999;font-size:0.85rem">Loading slots…</p>';
+   document.getElementById('fuConfirmBtn').disabled = true;
+
+   var doctor = _fuBookCtx.doctor;
+   var isTokenMode = doctor.booking_mode === 'token';
+   var caps = _doctorCaps(doctor);
+
+   if (isTokenMode) {
+      _fuBookCtx.slot = '';
+      btnsEl.innerHTML =
+         '<div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:12px;text-align:center">' +
+            '<div style="font-size:0.85rem;color:#1a73e8">🎟 Token mode — FT* token will be auto-assigned</div>' +
+         '</div>';
+      document.getElementById('fuConfirmBtn').disabled = false;
+      return;
+   }
+
+   // Slot mode — show available slots (follow-ups bypass capacity, so show all)
+   var d = new Date(dateStr + 'T00:00:00');
+   var dayIdx = d.getDay();
+   var windows = (doctor.availability && (doctor.availability[dayIdx] || doctor.availability[String(dayIdx)])) || [];
+   var slotHtml = '';
+   var anyShown = false;
+   windows.forEach(function(w) {
+      var startMin = _hhmmToMin(w.start);
+      var endMin   = _hhmmToMin(w.end);
+      for (var t = startMin; t + caps.duration <= endMin; t += caps.duration) {
+         var hh = Math.floor(t / 60), mm = t % 60;
+         var slot24 = String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+         var hour12 = ((hh % 12) || 12);
+         var label = hour12 + ':' + String(mm).padStart(2,'0') + ' ' + (hh < 12 ? 'AM' : 'PM');
+         slotHtml += '<button class="apt-slot-btn slot-available" onclick="selectFollowupSlot(\'' + slot24 + '\', this)">' + label + '</button>';
+         anyShown = true;
+      }
+   });
+   btnsEl.innerHTML = anyShown ? slotHtml : '<p style="color:#999;font-size:0.85rem">Doctor has no availability on this date.</p>';
+}
+
+function selectFollowupSlot(slot, btn) {
+   if (!_fuBookCtx) return;
+   _fuBookCtx.slot = slot;
+   document.querySelectorAll('#fuSlotButtons .apt-slot-btn').forEach(function(b) { b.classList.remove('active'); });
+   btn.classList.add('active');
+   document.getElementById('fuConfirmBtn').disabled = false;
+}
+
+async function confirmFollowupBookingFromModal() {
+   var ctx = _fuBookCtx;
+   if (!ctx || !ctx.date) return;
+   var orig = ctx.original;
+   var doctor = ctx.doctor;
+
+   // Compute FT* token (max FT token for the new date+slot+doctor, +1)
+   var allRows = await AppDB.getDoctorBookings(doctor.id, ctx.date, true);
+   var fuPool = allRows.filter(function(b) {
+      return b.is_followup && (!ctx.slot || b.slot === ctx.slot);
+   });
+   var token = fuPool.reduce(function(m, r) { return Math.max(m, Number(r.token) || 0); }, 0) + 1;
+
+   var aptId = 'APT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 5).toUpperCase();
+   var apt = {
+      apt_id: aptId,
+      user_email: orig.user_email,           // ← preserves customer ownership so they see it
+      provider_id: orig.provider_id,
+      provider_name: orig.provider_name,
+      doctor_id: orig.doctor_id,
+      doctor_name: orig.doctor_name,
+      speciality: orig.speciality,
+      category: orig.category,
+      date: ctx.date,
+      slot: ctx.slot || '',
+      fee: 0,
+      status: 'Confirmed',
+      token: token,
+      booking_source: 'offline',
+      is_followup: true,
+      followup_of: orig.apt_id,
+      patient_name:    orig.patient_name    || '',
+      patient_phone:   orig.patient_phone   || '',
+      patient_age:     orig.patient_age     || '',
+      patient_address: orig.patient_address || '',
+      patient_reason:  '[Free follow-up of ' + orig.apt_id + ']'
+   };
+
+   var ok = await AppDB.insertAppointment(apt);
+   if (!ok) { alert('Failed to save follow-up. Check console.'); return; }
+
+   closeFollowupBookingModal();
+   _shopAptsCache = null;
+   alert('✅ Free follow-up booked for ' + (orig.patient_name || 'patient') + ' on ' + ctx.date + (ctx.slot ? ' at ' + _formatSlot12(ctx.slot) : '') + ' — token FT' + token + '.');
+   if (typeof renderShopAppointments === 'function') renderShopAppointments(window._shopAptCurrentFilter);
+}
+
 // ── Doctor Day-Off (bulk cancel all bookings for one doctor + one date) ──
 // Opens the small day-cancel modal pre-filled for the given doctor.
 function openDoctorDayCancel(providerId, doctorId) {

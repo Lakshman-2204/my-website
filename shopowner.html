@@ -150,7 +150,10 @@
    <!-- SCHEDULE PANEL — owner books on behalf of phone/walk-in customers -->
    <div id="shop-panel-schedule" class="hidden">
       <div style="max-width:680px;margin:1rem auto;padding:1.5rem;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.07)">
-         <h3 style="margin:0 0 0.4rem;color:#1a1a2e;font-size:1.1rem">📞 Schedule for Offline Customer</h3>
+         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:0.4rem">
+            <h3 style="margin:0;color:#1a1a2e;font-size:1.1rem">📞 Schedule for Offline Customer</h3>
+            <button type="button" onclick="openFollowupBookingModal()" style="background:#00897b;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:0.85rem;font-weight:600;cursor:pointer">🔁 Free Follow-up Booking</button>
+         </div>
          <p style="color:#666;font-size:0.85rem;margin:0 0 1.2rem">Walk-in / phone-in bookings made on the patient's behalf. Standard slot capacity &amp; token rules apply.</p>
 
          <div class="modal-field">
@@ -195,16 +198,6 @@
             <div class="apt-field">
                <label>Reason / Symptoms <small style="font-weight:400;color:#aaa">(optional)</small></label>
                <textarea id="schedPatientReason" rows="2" placeholder="e.g. Fever, routine check-up…"></textarea>
-            </div>
-            <div class="apt-field" style="background:#e0f2f1;border:1px solid #80cbc4;border-radius:8px;padding:8px 10px">
-               <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                  <input type="checkbox" id="schedIsFollowup" onchange="document.getElementById('schedFollowupOfRow').style.display=this.checked?'block':'none'"/>
-                  🔁 Mark as free follow-up <small style="color:#666;font-weight:400">(fee will be ₹0, gets an FT* token, doesn't consume regular slots)</small>
-               </label>
-               <div id="schedFollowupOfRow" style="display:none;margin-top:8px">
-                  <label style="font-size:0.82rem;color:#555">Original Appointment ID <small style="color:#aaa">(copy from the patient's earlier visit row)</small></label>
-                  <input type="text" id="schedFollowupOf" placeholder="APT-XXXXXX-XXX" style="font-family:ui-monospace,monospace"/>
-               </div>
             </div>
          </div>
 
@@ -392,6 +385,46 @@
          <div class="admin-modal-footer">
             <button class="admin-modal-btn-cancel" onclick="closeRescheduleModal()">Cancel</button>
             <button class="admin-modal-btn-save" id="rescheduleConfirmBtn" onclick="confirmReschedule()" disabled style="background:#1a73e8">🔄 Reschedule</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- FREE FOLLOW-UP BOOKING MODAL: paste apt_id → validate → pick slot → book -->
+   <div class="admin-modal-overlay hidden" id="followupBookingModal" onclick="if(event.target===this)closeFollowupBookingModal()">
+      <div class="admin-modal" style="max-width:600px">
+         <div class="admin-modal-header">
+            <h3>🔁 Free Follow-up Booking</h3>
+            <button class="admin-modal-close" onclick="closeFollowupBookingModal()">✕</button>
+         </div>
+         <div class="admin-modal-body">
+            <div class="modal-field">
+               <label>Original Appointment ID <small style="color:#888">(from the patient's earlier visit)</small></label>
+               <div style="display:flex;gap:6px;align-items:stretch">
+                  <input type="text" id="fuOriginalAptId" placeholder="APT-XXXXXX-XXX" style="flex:1;font-family:ui-monospace,monospace"/>
+                  <button type="button" onclick="lookupFollowupOriginal()" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:0 14px;font-weight:600;cursor:pointer">🔍 Look up</button>
+               </div>
+               <p id="fuLookupMsg" style="font-size:0.82rem;margin:6px 0 0;color:#c62828"></p>
+            </div>
+
+            <div id="fuOriginalDetails" style="display:none;background:#e8f5e9;border:1px solid #81c784;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.88rem"></div>
+
+            <div id="fuDateSection" style="display:none">
+               <div class="modal-field">
+                  <label>Pick New Date</label>
+                  <div class="apt-date-scroll" id="fuDateButtons"></div>
+               </div>
+            </div>
+
+            <div id="fuSlotSection" style="display:none">
+               <div class="modal-field">
+                  <label>Pick Time Slot</label>
+                  <div class="apt-slots-grid" id="fuSlotButtons"></div>
+               </div>
+            </div>
+         </div>
+         <div class="admin-modal-footer">
+            <button class="admin-modal-btn-cancel" onclick="closeFollowupBookingModal()">Cancel</button>
+            <button class="admin-modal-btn-save" id="fuConfirmBtn" onclick="confirmFollowupBookingFromModal()" disabled style="background:#00897b">🔁 Confirm Follow-up</button>
          </div>
       </div>
    </div>

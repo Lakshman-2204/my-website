@@ -1342,7 +1342,7 @@ function openAptBookModalFollowup(catKey, providerId, doctorId, originalAptId, d
    });
 })();
 
-function openAptBookModal(catKey, providerId, doctorId, followupOfAptId, followupDeadline) {
+async function openAptBookModal(catKey, providerId, doctorId, followupOfAptId, followupDeadline) {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { promptAuth('Please log in or sign up to book an appointment.'); return; }
 
@@ -1396,11 +1396,27 @@ function openAptBookModal(catKey, providerId, doctorId, followupOfAptId, followu
 
    document.getElementById('aptSlotSection').classList.add('hidden');
    document.getElementById('aptSlotButtons').innerHTML = '';
-   document.getElementById('aptPatientName').value    = user.name || '';
-   document.getElementById('aptPatientPhone').value   = user.phone || '';
-   document.getElementById('aptPatientAge').value     = '';
-   document.getElementById('aptPatientAddress').value = '';
-   document.getElementById('aptPatientReason').value  = '';
+   // Pre-fill patient details. For follow-up bookings, use the ORIGINAL
+   // appointment's patient (same person coming back). For regular bookings,
+   // fall back to the account holder's name/phone.
+   var pre = { name: user.name || '', phone: user.phone || '', age: '', address: '', reason: '' };
+   if (isFollowup && followupOfAptId) {
+      try {
+         var hist = await AppDB.getAppointments(user.email);
+         var orig = (hist || []).find(function(a) { return a.apt_id === followupOfAptId; });
+         if (orig) {
+            pre.name    = orig.patient_name    || pre.name;
+            pre.phone   = orig.patient_phone   || pre.phone;
+            pre.age     = orig.patient_age     || '';
+            pre.address = orig.patient_address || '';
+         }
+      } catch (e) { /* fall back to defaults */ }
+   }
+   document.getElementById('aptPatientName').value    = pre.name;
+   document.getElementById('aptPatientPhone').value   = pre.phone;
+   document.getElementById('aptPatientAge').value     = pre.age;
+   document.getElementById('aptPatientAddress').value = pre.address;
+   document.getElementById('aptPatientReason').value  = pre.reason;
    document.getElementById('aptConfirmBtn').disabled = true;
 
    document.getElementById('aptBookModal').classList.remove('hidden');
@@ -1656,8 +1672,17 @@ async function _checkBookingAbuse(user, doctor, providerId, dateStr, patientName
       if (u && u.appeal_approved_at) approvalDate = String(u.appeal_approved_at).slice(0, 10);
    } catch (e) { /* ignore */ }
    var effectiveCutoff = (approvalDate && approvalDate > cutoffYmd) ? approvalDate : cutoffYmd;
+   // No-show block is PER-PROVIDER: a customer blocked at Hospital A can still
+   // book at Hospital B. Keeps the customer on the platform while still
+   // protecting the affected hospital. Counts explicit No-shows AND past-date
+   // Confirmed bookings (auto-marked overnight anyway).
+   var todayStr0 = (function() { var t = new Date(); return t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0'); })();
    var noShows = regularHistory.filter(function(a) {
-      return a.status === 'No-show' && (a.date || '') >= effectiveCutoff;
+      if (a.provider_id !== providerId) return false;          // ← per-provider scope
+      if ((a.date || '') < effectiveCutoff) return false;
+      if (a.status === 'No-show') return true;
+      if (a.status === 'Confirmed' && (a.date || '') < todayStr0) return true;
+      return false;
    });
    if (noShows.length >= noShowThreshold) {
       return '__BLOCKED_NO_SHOWS__:' + noShows.length;
@@ -1749,7 +1774,7 @@ async function confirmAptBooking() {
       if (abuseError) {
          if (abuseError.indexOf('__BLOCKED_NO_SHOWS__') === 0) {
             var nCount = abuseError.split(':')[1] || '5+';
-            var humanMsg = 'Your account has ' + nCount + ' unattended appointments in the last 30 days, so new bookings are restricted.\n\nWould you like to submit an appeal to the admin?';
+            var humanMsg = 'You have ' + nCount + ' unattended appointments with ' + (_aptBookCtx.provider.name || 'this hospital') + ' in the last 30 days, so this hospital is restricting new bookings from you.\n\nYou can still book with OTHER hospitals on MyStore. Or submit an appeal to admin for this one?';
             if (confirm(humanMsg)) openAppealModal(nCount);
             return;
          }
@@ -4670,6 +4695,14 @@ async function renderShopAppointments(filterStatus) {
    if (!user) { list.innerHTML = '<div class="shop-empty">Please log in.</div>'; return; }
    window._shopAptCurrentFilter = filterStatus || '';
 
+   // First-thing each render: auto-mark stale Confirmed bookings as No-show.
+   // Runs once per page open thanks to a session flag so we don't hammer the DB
+   // on every status-filter click.
+   if (!window._staleNoShowSweptThisSession) {
+      window._staleNoShowSweptThisSession = true;
+      try { await _autoMarkStaleConfirmed(); } catch (e) { /* ignore */ }
+   }
+
    // Live updates: re-fetch & re-render whenever an appointment row changes anywhere
    _liveSubscribe('shopApts', 'appointments', function() {
       _shopAptsCache = null;
@@ -4912,6 +4945,12 @@ async function renderShopOverview() {
    if (!user || !container) return;
    _liveSubscribe('shopDash', 'appointments', renderShopOverview);
    _liveSubscribe('shopDashProvs', 'apt_providers', renderShopOverview);
+   // Run the auto-no-show sweep once per session so the dashboard counts are
+   // accurate even before owner opens the Appointments tab.
+   if (!window._staleNoShowSweptThisSession) {
+      window._staleNoShowSweptThisSession = true;
+      try { await _autoMarkStaleConfirmed(); } catch (e) { /* ignore */ }
+   }
    await loadAptCategories();
    await loadAptProviders(true);
 
@@ -5633,6 +5672,32 @@ async function confirmReschedule() {
    _shopAptsCache = null;
    alert('✅ Rescheduled to ' + newDate + (newSlot ? ' at ' + slotLabel : '') + ' — new token T' + newToken);
    renderShopAppointments();
+}
+
+// Sweep past-date Confirmed bookings for the current owner and auto-mark them
+// as No-show. Closes the abuse loophole where an owner forgetting to mark
+// Complete/No-show lets the customer escape the no-show counter. False
+// positives (patient actually attended, owner just forgot to click Complete)
+// can be reverted via the ↩ Undo No-show button on the row.
+async function _autoMarkStaleConfirmed() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) return 0;
+   var apts = await AppDB.getAppointmentsByOwner(user.email);
+   var t = new Date();
+   var todayStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+   var stale = (apts || []).filter(function(a) {
+      return a.status === 'Confirmed' && a.date && a.date < todayStr && !a.is_followup;
+   });
+   if (stale.length === 0) return 0;
+   var done = 0;
+   for (var i = 0; i < stale.length; i++) {
+      var ok = await AppDB.updateAppointmentStatus(stale[i].apt_id, 'No-show', {
+         cancellation_reason: 'Auto-marked: no action by end of day'
+      });
+      if (ok) done++;
+   }
+   if (done > 0) _shopAptsCache = null;
+   return done;
 }
 
 // Revert a No-show back to Confirmed. Real-world case: patient was marked
@@ -7069,9 +7134,19 @@ async function renderMyAppointments() {
          }
       }
       var pidJs = (a.provider_id || '').replace(/'/g, "\\'");
-      var rescheduleBtn = isCancellable
-         ? '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="showRescheduleInfo(\'' + pidJs + '\')" title="Reschedule policy">🔄 Reschedule</button>'
-         : '';
+      // Reschedule button is shown only while the slot is more than 15 min away.
+      // Inside that 15-min window the customer must call the hospital directly.
+      var rescheduleBtn = '';
+      if (isCancellable) {
+         var canReschedule = true;
+         if (a.date && a.slot) {
+            var slotMs = new Date(a.date + 'T' + a.slot + ':00').getTime();
+            if (!isNaN(slotMs) && (slotMs - Date.now()) <= 15 * 60 * 1000) canReschedule = false;
+         }
+         if (canReschedule) {
+            rescheduleBtn = '<button class="apt-act-btn" style="background:#1a73e8;color:#fff" onclick="showRescheduleInfo(\'' + pidJs + '\')" title="Reschedule policy">🔄 Reschedule</button>';
+         }
+      }
 
       // Free follow-up button — visible if Completed, not itself a follow-up,
       // within the provider's free_followup_days window, AND the patient hasn't

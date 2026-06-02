@@ -1799,11 +1799,15 @@ async function confirmAptBooking() {
    if (_aptBookCtx.isFollowup) {
       var provFU  = _aptBookCtx.provider || {};
       var fuLimit = Math.max(1, Number(provFU.free_followup_count || 1));
-      var myFu = (await AppDB.getAppointments(user.email)).filter(function(b) {
+      // Use GLOBAL appointments instead of just customer's own — catches the
+      // edge case where the hospital booked a follow-up offline under a
+      // different user_email (legacy/mixed-case data). Prevents duplicates.
+      var allAptsFU = await AppDB.getAllAppointments();
+      var existingFu = (allAptsFU || []).filter(function(b) {
          return b.followup_of === _aptBookCtx.followupOf && b.status !== 'Cancelled';
       });
-      if (myFu.length >= fuLimit) {
-         alert('You have already booked ' + myFu.length + ' free follow-up' + (myFu.length === 1 ? '' : 's') + ' for this consultation. Limit is ' + fuLimit + '.');
+      if (existingFu.length >= fuLimit) {
+         alert('A free follow-up for this consultation has already been booked (' + existingFu.length + ' of ' + fuLimit + ' used). Please contact the hospital if you need to change it.');
          return;
       }
    } else {

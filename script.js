@@ -2880,20 +2880,156 @@ async function deleteStoreCategoryUi(id) {
    await renderStoreCategoriesAdmin();
 }
 
-// Stubs — full CRUD is built in Phase 2. They keep the admin UI from crashing if
-// the user clicks before Phase 2 lands.
+// ── ADMIN: STORE Providers CRUD (mirrors apt-provider CRUD) ─────
 async function renderStoreProvidersAdmin() {
    var container = document.getElementById('storeProvidersContent');
    if (!container) return;
+   _liveSubscribe('adminStoreProvs', 'store_providers', renderStoreProvidersAdmin);
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
    await loadStoreCategories();
    await loadStoreProviders(true);
-   _fillSelectFromList('storeAdminCatFilter', '🗂 All Categories',
-      Object.keys(STORE_CAT_META),
-      function(k) { var m = STORE_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k; });
-   container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">Store CRUD coming in Phase 2. Use the Categories tab to set up categories first.</p>';
+
+   // Populate category-filter dropdown (preserve current selection)
+   var catSel = document.getElementById('storeAdminCatFilter');
+   if (catSel) {
+      var current = catSel.value;
+      catSel.innerHTML = '<option value="">All Categories</option>' +
+         Object.keys(STORE_CAT_META).map(function(k) {
+            var c = STORE_CAT_META[k];
+            return '<option value="' + k + '"' + (k === current ? ' selected' : '') + '>' + c.icon + ' ' + c.label + '</option>';
+         }).join('');
+   }
+
+   var filter = (document.getElementById('storeAdminCatFilter') || {}).value || '';
+   var list = (_storeProvidersCache || []).filter(function(p) { return !filter || p.category === filter; });
+
+   if (!list.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">' +
+         'No stores yet. Click <strong>➕ Add Store</strong> to create one.' +
+      '</p>';
+      return;
+   }
+
+   var html = '<div class="apt-providers-grid" style="margin-top:1rem">';
+   list.forEach(function(p) {
+      var meta = STORE_CAT_META[p.category] || { icon: '🏪', label: p.category };
+      var icon = p.icon || meta.icon;
+      var pid  = p.id.replace(/'/g, "\\'");
+      html += '<div class="apt-provider-card">' +
+                '<div class="apt-provider-top">' +
+                   '<div class="apt-provider-icon">' + icon + '</div>' +
+                   '<div style="flex:1;min-width:0">' +
+                      '<div class="apt-provider-name">' + p.name + '</div>' +
+                      '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
+                      '<div class="apt-provider-tagline" style="margin-top:3px;color:#1a73e8">' + meta.icon + ' ' + meta.label + '</div>' +
+                   '</div>' +
+                '</div>' +
+                (p.address     ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
+                (p.timing      ? '<div class="apt-provider-meta">🕒 ' + p.timing + '</div>' : '') +
+                (p.phone       ? '<div class="apt-provider-meta">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
+                (p.owner_email ? '<div class="apt-provider-meta">👤 ' + p.owner_email + '</div>' : '') +
+                '<div class="apt-provider-footer">' +
+                   '<span style="font-family:ui-monospace,monospace;color:#888;font-size:0.75rem">ID: ' + p.id + '</span>' +
+                   '<div style="display:flex;gap:6px">' +
+                      '<button class="apt-view-btn" onclick="openStoreProviderModal(\'' + pid + '\')">✏️ Edit</button>' +
+                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreProviderUi(\'' + pid + '\')">🗑</button>' +
+                   '</div>' +
+                '</div>' +
+             '</div>';
+   });
+   html += '</div>';
+   container.innerHTML = html;
 }
-function openStoreProviderModal(id) {
-   alert('Add/Edit Store coming in Phase 2. For now, set up your categories in the 🗂 Categories tab.');
+
+function _storeGetProvider(id) {
+   return (_storeProvidersCache || []).find(function(p) { return p.id === id; });
+}
+
+function openStoreProviderModal(providerId) {
+   var p = providerId ? _storeGetProvider(providerId) : null;
+   document.getElementById('storeProviderModalTitle').textContent = p ? '✏️ Edit Store' : '➕ Add Store';
+
+   var catSel = document.getElementById('storeProvCategory');
+   if (catSel) {
+      var keys = Object.keys(STORE_CAT_META);
+      if (!keys.length) {
+         alert('Create at least one Category first (🗂 Categories tab).');
+         return;
+      }
+      catSel.innerHTML = keys.map(function(k) {
+         var c = STORE_CAT_META[k];
+         return '<option value="' + k + '">' + c.icon + ' ' + c.label + '</option>';
+      }).join('');
+   }
+
+   document.getElementById('storeProvId').value       = p ? p.id : '';
+   document.getElementById('storeProvCategory').value = p ? p.category : (Object.keys(STORE_CAT_META)[0] || 'general');
+   document.getElementById('storeProvName').value     = p ? p.name : '';
+   document.getElementById('storeProvTagline').value  = p ? (p.tagline   || '') : '';
+   document.getElementById('storeProvAddress').value  = p ? (p.address   || '') : '';
+   document.getElementById('storeProvTiming').value   = p ? (p.timing    || '') : '';
+   document.getElementById('storeProvPhone').value    = p ? (p.phone     || '') : '';
+   document.getElementById('storeProvGstin').value    = p ? (p.gstin     || '') : '';
+   document.getElementById('storeProvIcon').value     = p ? (p.icon      || '') : '';
+   document.getElementById('storeProvImage').value    = p ? (p.image_url || '') : '';
+
+   // Owner dropdown (current storeowners)
+   var ownerSel = document.getElementById('storeProvOwner');
+   var current  = p ? (p.owner_email || '') : '';
+   var owners   = (getUsers() || []).filter(function(u) { return u.role === 'storeowner'; });
+   var opts     = '<option value="">— Not assigned (admin manages) —</option>';
+   owners.forEach(function(u) {
+      var label = (u.name || u.email) + ' (' + u.email + ')';
+      var sel = ((u.email || '').toLowerCase() === (current || '').toLowerCase()) ? ' selected' : '';
+      opts += '<option value="' + u.email + '"' + sel + '>' + label + '</option>';
+   });
+   if (current && !owners.find(function(u) { return (u.email || '').toLowerCase() === current.toLowerCase(); })) {
+      opts += '<option value="' + current + '" selected>' + current + ' (not a registered business partner)</option>';
+   }
+   ownerSel.innerHTML = opts;
+
+   document.getElementById('storeProviderModal').classList.remove('hidden');
+}
+
+function closeStoreProviderModal() {
+   document.getElementById('storeProviderModal').classList.add('hidden');
+}
+
+async function saveStoreProvider() {
+   var name = document.getElementById('storeProvName').value.trim();
+   if (!name) { alert('Store name is required.'); return; }
+   var existingId = document.getElementById('storeProvId').value;
+   var category   = document.getElementById('storeProvCategory').value;
+   if (!STORE_CAT_META[category]) { alert('Pick a valid category.'); return; }
+   var icon = document.getElementById('storeProvIcon').value.trim() || STORE_CAT_META[category].icon || '🏪';
+
+   var id = existingId || (category + '_' + Date.now().toString(36));
+   var provider = {
+      id:          id,
+      category:    category,
+      name:        name,
+      tagline:     document.getElementById('storeProvTagline').value.trim(),
+      address:     document.getElementById('storeProvAddress').value.trim(),
+      timing:      document.getElementById('storeProvTiming').value.trim(),
+      phone:       document.getElementById('storeProvPhone').value.trim(),
+      gstin:       document.getElementById('storeProvGstin').value.trim().toUpperCase(),
+      icon:        icon,
+      image_url:   document.getElementById('storeProvImage').value.trim(),
+      owner_email: document.getElementById('storeProvOwner').value || ''
+   };
+   var ok = await AppDB.upsertStoreProvider(provider);
+   if (!ok) { alert('Failed to save. Check console.'); return; }
+   closeStoreProviderModal();
+   await renderStoreProvidersAdmin();
+}
+
+async function deleteStoreProviderUi(providerId) {
+   var p = _storeGetProvider(providerId);
+   if (!p) return;
+   if (!confirm('Delete "' + p.name + '"? This cannot be undone.\n\nProducts attached to this store will be orphaned (their store_provider_id will dangle).')) return;
+   var ok = await AppDB.deleteStoreProvider(providerId);
+   if (!ok) { alert('Failed to delete.'); return; }
+   await renderStoreProvidersAdmin();
 }
 
 async function renderAllAppointments() {

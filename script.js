@@ -8214,7 +8214,7 @@ async function renderOrders() {
       return null;
    }
 
-   // Read current selections BEFORE rebuilding dropdowns (cascade).
+   // Read current selections BEFORE rebuilding dropdowns (strict cascade).
    var catF    = (document.getElementById('myOrderCategoryFilter') || {}).value || '';
    var storeF  = (document.getElementById('myOrderStoreFilter')    || {}).value || '';
 
@@ -8224,16 +8224,24 @@ async function renderOrders() {
    _fillSelectFromList('myOrderCategoryFilter', '🗂 All categories', Object.keys(catSet),
       function(k) { var m = STORE_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k; });
 
-   // Stores dropdown narrows to the chosen category (cascade).
-   var storeSet = {};
-   allOrders.forEach(function(o) {
-      var p = _orderProvider(o);
-      if (catF) { if (p && p.category === catF) storeSet[p ? p.name : o.storeName] = true; }
-      else      { if (p) storeSet[p.name] = true; else if (o.storeName) storeSet[o.storeName] = true; }
-   });
-   _fillSelectFromList('myOrderStoreFilter', '🏪 All stores', Object.keys(storeSet));
+   // STRICT cascade: Stores stays locked until a Category is picked.
    var storeSel = document.getElementById('myOrderStoreFilter');
-   if (storeF && storeSel && !storeSet[storeF]) { storeSel.value = ''; storeF = ''; }
+   if (!catF) {
+      if (storeSel) {
+         storeSel.innerHTML = '<option value="">🏪 Pick a category first</option>';
+         storeSel.disabled = true;
+         storeSel.value = ''; storeF = '';
+      }
+   } else {
+      if (storeSel) storeSel.disabled = false;
+      var storeSet = {};
+      allOrders.forEach(function(o) {
+         var p = _orderProvider(o);
+         if (p && p.category === catF) storeSet[p.name] = true;
+      });
+      _fillSelectFromList('myOrderStoreFilter', '🏪 All stores', Object.keys(storeSet));
+      if (storeF && storeSel && !storeSet[storeF]) { storeSel.value = ''; storeF = ''; }
+   }
 
    // Read remaining filter values
    var search   = ((document.getElementById('myOrderSearch')         || {}).value || '').trim().toLowerCase();
@@ -8299,35 +8307,59 @@ async function renderMyAppointments() {
       return;
    }
 
-   // Read current selections BEFORE we rebuild the dropdowns, so we can decide
-   // whether each selection is still valid under the cascade.
+   // Read current selections BEFORE we rebuild the dropdowns.
    var catF    = (document.getElementById('myAptCategoryFilter') || {}).value || '';
    var hospF   = (document.getElementById('myAptHospitalFilter') || {}).value || '';
    var docF    = (document.getElementById('myAptDoctorFilter')   || {}).value || '';
 
-   // Cascade: Category → narrows Providers → narrows Staff.
-   // Categories always shows ALL categories the user has bookings for.
-   // Providers shows only those whose bookings match the chosen category.
-   // Staff shows only those for the chosen category + provider.
+   // STRICT cascade: child dropdowns are EMPTY+disabled until parent is picked.
+   // Pick Category → Providers unlocks (narrowed to that category)
+   // Pick Provider → Staff unlocks (narrowed to that category+provider)
    _fillSelectFromList('myAptCategoryFilter', '🗂 All categories',
       all.map(function(a){return a.category;}),
       function(k){ var m = APT_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k; });
 
-   var providersPool = all.filter(function(a) { return !catF || a.category === catF; });
-   _fillSelectFromList('myAptHospitalFilter', '🏥 All providers',
-      providersPool.map(function(a){return a.provider_name;}));
-   // If the previously-selected provider is no longer in the pool, reset it.
    var hospSel = document.getElementById('myAptHospitalFilter');
-   if (hospF && hospSel && !providersPool.some(function(a){return a.provider_name === hospF;})) {
-      hospSel.value = ''; hospF = '';
-   }
+   var docSel  = document.getElementById('myAptDoctorFilter');
 
-   var staffPool = providersPool.filter(function(a) { return !hospF || a.provider_name === hospF; });
-   _fillSelectFromList('myAptDoctorFilter', '👥 All Staff',
-      staffPool.map(function(a){return a.doctor_name;}));
-   var docSel = document.getElementById('myAptDoctorFilter');
-   if (docF && docSel && !staffPool.some(function(a){return a.doctor_name === docF;})) {
-      docSel.value = ''; docF = '';
+   if (!catF) {
+      // No category yet → lock Providers AND Staff
+      if (hospSel) {
+         hospSel.innerHTML = '<option value="">🏥 Pick a category first</option>';
+         hospSel.disabled = true;
+         hospSel.value = ''; hospF = '';
+      }
+      if (docSel) {
+         docSel.innerHTML = '<option value="">👥 Pick a provider first</option>';
+         docSel.disabled = true;
+         docSel.value = ''; docF = '';
+      }
+   } else {
+      // Category picked → fill Providers from that category
+      if (hospSel) hospSel.disabled = false;
+      var providersPool = all.filter(function(a) { return a.category === catF; });
+      _fillSelectFromList('myAptHospitalFilter', '🏥 All providers',
+         providersPool.map(function(a){return a.provider_name;}));
+      // Reset Provider selection if no longer valid under new category
+      if (hospF && hospSel && !providersPool.some(function(a){return a.provider_name === hospF;})) {
+         hospSel.value = ''; hospF = '';
+      }
+
+      if (!hospF) {
+         if (docSel) {
+            docSel.innerHTML = '<option value="">👥 Pick a provider first</option>';
+            docSel.disabled = true;
+            docSel.value = ''; docF = '';
+         }
+      } else {
+         if (docSel) docSel.disabled = false;
+         var staffPool = providersPool.filter(function(a) { return a.provider_name === hospF; });
+         _fillSelectFromList('myAptDoctorFilter', '👥 All Staff',
+            staffPool.map(function(a){return a.doctor_name;}));
+         if (docF && docSel && !staffPool.some(function(a){return a.doctor_name === docF;})) {
+            docSel.value = ''; docF = '';
+         }
+      }
    }
 
    var search   = ((document.getElementById('myAptSearch')       || {}).value || '').trim().toLowerCase();

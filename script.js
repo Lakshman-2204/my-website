@@ -3574,6 +3574,59 @@ function isAdmin(email) {
    return ADMIN_EMAILS.includes(email);
 }
 
+// ── Maintenance Mode ──
+// Admin can toggle a flag in Settings. When ON, all non-admin users see a
+// full-screen overlay and can't interact with the site. Admins are exempt so
+// they can still verify/fix things during the maintenance window. Called from
+// every public-facing page's init.
+async function _checkMaintenanceMode() {
+   try {
+      var user = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
+      var isAdminUser = user && isAdmin(user.email);
+      // Need settings — they live in _db.settings.data after initDB().
+      if (typeof initDB === 'function') { await initDB(); }
+      var s = (typeof getAdminSettings === 'function') ? getAdminSettings() : {};
+      if (!s.maintenanceMode) return;
+      if (isAdminUser) {
+         _showMaintenanceAdminBanner(s);
+         return;
+      }
+      _showMaintenanceOverlay(s);
+   } catch (e) { console.warn('maintenance check failed', e); }
+}
+
+function _showMaintenanceOverlay(s) {
+   var msg = s.maintenanceMessage || "We're upgrading the site. We'll be back shortly — thanks for your patience.";
+   var endTime = s.maintenanceEndTime || '';
+   document.documentElement.innerHTML =
+      '<head><meta charset="UTF-8"><title>Maintenance</title><style>' +
+         'body { margin:0; font-family: -apple-system, system-ui, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #2d2d5e 100%); color:#fff; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }' +
+         '.box { max-width: 520px; text-align: center; background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); border-radius:18px; padding: 40px 30px; backdrop-filter: blur(10px); }' +
+         '.box h1 { margin:0 0 12px; font-size: 2rem; }' +
+         '.box .icon { font-size: 4rem; margin-bottom: 12px; }' +
+         '.box p { font-size: 1.05rem; line-height: 1.55; opacity:0.92; margin:8px 0; }' +
+         '.box .eta { margin-top:16px; padding:10px 16px; background: rgba(74,144,226,0.18); border-radius:10px; font-weight:600; display:inline-block; }' +
+         '.box small { display:block; margin-top:24px; opacity:0.6; font-size:0.82rem; }' +
+      '</style></head>' +
+      '<body><div class="box">' +
+         '<div class="icon">🔧</div>' +
+         '<h1>Under Maintenance</h1>' +
+         '<p>' + String(msg).replace(/</g, '&lt;') + '</p>' +
+         (endTime ? '<div class="eta">⏰ Expected back online: ' + String(endTime).replace(/</g, '&lt;') + '</div>' : '') +
+         '<small>Thank you for your patience.</small>' +
+      '</div></body>';
+}
+
+function _showMaintenanceAdminBanner(s) {
+   if (document.getElementById('_maintBanner')) return;
+   var b = document.createElement('div');
+   b.id = '_maintBanner';
+   b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ef6c00;color:#fff;padding:6px 14px;text-align:center;font-size:0.85rem;font-weight:600;z-index:99999;box-shadow:0 2px 8px rgba(0,0,0,0.2)';
+   b.innerHTML = '🔧 Maintenance Mode is <strong>ON</strong> — users are blocked. You (admin) can still use the site. <a href="admin.html?tab=settings" style="color:#fff;text-decoration:underline;margin-left:6px">Turn off</a>';
+   document.body.appendChild(b);
+   document.body.style.paddingTop = (document.body.style.paddingTop ? document.body.style.paddingTop : '') + ' 30px';
+}
+
 function isStoreOwner(user) {
    return user && user.role === 'storeowner' && !isAdmin(user.email);
 }
@@ -4272,6 +4325,7 @@ document.addEventListener('click', function () {
 
 async function checkShopOwnerLogin() {
    await initDB();
+   await _checkMaintenanceMode();
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
    // Kick blocked users out
@@ -7140,6 +7194,10 @@ function loadSettingsForm() {
    setVal('set-bookingsPerCustomerPerDay', s.bookingsPerCustomerPerDay !== undefined ? s.bookingsPerCustomerPerDay : 10);
    setVal('set-noShowBlockThreshold',      s.noShowBlockThreshold      !== undefined ? s.noShowBlockThreshold      : 5);
    setVal('set-noShowBlockDays',           s.noShowBlockDays           !== undefined ? s.noShowBlockDays           : 30);
+   // Maintenance mode
+   setChecked('set-maintenanceMode',  !!s.maintenanceMode);
+   setVal('set-maintenanceMessage',   s.maintenanceMessage   || '');
+   setVal('set-maintenanceEndTime',   s.maintenanceEndTime   || '');
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
 }
 
@@ -7225,7 +7283,11 @@ function saveAllSettings() {
       bookingsPerDoctorPerDay:   parseInt(document.getElementById('set-bookingsPerDoctorPerDay').value,   10) || 3,
       bookingsPerCustomerPerDay: parseInt(document.getElementById('set-bookingsPerCustomerPerDay').value, 10) || 10,
       noShowBlockThreshold:      parseInt(document.getElementById('set-noShowBlockThreshold').value,      10) || 5,
-      noShowBlockDays:           parseInt(document.getElementById('set-noShowBlockDays').value,           10) || 30
+      noShowBlockDays:           parseInt(document.getElementById('set-noShowBlockDays').value,           10) || 30,
+      // Maintenance mode
+      maintenanceMode:           document.getElementById('set-maintenanceMode').checked,
+      maintenanceMessage:        document.getElementById('set-maintenanceMessage').value.trim(),
+      maintenanceEndTime:        document.getElementById('set-maintenanceEndTime').value.trim()
    };
    _db.settings = s;
    AppDB.saveSettings(s);
@@ -7305,6 +7367,7 @@ async function initProfile() {
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
    await initDB();
+   await _checkMaintenanceMode();
    await loadUserData(user.email);
    document.getElementById('prof-name').value   = user.name   || '';
    document.getElementById('prof-email').value  = user.email  || '';

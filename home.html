@@ -371,6 +371,7 @@
       <script src="script.js"></script>
       <script>
          initDB().then(function() {
+            _checkMaintenanceMode();   // shows overlay for non-admins if maintenance is ON
             loadSiteSettings();
             var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
             if (_u) AppDB.getWishlist(_u.email).then(function(ids) { _db.wishlist = ids || []; });

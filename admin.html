@@ -280,6 +280,31 @@
                </div>
             </div>
 
+            <!-- MAINTENANCE MODE -->
+            <div class="settings-card">
+               <div class="settings-card-header">🔧 Maintenance Mode</div>
+               <div class="settings-card-body">
+                  <p style="font-size:0.83rem;color:#888;margin-bottom:12px">
+                     When ON, all non-admin users see a maintenance screen and can't interact with the site.
+                     Admins still have full access. Use during major updates / schema migrations.
+                  </p>
+                  <div class="settings-field">
+                     <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+                        <input type="checkbox" id="set-maintenanceMode" style="width:18px;height:18px"/>
+                        <strong>Enable Maintenance Mode</strong>
+                     </label>
+                  </div>
+                  <div class="settings-field">
+                     <label>Message shown to users</label>
+                     <textarea id="set-maintenanceMessage" rows="2" placeholder="We're upgrading the site. We'll be back shortly — thanks for your patience."></textarea>
+                  </div>
+                  <div class="settings-field">
+                     <label>Expected back online <small style="color:#aaa">(optional)</small></label>
+                     <input type="text" id="set-maintenanceEndTime" placeholder="e.g. 1:00 AM IST"/>
+                  </div>
+               </div>
+            </div>
+
             <!-- STORAGE MAINTENANCE -->
             <div class="settings-card">
                <div class="settings-card-header">🧹 Storage Maintenance</div>

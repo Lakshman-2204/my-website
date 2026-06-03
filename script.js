@@ -2934,6 +2934,14 @@ async function renderStoreProvidersAdmin() {
                 (p.timing      ? '<div class="apt-provider-meta">🕒 ' + p.timing + '</div>' : '') +
                 (p.phone       ? '<div class="apt-provider-meta">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
                 (p.owner_email ? '<div class="apt-provider-meta">👤 ' + p.owner_email + '</div>' : '') +
+                (p.door_delivery ? '<div class="apt-provider-meta" style="color:#0a8a3a">🚚 Home delivery</div>' : '') +
+                ((p.commission_value > 0)
+                   ? '<div class="apt-provider-meta">💼 Commission: ' +
+                       (p.commission_type === 'fixed_monthly'
+                          ? '₹' + Number(p.commission_value).toLocaleString('en-IN') + '/month'
+                          : Number(p.commission_value) + '%') +
+                     '</div>'
+                   : '') +
                 '<div class="apt-provider-footer">' +
                    '<span style="font-family:ui-monospace,monospace;color:#888;font-size:0.75rem">ID: ' + p.id + '</span>' +
                    '<div style="display:flex;gap:6px">' +
@@ -2976,8 +2984,15 @@ function openStoreProviderModal(providerId) {
    document.getElementById('storeProvTiming').value   = p ? (p.timing    || '') : '';
    document.getElementById('storeProvPhone').value    = p ? (p.phone     || '') : '';
    document.getElementById('storeProvGstin').value    = p ? (p.gstin     || '') : '';
+   document.getElementById('storeProvForm20').value   = p ? (p.form20_no || '') : '';
+   document.getElementById('storeProvForm21').value   = p ? (p.form21_no || '') : '';
+   document.getElementById('storeProvFssai').value    = p ? (p.fssai_no  || '') : '';
    document.getElementById('storeProvIcon').value     = p ? (p.icon      || '') : '';
    document.getElementById('storeProvImage').value    = p ? (p.image_url || '') : '';
+   document.getElementById('storeProvDoorDelivery').checked  = p ? !!p.door_delivery : false;
+   document.getElementById('storeProvCommissionType').value  = (p && p.commission_type)  || 'percent';
+   document.getElementById('storeProvCommissionValue').value = (p && p.commission_value != null) ? p.commission_value : '';
+   _storeProvCommissionTypeChanged();
 
    // Owner dropdown (current storeowners)
    var ownerSel = document.getElementById('storeProvOwner');
@@ -3001,6 +3016,21 @@ function closeStoreProviderModal() {
    document.getElementById('storeProviderModal').classList.add('hidden');
 }
 
+// Toggle the commission-value label based on chosen type (mirrors apt providers).
+function _storeProvCommissionTypeChanged() {
+   var type  = document.getElementById('storeProvCommissionType').value;
+   var label = document.getElementById('storeProvCommissionLabel');
+   var input = document.getElementById('storeProvCommissionValue');
+   if (!label || !input) return;
+   if (type === 'fixed_monthly') {
+      label.textContent = 'Monthly Fee (₹)';
+      input.placeholder = '5000';
+   } else {
+      label.textContent = 'Commission Rate (%)';
+      input.placeholder = '5';
+   }
+}
+
 async function saveStoreProvider() {
    var name = document.getElementById('storeProvName').value.trim();
    if (!name) { alert('Store name is required.'); return; }
@@ -3011,17 +3041,23 @@ async function saveStoreProvider() {
 
    var id = existingId || (category + '_' + Date.now().toString(36));
    var provider = {
-      id:          id,
-      category:    category,
-      name:        name,
-      tagline:     document.getElementById('storeProvTagline').value.trim(),
-      address:     document.getElementById('storeProvAddress').value.trim(),
-      timing:      document.getElementById('storeProvTiming').value.trim(),
-      phone:       document.getElementById('storeProvPhone').value.trim(),
-      gstin:       document.getElementById('storeProvGstin').value.trim().toUpperCase(),
-      icon:        icon,
-      image_url:   document.getElementById('storeProvImage').value.trim(),
-      owner_email: document.getElementById('storeProvOwner').value || ''
+      id:               id,
+      category:         category,
+      name:             name,
+      tagline:          document.getElementById('storeProvTagline').value.trim(),
+      address:          document.getElementById('storeProvAddress').value.trim(),
+      timing:           document.getElementById('storeProvTiming').value.trim(),
+      phone:            document.getElementById('storeProvPhone').value.trim(),
+      gstin:            document.getElementById('storeProvGstin').value.trim().toUpperCase(),
+      form20_no:        document.getElementById('storeProvForm20').value.trim(),
+      form21_no:        document.getElementById('storeProvForm21').value.trim(),
+      fssai_no:         document.getElementById('storeProvFssai').value.trim(),
+      icon:             icon,
+      image_url:        document.getElementById('storeProvImage').value.trim(),
+      door_delivery:    document.getElementById('storeProvDoorDelivery').checked,
+      commission_type:  document.getElementById('storeProvCommissionType').value || 'percent',
+      commission_value: parseFloat(document.getElementById('storeProvCommissionValue').value) || 0,
+      owner_email:      document.getElementById('storeProvOwner').value || ''
    };
    var ok = await AppDB.upsertStoreProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
@@ -3316,6 +3352,7 @@ async function showStoreCategory(catKey) {
                    (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
                    (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
                    (p.phone   ? '<div class="apt-provider-meta" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
+                   (p.door_delivery ? '<div class="apt-provider-meta" style="color:#0a8a3a;font-weight:600">🚚 Home delivery available</div>' : '') +
                    '<div class="apt-provider-footer">' +
                       '<span>Tap to browse products</span>' +
                       '<button class="apt-view-btn" onclick="event.stopPropagation();showStoreProvider(\'' + pid + '\')">View Products →</button>' +
@@ -3349,6 +3386,7 @@ function showStoreProvider(providerId) {
               (p.address ? '<div>📍 ' + _mapsLink(p.address) + '</div>' : '') +
               (p.timing  ? '<div>🕒 ' + p.timing + '</div>' : '') +
               (p.phone   ? '<div style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
+              (p.door_delivery ? '<div style="color:#0a8a3a;font-weight:600">🚚 Home delivery available</div>' : '') +
            '</div>';
    html += '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id) + '</div>';
    grid.innerHTML = html;

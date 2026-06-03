@@ -238,6 +238,19 @@ ALTER TABLE public.store_providers DISABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS store_providers_category_idx ON public.store_providers(category);
 CREATE INDEX IF NOT EXISTS store_providers_owner_idx    ON public.store_providers(owner_email);
 
+-- 11b. STORE_PROVIDERS — additional licence / commission / delivery fields.
+--      Form 20 & Form 21 are drug-licence numbers for medical/pharmacy stores.
+--      FSSAI is the food-business licence. All three are optional.
+--      Commission mirrors apt_providers (percent OR fixed monthly fee).
+--      door_delivery flags whether the store offers home delivery.
+ALTER TABLE public.store_providers
+   ADD COLUMN IF NOT EXISTS form20_no        text    DEFAULT '',
+   ADD COLUMN IF NOT EXISTS form21_no        text    DEFAULT '',
+   ADD COLUMN IF NOT EXISTS fssai_no         text    DEFAULT '',
+   ADD COLUMN IF NOT EXISTS commission_type  text    DEFAULT 'percent',  -- 'percent' | 'fixed_monthly'
+   ADD COLUMN IF NOT EXISTS commission_value numeric DEFAULT 0,
+   ADD COLUMN IF NOT EXISTS door_delivery    boolean DEFAULT false;
+
 -- 12. PRODUCTS — link a product to a specific store_provider (not just an owner email).
 --     Legacy products (store_id = owner_email, store_provider_id IS NULL) stay in the
 --     table but are hidden from the new Stores flow. Customer Stores page filters

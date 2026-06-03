@@ -572,17 +572,23 @@ window.AppDB = {
 
    async upsertStoreProvider(p) {
       const row = {
-         id:          p.id,
-         category:    p.category,
-         name:        p.name,
-         tagline:     p.tagline     || '',
-         address:     p.address     || '',
-         phone:       p.phone       || '',
-         timing:      p.timing      || '',
-         icon:        p.icon        || '🏪',
-         image_url:   p.image_url   || '',
-         gstin:       p.gstin       || '',
-         owner_email: (p.owner_email || '').toLowerCase()
+         id:               p.id,
+         category:         p.category,
+         name:             p.name,
+         tagline:          p.tagline     || '',
+         address:          p.address     || '',
+         phone:            p.phone       || '',
+         timing:           p.timing      || '',
+         icon:             p.icon        || '🏪',
+         image_url:        p.image_url   || '',
+         gstin:            p.gstin       || '',
+         form20_no:        p.form20_no   || '',
+         form21_no:        p.form21_no   || '',
+         fssai_no:         p.fssai_no    || '',
+         commission_type:  p.commission_type  || 'percent',
+         commission_value: typeof p.commission_value === 'number' ? p.commission_value : (parseFloat(p.commission_value) || 0),
+         door_delivery:    !!p.door_delivery,
+         owner_email:      (p.owner_email || '').toLowerCase()
       };
       const { error } = await _sb.from('store_providers').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertStoreProvider:', error.message); return false; }

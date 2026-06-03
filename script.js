@@ -282,6 +282,7 @@ function doSearch() {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = `Search: "${query}" (${results.length} results)`;
+   if (typeof _setStoresChromeMode === 'function') _setStoresChromeMode(false);
 
    const grid = document.getElementById('productsGrid');
    grid.innerHTML = '';
@@ -301,6 +302,7 @@ function showAllProducts() {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = ' All Products';
+   if (typeof _setStoresChromeMode === 'function') _setStoresChromeMode(false);
 
    const grid = document.getElementById('productsGrid');
    grid.style.display = '';
@@ -375,6 +377,7 @@ function showProducts(category) {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = data.title;
+   if (typeof _setStoresChromeMode === 'function') _setStoresChromeMode(false);
 
    const grid = document.getElementById('productsGrid');
    grid.style.display = '';
@@ -962,9 +965,11 @@ function goHome() {
    document.getElementById('productsSection').classList.add('hidden');
    var aptSec = document.getElementById('appointmentSection');
    if (aptSec) aptSec.classList.add('hidden');
-   // Restore the product-category row hidden by showBookAppointment
+   // Restore the product-category row hidden by showBookAppointment / showStoresList
    var cats = document.querySelector('.header-categories');
    if (cats) cats.classList.remove('hidden');
+   // Remove the "My Orders" button injected by Stores flow
+   _setStoresChromeMode(false);
    document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
    const allCat = document.getElementById('cat-all');
    if (allCat) allCat.classList.add('active');
@@ -1033,6 +1038,7 @@ function showContactInfo() {
    const section = document.getElementById('productsSection');
    section.classList.remove('hidden');
    document.getElementById('productTitle').textContent = '📞 Contact & Support';
+   if (typeof _setStoresChromeMode === 'function') _setStoresChromeMode(false);
 
    const grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
@@ -3206,10 +3212,43 @@ async function deleteAllShownAppointments() {
 //   showStoreCategory(catKey)     → store cards under that category
 //   showStoreProvider(providerId) → that store's products grouped by sub-category
 // Categories + stores come from admin-managed store_categories / store_providers.
+
+// Toggle "Stores mode" chrome: hide the product-category bar and inject a
+// "📦 My Orders" shortcut in the products-header. Idempotent.
+function _setStoresChromeMode(on) {
+   var cats = document.querySelector('.header-categories');
+   if (cats) cats.classList.toggle('hidden', !!on);
+
+   var header = document.querySelector('#productsSection .products-header > div');
+   if (!header) return;
+   var existing = document.getElementById('storesMyOrdersBtn');
+   if (on) {
+      if (existing) return;
+      var btn = document.createElement('button');
+      btn.id = 'storesMyOrdersBtn';
+      btn.className = 'btn-back';
+      btn.style.background = '#1a73e8';
+      btn.style.color      = '#fff';
+      btn.style.borderColor = '#1a73e8';
+      btn.innerHTML = '📦 My Orders';
+      btn.onclick = function() {
+         var u = JSON.parse(sessionStorage.getItem('loggedInUser'));
+         if (!u) { promptAuth('Please log in to view your orders.'); return; }
+         window.location.href = 'profile.html?tab=orders';
+      };
+      header.insertBefore(btn, header.firstChild);
+   } else {
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+   }
+}
 async function showStoresList() {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = '🏪 Stores';
+
+   // Hide the product-category bar (For You, Daily Needs, …) — it's irrelevant
+   // here because customers are now browsing by store, not by product category.
+   _setStoresChromeMode(true);
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
@@ -3249,6 +3288,7 @@ async function showStoreCategory(catKey) {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = meta.icon + ' ' + meta.label;
+   _setStoresChromeMode(true);
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
@@ -3297,6 +3337,7 @@ function showStoreProvider(providerId) {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = (p.icon || meta.icon) + ' ' + p.name;
+   _setStoresChromeMode(true);
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
@@ -4707,13 +4748,20 @@ async function checkShopOwnerLogin() {
    var providers    = await AppDB.getProviders();
    var myProviders  = providers.filter(function(p) { return (p.owner_email || '').toLowerCase() === user.email.toLowerCase(); });
    var ownsHospital = myProviders.length > 0;
-   var ownsProducts = (_db.products || []).some(function(p) { return (p.store_id || '').toLowerCase() === user.email.toLowerCase(); });
+   // New model: stores are admin-created store_providers with owner_email
+   await loadStoreCategories();
+   await loadStoreProviders(true);
+   var myStoreProvs = (_storeProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase();
+   });
+   var ownsStores   = myStoreProvs.length > 0;
    var businessName = '';
    if (myProviders.length > 0) {
       businessName = myProviders.length === 1 ? myProviders[0].name
                                               : myProviders.map(function(p) { return p.name; }).join(' · ');
-   } else if (ownsProducts) {
-      businessName = user.storeName || user.name || '';
+   } else if (ownsStores) {
+      businessName = myStoreProvs.length === 1 ? myStoreProvs[0].name
+                                               : myStoreProvs.map(function(p) { return p.name; }).join(' · ');
    } else if (isAdmin(user.email)) {
       businessName = 'Admin Dashboard';
    } else {
@@ -4721,7 +4769,7 @@ async function checkShopOwnerLogin() {
    }
    // If the user owns nothing yet, default to Appointments view so a brand-new partner
    // (or admin without linked assets) doesn't land on a blank page.
-   if (!ownsHospital && !ownsProducts) ownsHospital = true;
+   if (!ownsHospital && !ownsStores) ownsHospital = true;
 
    var bizEl = document.getElementById('shopBusinessName');
    if (bizEl) bizEl.textContent = businessName;
@@ -4733,8 +4781,8 @@ async function checkShopOwnerLogin() {
    var schedTab  = document.getElementById('shop-tab-schedule');
    var prodTab   = document.getElementById('shop-tab-products');
    if (dashTab)   dashTab.classList.toggle('hidden',   !ownsHospital);
-   if (ordersTab) ordersTab.classList.toggle('hidden', !ownsProducts);
-   if (prodTab)   prodTab.classList.toggle('hidden',   !ownsProducts);
+   if (ordersTab) ordersTab.classList.toggle('hidden', !ownsStores);
+   if (prodTab)   prodTab.classList.toggle('hidden',   !ownsStores);
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
@@ -4749,14 +4797,14 @@ async function checkShopOwnerLogin() {
    }
 
    // Render whichever panel makes sense
-   if (ownsProducts) renderShopDashboard();
-   // Hospital owners land on Dashboard; product-only owners land on Orders
-   var defaultTab = ownsHospital ? 'dashboard' : 'orders';
+   if (ownsStores) renderShopDashboard();
+   // Hospital owners land on Dashboard; store-only owners land on My Stores
+   var defaultTab = ownsHospital ? 'dashboard' : 'products';
    switchShopTab(defaultTab);
 
    // Auto-refresh if admin enabled it
    var s = getAdminSettings();
-   if (s.autoRefreshOrders && ownsProducts) {
+   if (s.autoRefreshOrders && ownsStores) {
       setInterval(function() { renderShopDashboard(window._shopCurrentFilter); }, 30000);
    }
 }
@@ -4890,41 +4938,104 @@ function lookupOrder() {
 }
 
 // ── SHOP OWNER: PRODUCT MANAGEMENT ──
-function getMyProducts(email) {
-   return (_db.storeProducts || [])
-      .filter(function(p) { return p.store_id === email; })
+// \u2500\u2500 Shop-owner: NEW My Stores \u2192 per-store Products flow \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Owner's selected store id (null = show stores list).
+let _currentMyStoreId = null;
+// Per-store product cache (lazy, refreshed on save/delete).
+let _currentMyStoreProds = [];
+
+async function renderStoreOwnerProducts() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) return;
+   await loadStoreCategories();
+   await loadStoreProviders(true);
+   if (_currentMyStoreId) {
+      renderMyStoreProducts(_currentMyStoreId);
+   } else {
+      renderMyStoresList();
+   }
+}
+
+function renderMyStoresList() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   var listView = document.getElementById('shopStoresListView');
+   var prodView = document.getElementById('shopStoreProductsView');
+   if (listView) listView.classList.remove('hidden');
+   if (prodView) prodView.classList.add('hidden');
+
+   var mine = (_storeProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
+   });
+   var container = document.getElementById('shopMyStoresList');
+   if (!container) return;
+   if (!mine.length) {
+      container.innerHTML = '<p class="shop-empty">No stores linked to your account yet. Ask the admin to assign you one (Admin \u2192 Stores \u2192 \u2795 Add Store).</p>';
+      return;
+   }
+   container.innerHTML = mine.map(function(p) {
+      var meta = STORE_CAT_META[p.category] || { icon: '\ud83c\udfea', label: p.category };
+      var pid  = p.id.replace(/'/g, "\\'");
+      var productCount = (_db.storeProducts || []).filter(function(x) { return x.store_provider_id === p.id; }).length;
+      return '<div class="shop-store-card" onclick="enterMyStore(\'' + pid + '\')">' +
+                '<div class="shop-store-icon">' + (p.icon || meta.icon) + '</div>' +
+                '<div class="shop-store-info">' +
+                   '<div class="shop-store-name">' + p.name + '</div>' +
+                   '<div class="shop-store-meta">' + meta.icon + ' ' + meta.label + (p.address ? ' \u00b7 ' + p.address : '') + '</div>' +
+                   '<div class="shop-store-meta" style="color:#1a73e8">\ud83d\udce6 ' + productCount + ' product' + (productCount === 1 ? '' : 's') + '</div>' +
+                '</div>' +
+                '<div class="shop-store-cta">Manage \u2192</div>' +
+             '</div>';
+   }).join('');
+}
+
+function enterMyStore(storeId) {
+   _currentMyStoreId = storeId;
+   renderMyStoreProducts(storeId);
+}
+function exitMyStore() {
+   _currentMyStoreId = null;
+   renderMyStoresList();
+}
+
+function renderMyStoreProducts(storeId) {
+   var listView = document.getElementById('shopStoresListView');
+   var prodView = document.getElementById('shopStoreProductsView');
+   if (listView) listView.classList.add('hidden');
+   if (prodView) prodView.classList.remove('hidden');
+
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === storeId; });
+   if (!store) { exitMyStore(); return; }
+   var meta = STORE_CAT_META[store.category] || { icon: '\ud83c\udfea', label: store.category };
+
+   var title = document.getElementById('shopStoreProductsTitle');
+   if (title) title.textContent = (store.icon || meta.icon) + ' ' + store.name;
+
+   var metaEl = document.getElementById('shopStoreMeta');
+   if (metaEl) {
+      metaEl.innerHTML =
+         '<div><strong>' + meta.icon + ' ' + meta.label + '</strong>' +
+            (store.tagline ? ' \u00b7 ' + store.tagline : '') + '</div>' +
+         (store.address ? '<div>\ud83d\udccd ' + store.address + '</div>' : '') +
+         (store.timing  ? '<div>\ud83d\udd52 ' + store.timing  + '</div>' : '') +
+         (store.phone   ? '<div>\ud83d\udcde ' + store.phone   + '</div>' : '');
+   }
+
+   // Filter products by store_provider_id (new model).
+   _currentMyStoreProds = (_db.storeProducts || [])
+      .filter(function(p) { return p.store_provider_id === storeId; })
       .map(function(p) {
          return { id: p.id, name: p.name, price: p.price, desc: p.description,
                   img: p.image, badge: p.badge, catKey: p.category,
                   variants: p.variants || undefined };
       });
-}
-function saveMyProducts(email, arr) {
-   var user = (_db.users || []).find(function(u) { return u.email === email; }) || {};
-   var storeName = user.storeName || user.name || '';
-   var rows = arr.map(function(p) {
-      return { id: p.id, name: p.name, price: p.price || 0,
-               description: p.desc || '', image: p.img || '',
-               category: p.catKey, badge: p.badge || 'New',
-               store_id: email, store_name: storeName, variants: p.variants || null };
-   });
-   _db.storeProducts = (_db.storeProducts || []).filter(function(p) { return p.store_id !== email; }).concat(rows);
-   AppDB.deleteStoreProducts(email).then(function() {
-      rows.forEach(function(r) { AppDB.upsertProduct(r); });
-   });
-}
 
-function renderStoreOwnerProducts() {
-   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   if (!user) return;
-   var prods = getMyProducts(user.email);
    var container = document.getElementById('shopProductList');
    if (!container) return;
-   if (!prods.length) {
-      container.innerHTML = '<p class="shop-empty">No products yet. Click \u2795 Add Product to get started.</p>';
+   if (!_currentMyStoreProds.length) {
+      container.innerHTML = '<p class="shop-empty">No products in this store yet. Click \u2795 Add Product to get started.</p>';
       return;
    }
-   container.innerHTML = prods.map(function(p, idx) {
+   container.innerHTML = _currentMyStoreProds.map(function(p, idx) {
       return '<div class="shop-prod-card">' +
                 '<img src="' + p.img + '" onerror="this.src=\'https://placehold.co/60x60?text=Item\'"/>' +
                 '<div class="shop-prod-info">' +
@@ -4942,10 +5053,9 @@ function renderStoreOwnerProducts() {
 var _editProdIdx = -1;
 
 function openStoreProductModal(idx) {
+   if (!_currentMyStoreId) { alert('Open a store first.'); return; }
    _editProdIdx = idx;
-   var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   var prods = getMyProducts(user.email);
-   var p = idx >= 0 ? prods[idx] : null;
+   var p = idx >= 0 ? _currentMyStoreProds[idx] : null;
    document.getElementById('sp-modal-title').textContent = p ? 'Edit Product' : 'Add Product';
    document.getElementById('sp-name').value  = p ? p.name  : '';
    document.getElementById('sp-price').value = p ? p.price : '';
@@ -4968,7 +5078,8 @@ function closeStoreProductModal() {
    _editProdIdx = -1;
 }
 
-function saveStoreProduct() {
+async function saveStoreProduct() {
+   if (!_currentMyStoreId) { alert('Open a store first.'); return; }
    var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var name  = document.getElementById('sp-name').value.trim();
    var price = parseFloat(document.getElementById('sp-price').value) || 0;
@@ -4977,26 +5088,38 @@ function saveStoreProduct() {
    var badge = document.getElementById('sp-badge').value.trim() || 'New';
    var catKey = document.getElementById('sp-catkey').value;
    if (!name) { alert('Product name is required.'); return; }
-   var prods = getMyProducts(user.email);
-   var entry = { id: 'sp_' + user.email.split('@')[0] + '_' + Date.now(), name: name, price: price, desc: desc, img: img, badge: badge, catKey: catKey };
-   if (_editProdIdx >= 0) {
-      entry.id = prods[_editProdIdx].id; // preserve existing ID
-      prods[_editProdIdx] = entry;
-   } else {
-      prods.push(entry);
-   }
-   saveMyProducts(user.email, prods);
+
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
+   var existing = _editProdIdx >= 0 ? _currentMyStoreProds[_editProdIdx] : null;
+   var id = existing ? existing.id : ('sp_' + (user.email || 'admin').split('@')[0] + '_' + Date.now());
+   var dbRow = {
+      id: id, name: name, price: price,
+      description: desc, image: img,
+      category: catKey, badge: badge,
+      store_id: store ? store.owner_email : user.email,
+      store_name: store ? store.name : (user.storeName || user.name || ''),
+      store_provider_id: _currentMyStoreId,
+      variants: null
+   };
+   var ok = await AppDB.upsertProduct(dbRow);
+   if (!ok) { alert('Failed to save product.'); return; }
+   // Keep local cache in sync
+   _db.storeProducts = (_db.storeProducts || []).filter(function(p) { return p.id !== id; });
+   _db.storeProducts.push(dbRow);
+   _applyStoreProdsToProducts();
    closeStoreProductModal();
-   renderStoreOwnerProducts();
+   renderMyStoreProducts(_currentMyStoreId);
 }
 
-function deleteStoreProduct(idx) {
+async function deleteStoreProduct(idx) {
    if (!confirm('Delete this product?')) return;
-   var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   var prods = getMyProducts(user.email);
-   prods.splice(idx, 1);
-   saveMyProducts(user.email, prods);
-   renderStoreOwnerProducts();
+   var p = _currentMyStoreProds[idx];
+   if (!p) return;
+   var ok = await AppDB.deleteProduct(p.id);
+   if (!ok) { alert('Failed to delete.'); return; }
+   _db.storeProducts = (_db.storeProducts || []).filter(function(x) { return x.id !== p.id; });
+   _applyStoreProdsToProducts();
+   renderMyStoreProducts(_currentMyStoreId);
 }
 
 function switchShopTab(tab) {
@@ -5006,6 +5129,8 @@ function switchShopTab(tab) {
       if (panel) panel.classList.toggle('hidden', t !== tab);
       if (btn)   btn.classList.toggle('active',   t === tab);
    });
+   // Reset My Stores drilldown whenever owner leaves the products tab.
+   if (tab !== 'products') _currentMyStoreId = null;
    if (tab === 'dashboard')    renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'appointments') { _shopAptsCache = null; renderShopAppointments('Confirmed'); }

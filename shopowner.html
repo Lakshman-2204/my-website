@@ -36,7 +36,7 @@
       <button class="shop-main-tab hidden" id="shop-tab-appointments" onclick="switchShopTab('appointments')">📅 Appointments</button>
       <button class="shop-main-tab hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')">👨‍⚕️ Doctors</button>
       <button class="shop-main-tab hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')">📞 Schedule</button>
-      <button class="shop-main-tab hidden" id="shop-tab-products"     onclick="switchShopTab('products')">🛍️ My Products</button>
+      <button class="shop-main-tab hidden" id="shop-tab-products"     onclick="switchShopTab('products')">🏪 My Stores</button>
    </div>
 
    <!-- DASHBOARD PANEL — overview of hospital info + quick stats -->
@@ -313,13 +313,25 @@
       </div>
    </div>
 
-   <!-- PRODUCTS PANEL -->
+   <!-- PRODUCTS PANEL (now: My Stores → drill into one → products) -->
    <div id="shop-panel-products" class="hidden">
-      <div class="shop-prods-header">
-         <h3>My Products</h3>
-         <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Product</button>
+      <!-- Stores list view (default) -->
+      <div id="shopStoresListView">
+         <div class="shop-prods-header">
+            <h3>🏪 My Stores</h3>
+         </div>
+         <div id="shopMyStoresList" class="shop-product-list"></div>
       </div>
-      <div id="shopProductList" class="shop-product-list"></div>
+      <!-- Products view (shown after picking a store) -->
+      <div id="shopStoreProductsView" class="hidden">
+         <div class="shop-prods-header">
+            <button class="btn-back" style="margin-right:auto" onclick="exitMyStore()">← My Stores</button>
+            <h3 id="shopStoreProductsTitle" style="margin:0 12px">Products</h3>
+            <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Product</button>
+         </div>
+         <div id="shopStoreMeta" class="shop-store-meta-card"></div>
+         <div id="shopProductList" class="shop-product-list"></div>
+      </div>
    </div>
 
    <!-- ADD/EDIT PRODUCT MODAL -->

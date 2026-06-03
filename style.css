@@ -4737,6 +4737,45 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	font-size: 0.88rem;
 }
 .shop-product-list { padding: 0 20px 40px; }
+
+/* My Stores list card (shop-owner picks which store to manage) */
+.shop-store-card {
+   display: flex;
+   align-items: center;
+   gap: 14px;
+   padding: 14px 16px;
+   margin: 8px 20px;
+   background: #fff;
+   border: 1px solid #e6e8eb;
+   border-radius: 10px;
+   cursor: pointer;
+   transition: border-color .15s, transform .1s, box-shadow .15s;
+}
+.shop-store-card:hover {
+   border-color: #1a73e8;
+   transform: translateY(-1px);
+   box-shadow: 0 2px 8px rgba(26,115,232,0.08);
+}
+.shop-store-icon  { font-size: 1.8rem; flex-shrink: 0; }
+.shop-store-info  { flex: 1; min-width: 0; }
+.shop-store-name  { font-weight: 700; font-size: 1.02rem; color: #1a1a2e; margin-bottom: 2px; }
+.shop-store-meta  { font-size: 0.82rem; color: #666; }
+.shop-store-cta   { color: #1a73e8; font-weight: 600; font-size: 0.88rem; white-space: nowrap; }
+
+/* Meta strip above products inside a store */
+.shop-store-meta-card {
+   margin: 0 20px 14px;
+   padding: 10px 14px;
+   background: #fafbfc;
+   border: 1px solid #e6e8eb;
+   border-radius: 8px;
+   font-size: 0.88rem;
+   color: #444;
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px 16px;
+}
+
 .shop-prod-card {
 	display: flex;
 	align-items: center;

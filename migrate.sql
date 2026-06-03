@@ -193,3 +193,55 @@ INSERT INTO public.apt_categories (id, label, description, icon, staff_label, st
    ('hospital', 'Hospitals',      'General & multi-speciality hospitals',    '🏥', 'Doctors', '👨‍⚕️', 10),
    ('dental',   'Dental Clinics', 'Dentists, orthodontists & cosmetic care', '🦷', 'Doctors', '👨‍⚕️', 20)
 ON CONFLICT (id) DO NOTHING;
+
+-- 10. STORE_CATEGORIES — admin-managed list of retail store categories
+--     (general, medical, wholesale, electronics, electrical, fancy, construction…).
+--     Mirrors apt_categories but without the staff fields (stores don't have doctors).
+CREATE TABLE IF NOT EXISTS public.store_categories (
+   id           text         PRIMARY KEY,
+   label        text         NOT NULL,
+   description  text         DEFAULT '',
+   icon         text         DEFAULT '🏪',
+   sort_order   int          DEFAULT 100,
+   created_at   timestamptz  DEFAULT now()
+);
+ALTER TABLE public.store_categories DISABLE ROW LEVEL SECURITY;
+
+-- Seed common retail categories. Safe to re-run.
+INSERT INTO public.store_categories (id, label, description, icon, sort_order) VALUES
+   ('general',      'General Stores',          'Day-to-day groceries & essentials',     '🛒', 10),
+   ('medical',      'Medical Stores',          'Pharmacies & medical supplies',         '💊', 20),
+   ('wholesale',    'Wholesale Stores',        'Bulk purchase & wholesale traders',     '📦', 30),
+   ('electronics',  'Mobiles & Electronics',   'Phones, gadgets & electronics',         '📱', 40),
+   ('electrical',   'Electrical Stores',       'Wiring, switches, lighting & fittings', '💡', 50),
+   ('fancy',        'Fancy Stores',            'Cosmetics, accessories & gift items',   '🎁', 60),
+   ('construction', 'Construction Stores',     'Hardware, cement, paints & tools',      '🏗️', 70)
+ON CONFLICT (id) DO NOTHING;
+
+-- 11. STORE_PROVIDERS — each retail store is a "provider" (parity with apt_providers).
+--     One owner_email can own many store_providers (e.g. a medical store AND a general store).
+CREATE TABLE IF NOT EXISTS public.store_providers (
+   id          text         PRIMARY KEY,
+   category    text         NOT NULL,             -- FK into store_categories.id
+   name        text         NOT NULL,
+   tagline     text         DEFAULT '',
+   address     text         DEFAULT '',
+   phone       text         DEFAULT '',
+   timing      text         DEFAULT '',
+   icon        text         DEFAULT '🏪',
+   image_url   text         DEFAULT '',
+   gstin       text         DEFAULT '',
+   owner_email text         DEFAULT '',
+   created_at  timestamptz  DEFAULT now()
+);
+ALTER TABLE public.store_providers DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS store_providers_category_idx ON public.store_providers(category);
+CREATE INDEX IF NOT EXISTS store_providers_owner_idx    ON public.store_providers(owner_email);
+
+-- 12. PRODUCTS — link a product to a specific store_provider (not just an owner email).
+--     Legacy products (store_id = owner_email, store_provider_id IS NULL) stay in the
+--     table but are hidden from the new Stores flow. Customer Stores page filters
+--     where store_provider_id IS NOT NULL.
+ALTER TABLE public.products
+   ADD COLUMN IF NOT EXISTS store_provider_id text DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS products_store_provider_id_idx ON public.products(store_provider_id);

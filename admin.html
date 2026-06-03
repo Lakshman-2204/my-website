@@ -367,13 +367,43 @@
          <div class="admin-page-title">
             <div class="admin-title-row">
                <div>
-                  <h1>🏪 Stores Overview</h1>
-                  <p>All registered stores and their product &amp; order stats.</p>
+                  <h1>🏪 Stores Setup</h1>
+                  <p>Manage retail categories (General, Medical, Wholesale, Electronics…) and the stores you create under each.</p>
                </div>
             </div>
          </div>
-         <div class="admin-stores-content" id="adminStoresContent">
-            <p style="color:#999;text-align:center;padding:40px">Loading stores…</p>
+
+         <!-- Sub-section tabs -->
+         <div class="admin-filter-bar" style="margin-bottom:6px">
+            <button class="admin-tab active" id="store-subtab-providers-btn"  onclick="switchStoreAdminSub('providers')">🏪 Stores</button>
+            <button class="admin-tab"        id="store-subtab-categories-btn" onclick="switchStoreAdminSub('categories')">🗂 Categories</button>
+         </div>
+
+         <!-- Providers (Stores) sub-panel — built in Phase 2 -->
+         <div id="store-sub-providers">
+            <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+               <select id="storeAdminCatFilter" class="admin-filter-select" onchange="renderStoreProvidersAdmin()">
+                  <option value="">All Categories</option>
+               </select>
+               <button class="admin-add-main-btn" onclick="openStoreProviderModal()">➕ Add Store</button>
+            </div>
+            <div class="admin-content" id="storeProvidersContent">
+               <p style="color:#999;text-align:center;padding:40px">Loading stores…</p>
+            </div>
+         </div>
+
+         <!-- Categories sub-panel -->
+         <div id="store-sub-categories" class="hidden">
+            <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+               <p style="margin:0;color:#666;font-size:0.85rem;flex:1">
+                  Manage retail categories shown to customers under 🏪 Stores.
+                  Each category groups a set of stores you create.
+               </p>
+               <button class="admin-add-main-btn" onclick="openStoreCategoryModal()">➕ Add Category</button>
+            </div>
+            <div class="admin-content" id="storeCategoriesContent">
+               <p style="color:#999;text-align:center;padding:40px">Loading…</p>
+            </div>
          </div>
       </div>
 
@@ -849,6 +879,43 @@
             <div class="admin-modal-footer">
                <button class="admin-modal-btn-cancel" onclick="closeAptCategoryModal()">Cancel</button>
                <button class="admin-modal-btn-save"   onclick="saveAptCategory()">💾 Save</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- STORE CATEGORY MODAL -->
+      <div class="admin-modal-overlay hidden" id="storeCategoryModal" onclick="if(event.target===this)closeStoreCategoryModal()">
+         <div class="admin-modal">
+            <div class="admin-modal-header">
+               <h3 id="storeCategoryModalTitle">Add Category</h3>
+               <button class="admin-modal-close" onclick="closeStoreCategoryModal()">✕</button>
+            </div>
+            <div class="admin-modal-body">
+               <div class="modal-field">
+                  <label>ID <small style="font-weight:400;color:#aaa">(short code — used internally, e.g. <code>medical</code>, <code>wholesale</code>)</small></label>
+                  <input type="text" id="storeCatId" placeholder="medical" maxlength="32"/>
+               </div>
+               <div class="modal-field">
+                  <label>Display Label</label>
+                  <input type="text" id="storeCatLabel" placeholder="Medical Stores"/>
+               </div>
+               <div class="modal-field">
+                  <label>Description <small style="font-weight:400;color:#aaa">(shown under category tile)</small></label>
+                  <input type="text" id="storeCatDesc" placeholder="Pharmacies & medical supplies"/>
+               </div>
+               <div class="modal-field">
+                  <label>Icon <small style="font-weight:400;color:#aaa">(emoji)</small></label>
+                  <input type="text" id="storeCatIcon" maxlength="2" placeholder="💊"/>
+               </div>
+               <div class="modal-field">
+                  <label>Sort Order <small style="font-weight:400;color:#aaa">(lower numbers appear first)</small></label>
+                  <input type="number" id="storeCatSortOrder" value="100"/>
+               </div>
+               <input type="hidden" id="storeCatOriginalId"/>
+            </div>
+            <div class="admin-modal-footer">
+               <button class="admin-modal-btn-cancel" onclick="closeStoreCategoryModal()">Cancel</button>
+               <button class="admin-modal-btn-save"   onclick="saveStoreCategory()">💾 Save</button>
             </div>
          </div>
       </div>

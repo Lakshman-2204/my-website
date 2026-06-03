@@ -1117,6 +1117,38 @@ async function loadAptProviders(force) {
    return _aptProvidersCache;
 }
 
+// ── STORE CATEGORIES & PROVIDERS (retail side, parity with apt_* ) ─────
+let STORE_CAT_META = {};            // { id: {icon,label,desc,sortOrder} }
+let _storeCatsLoaded = false;
+let _storeProvidersCache = null;    // [{id, category, name, ...}]
+
+async function loadStoreCategories(force) {
+   if (_storeCatsLoaded && !force) return STORE_CAT_META;
+   var rows = await AppDB.getStoreCategories();
+   var next = {};
+   (rows || []).forEach(function(r) {
+      next[r.id] = {
+         icon:      r.icon  || '🏪',
+         label:     r.label,
+         desc:      r.description || '',
+         sortOrder: r.sort_order   || 100
+      };
+   });
+   STORE_CAT_META = next;
+   _storeCatsLoaded = true;
+   return STORE_CAT_META;
+}
+
+async function loadStoreProviders(force) {
+   if (_storeProvidersCache && !force) return _storeProvidersCache;
+   _storeProvidersCache = await AppDB.getStoreProviders();
+   return _storeProvidersCache;
+}
+
+function _storeProvidersByCat(catKey) {
+   return (_storeProvidersCache || []).filter(function(p) { return p.category === catKey; });
+}
+
 function _aptGetProvider(id)        { return (_aptProvidersCache || []).find(function(p) { return p.id === id; }); }
 function _aptProvidersByCat(catKey) { return (_aptProvidersCache || []).filter(function(p) { return p.category === catKey; }); }
 function _aptGetDoctor(provider, doctorId) {
@@ -2743,6 +2775,127 @@ async function deleteAptCategory(id) {
    await renderAptCategoriesAdmin();
 }
 
+// ── ADMIN: STORE Categories CRUD (mirrors apt-category CRUD above) ─────
+function switchStoreAdminSub(sub) {
+   ['providers', 'categories'].forEach(function(s) {
+      var pane = document.getElementById('store-sub-' + s);
+      var btn  = document.getElementById('store-subtab-' + s + '-btn');
+      if (pane) pane.classList.toggle('hidden', s !== sub);
+      if (btn)  btn.classList.toggle('active', s === sub);
+   });
+   if (sub === 'categories') renderStoreCategoriesAdmin();
+   if (sub === 'providers')  renderStoreProvidersAdmin();
+}
+
+async function renderStoreCategoriesAdmin() {
+   var container = document.getElementById('storeCategoriesContent');
+   if (!container) return;
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+   await loadStoreCategories(true);
+   await loadStoreProviders(true);
+
+   var keys = Object.keys(STORE_CAT_META);
+   if (!keys.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No categories yet. Click <strong>➕ Add Category</strong>.</p>';
+      return;
+   }
+   keys.sort(function(a, b) {
+      return (STORE_CAT_META[a].sortOrder || 100) - (STORE_CAT_META[b].sortOrder || 100);
+   });
+
+   var html = '<div class="apt-providers-grid" style="margin-top:1rem">';
+   keys.forEach(function(k) {
+      var c = STORE_CAT_META[k];
+      var providerCount = _storeProvidersByCat(k).length;
+      var kid = k.replace(/'/g, "\\'");
+      html += '<div class="apt-provider-card">' +
+                '<div class="apt-provider-top">' +
+                   '<div class="apt-provider-icon">' + c.icon + '</div>' +
+                   '<div style="flex:1;min-width:0">' +
+                      '<div class="apt-provider-name">' + c.label + '</div>' +
+                      '<div class="apt-provider-tagline">' + (c.desc || '') + '</div>' +
+                      '<div class="apt-provider-tagline" style="margin-top:3px;font-family:ui-monospace,monospace;color:#888">ID: ' + k + '</div>' +
+                   '</div>' +
+                '</div>' +
+                '<div class="apt-provider-footer">' +
+                   '<span>' + providerCount + ' store' + (providerCount === 1 ? '' : 's') + '</span>' +
+                   '<div style="display:flex;gap:6px">' +
+                      '<button class="apt-view-btn" onclick="openStoreCategoryModal(\'' + kid + '\')">✏️ Edit</button>' +
+                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreCategoryUi(\'' + kid + '\')">🗑</button>' +
+                   '</div>' +
+                '</div>' +
+             '</div>';
+   });
+   html += '</div>';
+   container.innerHTML = html;
+}
+
+function openStoreCategoryModal(id) {
+   var c = id ? STORE_CAT_META[id] : null;
+   document.getElementById('storeCategoryModalTitle').textContent = c ? '✏️ Edit Category' : '➕ Add Category';
+   document.getElementById('storeCatOriginalId').value = id || '';
+   document.getElementById('storeCatId').value         = id || '';
+   document.getElementById('storeCatId').disabled      = !!id;
+   document.getElementById('storeCatLabel').value      = c ? c.label : '';
+   document.getElementById('storeCatDesc').value       = c ? (c.desc || '') : '';
+   document.getElementById('storeCatIcon').value       = c ? (c.icon || '') : '';
+   document.getElementById('storeCatSortOrder').value  = c && c.sortOrder != null ? c.sortOrder : 100;
+   document.getElementById('storeCategoryModal').classList.remove('hidden');
+}
+function closeStoreCategoryModal() {
+   document.getElementById('storeCategoryModal').classList.add('hidden');
+}
+
+async function saveStoreCategory() {
+   var id    = document.getElementById('storeCatId').value.trim().toLowerCase().replace(/\s+/g, '_');
+   var label = document.getElementById('storeCatLabel').value.trim();
+   if (!id)    { alert('ID is required (short code like "wholesale").'); return; }
+   if (!label) { alert('Label is required.'); return; }
+   if (!/^[a-z][a-z0-9_]*$/.test(id)) { alert('ID can only contain lowercase letters, digits, and underscores, starting with a letter.'); return; }
+
+   var cat = {
+      id:          id,
+      label:       label,
+      description: document.getElementById('storeCatDesc').value.trim(),
+      icon:        document.getElementById('storeCatIcon').value.trim() || '🏪',
+      sort_order:  parseInt(document.getElementById('storeCatSortOrder').value, 10) || 100
+   };
+   var ok = await AppDB.upsertStoreCategory(cat);
+   if (!ok) { alert('Failed to save category.'); return; }
+   closeStoreCategoryModal();
+   await renderStoreCategoriesAdmin();
+}
+
+async function deleteStoreCategoryUi(id) {
+   var c = STORE_CAT_META[id];
+   if (!c) return;
+   var inUse = _storeProvidersByCat(id);
+   if (inUse.length) {
+      alert('Cannot delete "' + c.label + '" — ' + inUse.length + ' store(s) still use this category. Reassign or delete them first.');
+      return;
+   }
+   if (!confirm('Delete category "' + c.label + '"? This cannot be undone.')) return;
+   var ok = await AppDB.deleteStoreCategory(id);
+   if (!ok) { alert('Failed to delete.'); return; }
+   await renderStoreCategoriesAdmin();
+}
+
+// Stubs — full CRUD is built in Phase 2. They keep the admin UI from crashing if
+// the user clicks before Phase 2 lands.
+async function renderStoreProvidersAdmin() {
+   var container = document.getElementById('storeProvidersContent');
+   if (!container) return;
+   await loadStoreCategories();
+   await loadStoreProviders(true);
+   _fillSelectFromList('storeAdminCatFilter', '🗂 All Categories',
+      Object.keys(STORE_CAT_META),
+      function(k) { var m = STORE_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k; });
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">Store CRUD coming in Phase 2. Use the Categories tab to set up categories first.</p>';
+}
+function openStoreProviderModal(id) {
+   alert('Add/Edit Store coming in Phase 2. For now, set up your categories in the 🗂 Categories tab.');
+}
+
 async function renderAllAppointments() {
    var container = document.getElementById('aptAllBookingsContent');
    if (!container) return;
@@ -2912,18 +3065,32 @@ async function deleteAllShownAppointments() {
 }
 
 // ── STORES ──
-function showStoresList() {
+async function showStoresList() {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = '🏪 Stores';
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
-   grid.innerHTML = '';
+   grid.innerHTML = '<p style="color:#888;text-align:center;padding:40px">Loading stores…</p>';
+
+   // Appointment-provider owners (hospitals, dental clinics, etc.) are also
+   // 'storeowner' role, so we must exclude them from the retail Stores tab.
+   try { await loadAptProviders(); } catch (e) { /* non-fatal */ }
+   var providerOwnerEmails = {};
+   (_aptProvidersCache || []).forEach(function(p) {
+      var e = (p.owner_email || '').toLowerCase();
+      if (e) providerOwnerEmails[e] = true;
+   });
 
    var users     = getUsers();
    var settings  = getAdminSettings();
-   var storeOwners = users.filter(function(u) { return u.role === 'storeowner' && !u.blocked; });
+   var storeOwners = users.filter(function(u) {
+      if (u.role !== 'storeowner' || u.blocked) return false;
+      // Hide retail tab entry for owners whose only business is appointments
+      if (providerOwnerEmails[(u.email || '').toLowerCase()]) return false;
+      return true;
+   });
 
    // Build ordered store list
    var storeList = [];
@@ -6916,7 +7083,7 @@ async function switchAdminTab(tab) {
    if (typeof initDB === 'function') { try { await initDB(); } catch (e) {} }
    if (tab === 'settings')     loadSettingsForm();
    if (tab === 'users')        refreshAndRenderUsers();
-   if (tab === 'stores')       renderAdminStores();
+   if (tab === 'stores')       switchStoreAdminSub('providers');
    if (tab === 'orders')       renderAdminOrders();
    if (tab === 'appointments') renderAptAdmin();
    if (tab === 'billing')      renderBillingAdmin();

@@ -537,6 +537,64 @@ window.AppDB = {
       return true;
    },
 
+   // ── STORE CATEGORIES (admin-managed) ───────────
+   async getStoreCategories() {
+      const { data, error } = await _sb.from('store_categories').select('*').order('sort_order').order('label');
+      if (error) { console.error('getStoreCategories:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertStoreCategory(cat) {
+      const row = {
+         id:          cat.id,
+         label:       cat.label,
+         description: cat.description || '',
+         icon:        cat.icon        || '🏪',
+         sort_order:  typeof cat.sort_order === 'number' ? cat.sort_order : 100
+      };
+      const { error } = await _sb.from('store_categories').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertStoreCategory:', error.message); return false; }
+      return true;
+   },
+
+   async deleteStoreCategory(id) {
+      const { error } = await _sb.from('store_categories').delete().eq('id', id);
+      if (error) { console.error('deleteStoreCategory:', error.message); return false; }
+      return true;
+   },
+
+   // ── STORE PROVIDERS (admin-managed; one owner can have many) ──
+   async getStoreProviders() {
+      const { data, error } = await _sb.from('store_providers').select('*').order('created_at', { ascending: false });
+      if (error) { console.error('getStoreProviders:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertStoreProvider(p) {
+      const row = {
+         id:          p.id,
+         category:    p.category,
+         name:        p.name,
+         tagline:     p.tagline     || '',
+         address:     p.address     || '',
+         phone:       p.phone       || '',
+         timing:      p.timing      || '',
+         icon:        p.icon        || '🏪',
+         image_url:   p.image_url   || '',
+         gstin:       p.gstin       || '',
+         owner_email: (p.owner_email || '').toLowerCase()
+      };
+      const { error } = await _sb.from('store_providers').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertStoreProvider:', error.message); return false; }
+      return true;
+   },
+
+   async deleteStoreProvider(id) {
+      const { error } = await _sb.from('store_providers').delete().eq('id', id);
+      if (error) { console.error('deleteStoreProvider:', error.message); return false; }
+      return true;
+   },
+
    async getAppointmentsByOwner(ownerEmail) {
       const lc = (ownerEmail || '').toLowerCase();
       if (!lc) return [];

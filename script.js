@@ -7410,11 +7410,14 @@ function loadSiteSettings() {
          mqTrack.innerHTML =
             '<span class="header-marquee-item">📢 ' + t + '</span>' +
             '<span class="header-marquee-item">📢 ' + t + '</span>';
-         marquee.style.color = s.announcementTextColor || '';
+         marquee.style.background = s.announcementColor     || '';
+         marquee.style.color      = s.announcementTextColor || '';
          marquee.classList.remove('hidden');
       } else {
          marquee.classList.add('hidden');
          mqTrack.innerHTML = '';
+         marquee.style.background = '';
+         marquee.style.color      = '';
       }
    }
 

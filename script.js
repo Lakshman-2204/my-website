@@ -3574,6 +3574,18 @@ function isAdmin(email) {
    return ADMIN_EMAILS.includes(email);
 }
 
+// Re-fetch live settings from Supabase and re-apply them to the page.
+// Called automatically when the settings row changes (via Realtime), so
+// announcements, maintenance toggle, etc. update without a manual refresh.
+async function _refreshLiveSettings() {
+   try {
+      var fresh = await AppDB.getSettings();
+      if (fresh) _db.settings = { id: 1, data: fresh };
+      if (typeof loadSiteSettings === 'function') loadSiteSettings();
+      if (typeof _checkMaintenanceMode === 'function') await _checkMaintenanceMode();
+   } catch (e) { console.warn('Live settings refresh failed:', e); }
+}
+
 // ── Maintenance Mode ──
 // Admin can toggle a flag in Settings. When ON, all non-admin users see a
 // full-screen overlay and can't interact with the site. Admins are exempt so
@@ -4343,6 +4355,8 @@ document.addEventListener('click', function () {
 async function checkShopOwnerLogin() {
    await initDB();
    await _checkMaintenanceMode();
+   // Auto-refresh maintenance overlay when admin changes settings
+   if (typeof _liveSubscribe === 'function') _liveSubscribe('siteSettingsShop', 'settings', _refreshLiveSettings);
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
    // Kick blocked users out
@@ -7404,6 +7418,8 @@ async function initProfile() {
    if (!user) { window.location.href = 'login.html'; return; }
    await initDB();
    await _checkMaintenanceMode();
+   // Auto-refresh marquee + maintenance overlay when admin changes settings
+   if (typeof _liveSubscribe === 'function') _liveSubscribe('siteSettingsProfile', 'settings', _refreshLiveSettings);
    await loadUserData(user.email);
    document.getElementById('prof-name').value   = user.name   || '';
    document.getElementById('prof-email').value  = user.email  || '';

@@ -8149,33 +8149,95 @@ function orderStatusClass(status) {
    return 'badge-pending';
 }
 
-function renderOrders() {
+async function renderOrders() {
    const user   = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   const orders = _db.orders.filter(function(o) { return o.customerEmail === user.email; });
    const list   = document.getElementById('ordersList');
-   if (!orders.length) { list.innerHTML = '<p class="prof-empty">No orders placed yet.</p>'; return; }
+   if (!user) { list.innerHTML = '<p class="prof-empty">Please log in.</p>'; return; }
+
+   // Make sure store metadata is ready so we can derive each order's category
+   try { await loadStoreCategories(); await loadStoreProviders(); } catch (e) {}
+
+   const allOrders = _db.orders.filter(function(o) { return o.customerEmail === user.email; });
+   if (!allOrders.length) {
+      list.innerHTML = '<p class="prof-empty">No orders placed yet.</p>';
+      return;
+   }
+
+   // Join each order with its store_provider so we can filter by category / store.
+   // Resolution rules: prefer store_provider_id when present, else fall back to
+   // matching storeName + (any) owner_email = storeId.
+   var providers = _storeProvidersCache || [];
+   function _orderProvider(o) {
+      if (o.store_provider_id) return providers.find(function(p) { return p.id === o.store_provider_id; });
+      if (o.storeName) return providers.find(function(p) {
+         return p.name === o.storeName &&
+                (!o.storeId || (p.owner_email || '').toLowerCase() === (o.storeId || '').toLowerCase());
+      });
+      return null;
+   }
+
+   // Populate Category + Store dropdowns from data (preserve current selection)
+   var catSet   = {}, storeSet = {};
+   allOrders.forEach(function(o) {
+      var prov = _orderProvider(o);
+      if (prov) {
+         catSet[prov.category] = true;
+         storeSet[prov.name]   = true;
+      } else if (o.storeName) {
+         storeSet[o.storeName] = true;
+      }
+   });
+   _fillSelectFromList('myOrderCategoryFilter', '🗂 All categories', Object.keys(catSet),
+      function(k) { var m = STORE_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k; });
+   _fillSelectFromList('myOrderStoreFilter',    '🏪 All stores',     Object.keys(storeSet));
+
+   // Read filter values
+   var search   = ((document.getElementById('myOrderSearch')         || {}).value || '').trim().toLowerCase();
+   var catF     =  (document.getElementById('myOrderCategoryFilter') || {}).value || '';
+   var storeF   =  (document.getElementById('myOrderStoreFilter')    || {}).value || '';
+   var statusF  =  (document.getElementById('myOrderStatusFilter')   || {}).value || '';
+   var df       = _readDateFilter('myOrderDateFilter', 'myOrderCustomDate', 'myOrderRangeFrom', 'myOrderRangeTo');
 
    const statusMap = {};
    _db.orders.forEach(function(o) { statusMap[o.orderId || o.order_id] = o.status; });
 
-   list.innerHTML = orders.slice().reverse().map(o => {
-      const liveStatus = statusMap[o.orderId] || o.status || 'Pending Pickup';
-      const cls = orderStatusClass(liveStatus);
-      return `
-      <div class="order-card">
-         <div class="order-card-header">
-            <div><span class="order-id">${o.orderId}</span> <span class="order-date">${o.date}</span></div>
-            <span class="order-badge ${cls}">${liveStatus}</span>
-         </div>
-         ${o.storeName ? `<div class="order-store-tag">🏪 ${o.storeName}</div>` : ''}
-         <div class="order-items">
-            ${o.items.map(i => `<div class="order-item"><span>${i.name} × ${i.qty}</span><span>₹${(i.price * i.qty).toLocaleString('en-IN')}</span></div>`).join('')}
-         </div>
-         <div class="order-footer">
-            <span>${o.method === 'Pickup' ? '🛍️ Pickup at store' : 'Paid via ' + o.method}</span>
-            <span class="order-total">Total: ₹${o.total.toLocaleString('en-IN')}</span>
-         </div>
-      </div>`;
+   var filtered = allOrders.filter(function(o) {
+      var prov = _orderProvider(o);
+      if (catF   && (!prov || prov.category !== catF)) return false;
+      if (storeF && o.storeName !== storeF)            return false;
+      var liveStatus = statusMap[o.orderId] || o.status || 'Pending Pickup';
+      if (statusF && liveStatus !== statusF) return false;
+      if (!_isDateInRange(o.date || o.timestamp, df.range, df)) return false;
+      if (search) {
+         var hay = ((o.orderId || '') + ' ' + (o.items || []).map(function(i){return i.name;}).join(' ')).toLowerCase();
+         if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+   });
+
+   if (!filtered.length) {
+      list.innerHTML = '<p class="prof-empty">No orders match the current filters.</p>';
+      return;
+   }
+
+   list.innerHTML = filtered.slice().reverse().map(function(o) {
+      var liveStatus = statusMap[o.orderId] || o.status || 'Pending Pickup';
+      var cls = orderStatusClass(liveStatus);
+      return ''
+       + '<div class="order-card">'
+       +    '<div class="order-card-header">'
+       +       '<div><span class="order-id">' + o.orderId + '</span> <span class="order-date">' + o.date + '</span></div>'
+       +       '<span class="order-badge ' + cls + '">' + liveStatus + '</span>'
+       +    '</div>'
+       +    (o.storeName ? '<div class="order-store-tag">🏪 ' + o.storeName + '</div>' : '')
+       +    '<div class="order-items">'
+       +       o.items.map(function(i) { return '<div class="order-item"><span>' + i.name + ' × ' + i.qty + '</span><span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span></div>'; }).join('')
+       +    '</div>'
+       +    '<div class="order-footer">'
+       +       '<span>' + (o.method === 'Pickup' ? '🛍️ Pickup at store' : 'Paid via ' + o.method) + '</span>'
+       +       '<span class="order-total">Total: ₹' + o.total.toLocaleString('en-IN') + '</span>'
+       +    '</div>'
+       + '</div>';
    }).join('');
 }
 
@@ -8196,8 +8258,8 @@ async function renderMyAppointments() {
    }
 
    // Populate filter dropdowns from data (preserves current selection)
-   _fillSelectFromList('myAptDoctorFilter',   '👨‍⚕️ All doctors',   all.map(function(a){return a.doctor_name;}));
-   _fillSelectFromList('myAptHospitalFilter', '🏥 All hospitals',   all.map(function(a){return a.provider_name;}));
+   _fillSelectFromList('myAptDoctorFilter',   '👥 All Staff',       all.map(function(a){return a.doctor_name;}));
+   _fillSelectFromList('myAptHospitalFilter', '🏥 All providers',   all.map(function(a){return a.provider_name;}));
    _fillSelectFromList('myAptCategoryFilter', '🗂 All categories',  all.map(function(a){return a.category;}), function(k){
       var m = APT_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k;
    });

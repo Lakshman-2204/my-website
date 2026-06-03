@@ -169,8 +169,35 @@
       <div id="ptab-orders" class="profile-content hidden">
          <div class="profile-card">
             <div class="profile-card-header">📦 My Orders</div>
-            <div class="profile-card-body" id="ordersList">
-               <p class="prof-empty">No orders placed yet.</p>
+            <div class="profile-card-body">
+               <!-- Filter bar -->
+               <div class="admin-filter-bar" style="flex-wrap:wrap;gap:6px;justify-content:flex-start;padding:0 0 0.8rem">
+                  <input type="search" id="myOrderSearch"         class="apt-search-input"   placeholder="🔍 Order ID / item" oninput="renderOrders()"/>
+                  <select id="myOrderCategoryFilter" class="admin-filter-select" onchange="renderOrders()"><option value="">🗂 All categories</option></select>
+                  <select id="myOrderStoreFilter"    class="admin-filter-select" onchange="renderOrders()"><option value="">🏪 All stores</option></select>
+                  <select id="myOrderDateFilter"     class="admin-filter-select" onchange="renderOrders()">
+                     <option value="all">📅 All time</option>
+                     <option value="today">Today</option>
+                     <option value="week">This Week</option>
+                     <option value="month">This Month</option>
+                     <option value="year" selected>This Year</option>
+                     <option value="custom">📆 Specific date…</option>
+                     <option value="range">📆 Custom range…</option>
+                  </select>
+                  <input type="date" id="myOrderCustomDate" class="admin-filter-select" style="display:none" onchange="renderOrders()"/>
+                  <input type="date" id="myOrderRangeFrom"  class="admin-filter-select" style="display:none" title="From" onchange="renderOrders()"/>
+                  <input type="date" id="myOrderRangeTo"    class="admin-filter-select" style="display:none" title="To"   onchange="renderOrders()"/>
+                  <select id="myOrderStatusFilter"   class="admin-filter-select" onchange="renderOrders()">
+                     <option value="">⌛ All statuses</option>
+                     <option value="Pending Pickup">Pending Pickup</option>
+                     <option value="Ready">Ready</option>
+                     <option value="Completed">Completed</option>
+                     <option value="Cancelled">Cancelled</option>
+                  </select>
+               </div>
+               <div id="ordersList">
+                  <p class="prof-empty">No orders placed yet.</p>
+               </div>
             </div>
          </div>
       </div>
@@ -183,9 +210,9 @@
                <!-- Filter bar -->
                <div class="admin-filter-bar" style="flex-wrap:wrap;gap:6px;justify-content:flex-start;padding:0 0 0.8rem">
                   <input type="search" id="myAptSearch"     class="apt-search-input"   placeholder="🔍 Patient / phone" oninput="renderMyAppointments()"/>
-                  <select id="myAptDoctorFilter"   class="admin-filter-select" onchange="renderMyAppointments()"><option value="">👨‍⚕️ All doctors</option></select>
-                  <select id="myAptHospitalFilter" class="admin-filter-select" onchange="renderMyAppointments()"><option value="">🏥 All hospitals</option></select>
                   <select id="myAptCategoryFilter" class="admin-filter-select" onchange="renderMyAppointments()"><option value="">🗂 All categories</option></select>
+                  <select id="myAptHospitalFilter" class="admin-filter-select" onchange="renderMyAppointments()"><option value="">🏥 All providers</option></select>
+                  <select id="myAptDoctorFilter"   class="admin-filter-select" onchange="renderMyAppointments()"><option value="">👥 All Staff</option></select>
                   <select id="myAptDateFilter"     class="admin-filter-select" onchange="renderMyAppointments()">
                      <option value="all">📅 All time</option>
                      <option value="today" selected>Today</option>

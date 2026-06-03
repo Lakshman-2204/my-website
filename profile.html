@@ -6,37 +6,44 @@
       <title>My Profile — MyStore</title>
       <link rel="stylesheet" href="style.css"/>
       <script>
-         /* Pre-paint customisation for store-owners and admins — hides customer
-            tabs and rewrites the back button before the body paints. */
+         /* Pre-paint customisation:
+            - Store-owners (not admin)   → hide customer tabs, "Back to Dashboard"
+            - Admins                     → show all tabs (they ARE users too),
+                                           but "Back to Admin" button
+            - Customers                  → no changes (default UI) */
          (function() {
             var ADMIN_EMAILS = ['g.ramkumar3127@gmail.com', 'lakshmankumar586@gmail.com'];
             var u = null;
             try { u = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null'); } catch (e) {}
             if (!u) return;
-            var emailLc = (u.email || '').toLowerCase();
-            var isAdminUser = ADMIN_EMAILS.indexOf(emailLc) !== -1;
-            var isStoreOwner = (u.role && u.role !== 'customer') || isAdminUser;
-            if (!isStoreOwner) return;
-            // Hide customer-only tabs via injected CSS.
-            var s = document.createElement('style');
-            s.textContent =
-               '#ptab-addresses-btn,' +
-               '#ptab-orders-btn,' +
-               '#ptab-appointments-btn,' +
-               '#ptab-wishlist-btn,' +
-               '#ptab-cards-btn { display: none !important; }';
-            document.head.appendChild(s);
-            // Rewrite the back button — admins go to admin.html, owners to shopowner.html.
+            var emailLc      = (u.email || '').toLowerCase();
+            var isAdminUser  = ADMIN_EMAILS.indexOf(emailLc) !== -1;
+            var isPureOwner  = u.role === 'storeowner' && !isAdminUser;
+
+            // Hide customer-only tabs ONLY for pure store-owners (not admins).
+            if (isPureOwner) {
+               var s = document.createElement('style');
+               s.textContent =
+                  '#ptab-addresses-btn,' +
+                  '#ptab-orders-btn,' +
+                  '#ptab-appointments-btn,' +
+                  '#ptab-wishlist-btn,' +
+                  '#ptab-cards-btn { display: none !important; }';
+               document.head.appendChild(s);
+            }
+
+            // Rewrite the back button based on role.
             document.addEventListener('DOMContentLoaded', function() {
                var btn = document.getElementById('profile-back-btn');
                if (!btn) return;
                if (isAdminUser) {
                   btn.textContent = '← Back to Admin';
                   btn.onclick = function() { window.location = 'admin.html'; };
-               } else {
+               } else if (isPureOwner) {
                   btn.textContent = '← Back to Dashboard';
                   btn.onclick = function() { window.location = 'shopowner.html'; };
                }
+               // Customers keep the default "← Back to Store" (set in HTML).
             });
          })();
       </script>

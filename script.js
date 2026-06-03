@@ -7312,14 +7312,17 @@ async function initProfile() {
    document.getElementById('prof-phone').value  = user.phone  || '';
    var storeNameRow = document.getElementById('prof-storename-row');
    var addrRow      = document.getElementById('prof-address-row');
-   var isStoreOwner = (user.role === 'storeowner' || isAdmin(user.email));
-   if (storeNameRow && isStoreOwner) {
+   var isAdminUser  = isAdmin(user.email);
+   var isPureOwner  = user.role === 'storeowner' && !isAdminUser;
+   // Show Business Name / Address rows for both pure owners and admins
+   // (admins may run their own hospital + admin the platform).
+   var showOwnerFields = isPureOwner || isAdminUser;
+   if (storeNameRow && showOwnerFields) {
       storeNameRow.classList.remove('hidden');
       document.getElementById('prof-storename').value = user.storeName || '';
    }
-   if (addrRow && isStoreOwner) {
+   if (addrRow && showOwnerFields) {
       addrRow.classList.remove('hidden');
-      // Pre-fill address from the owner's provider so editing one updates everywhere.
       try {
          await loadAptProviders(true);
          var owned = (_aptProvidersCache || []).filter(function(p) {
@@ -7330,25 +7333,25 @@ async function initProfile() {
          document.getElementById('prof-address').value = user.address || '';
       }
    }
-   // For shop-owners, the customer-only tabs (addresses, orders, appointments,
-   // wishlist, cards) aren't relevant — hide them. Profile Info only.
-   if (isStoreOwner) {
+   // Hide customer-only tabs only for PURE store-owners (not admins — they're
+   // full users too and may want to use Addresses, Orders, Appointments etc.).
+   if (isPureOwner) {
       ['addresses', 'orders', 'appointments', 'wishlist', 'cards'].forEach(function(t) {
          var btn = document.getElementById('ptab-' + t + '-btn');
          if (btn) btn.style.display = 'none';
       });
-      // Redirect destination of the back button — admins go to admin panel,
-      // shop-owners to their dashboard.
-      var backBtn = document.getElementById('profile-back-btn');
-      if (backBtn) {
-         if (isAdmin(user.email)) {
-            backBtn.textContent = '← Back to Admin';
-            backBtn.onclick = function() { window.location = 'admin.html'; };
-         } else {
-            backBtn.textContent = '← Back to Dashboard';
-            backBtn.onclick = function() { window.location = 'shopowner.html'; };
-         }
+   }
+   // Back button routing.
+   var backBtn = document.getElementById('profile-back-btn');
+   if (backBtn) {
+      if (isAdminUser) {
+         backBtn.textContent = '← Back to Admin';
+         backBtn.onclick = function() { window.location = 'admin.html'; };
+      } else if (isPureOwner) {
+         backBtn.textContent = '← Back to Dashboard';
+         backBtn.onclick = function() { window.location = 'shopowner.html'; };
       }
+      // Customers: keep default "← Back to Store" set in HTML.
    }
    const params = new URLSearchParams(window.location.search);
    switchProfileTab(params.get('tab') || 'info');

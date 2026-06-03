@@ -8176,25 +8176,29 @@ async function renderOrders() {
       return null;
    }
 
-   // Populate Category + Store dropdowns from data (preserve current selection)
-   var catSet   = {}, storeSet = {};
-   allOrders.forEach(function(o) {
-      var prov = _orderProvider(o);
-      if (prov) {
-         catSet[prov.category] = true;
-         storeSet[prov.name]   = true;
-      } else if (o.storeName) {
-         storeSet[o.storeName] = true;
-      }
-   });
+   // Read current selections BEFORE rebuilding dropdowns (cascade).
+   var catF    = (document.getElementById('myOrderCategoryFilter') || {}).value || '';
+   var storeF  = (document.getElementById('myOrderStoreFilter')    || {}).value || '';
+
+   // Category dropdown — built from every order's resolved category
+   var catSet = {};
+   allOrders.forEach(function(o) { var p = _orderProvider(o); if (p) catSet[p.category] = true; });
    _fillSelectFromList('myOrderCategoryFilter', '🗂 All categories', Object.keys(catSet),
       function(k) { var m = STORE_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k; });
-   _fillSelectFromList('myOrderStoreFilter',    '🏪 All stores',     Object.keys(storeSet));
 
-   // Read filter values
+   // Stores dropdown narrows to the chosen category (cascade).
+   var storeSet = {};
+   allOrders.forEach(function(o) {
+      var p = _orderProvider(o);
+      if (catF) { if (p && p.category === catF) storeSet[p ? p.name : o.storeName] = true; }
+      else      { if (p) storeSet[p.name] = true; else if (o.storeName) storeSet[o.storeName] = true; }
+   });
+   _fillSelectFromList('myOrderStoreFilter', '🏪 All stores', Object.keys(storeSet));
+   var storeSel = document.getElementById('myOrderStoreFilter');
+   if (storeF && storeSel && !storeSet[storeF]) { storeSel.value = ''; storeF = ''; }
+
+   // Read remaining filter values
    var search   = ((document.getElementById('myOrderSearch')         || {}).value || '').trim().toLowerCase();
-   var catF     =  (document.getElementById('myOrderCategoryFilter') || {}).value || '';
-   var storeF   =  (document.getElementById('myOrderStoreFilter')    || {}).value || '';
    var statusF  =  (document.getElementById('myOrderStatusFilter')   || {}).value || '';
    var df       = _readDateFilter('myOrderDateFilter', 'myOrderCustomDate', 'myOrderRangeFrom', 'myOrderRangeTo');
 
@@ -8257,18 +8261,39 @@ async function renderMyAppointments() {
       return;
    }
 
-   // Populate filter dropdowns from data (preserves current selection)
-   _fillSelectFromList('myAptDoctorFilter',   '👥 All Staff',       all.map(function(a){return a.doctor_name;}));
-   _fillSelectFromList('myAptHospitalFilter', '🏥 All providers',   all.map(function(a){return a.provider_name;}));
-   _fillSelectFromList('myAptCategoryFilter', '🗂 All categories',  all.map(function(a){return a.category;}), function(k){
-      var m = APT_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k;
-   });
+   // Read current selections BEFORE we rebuild the dropdowns, so we can decide
+   // whether each selection is still valid under the cascade.
+   var catF    = (document.getElementById('myAptCategoryFilter') || {}).value || '';
+   var hospF   = (document.getElementById('myAptHospitalFilter') || {}).value || '';
+   var docF    = (document.getElementById('myAptDoctorFilter')   || {}).value || '';
 
-   var search   = ((document.getElementById('myAptSearch')         || {}).value || '').trim().toLowerCase();
-   var docF     =  (document.getElementById('myAptDoctorFilter')   || {}).value || '';
-   var hospF    =  (document.getElementById('myAptHospitalFilter') || {}).value || '';
-   var catF     =  (document.getElementById('myAptCategoryFilter') || {}).value || '';
-   var statusF  =  (document.getElementById('myAptStatusFilter')   || {}).value || '';
+   // Cascade: Category → narrows Providers → narrows Staff.
+   // Categories always shows ALL categories the user has bookings for.
+   // Providers shows only those whose bookings match the chosen category.
+   // Staff shows only those for the chosen category + provider.
+   _fillSelectFromList('myAptCategoryFilter', '🗂 All categories',
+      all.map(function(a){return a.category;}),
+      function(k){ var m = APT_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k; });
+
+   var providersPool = all.filter(function(a) { return !catF || a.category === catF; });
+   _fillSelectFromList('myAptHospitalFilter', '🏥 All providers',
+      providersPool.map(function(a){return a.provider_name;}));
+   // If the previously-selected provider is no longer in the pool, reset it.
+   var hospSel = document.getElementById('myAptHospitalFilter');
+   if (hospF && hospSel && !providersPool.some(function(a){return a.provider_name === hospF;})) {
+      hospSel.value = ''; hospF = '';
+   }
+
+   var staffPool = providersPool.filter(function(a) { return !hospF || a.provider_name === hospF; });
+   _fillSelectFromList('myAptDoctorFilter', '👥 All Staff',
+      staffPool.map(function(a){return a.doctor_name;}));
+   var docSel = document.getElementById('myAptDoctorFilter');
+   if (docF && docSel && !staffPool.some(function(a){return a.doctor_name === docF;})) {
+      docSel.value = ''; docF = '';
+   }
+
+   var search   = ((document.getElementById('myAptSearch')       || {}).value || '').trim().toLowerCase();
+   var statusF  =  (document.getElementById('myAptStatusFilter') || {}).value || '';
    var df       = _readDateFilter('myAptDateFilter', 'myAptCustomDate', 'myAptRangeFrom', 'myAptRangeTo');
 
    var apts = all.filter(function(a) {

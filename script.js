@@ -7300,6 +7300,15 @@ function syncTextColorPicker() {
 }
 
 function saveAllSettings() {
+   // Validation: if announcement toggle is ON, a message must be typed.
+   var annOn   = document.getElementById('set-announcementOn').checked;
+   var annText = document.getElementById('set-announcementText').value.trim();
+   if (annOn && !annText) {
+      alert('Please enter an announcement message before enabling the announcement bar.');
+      var msgEl = document.getElementById('set-announcementText');
+      if (msgEl) msgEl.focus();
+      return;
+   }
    const bgColor  = document.getElementById('set-announcementColor').value;
    const txtColor = document.getElementById('set-announcementTextColor').value;
    const s = {

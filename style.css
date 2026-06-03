@@ -4115,6 +4115,39 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	gap: 14px;
 }
 
+/* Contact Admin tab — vertical list of contact methods */
+.contact-admin-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+.contact-admin-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 14px;
+	padding: 14px;
+	border: 1px solid #e6e8eb;
+	border-radius: 10px;
+	background: #fafbfc;
+	transition: background .15s, border-color .15s;
+}
+.contact-admin-row:hover { background: #f1f5fb; border-color: #c9d6ea; }
+.contact-admin-icon {
+	font-size: 1.4rem;
+	line-height: 1;
+	flex-shrink: 0;
+}
+.contact-admin-meta { min-width: 0; flex: 1; }
+.contact-admin-label {
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: #6b7280;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: 3px;
+}
+.contact-admin-value { font-size: 1rem; color: #1f2937; font-weight: 500; }
+
 .profile-field {
 	display: flex;
 	flex-direction: column;

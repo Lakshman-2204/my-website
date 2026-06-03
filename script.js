@@ -7501,15 +7501,66 @@ async function initProfile() {
 }
 
 function switchProfileTab(tab) {
-   ['info', 'addresses', 'orders', 'appointments', 'wishlist', 'cards'].forEach(t => {
-      document.getElementById('ptab-' + t).classList.toggle('hidden', t !== tab);
-      document.getElementById('ptab-' + t + '-btn').classList.toggle('active', t === tab);
+   ['info', 'contact', 'addresses', 'orders', 'appointments', 'wishlist', 'cards'].forEach(t => {
+      var pane = document.getElementById('ptab-' + t);
+      var btn  = document.getElementById('ptab-' + t + '-btn');
+      if (pane) pane.classList.toggle('hidden', t !== tab);
+      if (btn)  btn.classList.toggle('active', t === tab);
    });
+   if (tab === 'contact')      renderContactAdmin();
    if (tab === 'addresses')    renderAddresses();
    if (tab === 'orders')       renderOrders();
    if (tab === 'appointments') renderMyAppointments();
    if (tab === 'wishlist')     renderWishlistTab();
    if (tab === 'cards')        renderCards();
+}
+
+// Render the admin's contact details (phone, WhatsApp, email, address) inside
+// the "Contact Admin" tab. Pulls from the same settings object that powers the
+// public footer/contact-us page, so anything the admin updates in
+// Admin → Settings → Contact & Address propagates here automatically.
+async function renderContactAdmin() {
+   var body = document.getElementById('contactAdminBody');
+   if (!body) return;
+   body.innerHTML = '<div style="color:#777">Loading contact details…</div>';
+   try {
+      if (typeof initDB === 'function') await initDB();
+      var s = (_db && _db.settings) ? _db.settings : {};
+      var esc = function(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) {
+         return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+      }); };
+      var row = function(icon, label, value, href) {
+         if (!value) return '';
+         var inner = href
+            ? '<a href="' + esc(href) + '" target="_blank" rel="noopener" style="color:#1a73e8;text-decoration:none;word-break:break-word">' + esc(value) + '</a>'
+            : '<span style="word-break:break-word">' + esc(value) + '</span>';
+         return ''
+            + '<div class="contact-admin-row">'
+            +    '<div class="contact-admin-icon">' + icon + '</div>'
+            +    '<div class="contact-admin-meta">'
+            +       '<div class="contact-admin-label">' + esc(label) + '</div>'
+            +       '<div class="contact-admin-value">' + inner + '</div>'
+            +    '</div>'
+            + '</div>';
+      };
+      var phone     = (s.phone        || '').toString().trim();
+      var whatsapp  = (s.whatsapp     || '').toString().trim();
+      var email     = (s.contactEmail || '').toString().trim();
+      var address   = (s.address      || '').toString().trim();
+      var html = ''
+         + row('📞', 'Phone',    phone,    phone    ? 'tel:' + phone.replace(/[^0-9+]/g, '') : '')
+         + row('💬', 'WhatsApp', whatsapp, whatsapp ? 'https://wa.me/' + whatsapp.replace(/[^0-9]/g, '') : '')
+         + row('✉️', 'Email',    email,    email    ? 'mailto:' + email : '')
+         + row('📍', 'Address',  address,  address  ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address) : '');
+      if (!html) {
+         body.innerHTML = '<div style="color:#777">Admin has not added contact details yet.</div>';
+         return;
+      }
+      body.innerHTML = '<div class="contact-admin-list">' + html + '</div>';
+   } catch (e) {
+      console.error('renderContactAdmin failed', e);
+      body.innerHTML = '<div style="color:#c33">Could not load contact details. Please try again.</div>';
+   }
 }
 
 async function saveProfileInfo() {

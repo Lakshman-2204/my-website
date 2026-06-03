@@ -21,6 +21,7 @@
             var isPureOwner  = u.role === 'storeowner' && !isAdminUser;
 
             // Hide customer-only tabs ONLY for pure store-owners (not admins).
+            // Also REVEAL the "Contact Admin" tab (hidden by default in HTML).
             if (isPureOwner) {
                var s = document.createElement('style');
                s.textContent =
@@ -28,7 +29,8 @@
                   '#ptab-orders-btn,' +
                   '#ptab-appointments-btn,' +
                   '#ptab-wishlist-btn,' +
-                  '#ptab-cards-btn { display: none !important; }';
+                  '#ptab-cards-btn { display: none !important; }' +
+                  '#ptab-contact-btn { display: inline-flex !important; }';
                document.head.appendChild(s);
             }
 
@@ -62,6 +64,7 @@
       <!-- TABS -->
       <div class="profile-tabs">
          <button class="profile-tab active" id="ptab-info-btn"      onclick="switchProfileTab('info')">👤 Profile Info</button>
+         <button class="profile-tab hidden" id="ptab-contact-btn"   onclick="switchProfileTab('contact')">📞 Contact Admin</button>
          <button class="profile-tab"        id="ptab-addresses-btn" onclick="switchProfileTab('addresses')">📍 Addresses</button>
          <button class="profile-tab"        id="ptab-orders-btn"    onclick="switchProfileTab('orders')">📦 My Orders</button>
          <button class="profile-tab"        id="ptab-appointments-btn" onclick="switchProfileTab('appointments')">📅 Appointments</button>
@@ -135,6 +138,16 @@
                </div>
                <p id="pw-msg" style="margin:0;font-size:0.85rem;min-height:1.2em"></p>
                <button class="profile-save-btn" onclick="changePassword()">🔒 Update Password</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- CONTACT ADMIN TAB (visible only to shop-owners) -->
+      <div id="ptab-contact" class="profile-content hidden">
+         <div class="profile-card">
+            <div class="profile-card-header">📞 Contact Admin</div>
+            <div class="profile-card-body" id="contactAdminBody">
+               <div style="color:#777">Loading contact details…</div>
             </div>
          </div>
       </div>

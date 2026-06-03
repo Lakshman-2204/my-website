@@ -176,8 +176,8 @@ body.guest .store-section-divider {
 	background: linear-gradient(90deg, #1a73e8 0%, #4a90e2 100%);
 	color: #fff;
 	border-radius: 8px;
-	padding: 6px 0;
-	font-size: 0.9rem;
+	padding: 12px 0;
+	font-size: 1rem;
 	font-weight: 600;
 	min-width: 0;
 	position: relative;

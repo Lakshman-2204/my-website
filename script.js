@@ -7350,7 +7350,7 @@ function loadSiteSettings() {
    const shopBtn = document.querySelector('.btn-shop');
    if (shopBtn && s.shopBtnText) shopBtn.textContent = s.shopBtnText;
 
-   // Announcement bar
+   // Announcement bar (legacy strip below the header)
    const bar = document.getElementById('announcementBar');
    if (bar) {
       if (s.announcementOn && s.announcementText) {
@@ -7360,6 +7360,23 @@ function loadSiteSettings() {
          bar.classList.remove('hidden');
       } else {
          bar.classList.add('hidden');
+      }
+   }
+   // Scrolling marquee in the top MyStore bar (preferred new location)
+   const marquee  = document.getElementById('headerMarquee');
+   const mqTrack  = document.getElementById('headerMarqueeTrack');
+   if (marquee && mqTrack) {
+      if (s.announcementOn && s.announcementText) {
+         // Duplicate the text so the loop is seamless when one copy scrolls off-screen
+         var t = String(s.announcementText);
+         mqTrack.innerHTML =
+            '<span class="header-marquee-item">📢 ' + t + '</span>' +
+            '<span class="header-marquee-item">📢 ' + t + '</span>';
+         marquee.style.color = s.announcementTextColor || '';
+         marquee.classList.remove('hidden');
+      } else {
+         marquee.classList.add('hidden');
+         mqTrack.innerHTML = '';
       }
    }
 

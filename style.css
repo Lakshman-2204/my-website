@@ -165,6 +165,39 @@ body.guest .store-section-divider {
 	justify-content: space-between;
 	padding: 8px 24px;
 	border-bottom: 1px solid #f0f0f0;
+	gap: 16px;
+}
+
+/* Scrolling announcement marquee sits between the brand and the address */
+.header-marquee {
+	flex: 1;
+	max-width: 600px;
+	overflow: hidden;
+	background: linear-gradient(90deg, #1a73e8 0%, #4a90e2 100%);
+	color: #fff;
+	border-radius: 8px;
+	padding: 6px 0;
+	font-size: 0.9rem;
+	font-weight: 600;
+	min-width: 0;
+	position: relative;
+}
+.header-marquee.hidden { display: none; }
+.header-marquee-track {
+	display: inline-flex;
+	gap: 60px;
+	white-space: nowrap;
+	animation: headerMarqueeScroll 25s linear infinite;
+	padding-left: 100%;            /* start off-screen on the right */
+}
+.header-marquee-item { padding-right: 60px; }
+.header-marquee:hover .header-marquee-track { animation-play-state: paused; }
+@keyframes headerMarqueeScroll {
+	0%   { transform: translateX(0); }
+	100% { transform: translateX(-100%); }
+}
+@media (max-width: 768px) {
+	.header-marquee { max-width: 220px; font-size: 0.78rem; }
 }
 
 .header-brand-tabs {

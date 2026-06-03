@@ -11,13 +11,17 @@
    <body>
       <!-- 3-ROW HEADER -->
       <header class="site-header">
-         <!-- ROW 1: Brand + Address + Rewards -->
+         <!-- ROW 1: Brand + Scrolling Announcement + Address -->
          <div class="header-top">
             <div class="header-brand-tabs">
                <div class="brand-tab" onclick="goHome()">
                   <span class="brand-emoji">🛍️</span>
                   <span class="brand-name">MyStore</span>
                </div>
+            </div>
+            <!-- Scrolling announcement marquee — populated by loadSiteSettings -->
+            <div class="header-marquee hidden" id="headerMarquee">
+               <div class="header-marquee-track" id="headerMarqueeTrack"></div>
             </div>
             <div class="header-top-right">
                <div class="header-address" id="headerAddress" onclick="window.location='profile.html?tab=addresses'">

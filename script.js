@@ -3581,7 +3581,9 @@ function isAdmin(email) {
 async function _refreshLiveSettings() {
    try {
       var fresh = await AppDB.getSettings();
-      if (fresh) _db.settings = { id: 1, data: fresh };
+      // Match the assignment pattern used in initDB. getAdminSettings reads
+      // _db.settings DIRECTLY (not _db.settings.data), so don't wrap it.
+      if (fresh) _db.settings = fresh;
       if (typeof loadSiteSettings === 'function') loadSiteSettings();
       if (typeof _checkMaintenanceMode === 'function') await _checkMaintenanceMode();
    } catch (e) { console.warn('Live settings refresh failed:', e); }

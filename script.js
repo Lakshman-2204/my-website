@@ -3583,7 +3583,7 @@ async function _checkMaintenanceMode() {
    try {
       var user = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
       var isAdminUser = user && isAdmin(user.email);
-      // Need settings — they live in _db.settings.data after initDB().
+      var isOwnerUser = user && user.role === 'storeowner' && !isAdminUser;
       if (typeof initDB === 'function') { await initDB(); }
       var s = (typeof getAdminSettings === 'function') ? getAdminSettings() : {};
       if (!s.maintenanceMode) return;
@@ -3591,8 +3591,25 @@ async function _checkMaintenanceMode() {
          _showMaintenanceAdminBanner(s);
          return;
       }
+      // Shop-owners bypass only when admin chose to skip blocking them
+      // (e.g., low-risk UI updates). Default behavior: block them.
+      var blockOwners = (s.maintenanceBlockOwners !== false);   // default true
+      if (isOwnerUser && !blockOwners) {
+         _showMaintenanceOwnerBanner(s);
+         return;
+      }
       _showMaintenanceOverlay(s);
    } catch (e) { console.warn('maintenance check failed', e); }
+}
+
+function _showMaintenanceOwnerBanner(s) {
+   if (document.getElementById('_maintBanner')) return;
+   var b = document.createElement('div');
+   b.id = '_maintBanner';
+   b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#1a73e8;color:#fff;padding:6px 14px;text-align:center;font-size:0.85rem;font-weight:600;z-index:99999;box-shadow:0 2px 8px rgba(0,0,0,0.2)';
+   var eta = s.maintenanceEndTime ? ' (until ' + s.maintenanceEndTime + ')' : '';
+   b.innerHTML = '🔧 Maintenance in progress' + eta + ' — customers are blocked. Your shop functions are still available.';
+   document.body.appendChild(b);
 }
 
 function _showMaintenanceOverlay(s) {
@@ -7194,10 +7211,11 @@ function loadSettingsForm() {
    setVal('set-bookingsPerCustomerPerDay', s.bookingsPerCustomerPerDay !== undefined ? s.bookingsPerCustomerPerDay : 10);
    setVal('set-noShowBlockThreshold',      s.noShowBlockThreshold      !== undefined ? s.noShowBlockThreshold      : 5);
    setVal('set-noShowBlockDays',           s.noShowBlockDays           !== undefined ? s.noShowBlockDays           : 30);
-   // Maintenance mode
-   setChecked('set-maintenanceMode',  !!s.maintenanceMode);
-   setVal('set-maintenanceMessage',   s.maintenanceMessage   || '');
-   setVal('set-maintenanceEndTime',   s.maintenanceEndTime   || '');
+   // Maintenance mode (block-owners defaults to true if undefined)
+   setChecked('set-maintenanceMode',         !!s.maintenanceMode);
+   setChecked('set-maintenanceBlockOwners',  s.maintenanceBlockOwners !== false);
+   setVal('set-maintenanceMessage',          s.maintenanceMessage     || '');
+   setVal('set-maintenanceEndTime',          s.maintenanceEndTime     || '');
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
 }
 
@@ -7286,6 +7304,7 @@ function saveAllSettings() {
       noShowBlockDays:           parseInt(document.getElementById('set-noShowBlockDays').value,           10) || 30,
       // Maintenance mode
       maintenanceMode:           document.getElementById('set-maintenanceMode').checked,
+      maintenanceBlockOwners:    document.getElementById('set-maintenanceBlockOwners').checked,
       maintenanceMessage:        document.getElementById('set-maintenanceMessage').value.trim(),
       maintenanceEndTime:        document.getElementById('set-maintenanceEndTime').value.trim()
    };

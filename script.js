@@ -3200,7 +3200,12 @@ async function deleteAllShownAppointments() {
    renderAllAppointments();
 }
 
-// ── STORES ──
+// ── STORES (customer-side) ─────────────────────────────────────
+// Three-step drilldown that mirrors the appointments flow:
+//   showStoresList()              → category tiles (General, Medical, Wholesale, …)
+//   showStoreCategory(catKey)     → store cards under that category
+//   showStoreProvider(providerId) → that store's products grouped by sub-category
+// Categories + stores come from admin-managed store_categories / store_providers.
 async function showStoresList() {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
@@ -3210,123 +3215,121 @@ async function showStoresList() {
    grid.style.display = 'block';
    grid.innerHTML = '<p style="color:#888;text-align:center;padding:40px">Loading stores…</p>';
 
-   // Appointment-provider owners (hospitals, dental clinics, etc.) are also
-   // 'storeowner' role, so we must exclude them from the retail Stores tab.
-   try { await loadAptProviders(); } catch (e) { /* non-fatal */ }
-   var providerOwnerEmails = {};
-   (_aptProvidersCache || []).forEach(function(p) {
-      var e = (p.owner_email || '').toLowerCase();
-      if (e) providerOwnerEmails[e] = true;
-   });
+   await loadStoreCategories(true);
+   await loadStoreProviders(true);
 
-   var users     = getUsers();
-   var settings  = getAdminSettings();
-   var storeOwners = users.filter(function(u) {
-      if (u.role !== 'storeowner' || u.blocked) return false;
-      // Hide retail tab entry for owners whose only business is appointments
-      if (providerOwnerEmails[(u.email || '').toLowerCase()]) return false;
-      return true;
+   var keys = Object.keys(STORE_CAT_META).sort(function(a, b) {
+      return (STORE_CAT_META[a].sortOrder || 100) - (STORE_CAT_META[b].sortOrder || 100);
    });
-
-   // Build ordered store list
-   var storeList = [];
-   storeOwners.forEach(function(u) {
-      var count = 0;
-      Object.values(products).forEach(function(cat) {
-         cat.items.forEach(function(item) { if (item.storeId === u.email) count++; });
-      });
-      storeList.push({ storeId: u.email, name: u.storeName || u.name, count: count, storeType: u.storeType || 'general' });
-   });
-
-   if (storeList.length === 0) {
-      grid.innerHTML = '<p style="color:#888;text-align:center;padding:60px">No stores available yet.</p>';
+   if (!keys.length) {
+      grid.innerHTML = '<p style="color:#888;text-align:center;padding:60px">No store categories set up yet.</p>';
       return;
    }
 
-   // Build full store list with type info
-   window._allStoresData = storeList;
-
-   // Determine which store types have at least one store
-   var usedTypeKeys = storeList.reduce(function(acc, s) {
-      if (acc.indexOf(s.storeType) === -1) acc.push(s.storeType);
-      return acc;
-   }, []);
-
-   // Build store-type category tabs
-   var allTabHtml = '<button class="store-type-tab active" data-type="all" onclick="switchStoreType(this)">' +
-      '<span class="store-type-icon">🏪</span><span class="store-type-label">All Stores</span>' +
-      '<span class="store-type-count">' + storeList.length + '</span></button>';
-
-   var typeTabsHtml = STORE_TYPES.filter(function(t) { return usedTypeKeys.indexOf(t.key) !== -1; })
-      .map(function(t) {
-         var cnt = storeList.filter(function(s) { return s.storeType === t.key; }).length;
-         return '<button class="store-type-tab" data-type="' + t.key + '" onclick="switchStoreType(this)">' +
-                '<span class="store-type-icon">' + t.icon + '</span>' +
-                '<span class="store-type-label">' + t.label + '</span>' +
-                '<span class="store-type-count">' + cnt + '</span></button>';
-      }).join('');
-
-   grid.innerHTML = '<div class="store-type-tabs">' + allTabHtml + typeTabsHtml + '</div>' +
-                    '<div id="storeTypeContent"></div>';
-
-   renderStoreTypeContent('all');
+   var html = '<div class="apt-cats-grid">';
+   keys.forEach(function(k) {
+      var c = STORE_CAT_META[k];
+      var count = _storeProvidersByCat(k).length;
+      html += '<div class="apt-cat-card" onclick="showStoreCategory(\'' + k + '\')">' +
+                '<div class="apt-cat-icon">' + c.icon + '</div>' +
+                '<div class="apt-cat-label">' + c.label + '</div>' +
+                '<div class="apt-cat-desc">' + (c.desc || '') + '</div>' +
+                '<div class="apt-cat-count">' + count + (count === 1 ? ' store' : ' stores') + ' available</div>' +
+             '</div>';
+   });
+   html += '</div>';
+   grid.innerHTML = html;
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function switchStoreType(btn) {
-   document.querySelectorAll('.store-type-tab').forEach(function(b) { b.classList.remove('active'); });
-   btn.classList.add('active');
-   renderStoreTypeContent(btn.dataset.type);
-}
+// Step 2: list of stores within a chosen category
+async function showStoreCategory(catKey) {
+   var meta = STORE_CAT_META[catKey];
+   if (!meta) return;
+   document.getElementById('heroSection').classList.add('hidden');
+   document.getElementById('productsSection').classList.remove('hidden');
+   document.getElementById('productTitle').textContent = meta.icon + ' ' + meta.label;
 
-function renderStoreTypeContent(typeKey) {
-   var filtered = typeKey === 'all'
-      ? window._allStoresData
-      : window._allStoresData.filter(function(s) { return s.storeType === typeKey; });
-   var el = document.getElementById('storeTypeContent');
-   if (!el) return;
+   var grid = document.getElementById('productsGrid');
+   grid.style.display = 'block';
+   grid.innerHTML = '<p style="color:#888;text-align:center;padding:40px">Loading…</p>';
 
-   if (!filtered.length) {
-      el.innerHTML = '<p style="color:#888;padding:60px;text-align:center">No stores in this category yet.</p>';
-      return;
+   await loadStoreProviders();
+   var stores = _storeProvidersByCat(catKey);
+
+   var html = '<button class="apt-back-btn" onclick="showStoresList()">← All Categories</button>';
+   if (!stores.length) {
+      html += '<p style="text-align:center;color:#999;padding:40px">No stores in <strong>' + meta.label + '</strong> yet.</p>';
+   } else {
+      html += '<div class="apt-providers-grid">';
+      stores.forEach(function(p) {
+         var icon = p.icon || meta.icon;
+         var pid  = p.id.replace(/'/g, "\\'");
+         html += '<div class="apt-provider-card" style="cursor:pointer" onclick="showStoreProvider(\'' + pid + '\')">' +
+                   '<div class="apt-provider-top">' +
+                      '<div class="apt-provider-icon">' + icon + '</div>' +
+                      '<div>' +
+                         '<div class="apt-provider-name">' + p.name + '</div>' +
+                         '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
+                      '</div>' +
+                   '</div>' +
+                   (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
+                   (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
+                   (p.phone   ? '<div class="apt-provider-meta" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
+                   '<div class="apt-provider-footer">' +
+                      '<span>Tap to browse products</span>' +
+                      '<button class="apt-view-btn" onclick="event.stopPropagation();showStoreProvider(\'' + pid + '\')">View Products →</button>' +
+                   '</div>' +
+                 '</div>';
+      });
+      html += '</div>';
    }
-
-   window._storeListData = filtered;
-
-   var selectorHtml = '<div class="store-selector-tabs">' +
-      filtered.map(function(s, i) {
-         return '<button class="store-selector-tab' + (i === 0 ? ' active' : '') + '" ' +
-                'data-idx="' + i + '" onclick="switchStoreSelector(this)">' +
-                '🏪 ' + s.name +
-                '<span class="store-selector-count"> (' + s.count + ')</span></button>';
-      }).join('') +
-      '</div>';
-
-   el.innerHTML = selectorHtml + '<div id="storeContentArea">' + buildStoreSubcatLayout(filtered[0].storeId) + '</div>';
+   grid.innerHTML = html;
+   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function switchStoreSelector(btn) {
-   var tabs = btn.closest('.store-selector-tabs');
-   if (tabs) tabs.querySelectorAll('.store-selector-tab').forEach(function(b) { b.classList.remove('active'); });
-   btn.classList.add('active');
-   var s = window._storeListData[parseInt(btn.dataset.idx)];
-   var area = document.getElementById('storeContentArea');
-   if (area) area.innerHTML = buildStoreSubcatLayout(s.storeId);
+// Step 3: products inside one store (grouped by sub-category sidebar)
+function showStoreProvider(providerId) {
+   var p = (_storeProvidersCache || []).find(function(x) { return x.id === providerId; });
+   if (!p) return;
+   var meta = STORE_CAT_META[p.category] || { icon: '🏪', label: p.category };
+
+   document.getElementById('heroSection').classList.add('hidden');
+   document.getElementById('productsSection').classList.remove('hidden');
+   document.getElementById('productTitle').textContent = (p.icon || meta.icon) + ' ' + p.name;
+
+   var grid = document.getElementById('productsGrid');
+   grid.style.display = 'block';
+
+   var html = '<button class="apt-back-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g, "\\'") + '\')">← Back to ' + meta.label + '</button>';
+   // Store meta strip
+   html += '<div class="store-detail-meta">' +
+              (p.tagline ? '<div class="store-detail-tagline">' + p.tagline + '</div>' : '') +
+              (p.address ? '<div>📍 ' + _mapsLink(p.address) + '</div>' : '') +
+              (p.timing  ? '<div>🕒 ' + p.timing + '</div>' : '') +
+              (p.phone   ? '<div style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
+           '</div>';
+   html += '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id) + '</div>';
+   grid.innerHTML = html;
+   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function buildStoreSubcatLayout(storeId) {
+// Build the sub-category sidebar + product grid for one store provider.
+// Filter products by store_provider_id (new model).
+function buildStoreSubcatLayout(storeProviderId) {
    var storeCats = [];
-   Object.entries(products).forEach(function([catKey, catData]) {
-      var items = catData.items.filter(function(item) { return (item.storeId || null) === storeId; });
+   Object.entries(products).forEach(function(entry) {
+      var catKey = entry[0], catData = entry[1];
+      var items = catData.items.filter(function(item) { return item.store_provider_id === storeProviderId; });
       if (items.length) storeCats.push({ catKey: catKey, catData: catData, items: items });
    });
    if (!storeCats.length) return '<p style="color:#888;padding:40px;text-align:center">No products in this store yet.</p>';
 
-   var storeIdAttr = storeId ? storeId.replace(/["']/g, '') : '';
+   var idAttr = storeProviderId.replace(/["']/g, '');
 
    var sidebarHtml = storeCats.map(function(c, i) {
       return '<div class="subcat-sidebar-item' + (i === 0 ? ' active' : '') + '" ' +
-             'data-catkey="' + c.catKey + '" data-storeid="' + storeIdAttr + '" ' +
+             'data-catkey="' + c.catKey + '" data-pid="' + idAttr + '" ' +
              'onclick="switchStoreSubcat(this)">' +
              '<span class="subcat-sidebar-icon">' + getCatIcon(c.catKey) + '</span>' +
              '<span>' + c.catData.title + '</span>' +
@@ -3351,9 +3354,9 @@ function switchStoreSubcat(el) {
    el.closest('.subcat-sidebar').querySelectorAll('.subcat-sidebar-item').forEach(function(x) { x.classList.remove('active'); });
    el.classList.add('active');
    var catKey  = el.dataset.catkey;
-   var storeId = el.dataset.storeid || null;
+   var pid     = el.dataset.pid;
    var catData = products[catKey];
-   var items   = catData.items.filter(function(item) { return (item.storeId || null) === storeId; });
+   var items   = catData.items.filter(function(item) { return item.store_provider_id === pid; });
    var tmp = document.createElement('div');
    tmp.className = 'products-grid';
    items.forEach(function(item) { renderCard(Object.assign({}, item, { type: catData.type }), catKey, tmp); });
@@ -3647,6 +3650,7 @@ function _applyStoreProdsToProducts() {
          desc: p.description || '', img: p.image || '',
          badge: p.badge || 'New',
          storeId: p.store_id, storeName: p.store_name,
+         store_provider_id: p.store_provider_id || null,
          variants: p.variants || undefined
       });
    });

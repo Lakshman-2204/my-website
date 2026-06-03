@@ -375,12 +375,12 @@
 
          <!-- Sub-section tabs -->
          <div class="admin-filter-bar" style="margin-bottom:6px">
-            <button class="admin-tab active" id="store-subtab-providers-btn"  onclick="switchStoreAdminSub('providers')">🏪 Stores</button>
-            <button class="admin-tab"        id="store-subtab-categories-btn" onclick="switchStoreAdminSub('categories')">🗂 Categories</button>
+            <button class="admin-tab active" id="store-subtab-categories-btn" onclick="switchStoreAdminSub('categories')">🗂 Categories</button>
+            <button class="admin-tab"        id="store-subtab-providers-btn"  onclick="switchStoreAdminSub('providers')">🏪 Stores</button>
          </div>
 
          <!-- Providers (Stores) sub-panel — built in Phase 2 -->
-         <div id="store-sub-providers">
+         <div id="store-sub-providers" class="hidden">
             <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
                <select id="storeAdminCatFilter" class="admin-filter-select" onchange="renderStoreProvidersAdmin()">
                   <option value="">All Categories</option>
@@ -393,7 +393,7 @@
          </div>
 
          <!-- Categories sub-panel -->
-         <div id="store-sub-categories" class="hidden">
+         <div id="store-sub-categories">
             <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
                <p style="margin:0;color:#666;font-size:0.85rem;flex:1">
                   Manage retail categories shown to customers under 🏪 Stores.
@@ -461,13 +461,13 @@
 
          <!-- Sub-section tabs -->
          <div class="admin-filter-bar" style="margin-bottom:6px">
-            <button class="admin-tab active" id="apt-subtab-providers-btn"   onclick="switchAptAdminSub('providers')">🏪 Providers &amp; Staff</button>
+            <button class="admin-tab active" id="apt-subtab-categories-btn"  onclick="switchAptAdminSub('categories')">🗂 Categories</button>
+            <button class="admin-tab"        id="apt-subtab-providers-btn"   onclick="switchAptAdminSub('providers')">🏪 Providers &amp; Staff</button>
             <button class="admin-tab"        id="apt-subtab-bookings-btn"    onclick="switchAptAdminSub('bookings')">📅 All Bookings</button>
-            <button class="admin-tab"        id="apt-subtab-categories-btn"  onclick="switchAptAdminSub('categories')">🗂 Categories</button>
          </div>
 
          <!-- Providers sub-panel -->
-         <div id="apt-sub-providers">
+         <div id="apt-sub-providers" class="hidden">
             <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
                <select id="aptAdminCatFilter" class="admin-filter-select" onchange="renderAptAdmin()">
                   <option value="">All Categories</option>
@@ -480,7 +480,7 @@
          </div>
 
          <!-- Categories sub-panel -->
-         <div id="apt-sub-categories" class="hidden">
+         <div id="apt-sub-categories">
             <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
                <p style="margin:0;color:#666;font-size:0.85rem;flex:1">
                   Manage the business categories you offer (Hospitals, Dental, Beauty Parlour, Fitness…).

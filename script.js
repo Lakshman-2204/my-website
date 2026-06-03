@@ -7083,9 +7083,9 @@ async function switchAdminTab(tab) {
    if (typeof initDB === 'function') { try { await initDB(); } catch (e) {} }
    if (tab === 'settings')     loadSettingsForm();
    if (tab === 'users')        refreshAndRenderUsers();
-   if (tab === 'stores')       switchStoreAdminSub('providers');
+   if (tab === 'stores')       switchStoreAdminSub('categories');
    if (tab === 'orders')       renderAdminOrders();
-   if (tab === 'appointments') renderAptAdmin();
+   if (tab === 'appointments') switchAptAdminSub('categories');
    if (tab === 'billing')      renderBillingAdmin();
 }
 

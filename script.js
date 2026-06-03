@@ -7609,9 +7609,12 @@ async function renderMyAppointments() {
                  : 'confirmed';
       var aid    = (a.apt_id || '').replace(/'/g, "\\'");
       // Customer can cancel until 2 hours after slot time (grace period for
-      // traffic / late "I won't make it" calls). After that, only the hospital
-      // can cancel. Reschedule has its own 15-min-before-slot cutoff below.
-      var isCancellable = status === 'Confirmed' && !_cancelGraceExpired(a);
+      // traffic / urgent-work / late "I won't make it" situations). The grace
+      // period applies even if the hospital already marked the booking as
+      // No-show — the customer's right to cancel within 2h takes precedence.
+      // After the grace expires, only the hospital can change status.
+      var isCancellable = (status === 'Confirmed' || status === 'No-show')
+                          && !_cancelGraceExpired(a);
       var statusLabel = status;
       if (status === 'Cancelled' && a.cancelled_by) {
          var byLabel = a.cancelled_by === 'customer' ? 'by You'

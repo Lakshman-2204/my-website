@@ -3509,24 +3509,18 @@ async function login() {
 
    var user = null;
 
-   // Try Supabase Auth first — works for OTP-signed-up users AND migrated admins.
-   {
-      const { data, error } = await _sb.auth.signInWithPassword({ email, password });
-      if (!error && data && data.user) {
-         user = await AppDB.getUserByEmail(email);
-         if (!user) {
-            await _sb.auth.signOut();
-            if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
-            errorMsg.textContent = '❌ Profile not found. Please complete signup again.';
-            errorMsg.classList.remove('hidden');
-            return;
-         }
-      } else {
-         // Legacy fallback for users still on plaintext in the users table
-         // (un-migrated admins, SQL-inserted users). Empty-password OTP rows
-         // can never match because we require a non-empty stored password.
-         const users = getUsers();
-         user = users.find(u => u.email.toLowerCase() === email && u.password && u.password === password) || null;
+   // All accounts use Supabase Auth — no plaintext fallback. (The legacy
+   // fallback that compared against public.users.password was removed once
+   // admins migrated to Auth, to eliminate plaintext credentials in the DB.)
+   const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+   if (!error && data && data.user) {
+      user = await AppDB.getUserByEmail(email);
+      if (!user) {
+         await _sb.auth.signOut();
+         if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
+         errorMsg.textContent = '❌ Profile not found. Please complete signup again.';
+         errorMsg.classList.remove('hidden');
+         return;
       }
    }
 
@@ -5176,8 +5170,11 @@ function _statRow(icon, value, label) {
 // Shows up to 5 upcoming Confirmed bookings sorted by slot time + token.
 // Slots that have already ENDED are skipped (they're past, not callable).
 function _todayQueueWidget(provApts, todayYmd) {
+   // Show every Confirmed booking for today — even if the slot ended already.
+   // A doctor running late may still need to see them. Patients disappear only
+   // when the booking is explicitly resolved (Completed / No-show / Cancelled).
    var queue = (provApts || []).filter(function(a) {
-      return a.date === todayYmd && a.status === 'Confirmed' && !_slotEnded(a);
+      return a.date === todayYmd && a.status === 'Confirmed';
    });
    // Slot mode → group by slot first (keep 9 AM slot before 10 AM), then sort
    //   by booking time WITHIN each slot.
@@ -7340,11 +7337,17 @@ async function initProfile() {
          var btn = document.getElementById('ptab-' + t + '-btn');
          if (btn) btn.style.display = 'none';
       });
-      // Redirect destination of the back button is the owner's dashboard, not the store.
+      // Redirect destination of the back button — admins go to admin panel,
+      // shop-owners to their dashboard.
       var backBtn = document.getElementById('profile-back-btn');
       if (backBtn) {
-         backBtn.textContent = '← Back to Dashboard';
-         backBtn.onclick = function() { window.location = 'shopowner.html'; };
+         if (isAdmin(user.email)) {
+            backBtn.textContent = '← Back to Admin';
+            backBtn.onclick = function() { window.location = 'admin.html'; };
+         } else {
+            backBtn.textContent = '← Back to Dashboard';
+            backBtn.onclick = function() { window.location = 'shopowner.html'; };
+         }
       }
    }
    const params = new URLSearchParams(window.location.search);

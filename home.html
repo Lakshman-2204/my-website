@@ -378,6 +378,7 @@
             loadSiteSettings();
             // Auto-refresh marquee + maintenance overlay when admin changes settings
             if (typeof _liveSubscribe === 'function') _liveSubscribe('siteSettings', 'settings', _refreshLiveSettings);
+            if (typeof _startSettingsPolling === 'function') _startSettingsPolling();
             var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
             if (_u) AppDB.getWishlist(_u.email).then(function(ids) { _db.wishlist = ids || []; });
             // Re-render current view now that products are loaded

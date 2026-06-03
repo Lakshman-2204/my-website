@@ -3575,8 +3575,9 @@ function isAdmin(email) {
 }
 
 // Re-fetch live settings from Supabase and re-apply them to the page.
-// Called automatically when the settings row changes (via Realtime), so
-// announcements, maintenance toggle, etc. update without a manual refresh.
+// Called from Realtime push AND from a 30-second polling fallback so the
+// announcement / maintenance toggle reaches every browser even if the
+// Realtime channel is silent for any reason.
 async function _refreshLiveSettings() {
    try {
       var fresh = await AppDB.getSettings();
@@ -3584,6 +3585,14 @@ async function _refreshLiveSettings() {
       if (typeof loadSiteSettings === 'function') loadSiteSettings();
       if (typeof _checkMaintenanceMode === 'function') await _checkMaintenanceMode();
    } catch (e) { console.warn('Live settings refresh failed:', e); }
+}
+
+// Polling fallback: every 5s, re-fetch settings. Cheap (one tiny query) and
+// guarantees the customer sees announcement/maintenance changes within
+// seconds even when Realtime push isn't working.
+function _startSettingsPolling() {
+   if (window._settingsPollTimer) return;   // already running
+   window._settingsPollTimer = setInterval(_refreshLiveSettings, 5000);
 }
 
 // ── Maintenance Mode ──
@@ -4357,6 +4366,7 @@ async function checkShopOwnerLogin() {
    await _checkMaintenanceMode();
    // Auto-refresh maintenance overlay when admin changes settings
    if (typeof _liveSubscribe === 'function') _liveSubscribe('siteSettingsShop', 'settings', _refreshLiveSettings);
+   if (typeof _startSettingsPolling === 'function') _startSettingsPolling();
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
    // Kick blocked users out
@@ -7420,6 +7430,7 @@ async function initProfile() {
    await _checkMaintenanceMode();
    // Auto-refresh marquee + maintenance overlay when admin changes settings
    if (typeof _liveSubscribe === 'function') _liveSubscribe('siteSettingsProfile', 'settings', _refreshLiveSettings);
+   if (typeof _startSettingsPolling === 'function') _startSettingsPolling();
    await loadUserData(user.email);
    document.getElementById('prof-name').value   = user.name   || '';
    document.getElementById('prof-email').value  = user.email  || '';

@@ -177,8 +177,9 @@ body.guest .store-section-divider {
 	color: #fff;
 	border-radius: 8px;
 	padding: 12px 0;
-	font-size: 1rem;
-	font-weight: 600;
+	font-size: 1.15rem;
+	font-weight: 700;
+	letter-spacing: 0.02em;
 	min-width: 0;
 	position: relative;
 }

@@ -6904,13 +6904,16 @@ function showAdminToast(msg) {
 }
 
 // ── ADMIN TABS ──
-function switchAdminTab(tab) {
+async function switchAdminTab(tab) {
    ['products', 'stores', 'orders', 'appointments', 'billing', 'settings', 'users'].forEach(function(t) {
       var el  = document.getElementById('tab-' + t);
       var btn = document.getElementById('tab-' + t + '-btn');
       if (el)  el.classList.toggle('hidden', t !== tab);
       if (btn) btn.classList.toggle('active', t === tab);
    });
+   // Wait for initDB to finish before any tab tries to read _db — prevents
+   // empty-form race condition where Settings tab loaded before fetch returned.
+   if (typeof initDB === 'function') { try { await initDB(); } catch (e) {} }
    if (tab === 'settings')     loadSettingsForm();
    if (tab === 'users')        refreshAndRenderUsers();
    if (tab === 'stores')       renderAdminStores();

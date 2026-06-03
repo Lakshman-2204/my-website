@@ -4083,8 +4083,11 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	padding: 0 20px 60px;
 }
 
-/* My Appointments tab uses a wide table — let it span more of the page */
-#ptab-appointments {
+/* Tabs with rich filter bars + wide rows get more room than the default 680px */
+#ptab-appointments,
+#ptab-orders,
+#ptab-addresses,
+#ptab-wishlist {
 	max-width: 1200px;
 }
 

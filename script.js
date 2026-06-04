@@ -3345,6 +3345,7 @@ function renderCatalogFieldsList() {
                          '<option value="text"'     + (f.type === 'text'     ? ' selected' : '') + '>Text</option>' +
                          '<option value="number"'   + (f.type === 'number'   ? ' selected' : '') + '>Number</option>' +
                          '<option value="checkbox"' + (f.type === 'checkbox' ? ' selected' : '') + '>Checkbox</option>' +
+                         '<option value="date"'     + (f.type === 'date'     ? ' selected' : '') + '>Date</option>' +
                       '</select>' +
                    '</div>' +
                    '<div class="catalog-field-cell">' +

@@ -605,12 +605,61 @@ window.AppDB = {
    },
 
    // ── CATALOG ITEMS (admin-curated master list per category) ──
-   async getCatalogItems(category) {
+   // opts: { search?: string (filters name OR brand OR composition via ilike),
+   //         limit?:  number (default 200; Supabase default cap is 1000) }
+   async getCatalogItems(category, opts) {
+      opts = opts || {};
       let q = _sb.from('catalog_items').select('*').order('name');
       if (category) q = q.eq('category', category);
+      if (opts.search) {
+         // Escape Postgres LIKE wildcards so the user's query is literal.
+         const safe = opts.search.replace(/[%_]/g, '\\$&');
+         const pat = '%' + safe + '%';
+         // Search across name, brand, AND composition (attrs->>'composition').
+         q = q.or('name.ilike.' + pat + ',brand.ilike.' + pat + ',attrs->>composition.ilike.' + pat);
+      }
+      q = q.limit(typeof opts.limit === 'number' ? opts.limit : 200);
       const { data, error } = await q;
       if (error) { console.error('getCatalogItems:', error.message); return []; }
       return data || [];
+   },
+
+   // Find other items in the same category that share an EXACT composition
+   // string with the given item. Used by the "Show composition" popup to list
+   // generic alternatives (e.g. Dolo 650 → Crocin 650, Calpol 650, ...).
+   async getCatalogAlternatives(category, composition, excludeId, limit) {
+      if (!composition) return [];
+      const { data, error } = await _sb.from('catalog_items')
+         .select('id, name, brand, price, image_url, attrs')
+         .eq('category', category)
+         .eq('attrs->>composition', composition)
+         .neq('id', excludeId || '')
+         .order('price', { ascending: true })
+         .limit(typeof limit === 'number' ? limit : 25);
+      if (error) { console.error('getCatalogAlternatives:', error.message); return []; }
+      return data || [];
+   },
+
+   // Direct lookup by ID — used by the shop-owner catalogue picker after a click.
+   async getCatalogItemById(id) {
+      const { data, error } = await _sb.from('catalog_items').select('*').eq('id', id).limit(1);
+      if (error) { console.error('getCatalogItemById:', error.message); return null; }
+      return (data && data[0]) || null;
+   },
+
+   // Lightweight count for the items-table footer ("showing 200 of N matching").
+   async countCatalogItems(category, opts) {
+      opts = opts || {};
+      let q = _sb.from('catalog_items').select('id', { count: 'exact', head: true });
+      if (category) q = q.eq('category', category);
+      if (opts.search) {
+         const safe = opts.search.replace(/[%_]/g, '\\$&');
+         const pat = '%' + safe + '%';
+         q = q.or('name.ilike.' + pat + ',brand.ilike.' + pat);
+      }
+      const { count, error } = await q;
+      if (error) { console.error('countCatalogItems:', error.message); return 0; }
+      return count || 0;
    },
 
    async upsertCatalogItem(item) {
@@ -630,10 +679,54 @@ window.AppDB = {
       return true;
    },
 
+   // Bulk upsert — used by the CSV import flow. Supabase accepts an array,
+   // so a single network round-trip can write hundreds of rows. Returns
+   // { ok: <count_inserted>, fail: <count_failed> } for progress reporting.
+   async upsertCatalogItemsBatch(items) {
+      if (!Array.isArray(items) || !items.length) return { ok: 0, fail: 0 };
+      const rows = items.map(it => ({
+         id:        it.id,
+         category:  it.category,
+         name:      it.name,
+         brand:     it.brand     || '',
+         price:     typeof it.price === 'number' ? it.price : (parseFloat(it.price) || 0),
+         serial_no: it.serial_no || '',
+         batch_no:  it.batch_no  || '',
+         image_url: it.image_url || '',
+         attrs:     it.attrs     || {}
+      }));
+      const { error } = await _sb.from('catalog_items').upsert(rows, { onConflict: 'id' });
+      if (error) { console.error('upsertCatalogItemsBatch:', error.message); return { ok: 0, fail: rows.length }; }
+      return { ok: rows.length, fail: 0 };
+   },
+
    async deleteCatalogItem(id) {
       const { error } = await _sb.from('catalog_items').delete().eq('id', id);
       if (error) { console.error('deleteCatalogItem:', error.message); return false; }
       return true;
+   },
+
+   // Bulk delete by category — wipes the entire master list under that category.
+   // Returns the deleted-row count for the confirmation toast.
+   async deleteAllCatalogInCategory(category) {
+      const { count, error } = await _sb.from('catalog_items')
+         .delete({ count: 'exact' }).eq('category', category);
+      if (error) { console.error('deleteAllCatalogInCategory:', error.message); return -1; }
+      return count || 0;
+   },
+
+   // Bulk delete by category + ilike filter — matches the same set the admin
+   // is currently looking at via the search box. Mirrors getCatalogItems filter.
+   async deleteFilteredCatalogItems(category, search) {
+      let q = _sb.from('catalog_items').delete({ count: 'exact' }).eq('category', category);
+      if (search) {
+         const safe = search.replace(/[%_]/g, '\\$&');
+         const pat = '%' + safe + '%';
+         q = q.or('name.ilike.' + pat + ',brand.ilike.' + pat + ',attrs->>composition.ilike.' + pat);
+      }
+      const { count, error } = await q;
+      if (error) { console.error('deleteFilteredCatalogItems:', error.message); return -1; }
+      return count || 0;
    },
 
    async getAppointmentsByOwner(ownerEmail) {

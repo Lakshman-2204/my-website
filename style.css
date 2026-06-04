@@ -2924,6 +2924,44 @@ body.guest .store-section-divider {
 	padding: 20px 24px 60px;
 }
 
+/* Composition details popup: alternatives list */
+.comp-alt-list {
+	display: flex; flex-direction: column; gap: 6px;
+	max-height: 320px; overflow-y: auto;
+	border: 1px solid #e6e8eb; border-radius: 8px; padding: 6px;
+}
+.comp-alt-row {
+	display: flex; align-items: center; gap: 10px;
+	padding: 6px 8px;
+	background: #fafbfc; border-radius: 6px;
+	font-size: 0.88rem;
+}
+.comp-alt-row:hover { background: #f1f5fb; }
+.comp-alt-img {
+	width: 32px; height: 32px; flex-shrink: 0;
+	display: flex; align-items: center; justify-content: center;
+	background: #fff; border-radius: 5px; overflow: hidden;
+	border: 1px solid #eee;
+}
+.comp-alt-img img { width: 100%; height: 100%; object-fit: cover; }
+.comp-alt-info { flex: 1; min-width: 0; }
+.comp-alt-name { font-weight: 600; color: #1a1a2e; }
+.comp-alt-meta { font-size: 0.78rem; color: #666; }
+.comp-alt-price {
+	font-weight: 700; color: #0a8a3a;
+	white-space: nowrap;
+}
+
+/* ℹ️ button on shop-owner picker rows */
+.sp-catalog-info-btn {
+	background: #1a73e8; color: #fff;
+	border: none; border-radius: 6px;
+	width: 30px; height: 30px;
+	font-size: 0.9rem; cursor: pointer;
+	flex-shrink: 0;
+}
+.sp-catalog-info-btn:hover { background: #155cc1; }
+
 /* Shop-owner: catalogue picker in Add Product modal */
 .sp-catalog-results {
 	position: absolute;

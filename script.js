@@ -3128,29 +3128,44 @@ function exitCatalogCategory() {
    renderCatalogCategoriesGrid();
 }
 
+// Debounced wrapper so the items-search input doesn't fire a DB hit per keystroke.
+var _catalogRenderTimer = null;
+function scheduleRenderCatalogItems() {
+   clearTimeout(_catalogRenderTimer);
+   _catalogRenderTimer = setTimeout(renderCatalogItems, 220);
+}
+
 async function renderCatalogItems() {
    if (!_catalogCurrentCat) return;
    var container = document.getElementById('catalogItemsContent');
    if (!container) return;
-   // Only fetch once per category enter; in-cell edits update _catalogItemsCache directly
-   if (!_catalogItemsCache.length || _catalogItemsCache._cat !== _catalogCurrentCat) {
-      container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
-      _catalogItemsCache = await AppDB.getCatalogItems(_catalogCurrentCat);
-      _catalogItemsCache._cat = _catalogCurrentCat;
-   }
 
    var schema = _catalogSchemaFor(_catalogCurrentCat);
-   var search = ((document.getElementById('catalogItemSearch') || {}).value || '').trim().toLowerCase();
-   var rows = _catalogItemsCache.filter(function(it) {
-      if (!search) return true;
-      var hay = ((it.name || '') + ' ' + (it.brand || '') + ' ' + JSON.stringify(it.attrs || {})).toLowerCase();
-      return hay.indexOf(search) !== -1;
-   });
+   var search = ((document.getElementById('catalogItemSearch') || {}).value || '').trim();
+   var RENDER_CAP = 200;
+
+   // Server-side fetch: pull only the first RENDER_CAP matches. Postgres
+   // does the ilike search on name + brand — fast even at 250K rows because
+   // there's a btree index on name (and the dataset usually fits in cache).
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+   var rows = await AppDB.getCatalogItems(_catalogCurrentCat, { search: search, limit: RENDER_CAP });
+   // Replace the cache with the currently-visible slice. Edit/Delete look
+   // items up here by id, which is fine since every rendered row is included.
+   _catalogItemsCache = rows.slice();
+   _catalogItemsCache._cat = _catalogCurrentCat;
 
    if (!rows.length) {
-      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No items yet. Click <strong>➕ Add Item</strong> to start populating the master catalogue.</p>';
+      if (search) {
+         container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No items match "<strong>' + search + '</strong>".</p>';
+      } else {
+         container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No items yet. Click <strong>➕ Add Item</strong> to start populating the master catalogue.</p>';
+      }
       return;
    }
+
+   // Background count (don't block the render). If there are more items than
+   // we showed, drop a footer note pointing the admin at search.
+   var totalMatchingPromise = AppDB.countCatalogItems(_catalogCurrentCat, { search: search });
 
    var headExtra = schema.slice(0, 3).map(function(f) { return '<th>' + f.label + '</th>'; }).join('');
    var html = '<div style="overflow-x:auto"><table class="catalog-items-table">' +
@@ -3184,13 +3199,29 @@ async function renderCatalogItems() {
                  '<td>' + (it.batch_no  || '<span style="color:#bbb">—</span>') + '</td>' +
                  attrCells +
                  '<td>' +
+                    '<button class="apt-view-btn" style="background:#1a73e8" onclick="showCompositionDetails(\'' + iid + '\')" title="Show composition + alternatives">ℹ️</button> ' +
                     '<button class="apt-view-btn" onclick="openCatalogItemModal(\'' + iid + '\')">✏️</button> ' +
                     '<button class="apt-view-btn" style="background:#c62828" onclick="deleteCatalogItemUi(\'' + iid + '\')">🗑</button>' +
                  '</td>' +
               '</tr>';
    });
    html += '</tbody></table></div>';
+   // Footer slot — populated async once the count query returns.
+   html += '<p id="catalogItemsFooter" style="color:#888;font-size:0.85rem;text-align:center;margin:12px 0"></p>';
    container.innerHTML = html;
+
+   // Fill in the footer once the count query resolves.
+   totalMatchingPromise.then(function(total) {
+      var footer = document.getElementById('catalogItemsFooter');
+      if (!footer) return;
+      if (total > rows.length) {
+         footer.innerHTML = 'Showing first <strong>' + rows.length + '</strong> of <strong>' +
+                             total.toLocaleString('en-IN') + '</strong> matching items. ' +
+                            (search ? 'Refine your search to narrow further.' : 'Use the 🔍 search box to filter.');
+      } else {
+         footer.textContent = total + ' item' + (total === 1 ? '' : 's') + '.';
+      }
+   });
 }
 
 function openCatalogItemModal(itemId) {
@@ -3262,12 +3293,8 @@ async function saveCatalogItem() {
    };
    var ok = await AppDB.upsertCatalogItem(item);
    if (!ok) { alert('Failed to save.'); return; }
-   // Refresh cache and re-render
-   _catalogItemsCache = _catalogItemsCache.filter(function(x) { return x.id !== id; });
-   _catalogItemsCache.push(item);
-   _catalogItemsCache._cat = category;
    closeCatalogItemModal();
-   renderCatalogItems();
+   renderCatalogItems();   // Refetch from server; matches the new server-side model
 }
 
 // ── Admin: edit per-category catalogue schema (add/remove/rename fields) ──
@@ -3580,25 +3607,166 @@ async function confirmCatalogImport() {
    var summary = document.getElementById('catImportSummary');
    if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
 
+   // Chunk into batches — Supabase round-trips once per batch instead of once per row.
+   var BATCH = 500;
+   var total = _pendingCsvRows.length;
    var ok = 0, fail = 0;
-   for (var i = 0; i < _pendingCsvRows.length; i++) {
-      var success = await AppDB.upsertCatalogItem(_pendingCsvRows[i]);
-      if (success) ok++; else fail++;
-      // Progress every 10 rows
-      if (i % 10 === 0 && summary) {
-         summary.innerHTML = 'Importing… <strong>' + (i + 1) + '/' + _pendingCsvRows.length + '</strong>';
-      }
+   for (var start = 0; start < total; start += BATCH) {
+      var chunk = _pendingCsvRows.slice(start, start + BATCH);
+      if (summary) summary.innerHTML = 'Importing… <strong>' + Math.min(start + chunk.length, total) + '/' + total + '</strong>';
+      var res = await AppDB.upsertCatalogItemsBatch(chunk);
+      ok   += res.ok;
+      fail += res.fail;
    }
    if (summary) summary.innerHTML = '<span style="color:#0a8a3a">✅ Imported ' + ok + ' item' + (ok === 1 ? '' : 's') + '</span>' +
       (fail ? '<br/><span style="color:#c62828">❌ ' + fail + ' failed (see browser console).</span>' : '');
 
-   // Refresh items list under the current category
-   _catalogItemsCache = await AppDB.getCatalogItems(_catalogCurrentCat);
-   _catalogItemsCache._cat = _catalogCurrentCat;
+   // Refresh items list under the current category (server-side, capped)
    renderCatalogItems();
 
    if (btn) { btn.textContent = '📥 Done'; btn.disabled = true; }
    setTimeout(closeCatalogImportModal, 1500);
+}
+
+// ── Admin: bulk-delete in the current category ─────────────
+// Two flavours:
+//   deleteAllCatalogItemsUi()      — wipes the entire category
+//   deleteFilteredCatalogItemsUi() — wipes only the items matching the
+//                                    current 🔍 search (good for surgical cleanup)
+// Both gate behind a typed-confirmation prompt so they're harder to mis-fire.
+async function deleteAllCatalogItemsUi() {
+   if (!_catalogCurrentCat) return;
+   var meta  = STORE_CAT_META[_catalogCurrentCat] || {};
+   var total = await AppDB.countCatalogItems(_catalogCurrentCat, {});
+   if (!total) { alert('Nothing to delete — this category is already empty.'); return; }
+   var phrase = 'DELETE ALL';
+   var typed = prompt(
+      '⚠️ This will permanently delete ALL ' + total.toLocaleString('en-IN') +
+      ' item' + (total === 1 ? '' : 's') + ' from "' + (meta.label || _catalogCurrentCat) + '".\n\n' +
+      'This cannot be undone.\n\n' +
+      'Type ' + phrase + ' (in caps) to confirm:'
+   );
+   if (typed !== phrase) { if (typed != null) alert('Cancelled — phrase did not match.'); return; }
+   var n = await AppDB.deleteAllCatalogInCategory(_catalogCurrentCat);
+   if (n < 0) { alert('Failed to delete. See console.'); return; }
+   alert('Deleted ' + n + ' item' + (n === 1 ? '' : 's') + '.');
+   renderCatalogItems();
+}
+
+async function deleteFilteredCatalogItemsUi() {
+   if (!_catalogCurrentCat) return;
+   var search = ((document.getElementById('catalogItemSearch') || {}).value || '').trim();
+   if (!search) {
+      alert('No filter active. Type in the 🔍 search box first — otherwise use "Delete All".');
+      return;
+   }
+   var total = await AppDB.countCatalogItems(_catalogCurrentCat, { search: search });
+   if (!total) { alert('Nothing matches "' + search + '".'); return; }
+   if (!confirm('Delete ' + total.toLocaleString('en-IN') + ' item' + (total === 1 ? '' : 's') +
+                ' matching "' + search + '"?\n\nThis cannot be undone.')) return;
+   var n = await AppDB.deleteFilteredCatalogItems(_catalogCurrentCat, search);
+   if (n < 0) { alert('Failed to delete. See console.'); return; }
+   alert('Deleted ' + n + ' item' + (n === 1 ? '' : 's') + '.');
+   renderCatalogItems();
+}
+
+// ── Composition details popup (admin items table + owner picker) ──
+// Lazily injects the modal markup on first open so we don't have to add it
+// to every HTML page that uses the catalogue.
+function _ensureCompositionModal() {
+   if (document.getElementById('compositionDetailsModal')) return;
+   var wrap = document.createElement('div');
+   wrap.innerHTML =
+      '<div class="admin-modal-overlay hidden" id="compositionDetailsModal" onclick="if(event.target===this)closeCompositionDetailsModal()">' +
+        '<div class="admin-modal" style="max-width:720px">' +
+          '<div class="admin-modal-header">' +
+            '<h3 id="compositionDetailsTitle">ℹ️ Composition</h3>' +
+            '<button class="admin-modal-close" onclick="closeCompositionDetailsModal()">✕</button>' +
+          '</div>' +
+          '<div class="admin-modal-body" id="compositionDetailsBody">' +
+            '<p style="color:#999;text-align:center;padding:30px">Loading…</p>' +
+          '</div>' +
+          '<div class="admin-modal-footer">' +
+            '<button class="admin-modal-btn-cancel" onclick="closeCompositionDetailsModal()">Close</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+   document.body.appendChild(wrap.firstChild);
+}
+
+function closeCompositionDetailsModal() {
+   var m = document.getElementById('compositionDetailsModal');
+   if (m) m.classList.add('hidden');
+}
+
+async function showCompositionDetails(itemId) {
+   _ensureCompositionModal();
+   var modal = document.getElementById('compositionDetailsModal');
+   var body  = document.getElementById('compositionDetailsBody');
+   var title = document.getElementById('compositionDetailsTitle');
+   body.innerHTML = '<p style="color:#999;text-align:center;padding:30px">Loading…</p>';
+   modal.classList.remove('hidden');
+
+   var it = await AppDB.getCatalogItemById(itemId);
+   if (!it) { body.innerHTML = '<p style="color:#c62828">Item not found.</p>'; return; }
+
+   var attrs = it.attrs || {};
+   var comp  = attrs.composition || '';
+   title.textContent = 'ℹ️ ' + (it.name || 'Composition');
+
+   var details =
+      '<div style="display:flex;flex-direction:column;gap:8px;font-size:0.92rem;color:#333">' +
+        '<div><strong>' + (it.name || '') + '</strong>' + (it.brand ? ' <span style="color:#666">· ' + it.brand + '</span>' : '') + '</div>' +
+        (it.price ? '<div>💰 <strong>₹' + Number(it.price).toLocaleString('en-IN') + '</strong></div>' : '') +
+        (comp           ? '<div>🧪 <strong>Composition:</strong> ' + comp + '</div>' : '') +
+        (attrs.dose     ? '<div>💊 <strong>Dose:</strong> ' + attrs.dose + '</div>' : '') +
+        (attrs.units_per_strip ? '<div>📦 <strong>Units per Pack:</strong> ' + attrs.units_per_strip + '</div>' : '') +
+        (attrs.mfr      ? '<div>🏭 <strong>Manufacturer:</strong> ' + attrs.mfr + '</div>' : '') +
+        (attrs.hsn      ? '<div>🧾 <strong>HSN:</strong> ' + attrs.hsn + '</div>' : '') +
+        (attrs.rx_required ? '<div style="color:#c62828">⚠️ <strong>Prescription required</strong></div>' : '') +
+      '</div>';
+
+   var altSection = '';
+   if (comp) {
+      altSection = '<hr style="border:none;border-top:1px solid #eee;margin:14px 0"/>' +
+                   '<div id="compositionAltsBox">' +
+                      '<p style="color:#999;font-size:0.88rem">Looking for alternatives with the same composition…</p>' +
+                   '</div>';
+   } else {
+      altSection = '<hr style="border:none;border-top:1px solid #eee;margin:14px 0"/>' +
+                   '<p style="color:#888;font-size:0.85rem">No composition recorded for this item — alternatives lookup requires composition data.</p>';
+   }
+   body.innerHTML = details + altSection;
+
+   if (!comp) return;
+   var alts = await AppDB.getCatalogAlternatives(it.category, comp, it.id, 25);
+   var box = document.getElementById('compositionAltsBox');
+   if (!box) return;
+   if (!alts.length) {
+      box.innerHTML = '<p style="color:#888;font-size:0.88rem">No other items in <strong>' + (STORE_CAT_META[it.category] || {label:it.category}).label + '</strong> share this exact composition.</p>';
+      return;
+   }
+   // Sort by price ascending for cheapest-first display
+   var rows = alts.map(function(a) {
+      var jid = a.id.replace(/'/g, "\\'");
+      var price = (a.price != null) ? '₹' + Number(a.price).toLocaleString('en-IN') : '—';
+      var img = a.image_url
+         ? '<img src="' + a.image_url + '" style="width:32px;height:32px;border-radius:5px;object-fit:cover" onerror="this.style.display=\'none\'"/>'
+         : '<span style="font-size:1.2rem">💊</span>';
+      var cheap = (it.price && a.price && a.price < it.price)
+         ? ' <span style="background:#0a8a3a;color:#fff;padding:1px 6px;border-radius:4px;font-size:0.7rem;font-weight:700">SAVE ₹' + Math.round(it.price - a.price) + '</span>'
+         : '';
+      return '<div class="comp-alt-row">' +
+                '<div class="comp-alt-img">' + img + '</div>' +
+                '<div class="comp-alt-info">' +
+                   '<div class="comp-alt-name">' + a.name + cheap + '</div>' +
+                   '<div class="comp-alt-meta">' + (a.brand || '') + '</div>' +
+                '</div>' +
+                '<div class="comp-alt-price">' + price + '</div>' +
+              '</div>';
+   }).join('');
+   box.innerHTML = '<div style="font-weight:700;color:#1a1a2e;margin-bottom:6px">🔁 ' + alts.length + ' alternative' + (alts.length === 1 ? '' : 's') + ' with the same composition</div>' +
+                   '<div class="comp-alt-list">' + rows + '</div>';
 }
 
 async function deleteCatalogItemUi(itemId) {
@@ -3607,7 +3775,6 @@ async function deleteCatalogItemUi(itemId) {
    if (!confirm('Delete "' + it.name + '" from the catalogue? This cannot be undone.')) return;
    var ok = await AppDB.deleteCatalogItem(itemId);
    if (!ok) { alert('Failed to delete.'); return; }
-   _catalogItemsCache = _catalogItemsCache.filter(function(x) { return x.id !== itemId; });
    renderCatalogItems();
 }
 
@@ -3628,18 +3795,45 @@ async function renderAllAppointments() {
    await loadAptCategories();
    var all = await AppDB.getAllAppointments();
 
-   // Populate filter dropdowns from data (preserves selection)
-   _fillSelectFromList('adminAptDoctorFilter',   '👨‍⚕️ All staff',     all.map(function(a){return a.doctor_name;}));
-   _fillSelectFromList('adminAptProviderFilter', '🏪 All providers',  all.map(function(a){return a.provider_name;}));
+   // Read current selections BEFORE rebuilding dropdowns (strict cascade).
+   var catF    = (document.getElementById('adminAptCategoryFilter') || {}).value || '';
+   var provF   = (document.getElementById('adminAptProviderFilter') || {}).value || '';
+   var docF    = (document.getElementById('adminAptDoctorFilter')   || {}).value || '';
+
+   // Category dropdown — always from full data
    _fillSelectFromList('adminAptCategoryFilter', '🗂 All categories', all.map(function(a){return a.category;}), function(k){
       var m = APT_CAT_META[k]; return m ? (m.icon + ' ' + m.label) : k;
    });
 
-   var search   = ((document.getElementById('adminAptSearch')         || {}).value || '').trim().toLowerCase();
-   var docF     =  (document.getElementById('adminAptDoctorFilter')   || {}).value || '';
-   var provF    =  (document.getElementById('adminAptProviderFilter') || {}).value || '';
-   var catF     =  (document.getElementById('adminAptCategoryFilter') || {}).value || '';
-   var statusF  =  (document.getElementById('aptBookingsFilter')      || {}).value || '';
+   var provSel = document.getElementById('adminAptProviderFilter');
+   var docSel  = document.getElementById('adminAptDoctorFilter');
+
+   if (!catF) {
+      // No category yet → lock Providers AND Staff
+      if (provSel) { provSel.innerHTML = '<option value="">🏪 Pick a category first</option>'; provSel.disabled = true; provSel.value = ''; provF = ''; }
+      if (docSel)  { docSel.innerHTML  = '<option value="">👥 Pick a provider first</option>';  docSel.disabled  = true; docSel.value  = ''; docF  = ''; }
+   } else {
+      if (provSel) provSel.disabled = false;
+      var providersPool = all.filter(function(a) { return a.category === catF; });
+      _fillSelectFromList('adminAptProviderFilter', '🏪 All providers', providersPool.map(function(a){return a.provider_name;}));
+      if (provF && provSel && !providersPool.some(function(a){return a.provider_name === provF;})) {
+         provSel.value = ''; provF = '';
+      }
+
+      if (!provF) {
+         if (docSel) { docSel.innerHTML = '<option value="">👥 Pick a provider first</option>'; docSel.disabled = true; docSel.value = ''; docF = ''; }
+      } else {
+         if (docSel) docSel.disabled = false;
+         var staffPool = providersPool.filter(function(a) { return a.provider_name === provF; });
+         _fillSelectFromList('adminAptDoctorFilter', '👥 All staff', staffPool.map(function(a){return a.doctor_name;}));
+         if (docF && docSel && !staffPool.some(function(a){return a.doctor_name === docF;})) {
+            docSel.value = ''; docF = '';
+         }
+      }
+   }
+
+   var search   = ((document.getElementById('adminAptSearch')    || {}).value || '').trim().toLowerCase();
+   var statusF  =  (document.getElementById('aptBookingsFilter') || {}).value || '';
    var df       = _readDateFilter('adminAptDateFilter', 'adminAptCustomDate', 'adminAptRangeFrom', 'adminAptRangeTo');
 
    var apts = all.filter(function(a) {
@@ -5684,18 +5878,15 @@ async function _doCatalogSearch() {
    var input = document.getElementById('sp-catalog-search');
    var box   = document.getElementById('sp-catalog-results');
    if (!input || !box) return;
-   var q = (input.value || '').trim().toLowerCase();
+   var q = (input.value || '').trim();
    if (q.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; return; }
 
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
    var cat   = store ? store.category : null;
    if (!cat) { box.classList.add('hidden'); return; }
 
-   var rows = await AppDB.getCatalogItems(cat);
-   var hits = rows.filter(function(it) {
-      var hay = ((it.name || '') + ' ' + (it.brand || '') + ' ' + JSON.stringify(it.attrs || {})).toLowerCase();
-      return hay.indexOf(q) !== -1;
-   }).slice(0, 12);
+   // Server-side ilike — fast even with 250K items in the table.
+   var hits = await AppDB.getCatalogItems(cat, { search: q, limit: 12 });
 
    if (!hits.length) {
       box.innerHTML = '<div class="sp-catalog-result-empty">No matches in catalogue. Fill the form below for a custom item, or ask admin to add it.</div>';
@@ -5705,12 +5896,13 @@ async function _doCatalogSearch() {
    box.innerHTML = hits.map(function(it) {
       var img = it.image_url ? '<img src="' + it.image_url + '" onerror="this.style.display=\'none\'"/>' : '<span style="font-size:1.4rem">💊</span>';
       var iid = it.id.replace(/'/g, "\\'");
-      return '<div class="sp-catalog-result" onclick="pickCatalogItem(\'' + iid + '\')">' +
-                '<div class="sp-catalog-result-img">' + img + '</div>' +
-                '<div class="sp-catalog-result-info">' +
+      return '<div class="sp-catalog-result">' +
+                '<div class="sp-catalog-result-img" onclick="pickCatalogItem(\'' + iid + '\')">' + img + '</div>' +
+                '<div class="sp-catalog-result-info" onclick="pickCatalogItem(\'' + iid + '\')">' +
                    '<div class="sp-catalog-result-name">' + (it.name || '') + '</div>' +
                    '<div class="sp-catalog-result-meta">' + (it.brand || '') + (it.price ? ' · ₹' + Number(it.price).toLocaleString('en-IN') : '') + '</div>' +
                 '</div>' +
+                '<button class="sp-catalog-info-btn" onclick="event.stopPropagation();showCompositionDetails(\'' + iid + '\')" title="Show composition + alternatives">ℹ️</button>' +
               '</div>';
    }).join('');
    box.classList.remove('hidden');
@@ -5719,8 +5911,7 @@ async function _doCatalogSearch() {
 async function pickCatalogItem(itemId) {
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
    if (!store) return;
-   var rows = await AppDB.getCatalogItems(store.category);
-   var it = rows.find(function(x) { return x.id === itemId; });
+   var it = await AppDB.getCatalogItemById(itemId);
    if (!it) return;
 
    // Prefill the form fields

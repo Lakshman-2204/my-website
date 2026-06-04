@@ -273,6 +273,19 @@ ALTER TABLE public.catalog_items DISABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS catalog_items_category_idx ON public.catalog_items(category);
 CREATE INDEX IF NOT EXISTS catalog_items_name_idx     ON public.catalog_items(name);
 
+-- Trigram index for fast substring search ("%dolo%") at 250K-row scale.
+-- Without this an ilike on the full name column does a sequential scan.
+-- The pg_trgm extension ships with Supabase by default.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS catalog_items_name_trgm_idx
+   ON public.catalog_items USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS catalog_items_brand_trgm_idx
+   ON public.catalog_items USING gin (brand gin_trgm_ops);
+-- Composition lives inside attrs JSONB. Functional trigram index so the
+-- catalogue search also covers salts/compositions in O(log n).
+CREATE INDEX IF NOT EXISTS catalog_items_composition_trgm_idx
+   ON public.catalog_items USING gin ((attrs->>'composition') gin_trgm_ops);
+
 -- 13b. STORE_CATEGORIES — per-category field schema (admin-editable).
 --      Each row holds a JSONB array of field defs like:
 --         [{key,label,type,placeholder}, ...]

@@ -432,9 +432,11 @@
             <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
                <button class="apt-back-btn" onclick="exitCatalogCategory()">← All Categories</button>
                <h2 id="catalogItemsTitle" style="margin:0;flex:1;min-width:0;font-size:1.1rem">Items</h2>
-               <input type="search" id="catalogItemSearch" class="admin-filter-select" placeholder="🔍 Search items" oninput="renderCatalogItems()" style="min-width:200px"/>
+               <input type="search" id="catalogItemSearch" class="admin-filter-select" placeholder="🔍 Search items" oninput="scheduleRenderCatalogItems()" style="min-width:200px"/>
                <button class="admin-add-main-btn" style="background:#5e35b1" onclick="openCatalogFieldsModal()">⚙️ Edit Fields</button>
                <button class="admin-add-main-btn" style="background:#0a8a3a" onclick="openCatalogImportModal()">📥 Import CSV</button>
+               <button class="admin-add-main-btn" style="background:#c62828" onclick="deleteFilteredCatalogItemsUi()" title="Delete every item matching the current search">🗑 Delete Filtered</button>
+               <button class="admin-add-main-btn" style="background:#7d1f1f" onclick="deleteAllCatalogItemsUi()"     title="Wipe ALL items in this category">🗑 Delete All</button>
                <button class="admin-add-main-btn" onclick="openCatalogItemModal()">➕ Add Item</button>
             </div>
             <div class="admin-content" id="catalogItemsContent">

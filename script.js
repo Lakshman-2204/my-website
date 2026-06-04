@@ -1134,10 +1134,11 @@ async function loadStoreCategories(force) {
    var next = {};
    (rows || []).forEach(function(r) {
       next[r.id] = {
-         icon:      r.icon  || '🏪',
-         label:     r.label,
-         desc:      r.description || '',
-         sortOrder: r.sort_order   || 100
+         icon:           r.icon  || '🏪',
+         label:          r.label,
+         desc:           r.description || '',
+         sortOrder:      r.sort_order   || 100,
+         catalogFields:  Array.isArray(r.catalog_fields) ? r.catalog_fields : []
       };
    });
    STORE_CAT_META = next;
@@ -3065,6 +3066,551 @@ async function saveStoreProvider() {
    await renderStoreProvidersAdmin();
 }
 
+// ── ADMIN: CATALOGUE (master item list per category) ──────────
+// Per-category schema is admin-editable, stored on store_categories.catalog_fields.
+// Common fields (name, brand, price, serial, batch, image) live as columns;
+// per-category extras go into the items.attrs JSONB blob.
+function _catalogSchemaFor(catKey) {
+   var meta = STORE_CAT_META[catKey];
+   return (meta && Array.isArray(meta.catalogFields)) ? meta.catalogFields : [];
+}
+
+let _catalogCurrentCat   = null;
+let _catalogItemsCache   = [];   // items for the currently selected category
+
+async function renderCatalogCategoriesGrid() {
+   var grid = document.getElementById('catalogCategoriesGrid');
+   if (!grid) return;
+   grid.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+   await loadStoreCategories(true);
+   var keys = Object.keys(STORE_CAT_META);
+   if (!keys.length) {
+      grid.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No categories yet. Set them up in Admin → 🏪 Stores → 🗂 Categories.</p>';
+      return;
+   }
+   keys.sort(function(a, b) {
+      return (STORE_CAT_META[a].sortOrder || 100) - (STORE_CAT_META[b].sortOrder || 100);
+   });
+
+   // Quick item counts in parallel
+   var counts = await Promise.all(keys.map(function(k) {
+      return AppDB.getCatalogItems(k).then(function(rows) { return rows.length; });
+   }));
+
+   var html = '<div class="apt-cats-grid" style="margin-top:1rem">';
+   keys.forEach(function(k, i) {
+      var c = STORE_CAT_META[k];
+      var kid = k.replace(/'/g, "\\'");
+      html += '<div class="apt-cat-card" onclick="enterCatalogCategory(\'' + kid + '\')">' +
+                '<div class="apt-cat-icon">' + c.icon + '</div>' +
+                '<div class="apt-cat-label">' + c.label + '</div>' +
+                '<div class="apt-cat-desc">' + (c.desc || '') + '</div>' +
+                '<div class="apt-cat-count">' + counts[i] + (counts[i] === 1 ? ' item' : ' items') + '</div>' +
+              '</div>';
+   });
+   html += '</div>';
+   grid.innerHTML = html;
+}
+
+function enterCatalogCategory(catKey) {
+   _catalogCurrentCat = catKey;
+   document.getElementById('catalogCategoriesView').classList.add('hidden');
+   document.getElementById('catalogItemsView').classList.remove('hidden');
+   var meta = STORE_CAT_META[catKey] || { icon: '🧬', label: catKey };
+   document.getElementById('catalogItemsTitle').textContent = meta.icon + ' ' + meta.label;
+   var s = document.getElementById('catalogItemSearch'); if (s) s.value = '';
+   renderCatalogItems();
+}
+function exitCatalogCategory() {
+   _catalogCurrentCat = null;
+   document.getElementById('catalogItemsView').classList.add('hidden');
+   document.getElementById('catalogCategoriesView').classList.remove('hidden');
+   renderCatalogCategoriesGrid();
+}
+
+async function renderCatalogItems() {
+   if (!_catalogCurrentCat) return;
+   var container = document.getElementById('catalogItemsContent');
+   if (!container) return;
+   // Only fetch once per category enter; in-cell edits update _catalogItemsCache directly
+   if (!_catalogItemsCache.length || _catalogItemsCache._cat !== _catalogCurrentCat) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+      _catalogItemsCache = await AppDB.getCatalogItems(_catalogCurrentCat);
+      _catalogItemsCache._cat = _catalogCurrentCat;
+   }
+
+   var schema = _catalogSchemaFor(_catalogCurrentCat);
+   var search = ((document.getElementById('catalogItemSearch') || {}).value || '').trim().toLowerCase();
+   var rows = _catalogItemsCache.filter(function(it) {
+      if (!search) return true;
+      var hay = ((it.name || '') + ' ' + (it.brand || '') + ' ' + JSON.stringify(it.attrs || {})).toLowerCase();
+      return hay.indexOf(search) !== -1;
+   });
+
+   if (!rows.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No items yet. Click <strong>➕ Add Item</strong> to start populating the master catalogue.</p>';
+      return;
+   }
+
+   var headExtra = schema.slice(0, 3).map(function(f) { return '<th>' + f.label + '</th>'; }).join('');
+   var html = '<div style="overflow-x:auto"><table class="catalog-items-table">' +
+              '<thead><tr>' +
+                 '<th style="width:46px"></th>' +
+                 '<th>Name</th>' +
+                 '<th>Brand</th>' +
+                 '<th>Price (₹)</th>' +
+                 '<th>Serial</th>' +
+                 '<th>Batch</th>' +
+                 headExtra +
+                 '<th style="width:110px">Actions</th>' +
+              '</tr></thead><tbody>';
+   rows.forEach(function(it) {
+      var iid = it.id.replace(/'/g, "\\'");
+      var attrs = it.attrs || {};
+      var attrCells = schema.slice(0, 3).map(function(f) {
+         var v = attrs[f.key];
+         if (f.type === 'checkbox') return '<td>' + (v ? '✅' : '—') + '</td>';
+         return '<td>' + (v == null || v === '' ? '<span style="color:#bbb">—</span>' : v) + '</td>';
+      }).join('');
+      var img = it.image_url
+         ? '<img src="' + it.image_url + '" style="width:38px;height:38px;border-radius:6px;object-fit:cover" onerror="this.style.display=\'none\'"/>'
+         : '<span style="font-size:1.4rem">💊</span>';
+      html += '<tr>' +
+                 '<td>' + img + '</td>' +
+                 '<td><strong>' + (it.name || '') + '</strong></td>' +
+                 '<td>' + (it.brand || '<span style="color:#bbb">—</span>') + '</td>' +
+                 '<td>' + ((it.price || it.price === 0) ? '₹' + Number(it.price).toLocaleString('en-IN') : '<span style="color:#bbb">—</span>') + '</td>' +
+                 '<td>' + (it.serial_no || '<span style="color:#bbb">—</span>') + '</td>' +
+                 '<td>' + (it.batch_no  || '<span style="color:#bbb">—</span>') + '</td>' +
+                 attrCells +
+                 '<td>' +
+                    '<button class="apt-view-btn" onclick="openCatalogItemModal(\'' + iid + '\')">✏️</button> ' +
+                    '<button class="apt-view-btn" style="background:#c62828" onclick="deleteCatalogItemUi(\'' + iid + '\')">🗑</button>' +
+                 '</td>' +
+              '</tr>';
+   });
+   html += '</tbody></table></div>';
+   container.innerHTML = html;
+}
+
+function openCatalogItemModal(itemId) {
+   if (!_catalogCurrentCat) { alert('Pick a category first.'); return; }
+   var it = itemId ? _catalogItemsCache.find(function(x) { return x.id === itemId; }) : null;
+   document.getElementById('catalogItemModalTitle').textContent = it ? '✏️ Edit Item' : '➕ Add Item';
+   document.getElementById('catItemId').value       = it ? it.id : '';
+   document.getElementById('catItemCategory').value = _catalogCurrentCat;
+   document.getElementById('catItemName').value     = it ? (it.name      || '') : '';
+   document.getElementById('catItemBrand').value    = it ? (it.brand     || '') : '';
+   document.getElementById('catItemPrice').value    = it ? (it.price     != null ? it.price : '') : '';
+   document.getElementById('catItemSerial').value   = it ? (it.serial_no || '') : '';
+   document.getElementById('catItemBatch').value    = it ? (it.batch_no  || '') : '';
+   document.getElementById('catItemImage').value    = it ? (it.image_url || '') : '';
+
+   // Render dynamic per-category fields
+   var host = document.getElementById('catItemAttrsHost');
+   var schema = _catalogSchemaFor(_catalogCurrentCat);
+   var attrs = it && it.attrs ? it.attrs : {};
+   host.innerHTML = schema.map(function(f) {
+      var inputId = 'catItemAttr_' + f.key;
+      var val = attrs[f.key];
+      if (f.type === 'checkbox') {
+         return '<div class="modal-field">' +
+                   '<label><input type="checkbox" id="' + inputId + '"' + (val ? ' checked' : '') + ' style="margin-right:6px"/>' + f.label + '</label>' +
+                '</div>';
+      }
+      return '<div class="modal-field">' +
+                '<label>' + f.label + '</label>' +
+                '<input type="' + (f.type || 'text') + '" id="' + inputId + '" placeholder="' + (f.placeholder || '') + '" value="' + (val == null ? '' : String(val).replace(/"/g, '&quot;')) + '"' + (f.type === 'number' ? ' step="any"' : '') + '/>' +
+             '</div>';
+   }).join('');
+
+   document.getElementById('catalogItemModal').classList.remove('hidden');
+}
+
+function closeCatalogItemModal() {
+   document.getElementById('catalogItemModal').classList.add('hidden');
+}
+
+async function saveCatalogItem() {
+   var name = document.getElementById('catItemName').value.trim();
+   if (!name) { alert('Item name is required.'); return; }
+   var category   = document.getElementById('catItemCategory').value;
+   var existingId = document.getElementById('catItemId').value;
+   var id = existingId || ('cat_' + category + '_' + Date.now().toString(36));
+
+   // Collect per-category attrs
+   var schema = _catalogSchemaFor(category);
+   var attrs = {};
+   schema.forEach(function(f) {
+      var el = document.getElementById('catItemAttr_' + f.key);
+      if (!el) return;
+      if (f.type === 'checkbox')      attrs[f.key] = !!el.checked;
+      else if (f.type === 'number')   attrs[f.key] = el.value === '' ? null : (parseFloat(el.value) || 0);
+      else                            attrs[f.key] = el.value.trim();
+   });
+
+   var item = {
+      id:        id,
+      category:  category,
+      name:      name,
+      brand:     document.getElementById('catItemBrand').value.trim(),
+      price:     parseFloat(document.getElementById('catItemPrice').value) || 0,
+      serial_no: document.getElementById('catItemSerial').value.trim(),
+      batch_no:  document.getElementById('catItemBatch').value.trim(),
+      image_url: document.getElementById('catItemImage').value.trim(),
+      attrs:     attrs
+   };
+   var ok = await AppDB.upsertCatalogItem(item);
+   if (!ok) { alert('Failed to save.'); return; }
+   // Refresh cache and re-render
+   _catalogItemsCache = _catalogItemsCache.filter(function(x) { return x.id !== id; });
+   _catalogItemsCache.push(item);
+   _catalogItemsCache._cat = category;
+   closeCatalogItemModal();
+   renderCatalogItems();
+}
+
+// ── Admin: edit per-category catalogue schema (add/remove/rename fields) ──
+let _catalogFieldsDraft = [];
+
+function openCatalogFieldsModal() {
+   if (!_catalogCurrentCat) { alert('Pick a category first.'); return; }
+   var meta = STORE_CAT_META[_catalogCurrentCat] || {};
+   _catalogFieldsDraft = (meta.catalogFields || []).map(function(f) {
+      return { key: f.key, label: f.label, type: f.type || 'text', placeholder: f.placeholder || '' };
+   });
+   document.getElementById('catalogFieldsModalTitle').textContent =
+      '⚙️ Edit Fields — ' + (meta.icon || '🧬') + ' ' + (meta.label || _catalogCurrentCat);
+   renderCatalogFieldsList();
+   document.getElementById('catalogFieldsModal').classList.remove('hidden');
+}
+
+function closeCatalogFieldsModal() {
+   document.getElementById('catalogFieldsModal').classList.add('hidden');
+   _catalogFieldsDraft = [];
+}
+
+function renderCatalogFieldsList() {
+   var host = document.getElementById('catalogFieldsList');
+   if (!host) return;
+   if (!_catalogFieldsDraft.length) {
+      host.innerHTML = '<p style="color:#999;text-align:center;padding:20px;border:1px dashed #ccc;border-radius:8px">No extra fields yet. Click <strong>➕ Add Field</strong>.</p>';
+      return;
+   }
+   host.innerHTML = _catalogFieldsDraft.map(function(f, i) {
+      return '<div class="catalog-field-row">' +
+                '<div class="catalog-field-handles">' +
+                   '<button class="catalog-field-btn" title="Move up"   onclick="moveCatalogField(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+                   '<button class="catalog-field-btn" title="Move down" onclick="moveCatalogField(' + i + ', 1)"' + (i === _catalogFieldsDraft.length - 1 ? ' disabled' : '') + '>↓</button>' +
+                '</div>' +
+                '<div class="catalog-field-inputs">' +
+                   '<div class="catalog-field-cell">' +
+                      '<label>Label</label>' +
+                      '<input type="text" value="' + String(f.label || '').replace(/"/g, '&quot;') + '" placeholder="e.g. Composition" oninput="_catalogFieldEdit(' + i + ',\'label\',this.value)"/>' +
+                   '</div>' +
+                   '<div class="catalog-field-cell">' +
+                      '<label>Key</label>' +
+                      '<input type="text" value="' + String(f.key || '').replace(/"/g, '&quot;') + '" placeholder="composition" oninput="_catalogFieldEdit(' + i + ',\'key\',this.value)"/>' +
+                   '</div>' +
+                   '<div class="catalog-field-cell" style="max-width:130px">' +
+                      '<label>Type</label>' +
+                      '<select onchange="_catalogFieldEdit(' + i + ',\'type\',this.value)">' +
+                         '<option value="text"'     + (f.type === 'text'     ? ' selected' : '') + '>Text</option>' +
+                         '<option value="number"'   + (f.type === 'number'   ? ' selected' : '') + '>Number</option>' +
+                         '<option value="checkbox"' + (f.type === 'checkbox' ? ' selected' : '') + '>Checkbox</option>' +
+                      '</select>' +
+                   '</div>' +
+                   '<div class="catalog-field-cell">' +
+                      '<label>Placeholder</label>' +
+                      '<input type="text" value="' + String(f.placeholder || '').replace(/"/g, '&quot;') + '" placeholder="example value" oninput="_catalogFieldEdit(' + i + ',\'placeholder\',this.value)"/>' +
+                   '</div>' +
+                '</div>' +
+                '<button class="catalog-field-btn" style="background:#c62828;color:#fff" title="Remove field" onclick="removeCatalogField(' + i + ')">🗑</button>' +
+              '</div>';
+   }).join('');
+}
+
+function _catalogFieldEdit(i, key, val) {
+   if (!_catalogFieldsDraft[i]) return;
+   _catalogFieldsDraft[i][key] = val;
+}
+
+function addCatalogField() {
+   _catalogFieldsDraft.push({ key: '', label: '', type: 'text', placeholder: '' });
+   renderCatalogFieldsList();
+}
+
+function removeCatalogField(i) {
+   _catalogFieldsDraft.splice(i, 1);
+   renderCatalogFieldsList();
+}
+
+function moveCatalogField(i, dir) {
+   var j = i + dir;
+   if (j < 0 || j >= _catalogFieldsDraft.length) return;
+   var t = _catalogFieldsDraft[i];
+   _catalogFieldsDraft[i] = _catalogFieldsDraft[j];
+   _catalogFieldsDraft[j] = t;
+   renderCatalogFieldsList();
+}
+
+async function saveCatalogFields() {
+   if (!_catalogCurrentCat) return;
+   // Validate: each field needs label + key; keys must be unique snake_case
+   var seen = {};
+   for (var i = 0; i < _catalogFieldsDraft.length; i++) {
+      var f = _catalogFieldsDraft[i];
+      var label = (f.label || '').trim();
+      var key   = (f.key   || '').trim().toLowerCase().replace(/\s+/g, '_');
+      if (!label || !key) { alert('Row ' + (i + 1) + ': label and key are required.'); return; }
+      if (!/^[a-z][a-z0-9_]*$/.test(key)) { alert('Row ' + (i + 1) + ': key "' + key + '" must be lowercase letters/digits/underscores, starting with a letter.'); return; }
+      if (seen[key]) { alert('Duplicate key: ' + key); return; }
+      seen[key] = true;
+      f.label = label;
+      f.key   = key;
+      f.type  = f.type || 'text';
+      f.placeholder = (f.placeholder || '').trim();
+   }
+
+   var meta = STORE_CAT_META[_catalogCurrentCat] || {};
+   var row = {
+      id:             _catalogCurrentCat,
+      label:          meta.label,
+      description:    meta.desc  || '',
+      icon:           meta.icon  || '🏪',
+      sort_order:     meta.sortOrder || 100,
+      catalog_fields: _catalogFieldsDraft
+   };
+   var ok = await AppDB.upsertStoreCategory(row);
+   if (!ok) { alert('Failed to save fields.'); return; }
+   // Refresh local cache and re-render
+   await loadStoreCategories(true);
+   closeCatalogFieldsModal();
+   renderCatalogItems();
+}
+
+// ── Admin: CSV bulk import for the catalogue ─────────────
+// Minimal RFC-4180-ish CSV parser. Handles quoted fields with embedded commas,
+// doubled-quote escape ("" → "), CR/LF line endings.
+function _parseCSV(text) {
+   var src = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+   if (!src.trim()) return { headers: [], rows: [] };
+   var lines = src.split('\n');
+   function parseLine(line) {
+      var out = [], cur = '', inQ = false;
+      for (var i = 0; i < line.length; i++) {
+         var c = line[i];
+         if (c === '"') {
+            if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+            else inQ = !inQ;
+         } else if (c === ',' && !inQ) {
+            out.push(cur); cur = '';
+         } else cur += c;
+      }
+      out.push(cur);
+      return out.map(function(s) { return s.trim(); });
+   }
+   // Strip BOM + blank trailing lines
+   if (lines[0].charCodeAt(0) === 0xFEFF) lines[0] = lines[0].slice(1);
+   var nonEmpty = lines.filter(function(l) { return l.trim().length > 0; });
+   if (!nonEmpty.length) return { headers: [], rows: [] };
+   var headers = parseLine(nonEmpty[0]);
+   var rows = nonEmpty.slice(1).map(function(line) {
+      var cols = parseLine(line);
+      var obj = {};
+      headers.forEach(function(h, i) { obj[h] = (cols[i] != null) ? cols[i] : ''; });
+      return obj;
+   });
+   return { headers: headers, rows: rows };
+}
+
+// Generate a CSV template for the current category (header row only).
+function _csvTemplateForCurrentCategory() {
+   var base = ['name','brand','price','serial_no','batch_no','image_url'];
+   var extras = _catalogSchemaFor(_catalogCurrentCat).map(function(f) { return f.key; });
+   var headers = base.concat(extras);
+   // Example row showing common values (so admin doesn't start from scratch)
+   var ex = {
+      name: 'Dolo 650', brand: 'Micro Labs', price: '35',
+      serial_no: '', batch_no: '', image_url: ''
+   };
+   if (_catalogCurrentCat === 'medical') Object.assign(ex, {
+      composition: 'Paracetamol 650mg', dose: '650mg',
+      units_per_strip: '15', mfr: 'Micro Labs', hsn: '3004', rx_required: 'false'
+   });
+   var exampleRow = headers.map(function(h) {
+      var v = ex[h] != null ? ex[h] : '';
+      // CSV-escape only if needed
+      return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+   }).join(',');
+   return headers.join(',') + '\n' + exampleRow + '\n';
+}
+
+function downloadCatalogTemplate() {
+   if (!_catalogCurrentCat) return;
+   var csv = _csvTemplateForCurrentCategory();
+   var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+   var url = URL.createObjectURL(blob);
+   var a = document.createElement('a');
+   a.href = url;
+   a.download = 'catalogue_' + _catalogCurrentCat + '_template.csv';
+   document.body.appendChild(a); a.click(); document.body.removeChild(a);
+   URL.revokeObjectURL(url);
+}
+
+function openCatalogImportModal() {
+   if (!_catalogCurrentCat) { alert('Pick a category first.'); return; }
+   var meta = STORE_CAT_META[_catalogCurrentCat] || {};
+   document.getElementById('catalogImportModalTitle').textContent =
+      '📥 Import CSV — ' + (meta.icon || '🧬') + ' ' + (meta.label || _catalogCurrentCat);
+   document.getElementById('catImportTextarea').value = '';
+   document.getElementById('catImportSummary').innerHTML = '';
+   document.getElementById('catImportPreview').innerHTML = '';
+   var fileEl = document.getElementById('catImportFile');
+   if (fileEl) fileEl.value = '';
+   var btn = document.getElementById('catImportConfirmBtn');
+   if (btn) { btn.disabled = true; btn.textContent = '📥 Import 0 items'; }
+   document.getElementById('catalogImportModal').classList.remove('hidden');
+}
+
+function closeCatalogImportModal() {
+   document.getElementById('catalogImportModal').classList.add('hidden');
+   _pendingCsvRows = [];
+}
+
+function onCatalogCsvFile() {
+   var f = document.getElementById('catImportFile').files[0];
+   if (!f) return;
+   var reader = new FileReader();
+   reader.onload = function(e) {
+      document.getElementById('catImportTextarea').value = e.target.result || '';
+      previewCatalogImport();
+   };
+   reader.readAsText(f);
+}
+
+// Holds the validated rows ready to upsert.
+var _pendingCsvRows = [];
+
+function previewCatalogImport() {
+   if (!_catalogCurrentCat) return;
+   var text = document.getElementById('catImportTextarea').value || '';
+   var summary = document.getElementById('catImportSummary');
+   var preview = document.getElementById('catImportPreview');
+   var btn     = document.getElementById('catImportConfirmBtn');
+   var parsed = _parseCSV(text);
+   if (!parsed.headers.length) {
+      summary.innerHTML = '<span style="color:#888">Paste CSV above (or use Download template).</span>';
+      preview.innerHTML = '';
+      _pendingCsvRows = [];
+      if (btn) { btn.disabled = true; btn.textContent = '📥 Import 0 items'; }
+      return;
+   }
+
+   var schema = _catalogSchemaFor(_catalogCurrentCat);
+   var attrKeys = schema.map(function(f) { return f.key; });
+   var coreKeys = ['name','brand','price','serial_no','batch_no','image_url'];
+   var knownKeys = coreKeys.concat(attrKeys);
+
+   var unknown = parsed.headers.filter(function(h) { return knownKeys.indexOf(h) === -1; });
+   var hasName = parsed.headers.indexOf('name') !== -1;
+
+   var prepared = [];
+   var errors = [];
+   parsed.rows.forEach(function(r, idx) {
+      if (!hasName) { errors.push('Row ' + (idx + 2) + ': missing required column "name".'); return; }
+      var name = (r.name || '').trim();
+      if (!name) return;   // skip blank-name rows silently
+      var attrs = {};
+      schema.forEach(function(f) {
+         var raw = (r[f.key] || '').trim();
+         if (f.type === 'checkbox')      attrs[f.key] = /^(true|yes|1|y)$/i.test(raw);
+         else if (f.type === 'number')   attrs[f.key] = raw === '' ? null : (parseFloat(raw) || 0);
+         else                            attrs[f.key] = raw;
+      });
+      prepared.push({
+         id:        'cat_' + _catalogCurrentCat + '_' + Date.now().toString(36) + '_' + idx,
+         category:  _catalogCurrentCat,
+         name:      name,
+         brand:     (r.brand     || '').trim(),
+         price:     parseFloat(r.price) || 0,
+         serial_no: (r.serial_no || '').trim(),
+         batch_no:  (r.batch_no  || '').trim(),
+         image_url: (r.image_url || '').trim(),
+         attrs:     attrs
+      });
+   });
+   _pendingCsvRows = prepared;
+
+   // Summary line + warnings
+   var parts = [];
+   parts.push('<strong>' + prepared.length + '</strong> row' + (prepared.length === 1 ? '' : 's') + ' ready to import.');
+   if (unknown.length) parts.push('<span style="color:#c62828">⚠️ Unknown columns (will be ignored): ' + unknown.join(', ') + '</span>');
+   if (errors.length)  parts.push('<span style="color:#c62828">⚠️ ' + errors.length + ' validation issue' + (errors.length === 1 ? '' : 's') + ': ' + errors.slice(0,3).join(' · ') + (errors.length > 3 ? ' …' : '') + '</span>');
+   summary.innerHTML = parts.join('<br/>');
+
+   // Preview table (first 10 rows)
+   if (!prepared.length) {
+      preview.innerHTML = '';
+      if (btn) { btn.disabled = true; btn.textContent = '📥 Import 0 items'; }
+      return;
+   }
+   var head = '<th>Name</th><th>Brand</th><th>Price</th>' +
+              schema.slice(0,3).map(function(f) { return '<th>' + f.label + '</th>'; }).join('');
+   var body = prepared.slice(0, 10).map(function(it) {
+      var attrCells = schema.slice(0,3).map(function(f) {
+         var v = it.attrs[f.key];
+         if (f.type === 'checkbox') return '<td>' + (v ? '✅' : '—') + '</td>';
+         return '<td>' + (v == null || v === '' ? '<span style="color:#bbb">—</span>' : v) + '</td>';
+      }).join('');
+      return '<tr><td><strong>' + it.name + '</strong></td><td>' + (it.brand || '—') + '</td><td>₹' + Number(it.price).toLocaleString('en-IN') + '</td>' + attrCells + '</tr>';
+   }).join('');
+   preview.innerHTML = '<table class="catalog-items-table" style="font-size:0.84rem"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>' +
+      (prepared.length > 10 ? '<p style="color:#888;font-size:0.8rem;margin:6px 0 0">Showing first 10 of ' + prepared.length + ' rows.</p>' : '');
+
+   if (btn) {
+      btn.disabled = prepared.length === 0;
+      btn.textContent = '📥 Import ' + prepared.length + ' item' + (prepared.length === 1 ? '' : 's');
+   }
+}
+
+async function confirmCatalogImport() {
+   if (!_pendingCsvRows.length) return;
+   var btn = document.getElementById('catImportConfirmBtn');
+   var summary = document.getElementById('catImportSummary');
+   if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
+
+   var ok = 0, fail = 0;
+   for (var i = 0; i < _pendingCsvRows.length; i++) {
+      var success = await AppDB.upsertCatalogItem(_pendingCsvRows[i]);
+      if (success) ok++; else fail++;
+      // Progress every 10 rows
+      if (i % 10 === 0 && summary) {
+         summary.innerHTML = 'Importing… <strong>' + (i + 1) + '/' + _pendingCsvRows.length + '</strong>';
+      }
+   }
+   if (summary) summary.innerHTML = '<span style="color:#0a8a3a">✅ Imported ' + ok + ' item' + (ok === 1 ? '' : 's') + '</span>' +
+      (fail ? '<br/><span style="color:#c62828">❌ ' + fail + ' failed (see browser console).</span>' : '');
+
+   // Refresh items list under the current category
+   _catalogItemsCache = await AppDB.getCatalogItems(_catalogCurrentCat);
+   _catalogItemsCache._cat = _catalogCurrentCat;
+   renderCatalogItems();
+
+   if (btn) { btn.textContent = '📥 Done'; btn.disabled = true; }
+   setTimeout(closeCatalogImportModal, 1500);
+}
+
+async function deleteCatalogItemUi(itemId) {
+   var it = _catalogItemsCache.find(function(x) { return x.id === itemId; });
+   if (!it) return;
+   if (!confirm('Delete "' + it.name + '" from the catalogue? This cannot be undone.')) return;
+   var ok = await AppDB.deleteCatalogItem(itemId);
+   if (!ok) { alert('Failed to delete.'); return; }
+   _catalogItemsCache = _catalogItemsCache.filter(function(x) { return x.id !== itemId; });
+   renderCatalogItems();
+}
+
 async function deleteStoreProviderUi(providerId) {
    var p = _storeGetProvider(providerId);
    if (!p) return;
@@ -3730,6 +4276,7 @@ function _applyStoreProdsToProducts() {
          badge: p.badge || 'New',
          storeId: p.store_id, storeName: p.store_name,
          store_provider_id: p.store_provider_id || null,
+         catalog_item_id:   p.catalog_item_id   || null,
          variants: p.variants || undefined
       });
    });
@@ -5064,6 +5611,8 @@ function renderMyStoreProducts(storeId) {
       .map(function(p) {
          return { id: p.id, name: p.name, price: p.price, desc: p.description,
                   img: p.image, badge: p.badge, catKey: p.category,
+                  catalog_item_id: p.catalog_item_id || null,
+                  catalog_name: p.catalog_item_id ? p.name : null,
                   variants: p.variants || undefined };
       });
 
@@ -5101,8 +5650,105 @@ function openStoreProductModal(idx) {
    document.getElementById('sp-img').value   = p ? p.img   : '';
    document.getElementById('sp-badge').value = p ? (p.badge || '') : '';
    document.getElementById('sp-catkey').value = p ? p.catKey : Object.keys(products)[0];
+
+   // Catalogue link (Phase 5.4b)
+   var catSearch  = document.getElementById('sp-catalog-search');
+   var catChip    = document.getElementById('sp-catalog-chip');
+   var catChipNm  = document.getElementById('sp-catalog-chip-name');
+   var catHidden  = document.getElementById('sp-catalog-item-id');
+   if (catSearch) catSearch.value = '';
+   if (catHidden) catHidden.value = p && p.catalog_item_id ? p.catalog_item_id : '';
+   if (p && p.catalog_item_id && p.catalog_name) {
+      if (catChipNm) catChipNm.textContent = p.catalog_name;
+      if (catChip)   catChip.classList.remove('hidden');
+      if (catSearch && catSearch.parentNode) catSearch.parentNode.style.display = 'none';
+   } else {
+      if (catChip)   catChip.classList.add('hidden');
+      if (catSearch && catSearch.parentNode) catSearch.parentNode.style.display = '';
+   }
+   var resBox = document.getElementById('sp-catalog-results');
+   if (resBox) resBox.classList.add('hidden');
+
    previewStoreProductImg();
    document.getElementById('shopProductModal').classList.remove('hidden');
+}
+
+// Live search of the master catalogue scoped to the current store's category.
+// Results pre-fill name/brand/price/image when the owner picks an entry.
+var _catalogSearchTimer = null;
+function searchCatalogForOwner() {
+   clearTimeout(_catalogSearchTimer);
+   _catalogSearchTimer = setTimeout(_doCatalogSearch, 200);
+}
+async function _doCatalogSearch() {
+   var input = document.getElementById('sp-catalog-search');
+   var box   = document.getElementById('sp-catalog-results');
+   if (!input || !box) return;
+   var q = (input.value || '').trim().toLowerCase();
+   if (q.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
+   var cat   = store ? store.category : null;
+   if (!cat) { box.classList.add('hidden'); return; }
+
+   var rows = await AppDB.getCatalogItems(cat);
+   var hits = rows.filter(function(it) {
+      var hay = ((it.name || '') + ' ' + (it.brand || '') + ' ' + JSON.stringify(it.attrs || {})).toLowerCase();
+      return hay.indexOf(q) !== -1;
+   }).slice(0, 12);
+
+   if (!hits.length) {
+      box.innerHTML = '<div class="sp-catalog-result-empty">No matches in catalogue. Fill the form below for a custom item, or ask admin to add it.</div>';
+      box.classList.remove('hidden');
+      return;
+   }
+   box.innerHTML = hits.map(function(it) {
+      var img = it.image_url ? '<img src="' + it.image_url + '" onerror="this.style.display=\'none\'"/>' : '<span style="font-size:1.4rem">💊</span>';
+      var iid = it.id.replace(/'/g, "\\'");
+      return '<div class="sp-catalog-result" onclick="pickCatalogItem(\'' + iid + '\')">' +
+                '<div class="sp-catalog-result-img">' + img + '</div>' +
+                '<div class="sp-catalog-result-info">' +
+                   '<div class="sp-catalog-result-name">' + (it.name || '') + '</div>' +
+                   '<div class="sp-catalog-result-meta">' + (it.brand || '') + (it.price ? ' · ₹' + Number(it.price).toLocaleString('en-IN') : '') + '</div>' +
+                '</div>' +
+              '</div>';
+   }).join('');
+   box.classList.remove('hidden');
+}
+
+async function pickCatalogItem(itemId) {
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
+   if (!store) return;
+   var rows = await AppDB.getCatalogItems(store.category);
+   var it = rows.find(function(x) { return x.id === itemId; });
+   if (!it) return;
+
+   // Prefill the form fields
+   document.getElementById('sp-name').value  = it.name  || '';
+   document.getElementById('sp-price').value = it.price != null ? it.price : '';
+   document.getElementById('sp-img').value   = it.image_url || '';
+   document.getElementById('sp-desc').value  = it.brand ? it.brand : '';
+   document.getElementById('sp-catalog-item-id').value = it.id;
+
+   // Show "linked to" chip, hide the search input
+   document.getElementById('sp-catalog-chip-name').textContent = it.name + (it.brand ? ' · ' + it.brand : '');
+   document.getElementById('sp-catalog-chip').classList.remove('hidden');
+   var search = document.getElementById('sp-catalog-search');
+   if (search && search.parentNode) search.parentNode.style.display = 'none';
+   var res = document.getElementById('sp-catalog-results');
+   if (res) res.classList.add('hidden');
+
+   previewStoreProductImg();
+}
+
+function clearCatalogLink() {
+   document.getElementById('sp-catalog-item-id').value = '';
+   document.getElementById('sp-catalog-chip').classList.add('hidden');
+   var search = document.getElementById('sp-catalog-search');
+   if (search) {
+      search.value = '';
+      if (search.parentNode) search.parentNode.style.display = '';
+   }
 }
 
 function previewStoreProductImg() {
@@ -5130,6 +5776,7 @@ async function saveStoreProduct() {
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
    var existing = _editProdIdx >= 0 ? _currentMyStoreProds[_editProdIdx] : null;
    var id = existing ? existing.id : ('sp_' + (user.email || 'admin').split('@')[0] + '_' + Date.now());
+   var catalogLink = (document.getElementById('sp-catalog-item-id') || {}).value || null;
    var dbRow = {
       id: id, name: name, price: price,
       description: desc, image: img,
@@ -5137,6 +5784,7 @@ async function saveStoreProduct() {
       store_id: store ? store.owner_email : user.email,
       store_name: store ? store.name : (user.storeName || user.name || ''),
       store_provider_id: _currentMyStoreId,
+      catalog_item_id: catalogLink || null,
       variants: null
    };
    var ok = await AppDB.upsertProduct(dbRow);
@@ -7375,7 +8023,7 @@ function showAdminToast(msg) {
 
 // ── ADMIN TABS ──
 async function switchAdminTab(tab) {
-   ['products', 'stores', 'orders', 'appointments', 'billing', 'settings', 'users'].forEach(function(t) {
+   ['products', 'stores', 'catalog', 'orders', 'appointments', 'billing', 'settings', 'users'].forEach(function(t) {
       var el  = document.getElementById('tab-' + t);
       var btn = document.getElementById('tab-' + t + '-btn');
       if (el)  el.classList.toggle('hidden', t !== tab);
@@ -7387,6 +8035,7 @@ async function switchAdminTab(tab) {
    if (tab === 'settings')     loadSettingsForm();
    if (tab === 'users')        refreshAndRenderUsers();
    if (tab === 'stores')       switchStoreAdminSub('categories');
+   if (tab === 'catalog')      { _catalogCurrentCat = null; _catalogItemsCache = []; document.getElementById('catalogItemsView').classList.add('hidden'); document.getElementById('catalogCategoriesView').classList.remove('hidden'); renderCatalogCategoriesGrid(); }
    if (tab === 'orders')       renderAdminOrders();
    if (tab === 'appointments') switchAptAdminSub('categories');
    if (tab === 'billing')      renderBillingAdmin();

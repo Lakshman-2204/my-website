@@ -251,6 +251,89 @@ ALTER TABLE public.store_providers
    ADD COLUMN IF NOT EXISTS commission_value numeric DEFAULT 0,
    ADD COLUMN IF NOT EXISTS door_delivery    boolean DEFAULT false;
 
+-- 13. CATALOG_ITEMS — admin-curated master list of items per store category.
+--     Stores pick from this list when adding products (avoids duplicate entries
+--     like "Paracetamol 500", "Para 500mg", "Crocin Tab" all meaning the same drug).
+--     Common fields (name, brand, price, image, serial, batch) live as columns.
+--     Per-category extras (salt, dose, units_per_strip for medical; model, warranty
+--     for electronics; etc.) live in the `attrs` JSONB blob.
+CREATE TABLE IF NOT EXISTS public.catalog_items (
+   id          text         PRIMARY KEY,
+   category    text         NOT NULL,                  -- FK store_categories.id
+   name        text         NOT NULL,
+   brand       text         DEFAULT '',
+   price       numeric      DEFAULT 0,
+   serial_no   text         DEFAULT '',
+   batch_no    text         DEFAULT '',
+   image_url   text         DEFAULT '',
+   attrs       jsonb        DEFAULT '{}'::jsonb,
+   created_at  timestamptz  DEFAULT now()
+);
+ALTER TABLE public.catalog_items DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS catalog_items_category_idx ON public.catalog_items(category);
+CREATE INDEX IF NOT EXISTS catalog_items_name_idx     ON public.catalog_items(name);
+
+-- 13b. STORE_CATEGORIES — per-category field schema (admin-editable).
+--      Each row holds a JSONB array of field defs like:
+--         [{key,label,type,placeholder}, ...]
+--      where type ∈ ('text','number','checkbox'). Used by the catalogue
+--      Add/Edit Item modal to render dynamic fields.
+ALTER TABLE public.store_categories
+   ADD COLUMN IF NOT EXISTS catalog_fields jsonb DEFAULT '[]'::jsonb;
+
+-- Seed default schemas for the categories we shipped with. Safe to re-run
+-- (only updates rows whose catalog_fields is still the empty default).
+UPDATE public.store_categories SET catalog_fields = '[
+   {"key":"composition","label":"Composition / Salt","type":"text","placeholder":"Paracetamol 650mg"},
+   {"key":"dose","label":"Dose","type":"text","placeholder":"650mg"},
+   {"key":"units_per_strip","label":"Units per Strip","type":"number","placeholder":"15"},
+   {"key":"mfr","label":"Manufacturer","type":"text","placeholder":"Micro Labs"},
+   {"key":"hsn","label":"HSN Code","type":"text","placeholder":"3004"},
+   {"key":"rx_required","label":"Prescription required","type":"checkbox"}
+]'::jsonb WHERE id = 'medical' AND (catalog_fields = '[]'::jsonb OR catalog_fields IS NULL);
+
+UPDATE public.store_categories SET catalog_fields = '[
+   {"key":"model","label":"Model","type":"text","placeholder":"Galaxy A35"},
+   {"key":"warranty_months","label":"Warranty (months)","type":"number","placeholder":"12"},
+   {"key":"specs","label":"Key Specs","type":"text","placeholder":"6GB / 128GB / 5G"},
+   {"key":"hsn","label":"HSN Code","type":"text","placeholder":"8517"}
+]'::jsonb WHERE id = 'electronics' AND (catalog_fields = '[]'::jsonb OR catalog_fields IS NULL);
+
+UPDATE public.store_categories SET catalog_fields = '[
+   {"key":"voltage","label":"Voltage (V)","type":"number","placeholder":"230"},
+   {"key":"wattage","label":"Power (W)","type":"number","placeholder":"60"},
+   {"key":"hsn","label":"HSN Code","type":"text","placeholder":"8541"}
+]'::jsonb WHERE id = 'electrical' AND (catalog_fields = '[]'::jsonb OR catalog_fields IS NULL);
+
+UPDATE public.store_categories SET catalog_fields = '[
+   {"key":"pack_size","label":"Pack Size","type":"text","placeholder":"500g / 1L / 1 pc"},
+   {"key":"hsn","label":"HSN Code","type":"text","placeholder":"1006"}
+]'::jsonb WHERE id = 'general' AND (catalog_fields = '[]'::jsonb OR catalog_fields IS NULL);
+
+UPDATE public.store_categories SET catalog_fields = '[
+   {"key":"pack_size","label":"Pack Size","type":"text","placeholder":"Box of 12"},
+   {"key":"min_qty","label":"Min Order Qty","type":"number","placeholder":"10"},
+   {"key":"hsn","label":"HSN Code","type":"text","placeholder":""}
+]'::jsonb WHERE id = 'wholesale' AND (catalog_fields = '[]'::jsonb OR catalog_fields IS NULL);
+
+UPDATE public.store_categories SET catalog_fields = '[
+   {"key":"color","label":"Colour","type":"text","placeholder":"Red"},
+   {"key":"material","label":"Material","type":"text","placeholder":"Plastic"}
+]'::jsonb WHERE id = 'fancy' AND (catalog_fields = '[]'::jsonb OR catalog_fields IS NULL);
+
+UPDATE public.store_categories SET catalog_fields = '[
+   {"key":"unit","label":"Unit","type":"text","placeholder":"bag / m³ / piece"},
+   {"key":"weight","label":"Weight (kg)","type":"number","placeholder":"50"},
+   {"key":"hsn","label":"HSN Code","type":"text","placeholder":"2523"}
+]'::jsonb WHERE id = 'construction' AND (catalog_fields = '[]'::jsonb OR catalog_fields IS NULL);
+
+-- 14. PRODUCTS — back-link a per-store product to a catalogue entry (Phase 5.4b).
+--     When a shop owner picks an item from the master catalogue, this column
+--     stores its catalog_items.id. Lets customers compare same-item-multiple-stores.
+ALTER TABLE public.products
+   ADD COLUMN IF NOT EXISTS catalog_item_id text DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS products_catalog_item_id_idx ON public.products(catalog_item_id);
+
 -- 12. PRODUCTS — link a product to a specific store_provider (not just an owner email).
 --     Legacy products (store_id = owner_email, store_provider_id IS NULL) stay in the
 --     table but are hidden from the new Stores flow. Customer Stores page filters

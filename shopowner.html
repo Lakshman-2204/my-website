@@ -342,6 +342,20 @@
             <button onclick="closeStoreProductModal()">✕</button>
          </div>
          <div class="sp-modal-body">
+            <!-- Catalogue picker — type to search admin's master catalogue;
+                 pick an item to prefill name/brand/price/image and back-link via catalog_item_id. -->
+            <div class="sp-field" id="sp-catalog-picker-field">
+               <label>🔍 Pick from catalogue <small style="color:#888;font-weight:400">(optional — leave blank for a custom item)</small></label>
+               <div style="position:relative">
+                  <input type="text" id="sp-catalog-search" placeholder="Type 2+ characters to search..." autocomplete="off" oninput="searchCatalogForOwner()" onfocus="searchCatalogForOwner()"/>
+                  <div id="sp-catalog-results" class="sp-catalog-results hidden"></div>
+               </div>
+               <div id="sp-catalog-chip" class="hidden" style="margin-top:8px;padding:8px 10px;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;display:flex;align-items:center;justify-content:space-between;font-size:0.88rem">
+                  <span>🔗 Linked to catalogue: <strong id="sp-catalog-chip-name"></strong></span>
+                  <button type="button" onclick="clearCatalogLink()" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1rem">✕</button>
+               </div>
+               <input type="hidden" id="sp-catalog-item-id"/>
+            </div>
             <img id="sp-img-preview" src="https://placehold.co/200x120?text=Preview" style="width:100%;border-radius:8px;margin-bottom:12px;object-fit:cover;max-height:140px"/>
             <div class="sp-field"><label>Image URL</label><input type="text" id="sp-img" placeholder="https://..." oninput="previewStoreProductImg()"/></div>
             <div class="sp-field"><label>Product Name</label><input type="text" id="sp-name" placeholder="Product name"/></div>

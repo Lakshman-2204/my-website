@@ -23,6 +23,7 @@
       <div class="admin-tabs">
          <button class="admin-tab active" id="tab-products-btn" onclick="switchAdminTab('products')">🛍️ Products</button>
          <button class="admin-tab" id="tab-stores-btn"   onclick="switchAdminTab('stores')">🏪 Stores</button>
+         <button class="admin-tab" id="tab-catalog-btn"  onclick="switchAdminTab('catalog')">🧬 Catalogue</button>
          <button class="admin-tab" id="tab-orders-btn"   onclick="switchAdminTab('orders')">📦 Orders</button>
          <button class="admin-tab" id="tab-appointments-btn" onclick="switchAdminTab('appointments')">🏥 Appointments</button>
          <button class="admin-tab" id="tab-billing-btn" onclick="switchAdminTab('billing')">💰 Billing</button>
@@ -408,6 +409,40 @@
       </div>
 
       <!-- ORDERS TAB -->
+      <!-- CATALOGUE TAB — master item list per category, stores pick from here -->
+      <div id="tab-catalog" class="hidden">
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>🧬 Catalogue</h1>
+                  <p>Master list of items per category. Stores pick items from here when adding products — keeps names consistent and lets customers compare prices across stores.</p>
+               </div>
+            </div>
+         </div>
+
+         <!-- Category tiles view (default) -->
+         <div id="catalogCategoriesView">
+            <div class="admin-content" id="catalogCategoriesGrid">
+               <p style="color:#999;text-align:center;padding:40px">Loading categories…</p>
+            </div>
+         </div>
+
+         <!-- Items table view (after a category is picked) -->
+         <div id="catalogItemsView" class="hidden">
+            <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+               <button class="apt-back-btn" onclick="exitCatalogCategory()">← All Categories</button>
+               <h2 id="catalogItemsTitle" style="margin:0;flex:1;min-width:0;font-size:1.1rem">Items</h2>
+               <input type="search" id="catalogItemSearch" class="admin-filter-select" placeholder="🔍 Search items" oninput="renderCatalogItems()" style="min-width:200px"/>
+               <button class="admin-add-main-btn" style="background:#5e35b1" onclick="openCatalogFieldsModal()">⚙️ Edit Fields</button>
+               <button class="admin-add-main-btn" style="background:#0a8a3a" onclick="openCatalogImportModal()">📥 Import CSV</button>
+               <button class="admin-add-main-btn" onclick="openCatalogItemModal()">➕ Add Item</button>
+            </div>
+            <div class="admin-content" id="catalogItemsContent">
+               <p style="color:#999;text-align:center;padding:40px">Loading items…</p>
+            </div>
+         </div>
+      </div>
+
       <div id="tab-orders" class="hidden">
          <div class="admin-page-title">
             <div class="admin-title-row">
@@ -972,6 +1007,98 @@
             <div class="admin-modal-footer">
                <button class="admin-modal-btn-cancel" onclick="closeStoreProviderModal()">Cancel</button>
                <button class="admin-modal-btn-save"   onclick="saveStoreProvider()">💾 Save</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- CATALOG CSV IMPORT MODAL -->
+      <div class="admin-modal-overlay hidden" id="catalogImportModal" onclick="if(event.target===this)closeCatalogImportModal()">
+         <div class="admin-modal" style="max-width:820px">
+            <div class="admin-modal-header">
+               <h3 id="catalogImportModalTitle">📥 Import CSV</h3>
+               <button class="admin-modal-close" onclick="closeCatalogImportModal()">✕</button>
+            </div>
+            <div class="admin-modal-body">
+               <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+                  <button class="admin-add-main-btn" type="button" onclick="downloadCatalogTemplate()" style="background:#1a73e8">📄 Download template</button>
+                  <input type="file" id="catImportFile" accept=".csv,text/csv" onchange="onCatalogCsvFile()" style="font-size:0.85rem"/>
+                  <span style="color:#888;font-size:0.82rem">or paste below</span>
+               </div>
+               <textarea id="catImportTextarea" placeholder="name,brand,price,...&#10;Dolo 650,Micro Labs,35,..."
+                  rows="8" style="width:100%;font-family:ui-monospace,monospace;font-size:0.82rem;padding:8px;border:1px solid #ccc;border-radius:6px"
+                  oninput="previewCatalogImport()"></textarea>
+               <div id="catImportSummary" style="margin-top:10px;font-size:0.88rem;color:#444"></div>
+               <div id="catImportPreview" style="margin-top:10px;max-height:300px;overflow:auto"></div>
+            </div>
+            <div class="admin-modal-footer">
+               <button class="admin-modal-btn-cancel" onclick="closeCatalogImportModal()">Cancel</button>
+               <button class="admin-modal-btn-save"   id="catImportConfirmBtn" onclick="confirmCatalogImport()" disabled style="background:#0a8a3a">📥 Import 0 items</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- CATALOG FIELDS MODAL — edit per-category schema (add/edit/remove fields) -->
+      <div class="admin-modal-overlay hidden" id="catalogFieldsModal" onclick="if(event.target===this)closeCatalogFieldsModal()">
+         <div class="admin-modal" style="max-width:720px">
+            <div class="admin-modal-header">
+               <h3 id="catalogFieldsModalTitle">Edit Fields</h3>
+               <button class="admin-modal-close" onclick="closeCatalogFieldsModal()">✕</button>
+            </div>
+            <div class="admin-modal-body">
+               <p style="color:#666;font-size:0.85rem;margin:0 0 10px">
+                  These extra fields show in the Add/Edit Item form for this category.
+                  Common fields (Name, Brand, Price, Serial, Batch, Image) are always present.
+               </p>
+               <div id="catalogFieldsList"></div>
+               <button class="admin-add-main-btn" onclick="addCatalogField()" style="margin-top:10px">➕ Add Field</button>
+            </div>
+            <div class="admin-modal-footer">
+               <button class="admin-modal-btn-cancel" onclick="closeCatalogFieldsModal()">Cancel</button>
+               <button class="admin-modal-btn-save"   onclick="saveCatalogFields()">💾 Save Fields</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- CATALOG ITEM MODAL — common fields + dynamic per-category attrs -->
+      <div class="admin-modal-overlay hidden" id="catalogItemModal" onclick="if(event.target===this)closeCatalogItemModal()">
+         <div class="admin-modal">
+            <div class="admin-modal-header">
+               <h3 id="catalogItemModalTitle">Add Item</h3>
+               <button class="admin-modal-close" onclick="closeCatalogItemModal()">✕</button>
+            </div>
+            <div class="admin-modal-body">
+               <div class="modal-field">
+                  <label>Name</label>
+                  <input type="text" id="catItemName" placeholder="Dolo 650"/>
+               </div>
+               <div class="modal-field">
+                  <label>Brand <small style="font-weight:400;color:#aaa">(manufacturer)</small></label>
+                  <input type="text" id="catItemBrand" placeholder="Micro Labs"/>
+               </div>
+               <div class="modal-field">
+                  <label>Default Price (₹) <small style="font-weight:400;color:#aaa">(MRP — stores can override)</small></label>
+                  <input type="number" id="catItemPrice" min="0" step="0.01" placeholder="35"/>
+               </div>
+               <div class="modal-field">
+                  <label>Serial No <small style="font-weight:400;color:#aaa">(optional code)</small></label>
+                  <input type="text" id="catItemSerial" placeholder=""/>
+               </div>
+               <div class="modal-field">
+                  <label>Batch No <small style="font-weight:400;color:#aaa">(optional)</small></label>
+                  <input type="text" id="catItemBatch" placeholder=""/>
+               </div>
+               <div class="modal-field">
+                  <label>Image URL <small style="font-weight:400;color:#aaa">(optional product photo)</small></label>
+                  <input type="url" id="catItemImage" placeholder="https://…"/>
+               </div>
+               <!-- Dynamic per-category fields injected here by JS -->
+               <div id="catItemAttrsHost"></div>
+               <input type="hidden" id="catItemId"/>
+               <input type="hidden" id="catItemCategory"/>
+            </div>
+            <div class="admin-modal-footer">
+               <button class="admin-modal-btn-cancel" onclick="closeCatalogItemModal()">Cancel</button>
+               <button class="admin-modal-btn-save"   onclick="saveCatalogItem()">💾 Save</button>
             </div>
          </div>
       </div>

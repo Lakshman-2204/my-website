@@ -546,12 +546,15 @@ window.AppDB = {
 
    async upsertStoreCategory(cat) {
       const row = {
-         id:          cat.id,
-         label:       cat.label,
-         description: cat.description || '',
-         icon:        cat.icon        || '🏪',
-         sort_order:  typeof cat.sort_order === 'number' ? cat.sort_order : 100
+         id:             cat.id,
+         label:          cat.label,
+         description:    cat.description || '',
+         icon:           cat.icon        || '🏪',
+         sort_order:     typeof cat.sort_order === 'number' ? cat.sort_order : 100
       };
+      // Only patch catalog_fields when caller passes it (otherwise we'd clobber
+      // existing schemas on a simple label/icon edit).
+      if (Array.isArray(cat.catalog_fields)) row.catalog_fields = cat.catalog_fields;
       const { error } = await _sb.from('store_categories').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertStoreCategory:', error.message); return false; }
       return true;
@@ -598,6 +601,38 @@ window.AppDB = {
    async deleteStoreProvider(id) {
       const { error } = await _sb.from('store_providers').delete().eq('id', id);
       if (error) { console.error('deleteStoreProvider:', error.message); return false; }
+      return true;
+   },
+
+   // ── CATALOG ITEMS (admin-curated master list per category) ──
+   async getCatalogItems(category) {
+      let q = _sb.from('catalog_items').select('*').order('name');
+      if (category) q = q.eq('category', category);
+      const { data, error } = await q;
+      if (error) { console.error('getCatalogItems:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertCatalogItem(item) {
+      const row = {
+         id:        item.id,
+         category:  item.category,
+         name:      item.name,
+         brand:     item.brand     || '',
+         price:     typeof item.price === 'number' ? item.price : (parseFloat(item.price) || 0),
+         serial_no: item.serial_no || '',
+         batch_no:  item.batch_no  || '',
+         image_url: item.image_url || '',
+         attrs:     item.attrs     || {}
+      };
+      const { error } = await _sb.from('catalog_items').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertCatalogItem:', error.message); return false; }
+      return true;
+   },
+
+   async deleteCatalogItem(id) {
+      const { error } = await _sb.from('catalog_items').delete().eq('id', id);
+      if (error) { console.error('deleteCatalogItem:', error.message); return false; }
       return true;
    },
 

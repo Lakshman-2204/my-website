@@ -2924,6 +2924,95 @@ body.guest .store-section-divider {
 	padding: 20px 24px 60px;
 }
 
+/* Shop-owner: catalogue picker in Add Product modal */
+.sp-catalog-results {
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0; right: 0;
+	max-height: 260px; overflow-y: auto;
+	background: #fff;
+	border: 1px solid #ccc;
+	border-radius: 8px;
+	box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+	z-index: 50;
+}
+.sp-catalog-result {
+	display: flex; gap: 10px; align-items: center;
+	padding: 8px 10px;
+	cursor: pointer;
+	border-bottom: 1px solid #f0f2f5;
+}
+.sp-catalog-result:last-child { border-bottom: none; }
+.sp-catalog-result:hover { background: #f1f5fb; }
+.sp-catalog-result-img {
+	width: 38px; height: 38px; flex-shrink: 0;
+	display: flex; align-items: center; justify-content: center;
+	background: #f5f7fa; border-radius: 6px; overflow: hidden;
+}
+.sp-catalog-result-img img { width: 100%; height: 100%; object-fit: cover; }
+.sp-catalog-result-info { flex: 1; min-width: 0; }
+.sp-catalog-result-name { font-weight: 600; font-size: 0.9rem; color: #1a1a2e; }
+.sp-catalog-result-meta { font-size: 0.78rem; color: #666; }
+.sp-catalog-result-empty {
+	padding: 14px; text-align: center; color: #888; font-size: 0.85rem;
+}
+
+/* Catalogue: per-category field editor */
+.catalog-field-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 10px;
+	margin-bottom: 8px;
+	background: #fafbfc;
+	border: 1px solid #e6e8eb;
+	border-radius: 8px;
+}
+.catalog-field-handles { display: flex; flex-direction: column; gap: 3px; }
+.catalog-field-btn {
+	min-width: 32px; height: 26px; padding: 0 6px;
+	background: #fff; border: 1px solid #ccc; border-radius: 5px;
+	cursor: pointer; font-size: 0.85rem;
+}
+.catalog-field-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.catalog-field-inputs {
+	flex: 1; display: grid; gap: 6px;
+	grid-template-columns: 1.3fr 1fr 0.9fr 1.3fr;
+}
+.catalog-field-cell label { font-size: 0.72rem; color: #888; font-weight: 600; display: block; margin-bottom: 2px; }
+.catalog-field-cell input,
+.catalog-field-cell select {
+	width: 100%; padding: 6px 8px; border: 1px solid #d0d0d0;
+	border-radius: 5px; font-size: 0.88rem; background: #fff;
+}
+
+/* Catalogue items table */
+.catalog-items-table {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	border: 1px solid #e6e8eb;
+	border-radius: 10px;
+	overflow: hidden;
+	font-size: 0.9rem;
+}
+.catalog-items-table thead th {
+	background: #f5f7fa;
+	text-align: left;
+	padding: 11px 12px;
+	font-weight: 700;
+	color: #333;
+	border-bottom: 1px solid #e6e8eb;
+	white-space: nowrap;
+}
+.catalog-items-table tbody td {
+	padding: 10px 12px;
+	border-bottom: 1px solid #f0f2f5;
+	vertical-align: middle;
+}
+.catalog-items-table tbody tr:last-child td { border-bottom: none; }
+.catalog-items-table tbody tr:hover { background: #fafbfc; }
+
 /* Admin main-category group header */
 .admin-maincat-group {
 	margin-bottom: 40px;

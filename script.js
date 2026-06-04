@@ -5566,6 +5566,12 @@ async function checkShopOwnerLogin() {
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
+   // Rename the products tab depending on how many stores the owner runs:
+   //   1 store  → "🛍️ Products"      (skips the picker, goes straight in)
+   //   2+ stores → "🏪 My Stores"     (shows the picker)
+   if (prodTab && ownsStores) {
+      prodTab.innerHTML = (myStoreProvs.length === 1) ? '🛍️ Products' : '🏪 My Stores';
+   }
 
    // Pick the right "staff" label for the doctors tab based on what the owner runs
    // (e.g. Doctors / Stylists / Trainers / Staff). The +Add buttons live inside the panel,
@@ -5729,7 +5735,14 @@ async function renderStoreOwnerProducts() {
    if (!user) return;
    await loadStoreCategories();
    await loadStoreProviders(true);
-   if (_currentMyStoreId) {
+   if (_currentMyStoreId) { renderMyStoreProducts(_currentMyStoreId); return; }
+   // Owners with exactly one store skip the picker — auto-enter that store.
+   // Owners with two or more see the list so they can choose which to manage.
+   var mine = (_storeProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
+   });
+   if (mine.length === 1) {
+      _currentMyStoreId = mine[0].id;
       renderMyStoreProducts(_currentMyStoreId);
    } else {
       renderMyStoresList();
@@ -5786,6 +5799,14 @@ function renderMyStoreProducts(storeId) {
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === storeId; });
    if (!store) { exitMyStore(); return; }
    var meta = STORE_CAT_META[store.category] || { icon: '\ud83c\udfea', label: store.category };
+
+   // Hide the "\u2190 My Stores" back button for single-store owners (no list to go back to).
+   var user  = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var owned = (_storeProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   var backBtn = prodView ? prodView.querySelector('.btn-back') : null;
+   if (backBtn) backBtn.classList.toggle('hidden', owned.length < 2);
 
    var title = document.getElementById('shopStoreProductsTitle');
    if (title) title.textContent = (store.icon || meta.icon) + ' ' + store.name;
@@ -5865,7 +5886,13 @@ function openStoreProductModal(idx) {
    if (resBox) resBox.classList.add('hidden');
 
    previewStoreProductImg();
-   document.getElementById('shopProductModal').classList.remove('hidden');
+   var modal = document.getElementById('shopProductModal');
+   modal.classList.remove('hidden');
+   // Reset internal scroll so the title + catalogue picker are visible on open.
+   var inner = modal.querySelector('.sp-modal');
+   if (inner) inner.scrollTop = 0;
+   var body = modal.querySelector('.sp-modal-body');
+   if (body) body.scrollTop = 0;
 }
 
 // Live search of the master catalogue scoped to the current store's category.

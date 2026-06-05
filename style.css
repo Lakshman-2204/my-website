@@ -3033,9 +3033,17 @@ body.guest .store-section-divider {
 	flex-shrink: 0;
 }
 
-/* Shop-owner: counter-staff product search above their store's product list */
+/* Shop-owner: counter-staff product search above their store's product list.
+   Flex row: narrower search input + sort dropdown beside it. */
+.shop-search-bar {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	max-width: 760px;
+}
 .shop-search-bar input[type="search"] {
-	width: 100%;
+	flex: 1;
+	min-width: 0;
 	padding: 9px 13px;
 	font-size: 0.9rem;
 	border: 1.5px solid #d0d0d0;

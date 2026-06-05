@@ -334,9 +334,16 @@
                <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Item</button>
             </div>
          </div>
-         <!-- Counter-staff helper: search this store's products to find an item fast for a walk-in customer -->
+         <!-- Counter-staff helper: search this store's products to find an item fast for a walk-in customer.
+              Sort dropdown beside it for browsing by price / name. -->
          <div class="shop-search-bar" style="padding:0 20px;margin-bottom:10px">
-            <input type="search" id="shopProductSearch" placeholder="🔍 Search your store's products (Dolo, Crocin, Paracetamol…)" oninput="renderMyStoreProducts(_currentMyStoreId)" autocomplete="off"/>
+            <input type="search" id="shopProductSearch" placeholder="🔍 Search products (Dolo, Crocin…)" oninput="renderMyStoreProducts(_currentMyStoreId)" autocomplete="off"/>
+            <select id="shopProductSort" class="store-sort-select" onchange="renderMyStoreProducts(_currentMyStoreId)">
+               <option value="">📊 Default order</option>
+               <option value="price-asc">💰 Price: low → high</option>
+               <option value="price-desc">💰 Price: high → low</option>
+               <option value="name-asc">🔤 Name: A → Z</option>
+            </select>
          </div>
          <div id="shopProductList" class="shop-product-list"></div>
       </div>

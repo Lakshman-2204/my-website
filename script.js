@@ -5912,11 +5912,13 @@ function renderMyStoreProducts(storeId) {
       return;
    }
 
-   // Counter-staff search \u2014 filter the list as owner types
-   var q = ((document.getElementById('shopProductSearch') || {}).value || '').trim().toLowerCase();
-   var visible = _currentMyStoreProds;
+   // Counter-staff search \u2014 filter the list as owner types.
+   // Sort dropdown applies after the filter.
+   var q    = ((document.getElementById('shopProductSearch') || {}).value || '').trim().toLowerCase();
+   var sort =  (document.getElementById('shopProductSort')   || {}).value || '';
+   var visible = _currentMyStoreProds.slice();
    if (q) {
-      visible = _currentMyStoreProds.filter(function(p) {
+      visible = visible.filter(function(p) {
          var hay = ((p.name || '') + ' ' + (p.desc || '')).toLowerCase();
          return hay.indexOf(q) !== -1;
       });
@@ -5925,6 +5927,9 @@ function renderMyStoreProducts(storeId) {
          return;
       }
    }
+   if (sort === 'price-asc')  visible.sort(function(a,b){ return (a.price||0) - (b.price||0); });
+   if (sort === 'price-desc') visible.sort(function(a,b){ return (b.price||0) - (a.price||0); });
+   if (sort === 'name-asc')   visible.sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
 
    container.innerHTML = visible.map(function(p) {
       // Use the product's real index in _currentMyStoreProds so edit/delete buttons work

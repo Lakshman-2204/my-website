@@ -3034,14 +3034,16 @@ body.guest .store-section-divider {
 }
 
 /* Shop-owner: counter-staff product search above their store's product list.
-   Flex row: narrower search input + sort dropdown beside it. */
-.shop-search-bar {
+   Flex row: narrower search input + sort dropdown beside it.
+   Uses a dedicated class so the existing .shop-search-bar (orders search)
+   keeps its full-width single-input layout untouched. */
+.shop-products-search {
 	display: flex;
 	gap: 8px;
 	align-items: center;
 	max-width: 760px;
 }
-.shop-search-bar input[type="search"] {
+.shop-products-search input[type="search"] {
 	flex: 1;
 	min-width: 0;
 	padding: 9px 13px;
@@ -3049,8 +3051,9 @@ body.guest .store-section-divider {
 	border: 1.5px solid #d0d0d0;
 	border-radius: 8px;
 	background: #fff;
+	box-sizing: border-box;
 }
-.shop-search-bar input[type="search"]:focus {
+.shop-products-search input[type="search"]:focus {
 	outline: none;
 	border-color: #1a73e8;
 	box-shadow: 0 0 0 3px rgba(26,115,232,0.12);

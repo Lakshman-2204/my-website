@@ -4135,7 +4135,9 @@ function showStoreProvider(providerId) {
 }
 
 // Build the sub-category sidebar + product grid for one store provider.
-// Filter products by store_provider_id (new model).
+// Filter products by store_provider_id (new model). The layout includes a
+// store-scoped search bar at the top — typing into it filters across ALL of
+// this store's sub-categories and renders a flat result grid.
 function buildStoreSubcatLayout(storeProviderId) {
    var storeCats = [];
    Object.entries(products).forEach(function(entry) {
@@ -4146,6 +4148,12 @@ function buildStoreSubcatLayout(storeProviderId) {
    if (!storeCats.length) return '<p style="color:#888;padding:40px;text-align:center">No products in this store yet.</p>';
 
    var idAttr = storeProviderId.replace(/["']/g, '');
+
+   var searchBar = '<div class="store-search-bar">' +
+                      '<input type="search" id="storeProductSearch" data-pid="' + idAttr + '" ' +
+                      'placeholder="🔍 Search products in this store (Dolo, Crocin, Paracetamol…)" ' +
+                      'oninput="filterStoreProducts(this)" autocomplete="off"/>' +
+                   '</div>';
 
    var sidebarHtml = storeCats.map(function(c, i) {
       return '<div class="subcat-sidebar-item' + (i === 0 ? ' active' : '') + '" ' +
@@ -4161,13 +4169,58 @@ function buildStoreSubcatLayout(storeProviderId) {
    tmp.className = 'products-grid';
    first.items.forEach(function(item) { renderCard(Object.assign({}, item, { type: first.catData.type }), first.catKey, tmp); });
 
-   return '<div class="subcat-layout">' +
+   return searchBar +
+          '<div class="subcat-layout">' +
              '<div class="subcat-sidebar">' + sidebarHtml + '</div>' +
              '<div class="subcat-products-panel" id="storeSubcatPanel">' +
                 '<div class="subcat-panel-title">' + first.catData.title + '</div>' +
                 '<div class="products-grid">' + tmp.innerHTML + '</div>' +
              '</div>' +
           '</div>';
+}
+
+// Called as the customer types in the store-scoped search bar.
+// Empty query → restore the normal sidebar+grid layout.
+// Non-empty   → flat grid of matches across all sub-categories of this store.
+function filterStoreProducts(input) {
+   var q = (input.value || '').trim().toLowerCase();
+   var pid = input.dataset.pid || '';
+   var panel = document.getElementById('storeSubcatPanel');
+   var sidebar = document.querySelector('.subcat-sidebar');
+   if (!panel) return;
+
+   if (!q) {
+      // Empty — re-render the store's normal subcat layout
+      var host = document.getElementById('storeProviderProducts');
+      if (host) host.innerHTML = buildStoreSubcatLayout(pid);
+      // Refocus the search box for keyboard-only users
+      var s = document.getElementById('storeProductSearch');
+      if (s) s.focus();
+      return;
+   }
+
+   // Collect matches across every product sub-category for this store
+   var hits = [];
+   Object.entries(products).forEach(function(entry) {
+      var catKey = entry[0], catData = entry[1];
+      catData.items.forEach(function(item) {
+         if (item.store_provider_id !== pid) return;
+         var hay = ((item.name || '') + ' ' + (item.desc || '') + ' ' + (item.storeName || '')).toLowerCase();
+         if (hay.indexOf(q) !== -1) hits.push({ item: item, catKey: catKey, type: catData.type });
+      });
+   });
+
+   if (sidebar) sidebar.style.display = 'none';
+   if (!hits.length) {
+      panel.innerHTML = '<div class="subcat-panel-title">No matches for "' + q + '"</div>' +
+                        '<p style="color:#888;padding:30px;text-align:center">Try a different brand or generic name.</p>';
+      return;
+   }
+   var tmp = document.createElement('div');
+   tmp.className = 'products-grid';
+   hits.forEach(function(h) { renderCard(Object.assign({}, h.item, { type: h.type }), h.catKey, tmp); });
+   panel.innerHTML = '<div class="subcat-panel-title">' + hits.length + ' match' + (hits.length === 1 ? '' : 'es') + ' for "' + q + '"</div>' +
+                     '<div class="products-grid">' + tmp.innerHTML + '</div>';
 }
 
 function switchStoreSubcat(el) {
@@ -5835,10 +5888,27 @@ function renderMyStoreProducts(storeId) {
    var container = document.getElementById('shopProductList');
    if (!container) return;
    if (!_currentMyStoreProds.length) {
-      container.innerHTML = '<p class="shop-empty">No products in this store yet. Click \u2795 Add Product to get started.</p>';
+      container.innerHTML = '<p class="shop-empty">No products in this store yet. Click \u2795 Add Product or \ud83d\udce6 Bulk Add to get started.</p>';
       return;
    }
-   container.innerHTML = _currentMyStoreProds.map(function(p, idx) {
+
+   // Counter-staff search \u2014 filter the list as owner types
+   var q = ((document.getElementById('shopProductSearch') || {}).value || '').trim().toLowerCase();
+   var visible = _currentMyStoreProds;
+   if (q) {
+      visible = _currentMyStoreProds.filter(function(p) {
+         var hay = ((p.name || '') + ' ' + (p.desc || '')).toLowerCase();
+         return hay.indexOf(q) !== -1;
+      });
+      if (!visible.length) {
+         container.innerHTML = '<p class="shop-empty">No products match "<strong>' + q + '</strong>" in this store.</p>';
+         return;
+      }
+   }
+
+   container.innerHTML = visible.map(function(p) {
+      // Use the product's real index in _currentMyStoreProds so edit/delete buttons work
+      var idx = _currentMyStoreProds.indexOf(p);
       return '<div class="shop-prod-card">' +
                 '<img src="' + p.img + '" onerror="this.src=\'https://placehold.co/60x60?text=Item\'"/>' +
                 '<div class="shop-prod-info">' +
@@ -5855,17 +5925,46 @@ function renderMyStoreProducts(storeId) {
 
 var _editProdIdx = -1;
 
+// Map store-category (admin's catalogue category) → default product-category
+// (the sub-section a new product lands under on the customer site).
+const STORE_TO_PRODUCT_CATEGORY = {
+   medical:      'medicines',
+   electronics:  'electronics',
+   electrical:   'electronics',
+   fancy:        'personalcare',
+   general:      'groceries',
+   wholesale:    'groceries',
+   construction: 'utensils'   // closest match in current product subcats
+};
+
 function openStoreProductModal(idx) {
    if (!_currentMyStoreId) { alert('Open a store first.'); return; }
    _editProdIdx = idx;
    var p = idx >= 0 ? _currentMyStoreProds[idx] : null;
-   document.getElementById('sp-modal-title').textContent = p ? 'Edit Product' : 'Add Product';
+
+   // Smart default for the product sub-category: pick what fits the store's
+   // category (medical store → medicines, etc.) instead of the first key.
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
+   var defaultCatKey = (store && STORE_TO_PRODUCT_CATEGORY[store.category])
+                       || Object.keys(products)[0];
+
+   document.getElementById('sp-modal-title').textContent = p ? 'Edit Item' : 'Add Item';
    document.getElementById('sp-name').value  = p ? p.name  : '';
    document.getElementById('sp-price').value = p ? p.price : '';
    document.getElementById('sp-desc').value  = p ? p.desc  : '';
    document.getElementById('sp-img').value   = p ? p.img   : '';
    document.getElementById('sp-badge').value = p ? (p.badge || '') : '';
-   document.getElementById('sp-catkey').value = p ? p.catKey : Object.keys(products)[0];
+   document.getElementById('sp-catkey').value = p ? p.catKey : defaultCatKey;
+   // Catalogue-side fields — blank for a brand-new item; prefilled when editing
+   // a product that's already linked to a catalogue entry (filled via pickCatalogItem).
+   document.getElementById('sp-brand').value       = p ? (p._brand       || p.desc || '') : '';
+   document.getElementById('sp-composition').value = p ? (p._composition || '') : '';
+   document.getElementById('sp-pack').value        = p ? (p._pack        || '') : '';
+   document.getElementById('sp-dose').value        = p ? (p._dose        || '') : '';
+   document.getElementById('sp-units').value       = p ? (p._units       || '') : '';
+   document.getElementById('sp-expiry').value      = p ? (p._expiry      || '') : '';
+   document.getElementById('sp-hsn').value         = p ? (p._hsn         || '3004') : '3004';
+   document.getElementById('sp-rx').checked        = p ? !!p._rx : false;
 
    // Catalogue link (Phase 5.4b)
    var catSearch  = document.getElementById('sp-catalog-search');
@@ -5942,11 +6041,20 @@ async function pickCatalogItem(itemId) {
    var it = await AppDB.getCatalogItemById(itemId);
    if (!it) return;
 
-   // Prefill the form fields
-   document.getElementById('sp-name').value  = it.name  || '';
-   document.getElementById('sp-price').value = it.price != null ? it.price : '';
-   document.getElementById('sp-img').value   = it.image_url || '';
-   document.getElementById('sp-desc').value  = it.brand ? it.brand : '';
+   // Prefill the form fields — common + catalogue-side
+   var attrs = it.attrs || {};
+   document.getElementById('sp-name').value        = it.name  || '';
+   document.getElementById('sp-price').value       = it.price != null ? it.price : '';
+   document.getElementById('sp-img').value         = it.image_url || '';
+   document.getElementById('sp-desc').value        = it.brand ? it.brand : '';
+   document.getElementById('sp-brand').value       = it.brand || '';
+   document.getElementById('sp-composition').value = attrs.composition || '';
+   document.getElementById('sp-pack').value        = attrs.pack_size || '';
+   document.getElementById('sp-dose').value        = attrs.dose || '';
+   document.getElementById('sp-units').value       = attrs.units_per_strip || '';
+   document.getElementById('sp-expiry').value      = attrs.expiry_date || '';
+   document.getElementById('sp-hsn').value         = attrs.hsn || '3004';
+   document.getElementById('sp-rx').checked        = !!attrs.rx_required;
    document.getElementById('sp-catalog-item-id').value = it.id;
 
    // Show "linked to" chip, hide the search input
@@ -6063,6 +6171,7 @@ async function bulkAddSaveAll() {
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
    if (!store) { alert('Lost track of store. Reload and try again.'); return; }
 
+   var defaultCatKey = STORE_TO_PRODUCT_CATEGORY[store.category] || 'medicines';
    var rows = ids.map(function(id, i) {
       var it = _bulkAddPicked[id];
       return {
@@ -6071,7 +6180,7 @@ async function bulkAddSaveAll() {
          price:             (typeof it.price === 'number' ? it.price : parseFloat(it.price) || 0),
          description:       it.brand || '',
          image:             it.image_url || '',
-         category:          'medicines',     // default customer-side product subcategory
+         category:          defaultCatKey,
          badge:             'New',
          store_id:          store.owner_email || user.email,
          store_name:        store.name || user.storeName || user.name || '',
@@ -6124,16 +6233,52 @@ async function saveStoreProduct() {
    var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var name  = document.getElementById('sp-name').value.trim();
    var price = parseFloat(document.getElementById('sp-price').value) || 0;
-   var desc  = document.getElementById('sp-desc').value.trim();
+   var brand = document.getElementById('sp-brand').value.trim();
+   var desc  = document.getElementById('sp-desc').value.trim() || brand;
    var img   = document.getElementById('sp-img').value.trim() || 'https://placehold.co/400x300?text=Product';
    var badge = document.getElementById('sp-badge').value.trim() || 'New';
    var catKey = document.getElementById('sp-catkey').value;
-   if (!name) { alert('Product name is required.'); return; }
+   if (!name) { alert('Item name is required.'); return; }
 
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
    var existing = _editProdIdx >= 0 ? _currentMyStoreProds[_editProdIdx] : null;
    var id = existing ? existing.id : ('sp_' + (user.email || 'admin').split('@')[0] + '_' + Date.now());
    var catalogLink = (document.getElementById('sp-catalog-item-id') || {}).value || null;
+
+   // Catalogue-side attrs (composition, pack, dose, etc.)
+   var attrs = {
+      composition:     document.getElementById('sp-composition').value.trim(),
+      pack_size:       document.getElementById('sp-pack').value.trim(),
+      dose:            document.getElementById('sp-dose').value.trim(),
+      units_per_strip: parseInt(document.getElementById('sp-units').value, 10) || null,
+      expiry_date:     document.getElementById('sp-expiry').value,
+      mfr:             brand,
+      hsn:             document.getElementById('sp-hsn').value.trim() || '3004',
+      rx_required:     document.getElementById('sp-rx').checked
+   };
+
+   // Dual-write: if this is a brand-new custom item (no catalogue link AND not
+   // an edit of an existing product), also create a master-catalogue entry so
+   // other stores can search/discover it later.
+   if (!catalogLink && !existing && store && store.category) {
+      var catItemId = 'cat_' + store.category + '_owner_' + Date.now().toString(36);
+      var catItem = {
+         id:        catItemId,
+         category:  store.category,    // mirrors the store's category (medical / general / etc.)
+         name:      name,
+         brand:     brand,
+         price:     price,
+         serial_no: '',
+         batch_no:  '',
+         image_url: img,
+         attrs:     attrs
+      };
+      var catOk = await AppDB.upsertCatalogItem(catItem);
+      if (catOk) catalogLink = catItemId;     // succeed → link product to it
+      // If catalogue insert fails we still proceed with the product save —
+      // the worst case is a product without a catalogue back-link.
+   }
+
    var dbRow = {
       id: id, name: name, price: price,
       description: desc, image: img,
@@ -6145,7 +6290,7 @@ async function saveStoreProduct() {
       variants: null
    };
    var ok = await AppDB.upsertProduct(dbRow);
-   if (!ok) { alert('Failed to save product.'); return; }
+   if (!ok) { alert('Failed to save item.'); return; }
    // Keep local cache in sync
    _db.storeProducts = (_db.storeProducts || []).filter(function(p) { return p.id !== id; });
    _db.storeProducts.push(dbRow);

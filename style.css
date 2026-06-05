@@ -2962,6 +2962,40 @@ body.guest .store-section-divider {
 }
 .sp-catalog-info-btn:hover { background: #155cc1; }
 
+/* Store-scoped product search (customer view inside a single store) */
+.store-search-bar {
+	margin: 0 0 14px;
+}
+.store-search-bar input[type="search"] {
+	width: 100%;
+	padding: 10px 14px;
+	font-size: 0.95rem;
+	border: 1.5px solid #d0d0d0;
+	border-radius: 10px;
+	background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23999'%3E%3C/svg%3E") no-repeat 12px center;
+	transition: border-color .15s, box-shadow .15s;
+}
+.store-search-bar input[type="search"]:focus {
+	outline: none;
+	border-color: #1a73e8;
+	box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+}
+
+/* Shop-owner: counter-staff product search above their store's product list */
+.shop-search-bar input[type="search"] {
+	width: 100%;
+	padding: 9px 13px;
+	font-size: 0.9rem;
+	border: 1.5px solid #d0d0d0;
+	border-radius: 8px;
+	background: #fff;
+}
+.shop-search-bar input[type="search"]:focus {
+	outline: none;
+	border-color: #1a73e8;
+	box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+}
+
 /* Shop-owner: bulk-add (multi-select) from catalogue */
 .bulk-add-bar {
 	display: flex; align-items: center; justify-content: space-between;

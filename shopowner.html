@@ -328,9 +328,13 @@
             <button class="btn-back" style="margin-right:auto" onclick="exitMyStore()">← My Stores</button>
             <h3 id="shopStoreProductsTitle" style="margin:0 12px">Products</h3>
             <button class="shop-btn-add-prod" style="background:#1a73e8" onclick="openBulkAddModal()">📦 Bulk Add from Catalogue</button>
-            <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Product</button>
+            <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Item</button>
          </div>
          <div id="shopStoreMeta" class="shop-store-meta-card"></div>
+         <!-- Counter-staff helper: search this store's products to find an item fast for a walk-in customer -->
+         <div class="shop-search-bar" style="padding:0 20px;margin-bottom:10px">
+            <input type="search" id="shopProductSearch" placeholder="🔍 Search your store's products (Dolo, Crocin, Paracetamol…)" oninput="renderMyStoreProducts(_currentMyStoreId)" autocomplete="off"/>
+         </div>
          <div id="shopProductList" class="shop-product-list"></div>
       </div>
    </div>
@@ -339,7 +343,7 @@
    <div class="sp-modal-overlay hidden" id="shopProductModal" onclick="if(event.target===this)closeStoreProductModal()">
       <div class="sp-modal">
          <div class="sp-modal-header">
-            <h3 id="sp-modal-title">Add Product</h3>
+            <h3 id="sp-modal-title">Add Item</h3>
             <button onclick="closeStoreProductModal()">✕</button>
          </div>
          <div class="sp-modal-body">
@@ -359,28 +363,23 @@
             </div>
             <img id="sp-img-preview" src="https://placehold.co/200x120?text=Preview" style="width:100%;border-radius:8px;margin-bottom:12px;object-fit:cover;max-height:140px"/>
             <div class="sp-field"><label>Image URL</label><input type="text" id="sp-img" placeholder="https://..." oninput="previewStoreProductImg()"/></div>
-            <div class="sp-field"><label>Product Name</label><input type="text" id="sp-name" placeholder="Product name"/></div>
-            <div class="sp-field"><label>Price (₹)</label><input type="number" id="sp-price" placeholder="0" min="0"/></div>
-            <div class="sp-field"><label>Description</label><input type="text" id="sp-desc" placeholder="Short description"/></div>
+            <div class="sp-field"><label>Product Name</label><input type="text" id="sp-name" placeholder="e.g. Dolo 650 Tablet"/></div>
+            <div class="sp-field"><label>Brand / Manufacturer</label><input type="text" id="sp-brand" placeholder="e.g. Micro Labs"/></div>
+            <div class="sp-field"><label>Price (₹)</label><input type="number" id="sp-price" placeholder="0" min="0" step="0.01"/></div>
+            <div class="sp-field"><label>Composition / Salt</label><input type="text" id="sp-composition" placeholder="e.g. Paracetamol (650mg)"/></div>
+            <div class="sp-field"><label>Pack</label><input type="text" id="sp-pack" placeholder="e.g. strip of 15 tablets"/></div>
+            <div class="sp-field"><label>Dose</label><input type="text" id="sp-dose" placeholder="e.g. 650mg"/></div>
+            <div class="sp-field"><label>Units per Strip</label><input type="number" id="sp-units" placeholder="15" min="0"/></div>
+            <div class="sp-field"><label>Expiry Date <small style="color:#888;font-weight:400">(default — owner sets per-batch later)</small></label><input type="date" id="sp-expiry"/></div>
+            <div class="sp-field"><label>HSN Code</label><input type="text" id="sp-hsn" placeholder="3004"/></div>
+            <div class="sp-field"><label><input type="checkbox" id="sp-rx" style="margin-right:6px"/>⚠️ Prescription required</label></div>
+            <div class="sp-field"><label>Description <small style="color:#888;font-weight:400">(shown on the product card — defaults to brand if blank)</small></label><input type="text" id="sp-desc" placeholder=""/></div>
             <div class="sp-field"><label>Badge</label><input type="text" id="sp-badge" placeholder="New, Hot, Sale..."/></div>
-            <div class="sp-field">
-               <label>Category</label>
-               <select id="sp-catkey">
-                  <option value="groceries">Daily Needs — Groceries</option>
-                  <option value="vegetables">Daily Needs — Vegetables</option>
-                  <option value="dairy">Daily Needs — Dairy</option>
-                  <option value="flowers">Flowers</option>
-                  <option value="sofa">Home — Sofas</option>
-                  <option value="clothing">Clothing</option>
-                  <option value="electronics">Electronics</option>
-                  <option value="medicines">Health</option>
-                  <option value="utensils">Kitchen</option>
-                  <option value="stationery">Stationery</option>
-               </select>
-            </div>
+            <!-- Category auto-derived from the store's category; kept hidden so owner doesn't have to think about it -->
+            <input type="hidden" id="sp-catkey"/>
          </div>
          <div class="sp-modal-footer">
-            <button class="sp-btn-save" onclick="saveStoreProduct()">💾 Save Product</button>
+            <button class="sp-btn-save" onclick="saveStoreProduct()">💾 Save Item</button>
             <button class="sp-btn-cancel" onclick="closeStoreProductModal()">Cancel</button>
          </div>
       </div>

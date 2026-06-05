@@ -2962,6 +2962,40 @@ body.guest .store-section-divider {
 }
 .sp-catalog-info-btn:hover { background: #155cc1; }
 
+/* Shop-owner: bulk-add (multi-select) from catalogue */
+.bulk-add-bar {
+	display: flex; align-items: center; justify-content: space-between;
+	padding: 8px 12px; margin-bottom: 8px;
+	background: #e3f2fd; border: 1px solid #90caf9; border-radius: 8px;
+	font-size: 0.88rem;
+}
+.bulk-add-clear {
+	background: none; border: none; color: #c62828; cursor: pointer; font-weight: 600;
+}
+.bulk-add-results {
+	display: flex; flex-direction: column; gap: 6px;
+	max-height: 60vh; overflow-y: auto;
+}
+.bulk-add-row {
+	display: flex; align-items: center; gap: 10px;
+	padding: 8px 10px;
+	background: #fafbfc; border: 1px solid #e6e8eb; border-radius: 8px;
+	cursor: pointer; transition: background .15s, border-color .15s;
+}
+.bulk-add-row:hover { background: #f1f5fb; }
+.bulk-add-row.checked { background: #e8f5e9; border-color: #66bb6a; }
+.bulk-add-row input[type="checkbox"] { transform: scale(1.2); margin-right: 4px; }
+.bulk-add-img {
+	width: 36px; height: 36px; flex-shrink: 0;
+	display: flex; align-items: center; justify-content: center;
+	background: #fff; border-radius: 6px; overflow: hidden; border: 1px solid #eee;
+}
+.bulk-add-img img { width: 100%; height: 100%; object-fit: cover; }
+.bulk-add-info { flex: 1; min-width: 0; }
+.bulk-add-name { font-weight: 600; color: #1a1a2e; font-size: 0.92rem; }
+.bulk-add-meta { font-size: 0.78rem; color: #666; }
+.bulk-add-price { font-weight: 700; color: #0a8a3a; white-space: nowrap; }
+
 /* Shop-owner: catalogue picker in Add Product modal */
 .sp-catalog-results {
 	position: absolute;

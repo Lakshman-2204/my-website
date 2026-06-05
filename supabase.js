@@ -145,6 +145,15 @@ window.AppDB = {
       return true;
    },
 
+   // Bulk-upsert variant — used by the shop-owner "Bulk Add from Catalogue"
+   // flow so N selected items go in via a single network round-trip.
+   async bulkUpsertProducts(products) {
+      if (!Array.isArray(products) || !products.length) return true;
+      const { error } = await _sb.from('products').upsert(products, { onConflict: 'id' });
+      if (error) { console.error('bulkUpsertProducts:', error.message); return false; }
+      return true;
+   },
+
    async deleteProduct(id) {
       const { error } = await _sb.from('products').delete().eq('id', id);
       if (error) { console.error('deleteProduct:', error.message); return false; }

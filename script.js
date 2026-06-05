@@ -5960,6 +5960,144 @@ async function pickCatalogItem(itemId) {
    previewStoreProductImg();
 }
 
+// ── Shop-owner: bulk-add many catalogue items as products in one go ──
+// Picked items survive across searches so an owner can build up "20 paracetamols
+// + 15 antibiotics + 10 cough syrups" and commit all of them in a single click.
+var _bulkAddPicked = {};   // id → catalog_item row
+var _bulkAddSearchTimer = null;
+
+function openBulkAddModal() {
+   if (!_currentMyStoreId) { alert('Open a store first.'); return; }
+   _bulkAddPicked = {};
+   document.getElementById('bulkAddSearch').value = '';
+   document.getElementById('bulkAddResults').innerHTML =
+      '<p style="color:#888;text-align:center;padding:30px">Type a search above to find items.</p>';
+   _bulkAddRenderSelectedBar();
+   var modal = document.getElementById('bulkAddModal');
+   modal.classList.remove('hidden');
+   var inner = modal.querySelector('.sp-modal'); if (inner) inner.scrollTop = 0;
+   setTimeout(function() { document.getElementById('bulkAddSearch').focus(); }, 100);
+}
+
+function closeBulkAddModal() {
+   document.getElementById('bulkAddModal').classList.add('hidden');
+   _bulkAddPicked = {};
+}
+
+function bulkAddDoSearch() {
+   clearTimeout(_bulkAddSearchTimer);
+   _bulkAddSearchTimer = setTimeout(_bulkAddRunSearch, 220);
+}
+
+async function _bulkAddRunSearch() {
+   var q = (document.getElementById('bulkAddSearch').value || '').trim();
+   var box = document.getElementById('bulkAddResults');
+   if (q.length < 2) {
+      box.innerHTML = '<p style="color:#888;text-align:center;padding:30px">Type 2+ characters to search the catalogue.</p>';
+      return;
+   }
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
+   if (!store) return;
+   box.innerHTML = '<p style="color:#888;text-align:center;padding:30px">Searching…</p>';
+   var hits = await AppDB.getCatalogItems(store.category, { search: q, limit: 50 });
+   if (!hits.length) {
+      box.innerHTML = '<p style="color:#888;text-align:center;padding:30px">No matches for "<strong>' + q + '</strong>".</p>';
+      return;
+   }
+   box.innerHTML = hits.map(function(it) {
+      var iid = it.id.replace(/'/g, "\\'");
+      var checked = !!_bulkAddPicked[it.id];
+      var price = (it.price != null) ? '₹' + Number(it.price).toLocaleString('en-IN') : '—';
+      var img = it.image_url ? '<img src="' + it.image_url + '" onerror="this.style.display=\'none\'"/>' : '<span style="font-size:1.4rem">💊</span>';
+      return '<label class="bulk-add-row' + (checked ? ' checked' : '') + '">' +
+                '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="bulkAddToggle(\'' + iid + '\', this.checked)"/>' +
+                '<div class="bulk-add-img">' + img + '</div>' +
+                '<div class="bulk-add-info">' +
+                   '<div class="bulk-add-name">' + (it.name || '') + '</div>' +
+                   '<div class="bulk-add-meta">' + (it.brand || '') + '</div>' +
+                '</div>' +
+                '<div class="bulk-add-price">' + price + '</div>' +
+              '</label>';
+   }).join('');
+}
+
+function bulkAddToggle(id, checked) {
+   if (checked) {
+      // We don't have the full item in cache here — re-fetch quickly so we know all its fields at save time
+      AppDB.getCatalogItemById(id).then(function(it) {
+         if (it) _bulkAddPicked[id] = it;
+         _bulkAddRenderSelectedBar();
+      });
+   } else {
+      delete _bulkAddPicked[id];
+      _bulkAddRenderSelectedBar();
+   }
+}
+
+function bulkAddClearAll() {
+   _bulkAddPicked = {};
+   _bulkAddRenderSelectedBar();
+   _bulkAddRunSearch();   // re-render to uncheck visible boxes
+}
+
+function _bulkAddRenderSelectedBar() {
+   var n = Object.keys(_bulkAddPicked).length;
+   var bar = document.getElementById('bulkAddSelectedBar');
+   var count = document.getElementById('bulkAddSelectedCount');
+   var btn = document.getElementById('bulkAddSaveBtn');
+   if (count) count.textContent = n;
+   if (bar)   bar.classList.toggle('hidden', n === 0);
+   if (btn) {
+      btn.disabled = (n === 0);
+      btn.textContent = '📦 Add ' + n + ' Product' + (n === 1 ? '' : 's');
+   }
+}
+
+async function bulkAddSaveAll() {
+   var ids = Object.keys(_bulkAddPicked);
+   if (!ids.length) return;
+   var btn = document.getElementById('bulkAddSaveBtn');
+   if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+
+   var user  = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; });
+   if (!store) { alert('Lost track of store. Reload and try again.'); return; }
+
+   var rows = ids.map(function(id, i) {
+      var it = _bulkAddPicked[id];
+      return {
+         id:                'sp_' + (user.email || 'admin').split('@')[0] + '_' + Date.now() + '_' + i,
+         name:              it.name || '',
+         price:             (typeof it.price === 'number' ? it.price : parseFloat(it.price) || 0),
+         description:       it.brand || '',
+         image:             it.image_url || '',
+         category:          'medicines',     // default customer-side product subcategory
+         badge:             'New',
+         store_id:          store.owner_email || user.email,
+         store_name:        store.name || user.storeName || user.name || '',
+         store_provider_id: _currentMyStoreId,
+         catalog_item_id:   it.id,
+         variants:          null
+      };
+   });
+
+   // Bulk POST — single round-trip is fine for batches up to ~500
+   var ok = 0, fail = 0;
+   var CHUNK = 200;
+   for (var s = 0; s < rows.length; s += CHUNK) {
+      var batch = rows.slice(s, s + CHUNK);
+      var success = await AppDB.bulkUpsertProducts(batch);
+      if (success) ok += batch.length; else fail += batch.length;
+   }
+
+   // Refresh local cache + re-render
+   _db.storeProducts = (_db.storeProducts || []).concat(rows);
+   _applyStoreProdsToProducts();
+   alert('✅ Added ' + ok + ' product' + (ok === 1 ? '' : 's') + '.' + (fail ? '\n❌ ' + fail + ' failed.' : ''));
+   closeBulkAddModal();
+   renderMyStoreProducts(_currentMyStoreId);
+}
+
 function clearCatalogLink() {
    document.getElementById('sp-catalog-item-id').value = '';
    document.getElementById('sp-catalog-chip').classList.add('hidden');

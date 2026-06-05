@@ -2962,23 +2962,75 @@ body.guest .store-section-divider {
 }
 .sp-catalog-info-btn:hover { background: #155cc1; }
 
-/* Store-scoped product search (customer view inside a single store) */
+/* Store-scoped product search (customer view inside a single store).
+   Now a flex row: search input on the left, sort dropdown beside it.
+   The input shrinks to ~60% of the bar so we don't waste a full row. */
 .store-search-bar {
+	display: flex;
+	gap: 8px;
+	align-items: center;
 	margin: 0 0 14px;
+	max-width: 760px;
 }
 .store-search-bar input[type="search"] {
-	width: 100%;
+	flex: 1;
+	min-width: 0;
 	padding: 10px 14px;
 	font-size: 0.95rem;
 	border: 1.5px solid #d0d0d0;
 	border-radius: 10px;
-	background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23999'%3E%3C/svg%3E") no-repeat 12px center;
+	background: #fff;
 	transition: border-color .15s, box-shadow .15s;
 }
 .store-search-bar input[type="search"]:focus {
 	outline: none;
 	border-color: #1a73e8;
 	box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+}
+.store-sort-select {
+	padding: 9px 12px;
+	font-size: 0.88rem;
+	border: 1.5px solid #d0d0d0;
+	border-radius: 10px;
+	background: #fff;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+.store-sort-select:focus { outline: none; border-color: #1a73e8; }
+
+/* Inline store-meta string next to the title (e.g. "🏪 Store · address · phone") */
+.store-title-meta {
+	font-size: 0.85rem;
+	font-weight: 400;
+	color: #666;
+	margin-left: 8px;
+}
+@media (max-width: 760px) {
+	.store-title-meta { display: block; margin-left: 0; margin-top: 4px; }
+}
+
+/* Shop-owner: combined header row — back btn | inline store meta | action buttons.
+   Replaces the old two-row layout (title row + meta card) with a single, tighter bar. */
+.shop-store-action-bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 20px;
+	flex-wrap: wrap;
+	background: #fff;
+	border-bottom: 1px solid #eee;
+}
+.shop-store-meta-inline {
+	flex: 1;
+	min-width: 200px;
+	font-size: 0.88rem;
+	color: #444;
+	line-height: 1.4;
+}
+.shop-store-action-buttons {
+	display: flex;
+	gap: 8px;
+	flex-shrink: 0;
 }
 
 /* Shop-owner: counter-staff product search above their store's product list */

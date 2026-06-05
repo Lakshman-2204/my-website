@@ -322,15 +322,18 @@
          </div>
          <div id="shopMyStoresList" class="shop-product-list"></div>
       </div>
-      <!-- Products view (shown after picking a store) -->
+      <!-- Products view (shown after picking a store).
+           Single combined header: ← back | inline store meta | 📦 Bulk Add | ➕ Add Item
+           The store name itself isn't shown here — it's already in the top page header. -->
       <div id="shopStoreProductsView" class="hidden">
-         <div class="shop-prods-header">
-            <button class="btn-back" style="margin-right:auto" onclick="exitMyStore()">← My Stores</button>
-            <h3 id="shopStoreProductsTitle" style="margin:0 12px">Products</h3>
-            <button class="shop-btn-add-prod" style="background:#1a73e8" onclick="openBulkAddModal()">📦 Bulk Add from Catalogue</button>
-            <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Item</button>
+         <div class="shop-store-action-bar">
+            <button class="btn-back" id="shopStoreBackBtn" onclick="exitMyStore()">← My Stores</button>
+            <div id="shopStoreMeta" class="shop-store-meta-inline"></div>
+            <div class="shop-store-action-buttons">
+               <button class="shop-btn-add-prod" style="background:#1a73e8" onclick="openBulkAddModal()">📦 Bulk Add</button>
+               <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Item</button>
+            </div>
          </div>
-         <div id="shopStoreMeta" class="shop-store-meta-card"></div>
          <!-- Counter-staff helper: search this store's products to find an item fast for a walk-in customer -->
          <div class="shop-search-bar" style="padding:0 20px;margin-bottom:10px">
             <input type="search" id="shopProductSearch" placeholder="🔍 Search your store's products (Dolo, Crocin, Paracetamol…)" oninput="renderMyStoreProducts(_currentMyStoreId)" autocomplete="off"/>

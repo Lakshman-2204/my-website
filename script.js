@@ -4114,21 +4114,23 @@ function showStoreProvider(providerId) {
 
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
-   document.getElementById('productTitle').textContent = (p.icon || meta.icon) + ' ' + p.name;
+   // Inline store metadata next to the title so we save a whole row of vertical space:
+   //   🏪 kumar medical store · 24x7 pharmacy · 📍 address · 🕒 24x7 · 📞 phone · 🚚 delivery
+   var inline = [];
+   if (p.tagline) inline.push(p.tagline);
+   if (p.address) inline.push('📍 ' + _mapsLink(p.address));
+   if (p.timing)  inline.push('🕒 ' + p.timing);
+   if (p.phone)   inline.push('📞 ' + _phoneLink(p.phone));
+   if (p.door_delivery) inline.push('<span style="color:#0a8a3a;font-weight:600">🚚 Home delivery</span>');
+   var titleText = (p.icon || meta.icon) + ' ' + p.name;
+   var titleEl = document.getElementById('productTitle');
+   titleEl.innerHTML = titleText +
+      (inline.length ? '<span class="store-title-meta"> · ' + inline.join(' · ') + '</span>' : '');
    _setStoresChromeMode(true);
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
-
    var html = '<button class="apt-back-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g, "\\'") + '\')">← Back to ' + meta.label + '</button>';
-   // Store meta strip
-   html += '<div class="store-detail-meta">' +
-              (p.tagline ? '<div class="store-detail-tagline">' + p.tagline + '</div>' : '') +
-              (p.address ? '<div>📍 ' + _mapsLink(p.address) + '</div>' : '') +
-              (p.timing  ? '<div>🕒 ' + p.timing + '</div>' : '') +
-              (p.phone   ? '<div style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
-              (p.door_delivery ? '<div style="color:#0a8a3a;font-weight:600">🚚 Home delivery available</div>' : '') +
-           '</div>';
    html += '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id) + '</div>';
    grid.innerHTML = html;
    window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4151,8 +4153,14 @@ function buildStoreSubcatLayout(storeProviderId) {
 
    var searchBar = '<div class="store-search-bar">' +
                       '<input type="search" id="storeProductSearch" data-pid="' + idAttr + '" ' +
-                      'placeholder="🔍 Search products in this store (Dolo, Crocin, Paracetamol…)" ' +
+                      'placeholder="🔍 Search products (Dolo, Crocin…)" ' +
                       'oninput="filterStoreProducts(this)" autocomplete="off"/>' +
+                      '<select id="storeProductSort" data-pid="' + idAttr + '" class="store-sort-select" onchange="filterStoreProducts(document.getElementById(\'storeProductSearch\'))">' +
+                         '<option value="">📊 Default order</option>' +
+                         '<option value="price-asc">💰 Price: low → high</option>' +
+                         '<option value="price-desc">💰 Price: high → low</option>' +
+                         '<option value="name-asc">🔤 Name: A → Z</option>' +
+                      '</select>' +
                    '</div>';
 
    var sidebarHtml = storeCats.map(function(c, i) {
@@ -4179,21 +4187,22 @@ function buildStoreSubcatLayout(storeProviderId) {
           '</div>';
 }
 
-// Called as the customer types in the store-scoped search bar.
-// Empty query → restore the normal sidebar+grid layout.
-// Non-empty   → flat grid of matches across all sub-categories of this store.
+// Called as the customer types in the store-scoped search bar OR changes sort.
+// Empty query + no sort → restore the normal sidebar+grid layout.
+// Otherwise → flat sorted grid of matches across all sub-categories of this store.
 function filterStoreProducts(input) {
    var q = (input.value || '').trim().toLowerCase();
    var pid = input.dataset.pid || '';
+   var sortSel = document.getElementById('storeProductSort');
+   var sort = sortSel ? sortSel.value : '';
    var panel = document.getElementById('storeSubcatPanel');
    var sidebar = document.querySelector('.subcat-sidebar');
    if (!panel) return;
 
-   if (!q) {
-      // Empty — re-render the store's normal subcat layout
+   if (!q && !sort) {
+      // No search, no sort — re-render the store's normal subcat layout
       var host = document.getElementById('storeProviderProducts');
       if (host) host.innerHTML = buildStoreSubcatLayout(pid);
-      // Refocus the search box for keyboard-only users
       var s = document.getElementById('storeProductSearch');
       if (s) s.focus();
       return;
@@ -4205,12 +4214,25 @@ function filterStoreProducts(input) {
       var catKey = entry[0], catData = entry[1];
       catData.items.forEach(function(item) {
          if (item.store_provider_id !== pid) return;
-         var hay = ((item.name || '') + ' ' + (item.desc || '') + ' ' + (item.storeName || '')).toLowerCase();
-         if (hay.indexOf(q) !== -1) hits.push({ item: item, catKey: catKey, type: catData.type });
+         if (q) {
+            var hay = ((item.name || '') + ' ' + (item.desc || '') + ' ' + (item.storeName || '')).toLowerCase();
+            if (hay.indexOf(q) === -1) return;
+         }
+         hits.push({ item: item, catKey: catKey, type: catData.type });
       });
    });
 
-   if (sidebar) sidebar.style.display = 'none';
+   // Apply sort
+   if (sort === 'price-asc')  hits.sort(function(a,b){ return (a.item.price||0) - (b.item.price||0); });
+   if (sort === 'price-desc') hits.sort(function(a,b){ return (b.item.price||0) - (a.item.price||0); });
+   if (sort === 'name-asc')   hits.sort(function(a,b){ return (a.item.name||'').localeCompare(b.item.name||''); });
+
+   if (sidebar) sidebar.style.display = q ? 'none' : '';   // keep sidebar for sort-only
+
+   var headline = q
+      ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') + ' for "' + q + '"'
+      : 'All products' + (sort ? ' · sorted' : '');
+
    if (!hits.length) {
       panel.innerHTML = '<div class="subcat-panel-title">No matches for "' + q + '"</div>' +
                         '<p style="color:#888;padding:30px;text-align:center">Try a different brand or generic name.</p>';
@@ -4219,7 +4241,7 @@ function filterStoreProducts(input) {
    var tmp = document.createElement('div');
    tmp.className = 'products-grid';
    hits.forEach(function(h) { renderCard(Object.assign({}, h.item, { type: h.type }), h.catKey, tmp); });
-   panel.innerHTML = '<div class="subcat-panel-title">' + hits.length + ' match' + (hits.length === 1 ? '' : 'es') + ' for "' + q + '"</div>' +
+   panel.innerHTML = '<div class="subcat-panel-title">' + headline + '</div>' +
                      '<div class="products-grid">' + tmp.innerHTML + '</div>';
 }
 
@@ -5858,20 +5880,18 @@ function renderMyStoreProducts(storeId) {
    var owned = (_storeProvidersCache || []).filter(function(p) {
       return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
    });
-   var backBtn = prodView ? prodView.querySelector('.btn-back') : null;
+   var backBtn = document.getElementById('shopStoreBackBtn');
    if (backBtn) backBtn.classList.toggle('hidden', owned.length < 2);
 
-   var title = document.getElementById('shopStoreProductsTitle');
-   if (title) title.textContent = (store.icon || meta.icon) + ' ' + store.name;
-
+   // Inline meta strip \u2014 all on one line beside the back button & action buttons.
    var metaEl = document.getElementById('shopStoreMeta');
    if (metaEl) {
-      metaEl.innerHTML =
-         '<div><strong>' + meta.icon + ' ' + meta.label + '</strong>' +
-            (store.tagline ? ' \u00b7 ' + store.tagline : '') + '</div>' +
-         (store.address ? '<div>\ud83d\udccd ' + store.address + '</div>' : '') +
-         (store.timing  ? '<div>\ud83d\udd52 ' + store.timing  + '</div>' : '') +
-         (store.phone   ? '<div>\ud83d\udcde ' + store.phone   + '</div>' : '');
+      var parts = ['<strong>' + meta.icon + ' ' + meta.label + '</strong>'];
+      if (store.tagline) parts.push(store.tagline);
+      if (store.address) parts.push('\ud83d\udccd ' + store.address);
+      if (store.timing)  parts.push('\ud83d\udd52 ' + store.timing);
+      if (store.phone)   parts.push('\ud83d\udcde ' + store.phone);
+      metaEl.innerHTML = parts.join(' \u00b7 ');
    }
 
    // Filter products by store_provider_id (new model).

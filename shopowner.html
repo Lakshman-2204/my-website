@@ -330,6 +330,7 @@
             <button class="btn-back" id="shopStoreBackBtn" onclick="exitMyStore()">← My Stores</button>
             <div id="shopStoreMeta" class="shop-store-meta-inline"></div>
             <div class="shop-store-action-buttons">
+               <button class="shop-btn-add-prod" style="background:#ef6c00" onclick="openWalkinBillModal()">🧾 Walk-in Bill</button>
                <button class="shop-btn-add-prod" style="background:#1a73e8" onclick="openBulkAddModal()">📦 Bulk Add</button>
                <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Item</button>
             </div>
@@ -391,6 +392,104 @@
          <div class="sp-modal-footer">
             <button class="sp-btn-save" onclick="saveStoreProduct()">💾 Save Item</button>
             <button class="sp-btn-cancel" onclick="closeStoreProductModal()">Cancel</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- WALK-IN BILL MODAL — counter-staff builds a bill for a customer who walked in -->
+   <div class="sp-modal-overlay hidden" id="walkinBillModal" onclick="if(event.target===this)closeWalkinBillModal()">
+      <div class="sp-modal" style="max-width:900px">
+         <div class="sp-modal-header" style="background:#ef6c00">
+            <h3>🧾 Walk-in Bill</h3>
+            <button onclick="closeWalkinBillModal()">✕</button>
+         </div>
+         <div class="sp-modal-body">
+            <!-- Customer info row (optional — owner can leave blank for anonymous sale) -->
+            <div class="walkin-cust-row">
+               <div class="sp-field">
+                  <label>Customer Name <small style="color:#888;font-weight:400">(optional)</small></label>
+                  <input type="text" id="walkin-name" placeholder="e.g. Ramesh"/>
+               </div>
+               <div class="sp-field">
+                  <label>Phone <small style="color:#888;font-weight:400">(optional — auto-recalls repeat customers)</small></label>
+                  <input type="tel" id="walkin-phone" placeholder="98765 43210" onblur="walkinLookupByPhone()"/>
+               </div>
+               <div class="sp-field">
+                  <label>Doctor <small style="color:#888;font-weight:400">(optional)</small></label>
+                  <input type="text" id="walkin-doctor" placeholder="e.g. Dr Sharma"/>
+               </div>
+            </div>
+
+            <!-- Item picker — type to search this store's products -->
+            <div class="sp-field" style="margin-top:8px">
+               <label>🔍 Add items to bill</label>
+               <div style="position:relative">
+                  <input type="text" id="walkin-item-search" placeholder="Type 2+ characters to search..." autocomplete="off" oninput="walkinDoSearch()"/>
+                  <div id="walkin-item-results" class="sp-catalog-results hidden"></div>
+               </div>
+            </div>
+
+            <!-- Items table — owner can edit qty/MRP/discount inline -->
+            <h4 style="margin:12px 0 6px;font-size:0.95rem">Items in this Bill</h4>
+            <div id="walkin-items-table" class="walkin-items-table"></div>
+
+            <!-- Totals -->
+            <div class="bill-summary" id="walkin-summary" style="margin-top:14px"></div>
+         </div>
+         <div class="sp-modal-footer">
+            <button class="sp-btn-cancel" onclick="closeWalkinBillModal()">Cancel</button>
+            <button class="sp-btn-save" onclick="saveWalkinBill(false)">💾 Save Only</button>
+            <button class="sp-btn-save" style="background:#1a73e8" onclick="saveWalkinBill(true)">🖨 Save &amp; Print</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- BILL / ORDER REVIEW MODAL — edit MRP/qty/discount per line, then generate bill -->
+   <div class="sp-modal-overlay hidden" id="orderBillModal" onclick="if(event.target===this)closeOrderBillModal()">
+      <div class="sp-modal" style="max-width:900px">
+         <div class="sp-modal-header">
+            <h3 id="orderBillTitle">📝 Order &amp; Bill</h3>
+            <button onclick="closeOrderBillModal()">✕</button>
+         </div>
+         <div class="sp-modal-body" id="orderBillBody"></div>
+         <div class="sp-modal-footer" id="orderBillFooter"></div>
+      </div>
+   </div>
+
+   <!-- PRINTABLE BILL — opens in a new tab via window.open with this template -->
+
+   <!-- STOCK MANAGEMENT MODAL — list & add inventory batches for one product -->
+   <div class="sp-modal-overlay hidden" id="stockModal" onclick="if(event.target===this)closeStockModal()">
+      <div class="sp-modal" style="max-width:760px">
+         <div class="sp-modal-header">
+            <h3 id="stockModalTitle">📦 Stock</h3>
+            <button onclick="closeStockModal()">✕</button>
+         </div>
+         <div class="sp-modal-body">
+            <div id="stockProductSummary" class="stock-summary"></div>
+
+            <!-- Existing batches table -->
+            <h4 style="margin:12px 0 8px;font-size:0.95rem">Current Batches</h4>
+            <div id="stockBatchesList"></div>
+
+            <hr style="border:none;border-top:1px solid #eee;margin:18px 0 12px"/>
+
+            <!-- Add new batch form -->
+            <h4 style="margin:0 0 10px;font-size:0.95rem">➕ Add Batch (new shipment)</h4>
+            <div class="stock-add-grid">
+               <div class="sp-field"><label>Batch No</label><input type="text" id="stk-batch" placeholder="e.g. ABC123"/></div>
+               <div class="sp-field"><label>Expiry Date</label><input type="date" id="stk-exp"/></div>
+               <div class="sp-field"><label>Mfg Date <small style="color:#888;font-weight:400">(optional)</small></label><input type="date" id="stk-mfg"/></div>
+               <div class="sp-field"><label>Qty (atomic units, e.g. tabs)</label><input type="number" id="stk-qty" min="0" placeholder="150"/></div>
+               <div class="sp-field"><label>MRP per unit (₹)</label><input type="number" id="stk-mrp" min="0" step="0.01"/></div>
+               <div class="sp-field"><label>Purchase price per unit (₹)</label><input type="number" id="stk-pp" min="0" step="0.01"/></div>
+               <div class="sp-field" style="grid-column:1/-1"><label>Notes <small style="color:#888;font-weight:400">(supplier, invoice ref, etc.)</small></label><input type="text" id="stk-notes"/></div>
+            </div>
+            <input type="hidden" id="stk-product-id"/>
+         </div>
+         <div class="sp-modal-footer">
+            <button class="sp-btn-save" onclick="saveStockBatch()">💾 Add Batch</button>
+            <button class="sp-btn-cancel" onclick="closeStockModal()">Close</button>
          </div>
       </div>
    </div>

@@ -286,6 +286,76 @@ CREATE INDEX IF NOT EXISTS catalog_items_brand_trgm_idx
 CREATE INDEX IF NOT EXISTS catalog_items_composition_trgm_idx
    ON public.catalog_items USING gin ((attrs->>'composition') gin_trgm_ops);
 
+-- 15. PRODUCTS — inventory-related columns. Stores how a product is sold and
+-- when to flag low stock. units_per_pack tells us how many atomic units
+-- (e.g. tablets) live in one strip — used to display "2 strips + 4 tabs".
+ALTER TABLE public.products
+   ADD COLUMN IF NOT EXISTS sell_unit       text    DEFAULT 'strip',  -- 'strip' | 'tablet' | 'bottle' | 'sachet' | 'ml' | 'pcs'
+   ADD COLUMN IF NOT EXISTS units_per_pack  numeric DEFAULT 1,         -- tablets per strip, ml per bottle, etc.
+   ADD COLUMN IF NOT EXISTS reorder_point   numeric DEFAULT 0;         -- 0 = disabled; otherwise low-stock threshold in atomic units
+
+-- 16. INVENTORY_BATCHES — actual stock the store has, by batch.
+-- Each shipment a pharmacy receives creates one row here. qty is stored in
+-- atomic units (tablets, ml, single pieces). The bill flow auto-picks the
+-- oldest-expiry batch first ("FEFO" — first expiry first out).
+CREATE TABLE IF NOT EXISTS public.inventory_batches (
+   id                  text         PRIMARY KEY,
+   product_id          text         NOT NULL,                      -- FK products.id
+   store_provider_id   text         NOT NULL,                      -- denormalized for fast filter
+   batch_no            text         DEFAULT '',
+   mfg_date            date,
+   expiry_date         date,
+   qty_received        numeric      DEFAULT 0,                     -- original count, atomic units
+   qty_remaining       numeric      DEFAULT 0,                     -- current count, atomic units
+   mrp                 numeric      DEFAULT 0,                     -- can differ from catalogue MRP (rare)
+   purchase_price      numeric      DEFAULT 0,                     -- what the owner paid (for margin calc)
+   notes               text         DEFAULT '',
+   created_at          timestamptz  DEFAULT now(),
+   updated_at          timestamptz  DEFAULT now()
+);
+ALTER TABLE public.inventory_batches DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS inventory_batches_product_idx  ON public.inventory_batches(product_id);
+CREATE INDEX IF NOT EXISTS inventory_batches_store_idx    ON public.inventory_batches(store_provider_id);
+CREATE INDEX IF NOT EXISTS inventory_batches_expiry_idx   ON public.inventory_batches(expiry_date);
+
+-- 17. PRODUCTS — denormalized rx_required so customer cards don't have to
+-- look up the catalog every time. Owner sets this when adding/editing item.
+ALTER TABLE public.products
+   ADD COLUMN IF NOT EXISTS rx_required boolean DEFAULT false;
+
+-- 18. ORDERS — extra columns for medical-store / home-delivery flow:
+--     store_provider_id  → which store-provider received this order (Phase 1+)
+--     prescription_url   → public URL of the customer's Rx photo (one per order)
+--     delivery_address   → snapshot of the chosen address (JSONB so we don't break
+--                          if the customer edits/deletes the address later)
+--     payment_mode       → 'COD' default; future: 'UPI_PREPAID' etc.
+--     status fields already exist on orders from earlier work.
+ALTER TABLE public.orders
+   ADD COLUMN IF NOT EXISTS store_provider_id text,
+   ADD COLUMN IF NOT EXISTS prescription_url  text,
+   ADD COLUMN IF NOT EXISTS delivery_address  jsonb,
+   ADD COLUMN IF NOT EXISTS payment_mode      text DEFAULT 'COD',
+   ADD COLUMN IF NOT EXISTS discount_pct      numeric DEFAULT 0,
+   ADD COLUMN IF NOT EXISTS bill_number       text,
+   ADD COLUMN IF NOT EXISTS walk_in           boolean DEFAULT false,
+   ADD COLUMN IF NOT EXISTS doctor_name       text DEFAULT '';
+CREATE INDEX IF NOT EXISTS orders_store_provider_idx ON public.orders(store_provider_id);
+
+-- 19. WALKIN_CUSTOMERS — lightweight directory of customers who walked in to a
+-- pharmacy. Saved on first bill via phone number. Lets the owner recall a
+-- repeat customer's name + phone next time (for loyalty / bill history).
+-- No login required — the customer is anonymous from the website's POV.
+CREATE TABLE IF NOT EXISTS public.walkin_customers (
+   id          text         PRIMARY KEY,
+   store_provider_id text,
+   name        text         DEFAULT '',
+   phone       text         DEFAULT '',
+   created_at  timestamptz  DEFAULT now()
+);
+ALTER TABLE public.walkin_customers DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS walkin_customers_phone_idx ON public.walkin_customers(phone);
+CREATE INDEX IF NOT EXISTS walkin_customers_store_idx ON public.walkin_customers(store_provider_id);
+
 -- 13b. STORE_CATEGORIES — per-category field schema (admin-editable).
 --      Each row holds a JSONB array of field defs like:
 --         [{key,label,type,placeholder}, ...]

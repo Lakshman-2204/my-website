@@ -3059,6 +3059,196 @@ body.guest .store-section-divider {
 	box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
 }
 
+/* Walk-in Bill modal */
+.walkin-cust-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	gap: 10px;
+}
+@media (max-width: 700px) { .walkin-cust-row { grid-template-columns: 1fr; } }
+.walkin-items-table {
+	margin-top: 6px;
+}
+
+/* Shop-owner order card: Rx thumbnail + delivery address + bill button */
+.shop-order-rx {
+	margin: 8px 0; padding: 8px 10px;
+	background: #ffebee; border: 1px solid #ef9a9a; border-radius: 6px;
+	font-size: 0.85rem;
+}
+.shop-rx-thumb {
+	max-width: 70px; max-height: 70px;
+	margin-left: 8px; border-radius: 4px;
+	border: 1px solid #c62828; cursor: pointer;
+	vertical-align: middle;
+}
+.shop-order-addr {
+	margin: 8px 0; padding: 8px 10px;
+	background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px;
+	font-size: 0.85rem; line-height: 1.4;
+}
+.shop-order-pay {
+	margin: 8px 0; padding: 6px 10px;
+	background: #fff8e1; border: 1px solid #ffd54f; border-radius: 6px;
+	font-size: 0.85rem; color: #6d4c41;
+}
+.shop-btn-bill {
+	padding: 8px 14px; background: #1a73e8; color: #fff;
+	border: none; border-radius: 6px; font-weight: 600;
+	cursor: pointer; margin-right: 6px;
+}
+.shop-btn-bill:hover { background: #1558b0; }
+
+/* Bill/Order edit modal */
+.bill-meta-row {
+	display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.bill-meta-row > div {
+	flex: 1; min-width: 220px;
+	padding: 10px 12px; border: 1px solid #e6e8eb; border-radius: 8px;
+	background: #fafbfc; font-size: 0.88rem; line-height: 1.5;
+}
+.bill-edit-table {
+	width: 100%; border-collapse: collapse;
+	font-size: 0.88rem; margin-bottom: 12px;
+}
+.bill-edit-table th, .bill-edit-table td {
+	padding: 6px 8px; border-bottom: 1px solid #eee;
+	text-align: left;
+}
+.bill-edit-table thead th { background: #f5f7fa; }
+.bill-edit-table input[type="number"] {
+	width: 100%; padding: 4px 6px;
+	border: 1px solid #d0d0d0; border-radius: 4px;
+}
+.bill-line-net { font-weight: 700; color: #0a8a3a; text-align: right; }
+.bill-summary {
+	padding: 12px; background: #f5f7fa; border-radius: 8px;
+	font-size: 0.92rem; line-height: 1.7;
+}
+.bill-summary .bill-net {
+	font-size: 1.1rem; font-weight: 800; color: #1a1a2e;
+	border-top: 1px solid #ccc; padding-top: 6px; margin-top: 6px;
+}
+
+/* Customer-side product card: Rx + stock tags below the description */
+.rx-required-tag {
+	display: inline-block;
+	padding: 2px 8px;
+	margin: 4px 0 0;
+	border-radius: 999px;
+	background: #ffebee;
+	color: #c62828;
+	font-size: 0.72rem;
+	font-weight: 700;
+}
+.customer-stock-tag {
+	display: inline-block;
+	padding: 2px 8px;
+	margin: 4px 0 0;
+	border-radius: 999px;
+	font-size: 0.72rem;
+	font-weight: 700;
+}
+.customer-stock-tag.ok    { background: #e8f5e9; color: #2e7d32; }
+.customer-stock-tag.low   { background: #fff3e0; color: #ef6c00; }
+.customer-stock-tag.oos   { background: #ffebee; color: #c62828; }
+
+/* Rx upload + medical checkout modal (shared overlay style) */
+.rx-overlay {
+	position: fixed; inset: 0;
+	background: rgba(0,0,0,0.6);
+	z-index: 2000;
+	display: flex; align-items: center; justify-content: center;
+	padding: 20px;
+}
+.rx-overlay.hidden { display: none; }
+.rx-modal {
+	background: #fff; border-radius: 14px;
+	width: 100%; max-width: 480px;
+	max-height: 90vh; overflow-y: auto;
+	box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.rx-modal-header {
+	display: flex; justify-content: space-between; align-items: center;
+	padding: 14px 18px; background: #c62828; color: #fff;
+	border-radius: 14px 14px 0 0;
+	position: sticky; top: 0; z-index: 5;
+}
+.rx-modal-header h3 { font-size: 1.05rem; margin: 0; }
+.rx-modal-close { background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; }
+.rx-modal-body { padding: 16px 18px; }
+.rx-modal-footer {
+	display: flex; gap: 10px; padding: 12px 18px;
+	border-top: 1px solid #eee;
+	position: sticky; bottom: 0; background: #fff;
+}
+.rx-btn-save   { flex: 1; padding: 11px; background: #2e7d32; color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.rx-btn-cancel { flex: 1; padding: 11px; background: #f5f5f5; color: #555; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+
+/* Medical checkout content blocks */
+.med-checkout-group {
+	border: 1px solid #e6e8eb; border-radius: 8px;
+	padding: 10px 12px; margin-bottom: 10px;
+	background: #fafbfc;
+}
+.med-checkout-store { font-size: 0.95rem; margin-bottom: 6px; }
+.med-checkout-items { list-style: none; padding: 0; margin: 0; font-size: 0.85rem; color: #444; }
+.med-checkout-items li { padding: 2px 0; }
+.med-checkout-subtotal { font-weight: 700; margin-top: 6px; text-align: right; color: #1a1a2e; }
+.med-checkout-rx, .med-checkout-address, .med-checkout-payment {
+	margin: 10px 0; padding: 10px 12px;
+	border: 1px solid #e6e8eb; border-radius: 8px;
+	background: #fff; font-size: 0.9rem;
+}
+
+/* Shop-owner: stock-status badges next to product names */
+.shop-stock-badge {
+	display: inline-block;
+	margin-left: 8px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 0.72rem;
+	font-weight: 700;
+	vertical-align: middle;
+}
+.shop-stock-badge.ok       { background: #e8f5e9; color: #2e7d32; }
+.shop-stock-badge.low      { background: #fff3e0; color: #ef6c00; }
+.shop-stock-badge.expiring { background: #fff8e1; color: #b07000; }
+.shop-stock-badge.oos      { background: #ffebee; color: #c62828; }
+
+/* Stock modal — summary + batch table */
+.stock-summary {
+	padding: 10px 12px;
+	background: #f5f7fa;
+	border: 1px solid #e6e8eb;
+	border-radius: 8px;
+	font-size: 0.88rem;
+	line-height: 1.5;
+}
+.stock-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.88rem;
+}
+.stock-table th, .stock-table td {
+	padding: 8px 10px;
+	border-bottom: 1px solid #f0f2f5;
+	text-align: left;
+}
+.stock-table thead th {
+	background: #f5f7fa;
+	font-weight: 700;
+}
+.stock-table tr.expiring td { background: #fff8e1; }
+.stock-table tr.expired  td { background: #ffebee; color: #c62828; }
+
+.stock-add-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px 12px;
+}
+
 /* Shop-owner: bulk-add (multi-select) from catalogue */
 .bulk-add-bar {
 	display: flex; align-items: center; justify-content: space-between;

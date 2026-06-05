@@ -354,6 +354,49 @@
          </div>
       </div>
 
+      <!-- Rx UPLOAD MODAL — shown when customer adds an Rx-required medicine -->
+      <div class="rx-overlay hidden" id="rxOverlay" onclick="if(event.target===this)closeRxUploadModal()">
+         <div class="rx-modal">
+            <div class="rx-modal-header">
+               <h3>⚠️ Prescription Required</h3>
+               <button class="rx-modal-close" onclick="closeRxUploadModal()">✕</button>
+            </div>
+            <div class="rx-modal-body">
+               <p id="rxModalMsg" style="color:#555;font-size:0.95rem;margin:0 0 12px"></p>
+               <p style="color:#888;font-size:0.85rem;margin:0 0 12px">
+                  Upload a clear photo of your doctor's prescription. The same prescription will be used for all
+                  prescription-required items you add to this cart.
+               </p>
+               <input type="file" id="rxFileInput" accept="image/*" capture="environment"
+                      style="width:100%;padding:10px;border:2px dashed #1a73e8;border-radius:8px;background:#f5fafe"/>
+               <div id="rxPreview" class="rx-preview hidden"></div>
+               <div id="rxUploadStatus" style="margin-top:10px;font-size:0.88rem;text-align:center"></div>
+            </div>
+            <div class="rx-modal-footer">
+               <button class="rx-btn-save" id="rxUploadBtn" onclick="confirmRxUpload()">📤 Upload &amp; Add to Cart</button>
+               <button class="rx-btn-cancel" onclick="closeRxUploadModal()">Cancel</button>
+            </div>
+         </div>
+      </div>
+
+      <!-- MEDICAL CHECKOUT MODAL — separate from the generic payment modal:
+           address picker (required if store delivers), prescription preview, COD confirm -->
+      <div class="rx-overlay hidden" id="medCheckoutOverlay" onclick="if(event.target===this)closeMedCheckout()">
+         <div class="rx-modal" style="max-width:560px">
+            <div class="rx-modal-header" style="background:#1a73e8">
+               <h3>🛒 Confirm Order</h3>
+               <button class="rx-modal-close" onclick="closeMedCheckout()">✕</button>
+            </div>
+            <div class="rx-modal-body" id="medCheckoutBody">
+               <p style="color:#888;text-align:center;padding:30px">Loading…</p>
+            </div>
+            <div class="rx-modal-footer">
+               <button class="rx-btn-save" id="medCheckoutPlaceBtn" onclick="placeMedicalOrder()">✅ Place Order (Cash / UPI on Delivery)</button>
+               <button class="rx-btn-cancel" onclick="closeMedCheckout()">Cancel</button>
+            </div>
+         </div>
+      </div>
+
       <!-- APPOINTMENT CONFIRMATION MODAL -->
       <div class="apt-done-overlay hidden" id="aptDoneOverlay">
          <div class="apt-done-modal">

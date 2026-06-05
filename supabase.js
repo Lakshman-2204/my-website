@@ -154,6 +154,78 @@ window.AppDB = {
       return true;
    },
 
+   // ── INVENTORY BATCHES (Phase 1) ──────────────────────────
+   // List all batches for a single product (used in the "Manage Stock" modal)
+   async getBatchesForProduct(productId) {
+      const { data, error } = await _sb.from('inventory_batches')
+         .select('*').eq('product_id', productId)
+         .order('expiry_date', { ascending: true, nullsFirst: false });
+      if (error) { console.error('getBatchesForProduct:', error.message); return []; }
+      return data || [];
+   },
+
+   // List all batches for a whole store (used for stock summary / customer badges)
+   async getBatchesForStore(storeProviderId) {
+      const { data, error } = await _sb.from('inventory_batches')
+         .select('*').eq('store_provider_id', storeProviderId);
+      if (error) { console.error('getBatchesForStore:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertInventoryBatch(batch) {
+      const row = {
+         id:                batch.id,
+         product_id:        batch.product_id,
+         store_provider_id: batch.store_provider_id,
+         batch_no:          batch.batch_no       || '',
+         mfg_date:          batch.mfg_date       || null,
+         expiry_date:       batch.expiry_date    || null,
+         qty_received:      Number(batch.qty_received)   || 0,
+         qty_remaining:     Number(batch.qty_remaining)  || 0,
+         mrp:               Number(batch.mrp)            || 0,
+         purchase_price:    Number(batch.purchase_price) || 0,
+         notes:             batch.notes || '',
+         updated_at:        new Date().toISOString()
+      };
+      const { error } = await _sb.from('inventory_batches').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertInventoryBatch:', error.message); return false; }
+      return true;
+   },
+
+   async deleteInventoryBatch(id) {
+      const { error } = await _sb.from('inventory_batches').delete().eq('id', id);
+      if (error) { console.error('deleteInventoryBatch:', error.message); return false; }
+      return true;
+   },
+
+   // ── WALK-IN CUSTOMERS (Phase 4) ──────────────────────────
+   // Look up an existing walk-in customer by phone (so the owner can recall a
+   // repeat customer's name + bill history). Returns null if not found.
+   async findWalkinByPhone(storeProviderId, phone) {
+      if (!phone) return null;
+      const { data, error } = await _sb.from('walkin_customers')
+         .select('*')
+         .eq('store_provider_id', storeProviderId)
+         .eq('phone', phone)
+         .limit(1);
+      if (error) { console.error('findWalkinByPhone:', error.message); return null; }
+      return (data && data[0]) || null;
+   },
+
+   // Insert a walk-in customer (called only when phone is provided and the
+   // customer doesn't already exist). Returns the inserted row.
+   async upsertWalkinCustomer(c) {
+      const row = {
+         id:                c.id,
+         store_provider_id: c.store_provider_id,
+         name:              c.name  || '',
+         phone:             c.phone || ''
+      };
+      const { error } = await _sb.from('walkin_customers').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertWalkinCustomer:', error.message); return false; }
+      return true;
+   },
+
    async deleteProduct(id) {
       const { error } = await _sb.from('products').delete().eq('id', id);
       if (error) { console.error('deleteProduct:', error.message); return false; }
@@ -247,6 +319,14 @@ window.AppDB = {
    async updateOrderStatus(orderId, status) {
       const { error } = await _sb.from('orders').update({ status }).eq('order_id', orderId);
       if (error) { console.error('updateOrderStatus:', error.message); return false; }
+      return true;
+   },
+
+   // Generic order patch — used by the shop-owner bill flow to update items,
+   // total, discount, and bill_number atomically.
+   async patchOrder(orderId, patch) {
+      const { error } = await _sb.from('orders').update(patch).eq('order_id', orderId);
+      if (error) { console.error('patchOrder:', error.message); return false; }
       return true;
    },
 
@@ -467,6 +547,24 @@ window.AppDB = {
       const { error } = await _sb.from('apt_providers').delete().eq('id', id);
       if (error) { console.error('deleteProvider:', error.message); return false; }
       return true;
+   },
+
+   // Upload a customer's prescription photo to the public "prescriptions"
+   // Storage bucket. Returns the public URL on success, null on failure.
+   // Caller stores that URL on the order (orders.prescription_url) and shows
+   // it to the shop owner during fulfilment.
+   async uploadPrescription(file, userEmail) {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const safeEmail = (userEmail || 'anon').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+      const path = safeEmail + '/' + 'rx-' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
+      const { error } = await _sb.storage.from('prescriptions').upload(path, file, {
+         cacheControl: '3600',
+         upsert: false,
+         contentType: file.type || ('image/' + ext)
+      });
+      if (error) { console.error('uploadPrescription:', error.message); return null; }
+      const { data } = _sb.storage.from('prescriptions').getPublicUrl(path);
+      return data && data.publicUrl ? data.publicUrl : null;
    },
 
    // Upload a doctor's photo to the public "doctor-photos" Storage bucket and

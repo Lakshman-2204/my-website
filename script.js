@@ -460,13 +460,91 @@ function renderCard(item, catKey, grid) {
   <span class="qty-display" id="qty_${item.id}">${pageQty[item.id]}</span>
   <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
   </div>`}
+  ${_rxStockTags(item)}
   <div class="product-footer">
   <span class="product-price" id="price_${item.id}">${displayPrice}</span>
-  <button class="btn-cart" onclick="addToCart('${item.id}','${catKey}')">Add</button>
+  ${_addToCartButton(item, catKey)}
   </div>
 </div>
 `;
    grid.appendChild(card);
+}
+
+// Rx + stock badges for a product card (medical store flow).
+// Only renders the stock badge when this product belongs to a store with
+// inventory data loaded (avoids polluting the general/grocery cards).
+function _rxStockTags(item) {
+   var html = '';
+   if (item.rx_required) html += '<div class="rx-required-tag">⚠️ Prescription required</div>';
+   if (item.store_provider_id) {
+      var batches = _currentStockByProduct[item.id] || [];
+      var qty = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
+      if (qty <= 0)        html += '<div class="customer-stock-tag oos">Out of stock</div>';
+      else if (qty < 5)    html += '<div class="customer-stock-tag low">Only ' + qty + ' left</div>';
+      else                 html += '<div class="customer-stock-tag ok">In stock</div>';
+   }
+   return html;
+}
+
+// ── Rx upload modal (one prescription per cart session) ──────────────
+var _pendingRxAddItem = null;
+
+function openRxUploadModal(itemName) {
+   var msg = document.getElementById('rxModalMsg');
+   if (msg) msg.textContent = '"' + itemName + '" is a prescription-only medicine.';
+   document.getElementById('rxFileInput').value = '';
+   document.getElementById('rxPreview').classList.add('hidden');
+   document.getElementById('rxPreview').innerHTML = '';
+   document.getElementById('rxUploadStatus').textContent = '';
+   document.getElementById('rxUploadBtn').disabled = false;
+   document.getElementById('rxOverlay').classList.remove('hidden');
+   // Live preview on file pick
+   var input = document.getElementById('rxFileInput');
+   input.onchange = function() {
+      var f = input.files && input.files[0];
+      if (!f) return;
+      var url = URL.createObjectURL(f);
+      var prev = document.getElementById('rxPreview');
+      prev.innerHTML = '<img src="' + url + '" style="max-width:100%;max-height:240px;border-radius:8px;margin-top:10px"/>';
+      prev.classList.remove('hidden');
+   };
+}
+
+function closeRxUploadModal() {
+   document.getElementById('rxOverlay').classList.add('hidden');
+   _pendingRxAddItem = null;
+}
+
+async function confirmRxUpload() {
+   var input = document.getElementById('rxFileInput');
+   var status = document.getElementById('rxUploadStatus');
+   var btn = document.getElementById('rxUploadBtn');
+   var f = input.files && input.files[0];
+   if (!f) { status.innerHTML = '<span style="color:#c62828">Please pick a prescription photo first.</span>'; return; }
+   btn.disabled = true;
+   status.innerHTML = 'Uploading…';
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var url = await AppDB.uploadPrescription(f, user.email);
+   if (!url) {
+      status.innerHTML = '<span style="color:#c62828">Upload failed. Try a smaller image (under 5 MB).</span>';
+      btn.disabled = false;
+      return;
+   }
+   window._cartPrescriptionUrl = url;
+   status.innerHTML = '<span style="color:#0a8a3a">✅ Uploaded.</span>';
+   // Now actually add the pending item to cart
+   var pending = _pendingRxAddItem;
+   closeRxUploadModal();
+   if (pending) addToCart(pending.item.id, pending.catKey);   // re-enters addToCart, this time Rx check passes
+}
+
+function _addToCartButton(item, catKey) {
+   if (item.store_provider_id) {
+      var batches = _currentStockByProduct[item.id] || [];
+      var qty = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
+      if (qty <= 0) return '<button class="btn-cart" disabled style="background:#bdbdbd;cursor:not-allowed">Out of stock</button>';
+   }
+   return '<button class="btn-cart" onclick="addToCart(\'' + item.id + '\',\'' + catKey + '\')">Add</button>';
 }
 
 // ── QUANTITY ──
@@ -508,6 +586,22 @@ function addToCart(itemId, catKey) {
    const data = products[catKey];
    const item = data && data.items.find(i => i.id === itemId);
    if (!item) return;
+
+   // Block add-to-cart for out-of-stock store items (UI button is already disabled,
+   // but this is the belt-and-braces safety net for keyboard/programmatic calls)
+   if (item.store_provider_id) {
+      var batches = _currentStockByProduct[item.id] || [];
+      var qty = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
+      if (qty <= 0) { showToast('❌ Out of stock'); return; }
+   }
+
+   // Rx-required medicine: prompt for prescription upload first (one Rx per session
+   // covers all Rx items in the cart). If already uploaded, just add.
+   if (item.rx_required && !window._cartPrescriptionUrl) {
+      _pendingRxAddItem = { item: item, catKey: catKey };
+      openRxUploadModal(item.name);
+      return;
+   }
 
    // Check if same product name exists in other stores
    const nameLower = item.name.toLowerCase().trim();
@@ -858,6 +952,16 @@ function checkout() {
       showToast(' Your cart is empty!');
       return;
    }
+   // If ANY item in the cart belongs to a store_provider (medical / pharmacy
+   // flow), route to the new medical checkout instead of the legacy Razorpay
+   // overlay. The medical flow handles Rx prescriptions, address picking, and
+   // COD/UPI-on-delivery payment.
+   var hasStoreItems = cart.some(function(c) { return c.store_provider_id; });
+   if (hasStoreItems) {
+      closeCart();
+      openMedicalCheckout();
+      return;
+   }
    closeCart();
    let total = cart.reduce((s, c) => s + c.price * c.qty, 0);
    const st = window._adminSettings || {};
@@ -867,6 +971,152 @@ function checkout() {
    document.getElementById('rpAmount').textContent = '₹' + total.toLocaleString('en-IN');
    document.getElementById('rpOverlay').classList.remove('hidden');
    switchTab('upi', document.querySelector('.rp-tab'));
+}
+
+// Medical-flow checkout: address picker (required when store has home delivery),
+// prescription preview, COD-on-delivery. One order per store provider.
+function openMedicalCheckout() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { promptAuth('Please log in to place an order.'); return; }
+   var body = document.getElementById('medCheckoutBody');
+   var overlay = document.getElementById('medCheckoutOverlay');
+
+   // Group cart items by store_provider_id
+   var groups = {};
+   cart.forEach(function(c) {
+      var key = c.store_provider_id || ('platform_' + (c.storeId || 'x'));
+      if (!groups[key]) groups[key] = { items: [], spId: c.store_provider_id || null, storeName: c.storeName || '' };
+      groups[key].items.push(c);
+   });
+
+   // Build content
+   var addresses = _db.addresses || [];
+   var defaultAddrId = (addresses.find(function(a) { return a.isDefault; }) || addresses[0] || {}).id || '';
+   window._medCheckoutSelectedAddr = defaultAddrId;
+
+   var html = '';
+   Object.keys(groups).forEach(function(key) {
+      var g = groups[key];
+      var prov = (_storeProvidersCache || []).find(function(x) { return x.id === g.spId; }) || {};
+      var subtotal = g.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
+      html += '<div class="med-checkout-group">' +
+                '<div class="med-checkout-store">🏪 <strong>' + (prov.name || g.storeName || 'Store') + '</strong>' +
+                  (prov.door_delivery ? ' <span style="color:#0a8a3a;font-size:0.8rem">🚚 Home delivery</span>' : ' <span style="color:#888;font-size:0.8rem">Self pickup</span>') +
+                '</div>' +
+                '<ul class="med-checkout-items">' +
+                  g.items.map(function(c) {
+                     var rx = c.rx_required ? ' <span style="color:#c62828;font-size:0.78rem">⚠️ Rx</span>' : '';
+                     return '<li>' + c.name + rx + ' × ' + c.qty + ' = ₹' + (c.price * c.qty).toLocaleString('en-IN') + '</li>';
+                  }).join('') +
+                '</ul>' +
+                '<div class="med-checkout-subtotal">Subtotal: ₹' + subtotal.toLocaleString('en-IN') + '</div>' +
+              '</div>';
+   });
+
+   // Prescription preview (one per cart)
+   if (window._cartPrescriptionUrl) {
+      html += '<div class="med-checkout-rx"><strong>Prescription:</strong><br/>' +
+                '<img src="' + window._cartPrescriptionUrl + '" style="max-width:140px;max-height:140px;margin-top:6px;border-radius:8px;border:1px solid #ddd"/>' +
+              '</div>';
+   }
+
+   // Address picker — required if any group has door delivery
+   var needsAddr = Object.keys(groups).some(function(k) {
+      var p = (_storeProvidersCache || []).find(function(x) { return x.id === groups[k].spId; });
+      return p && p.door_delivery;
+   });
+   if (needsAddr) {
+      html += '<div class="med-checkout-address"><strong>Delivery Address:</strong>';
+      if (!addresses.length) {
+         html += '<p style="color:#c62828;margin:6px 0">No saved addresses. ' +
+                    '<button onclick="closeMedCheckout();window.location=\'profile.html?tab=addresses\'" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer">➕ Add Address</button>' +
+                 '</p>';
+      } else {
+         html += '<select id="medCheckoutAddr" onchange="window._medCheckoutSelectedAddr=this.value" style="width:100%;padding:8px;margin-top:6px;border:1px solid #ccc;border-radius:6px">';
+         addresses.forEach(function(a) {
+            var label = a.name + ' · ' + (a.line || '') + (a.city ? ', ' + a.city : '') + (a.pin ? ' ' + a.pin : '');
+            html += '<option value="' + a.id + '"' + (a.id === defaultAddrId ? ' selected' : '') + '>' + label + '</option>';
+         });
+         html += '</select>';
+      }
+      html += '</div>';
+   }
+
+   html += '<div class="med-checkout-payment"><strong>Payment:</strong> Cash or UPI on delivery (delivery person will show QR)</div>';
+   body.innerHTML = html;
+   overlay.classList.remove('hidden');
+}
+
+function closeMedCheckout() {
+   document.getElementById('medCheckoutOverlay').classList.add('hidden');
+}
+
+async function placeMedicalOrder() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { promptAuth(); return; }
+   if (!cart.length) { showToast('Cart is empty'); return; }
+
+   var btn = document.getElementById('medCheckoutPlaceBtn');
+   if (btn) { btn.disabled = true; btn.textContent = 'Placing order…'; }
+
+   // Group cart by store and create one order per store
+   var groups = {};
+   cart.forEach(function(c) {
+      var key = c.store_provider_id || '__platform__';
+      if (!groups[key]) groups[key] = { items: [], spId: c.store_provider_id || null, storeId: c.storeId, storeName: c.storeName };
+      groups[key].items.push(c);
+   });
+
+   // Resolve selected delivery address
+   var addrId = window._medCheckoutSelectedAddr;
+   var addr = (_db.addresses || []).find(function(a) { return a.id === addrId; }) || null;
+
+   var hasAnyRx = cart.some(function(c) { return c.rx_required; });
+   if (hasAnyRx && !window._cartPrescriptionUrl) {
+      alert('Prescription not uploaded. Please add an Rx item to trigger the upload, then retry.');
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; }
+      return;
+   }
+
+   var now = new Date();
+   var yy = String(now.getFullYear()).slice(2);
+   var mm = String(now.getMonth() + 1).padStart(2, '0');
+   var dd = String(now.getDate()).padStart(2, '0');
+
+   var placed = 0;
+   for (var key in groups) {
+      var g = groups[key];
+      var prov = (_storeProvidersCache || []).find(function(x) { return x.id === g.spId; }) || {};
+      var needsAddr = !!prov.door_delivery;
+      if (needsAddr && !addr) { alert('Please choose a delivery address for ' + (prov.name || g.storeName) + '.'); btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; return; }
+      var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+      var subtotal = g.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
+      var order = {
+         orderId: orderId, order_id: orderId,
+         date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+         customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
+         items: g.items.map(function(c) { return { id: c.id, name: c.name, qty: c.qty, price: c.price, rx_required: !!c.rx_required }; }),
+         total: subtotal,
+         method: 'COD',
+         status: 'Pending Pickup',
+         storeId: g.storeId || null, storeName: g.storeName || prov.name || null,
+         store_provider_id: g.spId || null,
+         prescription_url:  hasAnyRx ? window._cartPrescriptionUrl : null,
+         delivery_address:  needsAddr && addr ? addr : null,
+         payment_mode:      'COD'
+      };
+      _db.orders.unshift(order);
+      await AppDB.insertOrder(order);
+      placed++;
+   }
+
+   // Clear cart + Rx for next order
+   cart = [];
+   window._cartPrescriptionUrl = null;
+   updateCartUI();
+   closeMedCheckout();
+   alert('✅ ' + placed + ' order' + (placed === 1 ? '' : 's') + ' placed!\n\nYou\'ll get the medicines at delivery — pay via cash or UPI then.');
+   window.location = 'profile.html?tab=orders';
 }
 
 function closePayment() {
@@ -4107,10 +4357,21 @@ async function showStoreCategory(catKey) {
 }
 
 // Step 3: products inside one store (grouped by sub-category sidebar)
-function showStoreProvider(providerId) {
+async function showStoreProvider(providerId) {
    var p = (_storeProvidersCache || []).find(function(x) { return x.id === providerId; });
    if (!p) return;
    var meta = STORE_CAT_META[p.category] || { icon: '🏪', label: p.category };
+
+   // Refresh in-memory stock snapshot so we can render Out-of-stock / In-stock
+   // badges on each card. This drives addToCart() guards too.
+   try {
+      var batches = await AppDB.getBatchesForStore(providerId);
+      _currentStockByProduct = {};
+      (batches || []).forEach(function(b) {
+         (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
+      });
+   } catch (e) { _currentStockByProduct = {}; }
+   window._currentStoreProvider = p;   // used by addToCart for door_delivery / Rx logic
 
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
@@ -4547,6 +4808,7 @@ function _applyStoreProdsToProducts() {
          storeId: p.store_id, storeName: p.store_name,
          store_provider_id: p.store_provider_id || null,
          catalog_item_id:   p.catalog_item_id   || null,
+         rx_required:       !!p.rx_required,
          variants: p.variants || undefined
       });
    });
@@ -5727,6 +5989,30 @@ function renderShopDashboard(filterStatus) {
                 '</div>';
       }).join('');
 
+      // Phase 3 additions: Rx thumbnail + delivery address + bill button
+      var rxBlock = '';
+      if (order.prescription_url) {
+         rxBlock = '<div class="shop-order-rx">' +
+                      '⚠️ Prescription: ' +
+                      '<a href="' + order.prescription_url + '" target="_blank" rel="noopener">' +
+                         '<img src="' + order.prescription_url + '" class="shop-rx-thumb"/>' +
+                      '</a>' +
+                   '</div>';
+      }
+      var addrBlock = '';
+      if (order.delivery_address) {
+         var a = order.delivery_address;
+         addrBlock = '<div class="shop-order-addr">' +
+                       '🚚 <strong>Deliver to:</strong> ' +
+                       (a.name || '') + (a.phone ? ' · 📞 ' + a.phone : '') + '<br/>' +
+                       (a.line || '') + (a.city ? ', ' + a.city : '') +
+                       (a.state ? ', ' + a.state : '') + (a.pin ? ' - ' + a.pin : '') +
+                    '</div>';
+      }
+      var paymentBlock = order.payment_mode === 'COD' || order.method === 'COD'
+         ? '<div class="shop-order-pay">💵 Pay on delivery (Cash / UPI)</div>'
+         : '';
+
       var card = document.createElement('div');
       card.className = 'shop-order-card';
       card.id = 'shopcard-' + order.orderId;
@@ -5744,7 +6030,9 @@ function renderShopDashboard(filterStatus) {
             '</div>' +
          '</div>' +
          '<div class="shop-order-items">' + itemsHTML + '</div>' +
+         rxBlock + addrBlock + paymentBlock +
          '<div class="shop-order-actions">' +
+            '<button class="shop-btn-bill" onclick="openOrderBillModal(\'' + order.orderId + '\')">📝 Edit &amp; Bill</button>' +
             (order.status === 'Pending Pickup' ?
                '<button class="shop-btn-ready" onclick="updateOrderStatus(\'' + order.orderId + '\',\'Ready\')">✅ Mark Ready</button>' : '') +
             (order.status === 'Ready' ?
@@ -5900,10 +6188,23 @@ function renderMyStoreProducts(storeId) {
       .map(function(p) {
          return { id: p.id, name: p.name, price: p.price, desc: p.description,
                   img: p.image, badge: p.badge, catKey: p.category,
+                  reorder_point: p.reorder_point || 0,
+                  sell_unit: p.sell_unit || 'strip',
+                  units_per_pack: p.units_per_pack || 1,
                   catalog_item_id: p.catalog_item_id || null,
                   catalog_name: p.catalog_item_id ? p.name : null,
                   variants: p.variants || undefined };
       });
+   // Refresh in-memory stock snapshot for stock badges. Fire-and-forget — the
+   // render below will show "Out of stock" until this resolves on first open.
+   AppDB.getBatchesForStore(storeId).then(function(rows) {
+      _currentStockByProduct = {};
+      (rows || []).forEach(function(b) {
+         (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
+      });
+      // Re-render with fresh badges
+      renderMyStoreProducts(storeId);
+   });
 
    var container = document.getElementById('shopProductList');
    if (!container) return;
@@ -5934,18 +6235,42 @@ function renderMyStoreProducts(storeId) {
    container.innerHTML = visible.map(function(p) {
       // Use the product's real index in _currentMyStoreProds so edit/delete buttons work
       var idx = _currentMyStoreProds.indexOf(p);
+      var stockBadge = _stockBadgeFor(p);
       return '<div class="shop-prod-card">' +
                 '<img src="' + p.img + '" onerror="this.src=\'https://placehold.co/60x60?text=Item\'"/>' +
                 '<div class="shop-prod-info">' +
-                   '<div class="shop-prod-name">' + p.name + '</div>' +
+                   '<div class="shop-prod-name">' + p.name + stockBadge + '</div>' +
                    '<div class="shop-prod-meta">\u20b9' + (p.price || 0).toLocaleString('en-IN') + ' \xb7 ' + (p.desc || '') + '</div>' +
                 '</div>' +
                 '<div class="shop-prod-actions">' +
-                   '<button onclick="openStoreProductModal(' + idx + ')">\u270f\ufe0f</button>' +
-                   '<button onclick="deleteStoreProduct(' + idx + ')">\ud83d\uddd1</button>' +
+                   '<button title="Manage Stock"   onclick="openStockModal(\'' + p.id.replace(/\'/g,"\\'") + '\')">\ud83d\udce6</button>' +
+                   '<button title="Edit product"   onclick="openStoreProductModal(' + idx + ')">\u270f\ufe0f</button>' +
+                   '<button title="Delete product" onclick="deleteStoreProduct(' + idx + ')">\ud83d\uddd1</button>' +
                 '</div>' +
              '</div>';
    }).join('');
+}
+
+// In-memory snapshot of all batches for the current store. Refreshed when the
+// owner opens a store or saves/deletes a batch.
+var _currentStockByProduct = {};   // product_id \u2192 array of batches
+
+function _stockBadgeFor(p) {
+   var batches = _currentStockByProduct[p.id] || [];
+   if (!batches.length) return ' <span class="shop-stock-badge oos">Out of stock</span>';
+   var totalRemaining = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
+   if (totalRemaining <= 0) return ' <span class="shop-stock-badge oos">Out of stock</span>';
+   if (p.reorder_point && totalRemaining <= Number(p.reorder_point))
+      return ' <span class="shop-stock-badge low">Low \u2014 ' + totalRemaining + '</span>';
+   // Expiring soon?
+   var soon = new Date(); soon.setMonth(soon.getMonth() + 3);
+   var expiringSoon = batches.some(function(b) {
+      if (!b.expiry_date) return false;
+      var d = new Date(b.expiry_date);
+      return !isNaN(d) && d <= soon && (Number(b.qty_remaining) || 0) > 0;
+   });
+   if (expiringSoon) return ' <span class="shop-stock-badge expiring">Expiring soon</span>';
+   return ' <span class="shop-stock-badge ok">In stock: ' + totalRemaining + '</span>';
 }
 
 var _editProdIdx = -1;
@@ -6211,6 +6536,7 @@ async function bulkAddSaveAll() {
          store_name:        store.name || user.storeName || user.name || '',
          store_provider_id: _currentMyStoreId,
          catalog_item_id:   it.id,
+         rx_required:       !!(it.attrs && it.attrs.rx_required),
          variants:          null
       };
    });
@@ -6229,6 +6555,618 @@ async function bulkAddSaveAll() {
    _applyStoreProdsToProducts();
    alert('✅ Added ' + ok + ' product' + (ok === 1 ? '' : 's') + '.' + (fail ? '\n❌ ' + fail + ' failed.' : ''));
    closeBulkAddModal();
+   renderMyStoreProducts(_currentMyStoreId);
+}
+
+// ── Shop-owner: Walk-in Bill (counter sale, customer at the shop) ────
+// Owner adds items to a fresh bill, optionally captures name+phone+doctor,
+// saves an order (status=Completed), and prints the same Sri Meghana–style bill.
+var _walkinItems = [];        // [{ id, name, qty, mrp, disc_pct, rx_required }]
+var _walkinSearchTimer = null;
+
+function openWalkinBillModal() {
+   if (!_currentMyStoreId) { alert('Open a store first.'); return; }
+   _walkinItems = [];
+   ['walkin-name','walkin-phone','walkin-doctor','walkin-item-search'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.value = '';
+   });
+   var res = document.getElementById('walkin-item-results');
+   if (res) { res.innerHTML = ''; res.classList.add('hidden'); }
+   _renderWalkinTable();
+   var modal = document.getElementById('walkinBillModal');
+   modal.classList.remove('hidden');
+   var inner = modal.querySelector('.sp-modal'); if (inner) inner.scrollTop = 0;
+   setTimeout(function() { document.getElementById('walkin-name').focus(); }, 100);
+}
+
+function closeWalkinBillModal() {
+   document.getElementById('walkinBillModal').classList.add('hidden');
+   _walkinItems = [];
+}
+
+async function walkinLookupByPhone() {
+   var phone = (document.getElementById('walkin-phone').value || '').trim();
+   if (!phone) return;
+   var existing = await AppDB.findWalkinByPhone(_currentMyStoreId, phone);
+   if (existing && existing.name) {
+      var nameEl = document.getElementById('walkin-name');
+      if (nameEl && !nameEl.value.trim()) {
+         nameEl.value = existing.name;
+         nameEl.style.background = '#e8f5e9';   // brief highlight
+         setTimeout(function() { nameEl.style.background = ''; }, 1500);
+      }
+   }
+}
+
+function walkinDoSearch() {
+   clearTimeout(_walkinSearchTimer);
+   _walkinSearchTimer = setTimeout(_walkinRunSearch, 220);
+}
+
+function _walkinRunSearch() {
+   var q = (document.getElementById('walkin-item-search').value || '').trim().toLowerCase();
+   var box = document.getElementById('walkin-item-results');
+   if (!box) return;
+   if (q.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+   var hits = _currentMyStoreProds.filter(function(p) {
+      var hay = ((p.name || '') + ' ' + (p.desc || '')).toLowerCase();
+      return hay.indexOf(q) !== -1;
+   }).slice(0, 20);
+   if (!hits.length) {
+      box.innerHTML = '<div style="padding:10px;text-align:center;color:#888">No matches in this store.</div>';
+      box.classList.remove('hidden'); return;
+   }
+   box.innerHTML = hits.map(function(p) {
+      var pid = p.id.replace(/'/g, "\\'");
+      var img = p.img ? '<img src="' + p.img + '" onerror="this.style.display=\'none\'"/>' : '<span style="font-size:1.4rem">💊</span>';
+      return '<div class="sp-catalog-result" onclick="addWalkinItem(\'' + pid + '\')">' +
+                '<div class="sp-catalog-result-img">' + img + '</div>' +
+                '<div class="sp-catalog-result-info">' +
+                   '<div class="sp-catalog-result-name">' + p.name + (p.rx_required ? ' <span style="color:#c62828;font-size:0.78rem">⚠️Rx</span>' : '') + '</div>' +
+                   '<div class="sp-catalog-result-meta">' + (p.desc || '') + ' · ₹' + Number(p.price || 0).toLocaleString('en-IN') + '</div>' +
+                '</div>' +
+              '</div>';
+   }).join('');
+   box.classList.remove('hidden');
+}
+
+function addWalkinItem(productId) {
+   var p = _currentMyStoreProds.find(function(x) { return x.id === productId; });
+   if (!p) return;
+   var existing = _walkinItems.find(function(x) { return x.id === productId; });
+   if (existing) { existing.qty += 1; }
+   else {
+      _walkinItems.push({
+         id:    p.id,
+         name:  p.name,
+         qty:   1,
+         mrp:   Number(p.price) || 0,
+         disc_pct: 0,
+         rx_required: !!p.rx_required
+      });
+   }
+   document.getElementById('walkin-item-search').value = '';
+   document.getElementById('walkin-item-results').classList.add('hidden');
+   _renderWalkinTable();
+}
+
+function _walkinEditLine(i, field, val) {
+   if (!_walkinItems[i]) return;
+   _walkinItems[i][field] = Math.max(0, parseFloat(val) || 0);
+   _renderWalkinTable();
+}
+function _walkinRemoveLine(i) {
+   _walkinItems.splice(i, 1);
+   _renderWalkinTable();
+}
+
+function _renderWalkinTable() {
+   var host = document.getElementById('walkin-items-table');
+   if (!host) return;
+   if (!_walkinItems.length) {
+      host.innerHTML = '<p style="color:#999;text-align:center;padding:20px;background:#fafbfc;border-radius:8px">No items yet. Use the search box above to add products.</p>';
+      document.getElementById('walkin-summary').innerHTML = '';
+      return;
+   }
+   var rows = _walkinItems.map(function(it, i) {
+      var net = it.mrp * it.qty * (1 - it.disc_pct / 100);
+      return '<tr>' +
+                '<td>' + (i+1) + '. ' + it.name + (it.rx_required ? ' <span style="color:#c62828;font-size:0.75rem">⚠️Rx</span>' : '') + '</td>' +
+                '<td><input type="number" min="1" step="1"   value="' + it.qty + '" oninput="_walkinEditLine(' + i + ',\'qty\',this.value)"/></td>' +
+                '<td><input type="number" min="0" step="0.01" value="' + it.mrp + '" oninput="_walkinEditLine(' + i + ',\'mrp\',this.value)"/></td>' +
+                '<td><input type="number" min="0" max="100" step="0.1" value="' + it.disc_pct + '" oninput="_walkinEditLine(' + i + ',\'disc_pct\',this.value)"/></td>' +
+                '<td class="bill-line-net">₹' + net.toFixed(2) + '</td>' +
+                '<td><button class="apt-view-btn" style="background:#c62828" onclick="_walkinRemoveLine(' + i + ')">🗑</button></td>' +
+             '</tr>';
+   }).join('');
+   host.innerHTML =
+      '<table class="bill-edit-table">' +
+         '<thead><tr><th>Product</th><th style="width:60px">Qty</th><th style="width:90px">MRP ₹</th><th style="width:70px">Disc %</th><th style="width:90px">Net</th><th></th></tr></thead>' +
+         '<tbody>' + rows + '</tbody>' +
+      '</table>';
+
+   var gross    = _walkinItems.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
+   var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var net      = gross - lineDisc;
+   var rounded  = Math.round(net);
+   document.getElementById('walkin-summary').innerHTML =
+      '<div>Gross: ₹' + gross.toFixed(2) + '</div>' +
+      '<div>Line discounts: −₹' + lineDisc.toFixed(2) + '</div>' +
+      '<div class="bill-net">Net Amount: ₹' + rounded.toFixed(2) + '</div>';
+}
+
+async function saveWalkinBill(printAfter) {
+   if (!_walkinItems.length) { alert('Add at least one item before saving.'); return; }
+   if (!_currentMyStoreId) { alert('No store context.'); return; }
+   var name   = document.getElementById('walkin-name').value.trim();
+   var phone  = document.getElementById('walkin-phone').value.trim();
+   var doctor = document.getElementById('walkin-doctor').value.trim();
+
+   // Optional: save walk-in customer to local directory (only if phone supplied)
+   if (phone) {
+      var existing = await AppDB.findWalkinByPhone(_currentMyStoreId, phone);
+      if (!existing) {
+         await AppDB.upsertWalkinCustomer({
+            id:                'wic_' + Date.now().toString(36),
+            store_provider_id: _currentMyStoreId,
+            name:              name,
+            phone:             phone
+         });
+      }
+   }
+
+   var owner = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _currentMyStoreId; }) || {};
+   var now = new Date();
+   var yy = String(now.getFullYear()).slice(2);
+   var mm = String(now.getMonth() + 1).padStart(2, '0');
+   var dd = String(now.getDate()).padStart(2, '0');
+   var orderId = 'WLK-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+   var gross    = _walkinItems.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
+   var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var net = gross - lineDisc;
+
+   var order = {
+      orderId: orderId, order_id: orderId,
+      date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      customerName:  name  || 'Walk-in customer',
+      customerEmail: '',
+      customerPhone: phone || '',
+      items: _walkinItems.map(function(it) {
+         return { id: it.id, name: it.name, qty: it.qty, price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required };
+      }),
+      total: net,
+      method: 'Walk-in',
+      status: 'Completed',                  // counter sale — already paid, just print
+      storeId: store.owner_email || owner.email,
+      storeName: store.name || '',
+      store_provider_id: _currentMyStoreId,
+      payment_mode: 'CASH',
+      doctor_name:  doctor,
+      walk_in:      true
+   };
+   _db.orders.unshift(order);
+   var ok = await AppDB.insertOrder(order);
+   if (!ok) { alert('Failed to save bill.'); return; }
+
+   if (printAfter) {
+      // Hand off to the existing bill-template renderer
+      _billOrder = order;
+      _billOrder.items = _walkinItems.slice();
+      _billDiscountPct = 0;
+      await generatePrintableBill();
+   }
+   closeWalkinBillModal();
+   renderShopDashboard(window._shopCurrentFilter);
+}
+
+// ── Shop-owner: edit order line items + generate printable bill ──────
+var _billOrder = null;       // shallow copy of the order being edited
+var _billDiscountPct = 0;    // overall discount percentage
+
+async function openOrderBillModal(orderId) {
+   var o = _db.orders.find(function(x) { return x.orderId === orderId || x.order_id === orderId; });
+   if (!o) { alert('Order not found.'); return; }
+   _billOrder = JSON.parse(JSON.stringify(o));   // deep clone so cancel doesn't mutate
+   _billOrder.items = (_billOrder.items || []).map(function(it) {
+      return {
+         id: it.id, name: it.name, qty: Number(it.qty) || 1,
+         price: Number(it.price) || 0,
+         mrp:   Number(it.mrp || it.price) || 0,
+         disc_pct: Number(it.disc_pct) || 0,
+         rx_required: !!it.rx_required
+      };
+   });
+   _billDiscountPct = Number(o.discount_pct) || 0;
+   document.getElementById('orderBillTitle').textContent = '📝 Order ' + orderId + ' — ' + (o.customerName || '');
+   _renderOrderBillBody();
+   var modal = document.getElementById('orderBillModal');
+   modal.classList.remove('hidden');
+   var inner = modal.querySelector('.sp-modal'); if (inner) inner.scrollTop = 0;
+}
+
+function closeOrderBillModal() {
+   document.getElementById('orderBillModal').classList.add('hidden');
+   _billOrder = null;
+}
+
+function _renderOrderBillBody() {
+   if (!_billOrder) return;
+   var rxBlock = '';
+   if (_billOrder.prescription_url) {
+      rxBlock = '<div class="bill-rx">' +
+                   '<strong>⚠️ Prescription:</strong><br/>' +
+                   '<a href="' + _billOrder.prescription_url + '" target="_blank" rel="noopener">' +
+                      '<img src="' + _billOrder.prescription_url + '" style="max-width:180px;max-height:180px;border-radius:6px;border:1px solid #ddd"/>' +
+                   '</a></div>';
+   }
+   var addrBlock = '';
+   if (_billOrder.delivery_address) {
+      var a = _billOrder.delivery_address;
+      addrBlock = '<div class="bill-addr"><strong>🚚 Delivery to:</strong><br/>' +
+                  (a.name || '') + (a.phone ? ' · 📞 ' + a.phone : '') + '<br/>' +
+                  (a.line || '') + (a.city ? ', ' + a.city : '') +
+                  (a.state ? ', ' + a.state : '') + (a.pin ? ' - ' + a.pin : '') +
+                  '</div>';
+   }
+   var rowsHtml = _billOrder.items.map(function(it, i) {
+      var net = (it.mrp * it.qty) * (1 - it.disc_pct / 100);
+      return '<tr>' +
+                '<td>' + (i + 1) + '. ' + it.name + (it.rx_required ? ' <span style="color:#c62828;font-size:0.75rem">⚠️Rx</span>' : '') + '</td>' +
+                '<td><input type="number" min="0" step="1"   value="' + it.qty      + '" oninput="_billEditLine(' + i + ',\'qty\',this.value)"/></td>' +
+                '<td><input type="number" min="0" step="0.01" value="' + it.mrp      + '" oninput="_billEditLine(' + i + ',\'mrp\',this.value)"/></td>' +
+                '<td><input type="number" min="0" step="0.1" max="100" value="' + it.disc_pct + '" oninput="_billEditLine(' + i + ',\'disc_pct\',this.value)"/></td>' +
+                '<td class="bill-line-net">₹' + net.toFixed(2) + '</td>' +
+                '<td><button class="apt-view-btn" style="background:#c62828" onclick="_billRemoveLine(' + i + ')">🗑</button></td>' +
+             '</tr>';
+   }).join('');
+
+   var gross = _billOrder.items.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
+   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var subtotal = gross - lineDisc;
+   var overallDisc = subtotal * (_billDiscountPct / 100);
+   var net = Math.round((subtotal - overallDisc) * 100) / 100;
+
+   var body = document.getElementById('orderBillBody');
+   body.innerHTML =
+      '<div class="bill-meta-row">' + rxBlock + addrBlock + '</div>' +
+      '<table class="bill-edit-table">' +
+         '<thead><tr><th>Product</th><th style="width:60px">Qty</th><th style="width:90px">MRP ₹</th><th style="width:70px">Disc %</th><th style="width:90px">Net</th><th></th></tr></thead>' +
+         '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>' +
+      '<div class="bill-summary">' +
+         '<div>Gross: ₹' + gross.toFixed(2) + '</div>' +
+         '<div>Line discounts: −₹' + lineDisc.toFixed(2) + '</div>' +
+         '<div>Subtotal: ₹' + subtotal.toFixed(2) + '</div>' +
+         '<div>Overall discount: <input type="number" min="0" max="100" step="0.5" value="' + _billDiscountPct + '" oninput="_billEditOverallDisc(this.value)" style="width:60px"/> % &nbsp; −₹' + overallDisc.toFixed(2) + '</div>' +
+         '<div class="bill-net">Net Amount: ₹' + net.toFixed(2) + '</div>' +
+      '</div>';
+
+   document.getElementById('orderBillFooter').innerHTML =
+      '<button class="sp-btn-cancel" onclick="closeOrderBillModal()">Cancel</button>' +
+      '<button class="sp-btn-save" style="background:#1a73e8" onclick="saveOrderEdits()">💾 Save Changes</button>' +
+      '<button class="sp-btn-save" onclick="generatePrintableBill()">🖨 Generate Bill</button>';
+}
+
+function _billEditLine(i, field, val) {
+   if (!_billOrder || !_billOrder.items[i]) return;
+   _billOrder.items[i][field] = Math.max(0, parseFloat(val) || 0);
+   _renderOrderBillBody();
+}
+function _billEditOverallDisc(val) { _billDiscountPct = Math.max(0, Math.min(100, parseFloat(val) || 0)); _renderOrderBillBody(); }
+function _billRemoveLine(i) {
+   if (!_billOrder) return;
+   if (!confirm('Remove this line item from the order?')) return;
+   _billOrder.items.splice(i, 1);
+   _renderOrderBillBody();
+}
+
+async function saveOrderEdits() {
+   if (!_billOrder) return;
+   var orderId = _billOrder.orderId || _billOrder.order_id;
+   // Compute the new total
+   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
+   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var subtotal = gross - lineDisc;
+   var overallDisc = subtotal * (_billDiscountPct / 100);
+   var net = Math.round((subtotal - overallDisc) * 100) / 100;
+
+   var patch = {
+      items: _billOrder.items.map(function(it) {
+         return { id: it.id, name: it.name, qty: it.qty, price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required };
+      }),
+      total: net,
+      discount_pct: _billDiscountPct
+   };
+   var ok = await AppDB.patchOrder(orderId, patch);
+   if (!ok) { alert('Failed to save changes.'); return; }
+   // Sync local cache
+   var idx = _db.orders.findIndex(function(o) { return (o.orderId === orderId) || (o.order_id === orderId); });
+   if (idx >= 0) {
+      _db.orders[idx].items = patch.items;
+      _db.orders[idx].total = patch.total;
+      _db.orders[idx].discount_pct = patch.discount_pct;
+   }
+   alert('✅ Order updated. Net: ₹' + net.toFixed(2));
+   closeOrderBillModal();
+   renderShopDashboard(window._shopCurrentFilter);
+}
+
+// ── Printable bill — opens in a new window with Sri Meghana–style template ──
+async function generatePrintableBill() {
+   if (!_billOrder) return;
+   var user  = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _billOrder.store_provider_id; }) || {};
+
+   // Generate a bill number if the order doesn't already have one
+   var billNo = _billOrder.bill_number;
+   if (!billNo) {
+      var seq = await _bumpStoreBillSeq(store.id || 'STORE');
+      var storeCode = _shortCode(store.name || 'STORE');
+      var catCode   = (store.category || 'STORE').slice(0,3).toUpperCase();
+      var yy        = String(new Date().getFullYear()).slice(2);
+      billNo = storeCode + '/' + catCode + '/' + yy + '/' + String(seq).padStart(4, '0');
+      _billOrder.bill_number = billNo;
+      // Persist bill_number on the order (best-effort)
+      AppDB.patchOrder(_billOrder.orderId || _billOrder.order_id, { bill_number: billNo });
+   }
+
+   // Recompute totals
+   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
+   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var subtotal = gross - lineDisc;
+   var overallDisc = subtotal * (_billDiscountPct / 100);
+   var net = subtotal - overallDisc;
+   var gstAmt = net - (net / 1.05);          // assume 5% inclusive (post-GST 2.0); split CGST+SGST
+   var cgst = gstAmt / 2;
+   var sgst = gstAmt / 2;
+   var roundedNet = Math.round(net);
+   var roundOff = roundedNet - net;
+
+   var html = _renderBillHtml({
+      store: store,
+      order: _billOrder,
+      billNo: billNo,
+      now: new Date(),
+      gross: gross,
+      lineDisc: lineDisc,
+      overallDisc: overallDisc,
+      subtotal: subtotal,
+      net: net,
+      roundedNet: roundedNet,
+      roundOff: roundOff,
+      cgst: cgst,
+      sgst: sgst
+   });
+   var w = window.open('', 'bill-' + billNo, 'width=900,height=1100');
+   w.document.write(html);
+   w.document.close();
+   setTimeout(function() { try { w.focus(); w.print(); } catch (e) {} }, 500);
+}
+
+// Lightweight per-store bill counter stored in localStorage keyed by store id
+function _bumpStoreBillSeq(storeId) {
+   var k = 'billseq:' + storeId + ':' + new Date().getFullYear();
+   var n = parseInt(localStorage.getItem(k) || '0', 10) + 1;
+   localStorage.setItem(k, String(n));
+   return Promise.resolve(n);
+}
+function _shortCode(name) {
+   var parts = (name || '').split(/\s+/).filter(Boolean);
+   if (!parts.length) return 'STORE';
+   if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
+   return parts.map(function(p) { return p[0].toUpperCase(); }).slice(0, 4).join('');
+}
+
+function _amountInWords(n) {
+   // Simple Indian-numerals to words (good enough for retail bills)
+   var a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+   var b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+   var inWords = function(num) {
+      if (num < 20) return a[num];
+      if (num < 100) return b[Math.floor(num/10)] + (num%10 ? ' ' + a[num%10] : '');
+      if (num < 1000) return a[Math.floor(num/100)] + ' Hundred' + (num%100 ? ' ' + inWords(num%100) : '');
+      if (num < 100000) return inWords(Math.floor(num/1000)) + ' Thousand' + (num%1000 ? ' ' + inWords(num%1000) : '');
+      if (num < 10000000) return inWords(Math.floor(num/100000)) + ' Lakh' + (num%100000 ? ' ' + inWords(num%100000) : '');
+      return inWords(Math.floor(num/10000000)) + ' Crore' + (num%10000000 ? ' ' + inWords(num%10000000) : '');
+   };
+   return inWords(Math.round(n)) + ' Rupees only';
+}
+
+function _renderBillHtml(d) {
+   var rows = d.order.items.map(function(it, i) {
+      var amt = it.mrp * it.qty;
+      var disc = amt * (it.disc_pct / 100);
+      var net  = amt - disc;
+      return '<tr>' +
+                '<td>' + (i+1) + '</td>' +
+                '<td>' + it.name + '</td>' +
+                '<td>3004</td>' +
+                '<td>—</td>' +
+                '<td>—</td>' +
+                '<td>—</td>' +
+                '<td style="text-align:right">' + it.qty + '</td>' +
+                '<td style="text-align:right">' + it.mrp.toFixed(2) + '</td>' +
+                '<td style="text-align:right">' + amt.toFixed(2) + '</td>' +
+                '<td style="text-align:right">' + it.disc_pct.toFixed(1) + '</td>' +
+                '<td style="text-align:right">5</td>' +
+                '<td style="text-align:right"><b>' + net.toFixed(2) + '</b></td>' +
+             '</tr>';
+   }).join('');
+   var totalQty = d.order.items.reduce(function(s, it) { return s + it.qty; }, 0);
+   var dateStr = d.now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+   var timeStr = d.now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+   return '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Bill ' + d.billNo + '</title>' +
+   '<style>' +
+      'body{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#000;padding:14px;margin:0}' +
+      '.bill-wrap{border:1.5px solid #000;padding:8px}' +
+      '.bill-head{text-align:center;font-weight:700;border-bottom:1.5px solid #000;padding:4px 0}' +
+      '.bill-head h2{margin:0;font-size:18px}' +
+      '.bill-info{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:6px 4px;border-bottom:1.5px solid #000}' +
+      '.bill-info div{font-size:11px}' +
+      'table{width:100%;border-collapse:collapse;margin-top:4px}' +
+      'th,td{border:1px solid #000;padding:3px 5px;font-size:10px}' +
+      'th{background:#eee;font-weight:700}' +
+      '.bill-totals{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:8px 4px;border-top:1.5px solid #000}' +
+      '.bill-totals .col{font-size:11px}' +
+      '.bill-totals .net{font-size:14px;font-weight:700}' +
+      '.bill-foot{display:flex;justify-content:space-between;padding:6px 4px;border-top:1.5px solid #000;font-size:10px}' +
+      '@media print{body{padding:0}.bill-wrap{border:none}.no-print{display:none}}' +
+   '</style></head><body>' +
+   '<div class="no-print" style="text-align:right;margin-bottom:8px"><button onclick="window.print()" style="padding:6px 14px;background:#1a73e8;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Print</button></div>' +
+   '<div class="bill-wrap">' +
+      '<div class="bill-head"><h2>TAX INVOICE</h2><h2>' + (d.store.name || 'STORE').toUpperCase() + '</h2></div>' +
+      '<div class="bill-info">' +
+         '<div><b>GSTIN:</b> ' + (d.store.gstin || '—') + '</div>' +
+         '<div><b>Form 20:</b> ' + (d.store.form20_no || '—') + '</div>' +
+         '<div><b>FSSAI:</b> ' + (d.store.fssai_no || '—') + '</div>' +
+         '<div><b>Form 21:</b> ' + (d.store.form21_no || '—') + '</div>' +
+         '<div style="grid-column:span 2"><b>Address:</b> ' + (d.store.address || '') + '</div>' +
+         '<div><b>Phone:</b> ' + (d.store.phone || '—') + '</div>' +
+      '</div>' +
+      '<div class="bill-info" style="grid-template-columns:1fr 1fr 1fr 1fr">' +
+         '<div><b>Name:</b> ' + (d.order.customerName || '—') + '</div>' +
+         '<div><b>Mobile:</b> ' + (d.order.customerPhone || '—') + '</div>' +
+         '<div><b>Invoice:</b> ' + d.billNo + '</div>' +
+         '<div><b>Date:</b> ' + dateStr + '</div>' +
+         '<div><b>Mode:</b> ' + (d.order.payment_mode || 'COD') + '</div>' +
+         '<div style="grid-column:span 3"><b>Bill Value:</b> ₹' + d.roundedNet.toFixed(2) + '</div>' +
+      '</div>' +
+      '<table>' +
+         '<thead><tr><th>S.No</th><th>Product</th><th>HSN</th><th>Pack</th><th>Batch</th><th>Exp</th><th>Qty</th><th>MRP</th><th>Amount</th><th>Disc%</th><th>GST%</th><th>Net</th></tr></thead>' +
+         '<tbody>' + rows + '</tbody>' +
+      '</table>' +
+      '<div class="bill-totals">' +
+         '<div class="col">' +
+            '<div>No of Items: ' + d.order.items.length + ' &nbsp; · &nbsp; Total Qty: ' + totalQty + '</div>' +
+            '<div>CGST: ₹' + d.cgst.toFixed(2) + '</div>' +
+            '<div>SGST: ₹' + d.sgst.toFixed(2) + '</div>' +
+         '</div>' +
+         '<div class="col" style="text-align:right">' +
+            '<div>Gross: ₹' + d.gross.toFixed(2) + '</div>' +
+            '<div>Discount: −₹' + (d.lineDisc + d.overallDisc).toFixed(2) + '</div>' +
+            '<div>Round Off: ' + (d.roundOff >= 0 ? '+' : '') + d.roundOff.toFixed(2) + '</div>' +
+            '<div class="net">Net Amount: ₹' + d.roundedNet.toFixed(2) + '</div>' +
+         '</div>' +
+      '</div>' +
+      '<div style="padding:4px 4px;border-top:1px solid #000;font-size:10px"><b>In words:</b> ' + _amountInWords(d.roundedNet) + '</div>' +
+      '<div class="bill-foot">' +
+         '<div>' + timeStr + ' &nbsp; · &nbsp; Signature</div>' +
+         '<div>For ' + (d.store.name || 'STORE') + '</div>' +
+      '</div>' +
+   '</div>' +
+   '</body></html>';
+}
+
+// ── Shop-owner: per-product stock (batches) management ────────────────
+async function openStockModal(productId) {
+   var p = _currentMyStoreProds.find(function(x) { return x.id === productId; });
+   if (!p) { alert('Product not found.'); return; }
+   document.getElementById('stockModalTitle').textContent = '📦 Stock — ' + p.name;
+   document.getElementById('stk-product-id').value = productId;
+   // Clear add-batch form
+   ['stk-batch','stk-exp','stk-mfg','stk-qty','stk-mrp','stk-pp','stk-notes'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.value = '';
+   });
+   // Prefill MRP suggestion from product price
+   document.getElementById('stk-mrp').value = p.price || '';
+
+   // Summary at top
+   var batches = _currentStockByProduct[productId] || [];
+   var total = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
+   var summaryHtml =
+      '<div><strong>' + p.name + '</strong>' + (p.desc ? ' · ' + p.desc : '') + '</div>' +
+      '<div>Sell unit: <strong>' + (p.sell_unit || 'strip') + '</strong>' +
+      '   ·   Units per pack: <strong>' + (p.units_per_pack || 1) + '</strong>' +
+      '   ·   Reorder at: <strong>' + (p.reorder_point || 'not set') + '</strong></div>' +
+      '<div>Total on hand: <strong>' + total + '</strong> ' + _sellUnitPlural(p.sell_unit, total) + '</div>';
+   document.getElementById('stockProductSummary').innerHTML = summaryHtml;
+
+   // Batches table
+   var list = document.getElementById('stockBatchesList');
+   if (!batches.length) {
+      list.innerHTML = '<p style="color:#888;text-align:center;padding:14px">No batches recorded. Add a new shipment below.</p>';
+   } else {
+      // Sort by expiry ascending (FEFO = first expiry first out)
+      var sorted = batches.slice().sort(function(a, b) {
+         return (a.expiry_date || '9999') < (b.expiry_date || '9999') ? -1 : 1;
+      });
+      var soon = new Date(); soon.setMonth(soon.getMonth() + 3);
+      list.innerHTML =
+         '<table class="stock-table"><thead><tr>' +
+         '<th>Batch</th><th>Expiry</th><th>Received</th><th>Remaining</th><th>MRP</th><th></th>' +
+         '</tr></thead><tbody>' +
+         sorted.map(function(b) {
+            var expDate = b.expiry_date ? new Date(b.expiry_date) : null;
+            var expClass = '';
+            if (expDate && !isNaN(expDate)) {
+               if (expDate < new Date()) expClass = 'expired';
+               else if (expDate <= soon) expClass = 'expiring';
+            }
+            var bid = b.id.replace(/'/g, "\\'");
+            return '<tr class="' + expClass + '">' +
+               '<td>' + (b.batch_no || '<em style="color:#bbb">—</em>') + '</td>' +
+               '<td>' + (b.expiry_date || '<em style="color:#bbb">—</em>') + '</td>' +
+               '<td>' + (b.qty_received || 0) + '</td>' +
+               '<td><strong>' + (b.qty_remaining || 0) + '</strong></td>' +
+               '<td>₹' + Number(b.mrp || 0).toFixed(2) + '</td>' +
+               '<td><button class="apt-view-btn" style="background:#c62828" onclick="deleteStockBatch(\'' + bid + '\')">🗑</button></td>' +
+            '</tr>';
+         }).join('') +
+         '</tbody></table>';
+   }
+
+   var modal = document.getElementById('stockModal');
+   modal.classList.remove('hidden');
+   var inner = modal.querySelector('.sp-modal'); if (inner) inner.scrollTop = 0;
+}
+
+function _sellUnitPlural(unit, n) {
+   var u = unit || 'unit';
+   return n === 1 ? u : (u + 's');
+}
+
+function closeStockModal() {
+   document.getElementById('stockModal').classList.add('hidden');
+}
+
+async function saveStockBatch() {
+   var productId = document.getElementById('stk-product-id').value;
+   if (!productId || !_currentMyStoreId) { alert('No product / store context.'); return; }
+   var qty = parseFloat(document.getElementById('stk-qty').value) || 0;
+   if (qty <= 0) { alert('Quantity must be greater than 0.'); return; }
+   var batch = {
+      id:                'inv_' + productId.split('_').pop().slice(0,6) + '_' + Date.now(),
+      product_id:        productId,
+      store_provider_id: _currentMyStoreId,
+      batch_no:          document.getElementById('stk-batch').value.trim(),
+      mfg_date:          document.getElementById('stk-mfg').value || null,
+      expiry_date:       document.getElementById('stk-exp').value || null,
+      qty_received:      qty,
+      qty_remaining:     qty,
+      mrp:               parseFloat(document.getElementById('stk-mrp').value) || 0,
+      purchase_price:    parseFloat(document.getElementById('stk-pp').value)  || 0,
+      notes:             document.getElementById('stk-notes').value.trim()
+   };
+   var ok = await AppDB.upsertInventoryBatch(batch);
+   if (!ok) { alert('Failed to save batch.'); return; }
+   // Update in-memory cache + re-render
+   (_currentStockByProduct[productId] = _currentStockByProduct[productId] || []).push(batch);
+   closeStockModal();
+   renderMyStoreProducts(_currentMyStoreId);
+}
+
+async function deleteStockBatch(batchId) {
+   if (!confirm('Delete this batch? Stock counts will be reduced. This cannot be undone.')) return;
+   var ok = await AppDB.deleteInventoryBatch(batchId);
+   if (!ok) { alert('Failed to delete.'); return; }
+   // Remove from in-memory cache
+   Object.keys(_currentStockByProduct).forEach(function(pid) {
+      _currentStockByProduct[pid] = _currentStockByProduct[pid].filter(function(b) { return b.id !== batchId; });
+   });
+   var pid = document.getElementById('stk-product-id').value;
+   openStockModal(pid);    // re-render with fresh data
    renderMyStoreProducts(_currentMyStoreId);
 }
 
@@ -6312,6 +7250,7 @@ async function saveStoreProduct() {
       store_name: store ? store.name : (user.storeName || user.name || ''),
       store_provider_id: _currentMyStoreId,
       catalog_item_id: catalogLink || null,
+      rx_required: !!attrs.rx_required,
       variants: null
    };
    var ok = await AppDB.upsertProduct(dbRow);

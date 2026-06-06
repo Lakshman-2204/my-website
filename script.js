@@ -4581,7 +4581,7 @@ async function showStoreProvider(providerId) {
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
    var rxBtn = (p.category === 'medical')
-      ? '<button class="rx-only-btn" title="Don\'t know the medicine names? Just upload your prescription." onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Order via Rx</button>'
+      ? '<button class="rx-only-btn" title="Don\'t know the medicine names? Just upload your prescription." onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Order via Prescription</button>'
       : '';
    var html = '<div class="store-topbar">' +
                  '<button class="apt-back-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g, "\\'") + '\')">← Back to ' + meta.label + '</button>' +
@@ -6215,15 +6215,15 @@ function renderShopDashboard(filterStatus) {
       var totalQty = (order.items || []).reduce(function(s, it) { return s + (it.qty || 0); }, 0);
       var rxOnly = !itemsCount && order.prescription_url;
       var itemsCell = rxOnly
-         ? '<div class="apt-tbl-name" style="color:#1565c0">📋 Rx-only order</div>' +
-           '<div class="apt-tbl-sub" style="color:#c62828">Read Rx → click Bill to add items</div>'
+         ? '<div class="apt-tbl-name" style="color:#1565c0">📋 Prescription-only order</div>' +
+           '<div class="apt-tbl-sub" style="color:#c62828">Read prescription → click Bill to add items</div>'
          : (firstItem
             ? '<div class="apt-tbl-name">' + firstItem.name + (itemsCount > 1 ? ' <span style="color:#888;font-weight:400">+ ' + (itemsCount-1) + ' more</span>' : '') + '</div>' +
               '<div class="apt-tbl-sub">' + totalQty + ' unit' + (totalQty === 1 ? '' : 's') + '</div>'
             : '<span style="color:#bbb">—</span>');
 
       var rxIcon = order.prescription_url
-         ? ' <a href="' + order.prescription_url + '" target="_blank" rel="noopener" title="View prescription" style="color:#c62828;text-decoration:none">⚠️Rx</a>'
+         ? ' <a href="' + order.prescription_url + '" target="_blank" rel="noopener" title="View prescription" style="color:#c62828;text-decoration:none;font-weight:600">📋 Prescription</a>'
          : '';
       var deliveryIcon = order.delivery_address ? ' <span title="Home delivery">🚚</span>' : '';
       // Owner ALWAYS sees customer phone (pharmacy needs it — Rx clarifications,
@@ -6279,9 +6279,20 @@ function renderShopDashboard(filterStatus) {
       '</div>';
 }
 
-function updateOrderStatus(orderId, newStatus) {
+async function updateOrderStatus(orderId, newStatus) {
    var order = _db.orders.find(function(o) { return o.orderId === orderId || o.order_id === orderId; });
    if (order) {
+      // On transition to Completed: deduct stock from inventory_batches once.
+      // The stock_deducted flag prevents double-deduction if the owner toggles
+      // status back and forth (e.g., accidental click on Ready then Completed
+      // again). Walk-in orders already have stock_deducted=true from creation.
+      if (newStatus === 'Completed' && !order.stock_deducted && (order.items || []).length) {
+         var deducted = await _deductStockForOrder(order);
+         if (deducted) {
+            order.stock_deducted = true;
+            AppDB.patchOrder(orderId, { stock_deducted: true });
+         }
+      }
       order.status = newStatus;
       AppDB.updateOrderStatus(orderId, newStatus);
       // If called from admin user detail modal, refresh it
@@ -6295,6 +6306,62 @@ function updateOrderStatus(orderId, newStatus) {
    var activeTab = document.querySelector('.shop-tab.active');
    var filterStatus = activeTab ? activeTab.dataset.filter : null;
    renderShopDashboard(filterStatus || null);
+}
+
+// Deduct an order's items from inventory_batches via FEFO. Self-contained:
+// fetches fresh batches for the order's store (doesn't rely on whichever
+// store the owner has currently "entered" in the UI). Best-effort: if some
+// items run short we still deduct what we can and warn the owner, since the
+// physical goods have already been handed over by this point.
+async function _deductStockForOrder(order) {
+   var storeId = order.store_provider_id;
+   if (!storeId) return false;
+   var batches;
+   try { batches = await AppDB.getBatchesForStore(storeId); }
+   catch (e) { console.error('Failed to fetch batches for stock deduction:', e); return false; }
+
+   // Group batches by product_id
+   var byProduct = {};
+   (batches || []).forEach(function(b) {
+      (byProduct[b.product_id] = byProduct[b.product_id] || []).push(b);
+   });
+
+   var updates = [];
+   var shortfalls = [];
+   (order.items || []).forEach(function(it) {
+      var need = Number(it.qty) || 0;
+      if (!need) return;
+      var lots = (byProduct[it.id] || []).slice().sort(function(a, b) {
+         var da = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+         var db = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
+         return da - db;
+      });
+      var remaining = need;
+      for (var i = 0; i < lots.length && remaining > 0; i++) {
+         var lot = lots[i];
+         var have = Number(lot.qty_remaining) || 0;
+         if (have <= 0) continue;
+         var take = Math.min(have, remaining);
+         updates.push({ batchRef: lot, newRemaining: have - take });
+         remaining -= take;
+      }
+      if (remaining > 0) shortfalls.push({ name: it.name, short: remaining });
+   });
+
+   // Commit updates (uses the same helper as the walk-in flow)
+   try { await _commitFEFODeduction(updates); } catch (e) { console.error(e); return false; }
+
+   // Refresh _currentStockByProduct if the owner is currently inside this store
+   if (_currentMyStoreId === storeId) {
+      _currentStockByProduct = byProduct;   // already updated in-place by _commitFEFODeduction
+   }
+
+   if (shortfalls.length) {
+      alert('⚠️ Stock deducted, but some items had insufficient batches on file:\n\n' +
+            shortfalls.map(function(s) { return '• ' + s.name + ': short by ' + s.short; }).join('\n') +
+            '\n\nUpdate batches manually to reconcile.');
+   }
+   return true;
 }
 
 function lookupOrder() {
@@ -6866,9 +6933,16 @@ async function bulkAddSaveAll() {
 var _walkinItems = [];        // [{ id, name, qty, mrp, disc_pct, rx_required }]
 var _walkinSearchTimer = null;
 
+// Tracks whether the walk-in modal has live state. We deliberately don't
+// reset _walkinItems / inputs unless the cashier explicitly clicks Cancel
+// or saves a bill — minimizing parks the bill so they can pop back in.
+var _walkinMinimized = false;
+
 // Top-level button (next to the tabs) — sets the store context for single-store
 // owners so they don't have to navigate into Products first.
 async function openWalkinBillFromTab() {
+   // If a bill is minimized, the top-tab button restores it instead of starting fresh
+   if (_walkinMinimized) { restoreWalkinBillModal(); return; }
    if (!_currentMyStoreId) {
       var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
       var mine = (_storeProvidersCache || []).filter(function(p) {
@@ -6883,12 +6957,16 @@ async function openWalkinBillFromTab() {
 
 function openWalkinBillModal() {
    if (!_currentMyStoreId) { alert('Open a store first.'); return; }
+   // If the modal is minimized, just restore it (don't wipe in-progress work)
+   if (_walkinMinimized) { restoreWalkinBillModal(); return; }
    _walkinItems = [];
    ['walkin-name','walkin-phone','walkin-doctor','walkin-item-search'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = '';
    });
    var res = document.getElementById('walkin-item-results');
    if (res) { res.innerHTML = ''; res.classList.add('hidden'); }
+   var banner = document.getElementById('walkin-history-banner');
+   if (banner) { banner.classList.add('hidden'); banner.innerHTML = ''; }
    _renderWalkinTable();
    var modal = document.getElementById('walkinBillModal');
    modal.classList.remove('hidden');
@@ -6897,8 +6975,167 @@ function openWalkinBillModal() {
 }
 
 function closeWalkinBillModal() {
-   document.getElementById('walkinBillModal').classList.add('hidden');
+   if (_walkinItems.length && !confirm('Discard this bill? Items will be lost.\n\n(Tip: click 🗕 to minimize instead — the bill stays open in the background.)')) {
+      return;
+   }
+   var modal = document.getElementById('walkinBillModal');
+   modal.classList.add('hidden');
+   // Reset drag position so the next fresh bill opens centered
+   var inner = modal.querySelector('.sp-modal');
+   if (inner) { inner.style.position = ''; inner.style.left = ''; inner.style.top = ''; inner.style.margin = ''; }
    _walkinItems = [];
+   _walkinMinimized = false;
+   document.getElementById('walkinMinimizedPill').classList.add('hidden');
+}
+
+// Hide modal but keep _walkinItems + form values intact. A floating pill at
+// bottom-right reminds the cashier the bill is parked.
+function minimizeWalkinBillModal() {
+   document.getElementById('walkinBillModal').classList.add('hidden');
+   _walkinMinimized = true;
+   var pill = document.getElementById('walkinMinimizedPill');
+   var count = document.getElementById('walkinMiniCount');
+   if (count) {
+      var totalQty = _walkinItems.reduce(function(s, it) { return s + (it.qty || 0); }, 0);
+      count.textContent = totalQty + ' item' + (totalQty === 1 ? '' : 's');
+   }
+   if (pill) pill.classList.remove('hidden');
+}
+
+function restoreWalkinBillModal() {
+   _walkinMinimized = false;
+   document.getElementById('walkinMinimizedPill').classList.add('hidden');
+   document.getElementById('walkinBillModal').classList.remove('hidden');
+}
+
+// ── Make the walk-in modal draggable by its header ───────────────────
+// Idempotent — safe to call on every page load; binds once via a flag.
+function _bindWalkinDrag() {
+   var modal = document.getElementById('walkinBillModal');
+   if (!modal || modal.dataset.dragBound) return;
+   var inner = modal.querySelector('.sp-modal');
+   var header = modal.querySelector('.sp-modal-header');
+   if (!inner || !header) return;
+   modal.dataset.dragBound = '1';
+
+   var dragging = false, startX = 0, startY = 0, originX = 0, originY = 0;
+
+   header.addEventListener('mousedown', function(e) {
+      // Don't start a drag from header buttons (minimize / close)
+      if (e.target.closest('button')) return;
+      dragging = true;
+      var rect = inner.getBoundingClientRect();
+      // Switch from flex centering to absolute positioning so we can move freely
+      inner.style.position = 'fixed';
+      inner.style.left = rect.left + 'px';
+      inner.style.top  = rect.top  + 'px';
+      inner.style.margin = '0';
+      startX = e.clientX; startY = e.clientY;
+      originX = rect.left; originY = rect.top;
+      inner.classList.add('dragging-modal');
+      e.preventDefault();
+   });
+
+   document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var nx = originX + (e.clientX - startX);
+      var ny = originY + (e.clientY - startY);
+      // Clamp so it stays at least partly on screen
+      var w = inner.offsetWidth, h = inner.offsetHeight;
+      var maxX = window.innerWidth  - 60;
+      var maxY = window.innerHeight - 60;
+      nx = Math.min(Math.max(nx, -(w - 200)), maxX);
+      ny = Math.min(Math.max(ny, 0), maxY);
+      inner.style.left = nx + 'px';
+      inner.style.top  = ny + 'px';
+   });
+
+   document.addEventListener('mouseup', function() {
+      if (!dragging) return;
+      dragging = false;
+      inner.classList.remove('dragging-modal');
+   });
+}
+
+// Bind once when the page loads (idempotent)
+document.addEventListener('DOMContentLoaded', _bindWalkinDrag);
+// Also call on first open in case the markup is injected after DOMContentLoaded
+if (typeof window !== 'undefined') {
+   window.addEventListener('load', _bindWalkinDrag);
+}
+
+// ── Walk-in customer history ───────────────────────────────────────────
+// When the cashier blurs the Name or Phone field, look up previous bills
+// from this store for that customer. If matches are found, show a banner
+// inside the modal with a "View" button → opens a popup that lists each
+// past bill with items + a "Repeat this bill" action that copies the items
+// into the current cart.
+async function walkinLookupHistory() {
+   if (!_currentMyStoreId) return;
+   var phone = (document.getElementById('walkin-phone').value || '').trim();
+   var name  = (document.getElementById('walkin-name').value  || '').trim();
+   if (!phone && name.length < 3) return;   // need a real signal
+   var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone, name: name });
+   var banner = document.getElementById('walkin-history-banner');
+   if (!banner) return;
+   if (!prior.length) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
+   window._walkinHistoryCache = prior;
+   banner.innerHTML =
+      '<div>🕘 <strong>' + prior.length + ' previous bill' + (prior.length === 1 ? '' : 's') + '</strong> for this customer at this store.</div>' +
+      '<button onclick="openWalkinHistory()">View &amp; repeat →</button>';
+   banner.classList.remove('hidden');
+}
+
+function openWalkinHistory() {
+   var prior = window._walkinHistoryCache || [];
+   var body = document.getElementById('walkinHistoryBody');
+   if (!prior.length) { body.innerHTML = '<p style="text-align:center;color:#888;padding:30px">No previous bills.</p>'; }
+   else {
+      body.innerHTML = prior.map(function(o, idx) {
+         var items = o.items || [];
+         var rows = items.map(function(it) {
+            return '<div class="row"><span>' + it.name + ' × ' + it.qty + '</span>' +
+                   '<span>₹' + Number(it.mrp || it.price || 0).toFixed(2) + '</span></div>';
+         }).join('');
+         return '<div class="walkin-history-bill">' +
+                   '<div class="walkin-history-bill-head">' +
+                      '<div><strong>' + (o.orderId || '—') + '</strong> <span class="meta">· ' + (o.date || '') + '</span></div>' +
+                      '<div><span class="total">₹' + Number(o.total || 0).toFixed(2) + '</span> ' +
+                         '<button class="walkin-repeat-btn" onclick="repeatWalkinBill(' + idx + ')">↻ Repeat this bill</button>' +
+                      '</div>' +
+                   '</div>' +
+                   '<div class="walkin-history-bill-items">' + (rows || '<em style="color:#888">No items</em>') + '</div>' +
+                '</div>';
+      }).join('');
+   }
+   document.getElementById('walkinHistoryModal').classList.remove('hidden');
+}
+
+function closeWalkinHistory() {
+   document.getElementById('walkinHistoryModal').classList.add('hidden');
+}
+
+// Append a past bill's items into the current cart. Quantities accumulate
+// if the same item is already in the cart, so cashier can repeat + tweak.
+function repeatWalkinBill(idx) {
+   var prior = (window._walkinHistoryCache || [])[idx];
+   if (!prior) return;
+   (prior.items || []).forEach(function(it) {
+      var existing = _walkinItems.find(function(x) { return x.id === it.id; });
+      if (existing) { existing.qty += Number(it.qty) || 1; }
+      else {
+         _walkinItems.push({
+            id:      it.id,
+            name:    it.name,
+            qty:     Number(it.qty) || 1,
+            mrp:     Number(it.mrp || it.price) || 0,
+            disc_pct: Number(it.disc_pct) || 0,
+            rx_required: !!it.rx_required
+         });
+      }
+   });
+   _renderWalkinTable();
+   closeWalkinHistory();
 }
 
 async function walkinLookupByPhone() {
@@ -6920,6 +7157,71 @@ function walkinDoSearch() {
    _walkinSearchTimer = setTimeout(_walkinRunSearch, 220);
 }
 
+// ── Stock-aware helpers (FEFO inventory) ─────────────────────────────
+// Returns total on-hand qty across all batches of one product in this store.
+function _availableStock(productId) {
+   var batches = _currentStockByProduct[productId] || [];
+   return batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
+}
+
+// Build an FEFO deduction plan for the given items. Returns:
+//   { updates: [{id, qty_remaining}, ...], shortfalls: [{name, needed, available}] }
+// Doesn't write anything — caller must validate then dispatch.
+function _planFEFODeduction(items) {
+   var updates = [];
+   var shortfalls = [];
+   items.forEach(function(it) {
+      var need = Number(it.qty) || 0;
+      if (!need) return;
+      var batches = (_currentStockByProduct[it.id] || []).slice();
+      // Sort by expiry date ascending (oldest first). Batches without an
+      // expiry go last so we don't burn them first by accident.
+      batches.sort(function(a, b) {
+         var da = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+         var db = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
+         return da - db;
+      });
+      var remaining = need;
+      for (var i = 0; i < batches.length && remaining > 0; i++) {
+         var b = batches[i];
+         var have = Number(b.qty_remaining) || 0;
+         if (have <= 0) continue;
+         var take = Math.min(have, remaining);
+         updates.push({ batchRef: b, newRemaining: have - take });
+         remaining -= take;
+      }
+      if (remaining > 0) {
+         shortfalls.push({ name: it.name, needed: need, available: need - remaining });
+      }
+   });
+   return { updates: updates, shortfalls: shortfalls };
+}
+
+// Dispatch the deduction plan to Supabase + update the in-memory cache so
+// the next search / table-render reflects the new stock immediately.
+async function _commitFEFODeduction(updates) {
+   for (var i = 0; i < updates.length; i++) {
+      var u = updates[i];
+      var b = u.batchRef;
+      // Update DB
+      await AppDB.upsertInventoryBatch({
+         id:                b.id,
+         product_id:        b.product_id,
+         store_provider_id: b.store_provider_id,
+         batch_no:          b.batch_no,
+         mfg_date:          b.mfg_date,
+         expiry_date:       b.expiry_date,
+         qty_received:      b.qty_received,
+         qty_remaining:     u.newRemaining,
+         mrp:               b.mrp,
+         purchase_price:    b.purchase_price,
+         notes:             b.notes
+      });
+      // Update local cache
+      b.qty_remaining = u.newRemaining;
+   }
+}
+
 function _walkinRunSearch() {
    var q = (document.getElementById('walkin-item-search').value || '').trim().toLowerCase();
    var box = document.getElementById('walkin-item-results');
@@ -6936,11 +7238,26 @@ function _walkinRunSearch() {
    box.innerHTML = hits.map(function(p) {
       var pid = p.id.replace(/'/g, "\\'");
       var img = p.img ? '<img src="' + p.img + '" onerror="this.style.display=\'none\'"/>' : '<span style="font-size:1.4rem">💊</span>';
-      return '<div class="sp-catalog-result" onclick="addWalkinItem(\'' + pid + '\')">' +
+      var avail = _availableStock(p.id);
+      var inCart = (_walkinItems.find(function(x) { return x.id === p.id; }) || {}).qty || 0;
+      var remaining = avail - inCart;
+      var stockTag, click, oos;
+      if (avail <= 0) {
+         stockTag = '<span style="background:#ffebee;color:#c62828;padding:1px 8px;border-radius:999px;font-size:0.78rem;font-weight:600">❌ Out of stock</span>';
+         click = ''; oos = ' style="opacity:0.55;cursor:not-allowed"';
+      } else if (remaining <= 0) {
+         stockTag = '<span style="background:#fff3e0;color:#e65100;padding:1px 8px;border-radius:999px;font-size:0.78rem;font-weight:600">⚠️ All ' + avail + ' added</span>';
+         click = ''; oos = ' style="opacity:0.55;cursor:not-allowed"';
+      } else {
+         var cls = remaining <= 5 ? 'background:#fff3e0;color:#e65100' : 'background:#e8f5e9;color:#1b5e20';
+         stockTag = '<span style="' + cls + ';padding:1px 8px;border-radius:999px;font-size:0.78rem;font-weight:600">📦 ' + remaining + ' in stock</span>';
+         click = ' onclick="addWalkinItem(\'' + pid + '\')"'; oos = '';
+      }
+      return '<div class="sp-catalog-result"' + click + oos + '>' +
                 '<div class="sp-catalog-result-img">' + img + '</div>' +
                 '<div class="sp-catalog-result-info">' +
                    '<div class="sp-catalog-result-name">' + p.name + (p.rx_required ? ' <span style="color:#c62828;font-size:0.78rem">⚠️Rx</span>' : '') + '</div>' +
-                   '<div class="sp-catalog-result-meta">' + (p.desc || '') + ' · ₹' + Number(p.price || 0).toLocaleString('en-IN') + '</div>' +
+                   '<div class="sp-catalog-result-meta">' + (p.desc || '') + ' · ₹' + Number(p.price || 0).toLocaleString('en-IN') + ' · ' + stockTag + '</div>' +
                 '</div>' +
               '</div>';
    }).join('');
@@ -6950,7 +7267,17 @@ function _walkinRunSearch() {
 function addWalkinItem(productId) {
    var p = _currentMyStoreProds.find(function(x) { return x.id === productId; });
    if (!p) return;
+   var avail = _availableStock(productId);
+   if (avail <= 0) {
+      alert('❌ "' + p.name + '" is out of stock.\n\nAdd a new batch from Products → Stock before billing.');
+      return;
+   }
    var existing = _walkinItems.find(function(x) { return x.id === productId; });
+   var currentQty = existing ? existing.qty : 0;
+   if (currentQty + 1 > avail) {
+      alert('⚠️ Only ' + avail + ' unit' + (avail === 1 ? '' : 's') + ' of "' + p.name + '" in stock.\nAlready added: ' + currentQty + '. Cannot add more.');
+      return;
+   }
    if (existing) { existing.qty += 1; }
    else {
       _walkinItems.push({
@@ -6972,7 +7299,21 @@ function _walkinEditLine(i, field, val) {
    // Allow intermediate empty state ("" / NaN) so the user can clear and retype.
    // We only persist a clean numeric value; rendering treats empty as 0.
    var n = parseFloat(val);
-   _walkinItems[i][field] = isNaN(n) || n < 0 ? 0 : n;
+   var clean = isNaN(n) || n < 0 ? 0 : n;
+   // Cap qty at available stock — prevents selling phantom units.
+   if (field === 'qty') {
+      var avail = _availableStock(_walkinItems[i].id);
+      if (clean > avail) {
+         clean = avail;
+         var input = document.querySelectorAll('#walkin-items-table tbody tr')[i];
+         if (input) {
+            var qtyInput = input.querySelector('input[type="number"]');
+            if (qtyInput) qtyInput.value = avail;
+         }
+         alert('⚠️ Only ' + avail + ' unit' + (avail === 1 ? '' : 's') + ' of "' + _walkinItems[i].name + '" in stock. Quantity capped.');
+      }
+   }
+   _walkinItems[i][field] = clean;
    _updateWalkinTotals(i);   // only update the Net cell + summary; leave inputs alone
 }
 function _updateWalkinTotals(highlightIdx) {
@@ -7037,6 +7378,19 @@ function _renderWalkinTable() {
 async function saveWalkinBill(printAfter) {
    if (!_walkinItems.length) { alert('Add at least one item before saving.'); return; }
    if (!_currentMyStoreId) { alert('No store context.'); return; }
+
+   // Stock check + FEFO plan BEFORE inserting the order, so we never persist
+   // a bill that can't actually be fulfilled from inventory.
+   var plan = _planFEFODeduction(_walkinItems);
+   if (plan.shortfalls.length) {
+      alert('❌ Cannot save — insufficient stock:\n\n' +
+            plan.shortfalls.map(function(s) {
+               return '• ' + s.name + ': need ' + s.needed + ', only ' + s.available + ' available';
+            }).join('\n') +
+            '\n\nAdjust quantities or add a new batch.');
+      return;
+   }
+
    var name   = document.getElementById('walkin-name').value.trim();
    var phone  = document.getElementById('walkin-phone').value.trim();
    var doctor = document.getElementById('walkin-doctor').value.trim();
@@ -7082,11 +7436,17 @@ async function saveWalkinBill(printAfter) {
       store_provider_id: _currentMyStoreId,
       payment_mode: 'CASH',
       doctor_name:  doctor,
-      walk_in:      true
+      walk_in:      true,
+      stock_deducted: true       // we deduct inline via _commitFEFODeduction below
    };
    _db.orders.unshift(order);
    var ok = await AppDB.insertOrder(order);
    if (!ok) { alert('Failed to save bill.'); return; }
+
+   // Order persisted — now deduct stock from inventory_batches (FEFO).
+   // We use the plan computed at the top of this function so the deduction
+   // matches exactly what we validated against.
+   try { await _commitFEFODeduction(plan.updates); } catch (e) { console.error('Stock deduction failed:', e); }
 
    if (printAfter) {
       // Hand off to the existing bill-template renderer
@@ -7095,6 +7455,9 @@ async function saveWalkinBill(printAfter) {
       _billDiscountPct = 0;
       await generatePrintableBill();
    }
+   // Clear cart before closing so the discard-confirm in closeWalkinBillModal
+   // doesn't trip on a successful save
+   _walkinItems = [];
    closeWalkinBillModal();
    renderShopDashboard(window._shopCurrentFilter);
 }
@@ -7474,7 +7837,7 @@ function _renderBillHtml(d) {
       '</div>' +
       '<div class="bill-info" style="grid-template-columns:1fr 1fr 1fr 1fr">' +
          '<div><b>Name:</b> ' + (d.order.customerName || '—') + '</div>' +
-         '<div><b>Mobile:</b> ' + (d.order.customerPhone || '—') + '</div>' +
+         '<div><b>Mobile:</b> ' + (d.order.customerPhone || (d.order.delivery_address && d.order.delivery_address.phone) || '—') + '</div>' +
          '<div><b>Invoice:</b> ' + d.billNo + '</div>' +
          '<div><b>Date:</b> ' + dateStr + '</div>' +
          '<div><b>Mode:</b> ' + (d.order.payment_mode || 'COD') + '</div>' +
@@ -10179,6 +10542,10 @@ async function renderAdminOrders() {
    });
 
    await initDB();
+   // Always pull a fresh snapshot — _db.orders may be stale if the admin
+   // loaded the page before the customer placed the order (realtime only
+   // catches changes AFTER subscription, not pre-existing rows).
+   try { var fresh = await AppDB.getAllOrders(); if (fresh) _db.orders = fresh; } catch (e) {}
    var all = (_db.orders || []).slice();
 
    // Filters
@@ -10210,14 +10577,26 @@ async function renderAdminOrders() {
    var rows = filtered.map(function(o) {
       var status   = o.status || 'Pending Pickup';
       var cls      = status === 'Completed' ? 'completed' : (status === 'Cancelled' ? 'cancelled' : 'confirmed');
-      var itemCount = (o.items || []).reduce(function(s, it) { return s + (it.qty || 0); }, 0);
+      var items = o.items || [];
+      var itemCount = items.reduce(function(s, it) { return s + (it.qty || 0); }, 0);
+      var rxOnly = !items.length && o.prescription_url;
+      var rxIcon = o.prescription_url
+         ? ' <a href="' + o.prescription_url + '" target="_blank" rel="noopener" title="View prescription" style="color:#c62828;text-decoration:none;font-weight:700">📋Rx</a>'
+         : '';
+      var deliveryIcon = o.delivery_address ? ' <span title="Home delivery">🚚</span>' : '';
+      var itemsCellHtml = rxOnly
+         ? '<span style="color:#1565c0;font-weight:600" title="Prescription-only order — pharmacist will fill items">📋 Rx-only</span>'
+         : String(itemCount);
+      var totalCellHtml = rxOnly && !o.total
+         ? '<span style="color:#888;font-style:italic">awaiting quote</span>'
+         : '₹' + (o.total || 0).toLocaleString('en-IN');
       return '<tr>' +
                 '<td><div class="apt-tbl-date">' + (o.date || '') + '</div></td>' +
-                '<td><div class="apt-tbl-name">' + (o.customerName || '—') + '</div>' +
+                '<td><div class="apt-tbl-name">' + (o.customerName || '—') + rxIcon + deliveryIcon + '</div>' +
                     '<div class="apt-tbl-sub">' + (o.customerEmail || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (o.storeName || '<em style="color:#999">Platform</em>') + '</div></td>' +
-                '<td style="text-align:center">' + itemCount + '</td>' +
-                '<td style="text-align:right;font-weight:600">₹' + (o.total || 0).toLocaleString('en-IN') + '</td>' +
+                '<td style="text-align:center">' + itemsCellHtml + '</td>' +
+                '<td style="text-align:right;font-weight:600">' + totalCellHtml + '</td>' +
                 '<td>' + (o.method || 'Pickup') + '</td>' +
                 '<td><span class="order-badge ' + cls + '">' + status + '</span></td>' +
                 '<td class="apt-tbl-id">' + (o.orderId || '') + '</td>' +
@@ -10527,6 +10906,16 @@ async function initProfile() {
          document.getElementById('prof-address').value = user.address || '';
       }
    }
+   // For shop owners (medical / retail), also list every store they own with
+   // GST / Form 20 / Form 21 / FSSAI / commission etc. so they can verify
+   // what's on file with admin (used on tax invoices).
+   if (showOwnerFields) {
+      try { await loadStoreProviders(true); } catch (e) {}
+      var ownedStores = (_storeProvidersCache || []).filter(function(s) {
+         return (s.owner_email || '').toLowerCase() === (user.email || '').toLowerCase();
+      });
+      _renderMyStoresInProfile(ownedStores);
+   }
    // Hide customer-only tabs only for PURE store-owners (not admins — they're
    // full users too and may want to use Addresses, Orders, Appointments etc.).
    if (isPureOwner) {
@@ -10549,6 +10938,48 @@ async function initProfile() {
    }
    const params = new URLSearchParams(window.location.search);
    switchProfileTab(params.get('tab') || 'info');
+}
+
+// Render an owner-facing read-only view of every store they own. Used on the
+// profile-info tab so owners can verify GST / Form 20 / FSSAI / commission etc.
+// before generating tax invoices.
+function _renderMyStoresInProfile(stores) {
+   var card = document.getElementById('prof-mystore-card');
+   var body = document.getElementById('prof-mystore-body');
+   if (!card || !body) return;
+   if (!stores || !stores.length) {
+      // Hide the card if user is an owner but has no store registered yet
+      card.classList.add('hidden');
+      return;
+   }
+   card.classList.remove('hidden');
+   var esc = function(s) { return (s == null ? '' : String(s)).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
+   var missing = function(v) { return v ? esc(v) : '<span style="color:#c62828">— missing</span>'; };
+   var fmtCommission = function(s) {
+      if (s.commission_value == null) return missing(null);
+      return s.commission_type === 'percent'
+         ? esc(s.commission_value) + ' %'
+         : '₹ ' + esc(s.commission_value) + ' / order';
+   };
+   var meta = window.STORE_CAT_META || {};
+   body.innerHTML = stores.map(function(s) {
+      var cat = meta[s.category] || {};
+      return '' +
+         '<div class="mystore-block">' +
+            '<div class="mystore-title">' + (cat.icon || s.icon || '🏪') + ' ' + esc(s.name) + ' <span class="mystore-cat">· ' + esc(cat.label || s.category) + '</span></div>' +
+            '<div class="mystore-grid">' +
+               '<div><label>GSTIN</label><span>' + missing(s.gstin) + '</span></div>' +
+               '<div><label>Form 20 No.</label><span>' + missing(s.form20_no) + '</span></div>' +
+               '<div><label>Form 21 No.</label><span>' + missing(s.form21_no) + '</span></div>' +
+               '<div><label>FSSAI No.</label><span>' + missing(s.fssai_no) + '</span></div>' +
+               '<div><label>Phone</label><span>' + missing(s.phone) + '</span></div>' +
+               '<div><label>Timing</label><span>' + missing(s.timing) + '</span></div>' +
+               '<div style="grid-column:1/-1"><label>Address</label><span>' + missing(s.address) + '</span></div>' +
+               '<div><label>Commission</label><span>' + fmtCommission(s) + '</span></div>' +
+               '<div><label>Home Delivery</label><span>' + (s.door_delivery ? '✅ Yes' : '❌ No') + '</span></div>' +
+            '</div>' +
+         '</div>';
+   }).join('');
 }
 
 function switchProfileTab(tab) {
@@ -10923,12 +11354,21 @@ async function renderOrders() {
          ? '📋 Pharmacist preparing'
          : _customerStatusLabel(liveStatus, o.method);
       var cls = orderStatusClass(liveStatus);
+      var itemRows = (o.items || []).map(function(i) {
+         return '<div class="order-item"><span>' + i.name + ' × ' + i.qty + '</span><span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span></div>';
+      }).join('');
+      var itemCount = (o.items || []).length;
+      var totalQty  = (o.items || []).reduce(function(s, it) { return s + (it.qty || 0); }, 0);
       var itemsHtml = rxOnly
          ? '<div class="order-item" style="color:#1565c0;font-style:italic">' +
               '<span>📋 Prescription sent — pharmacist is preparing your medicines</span>' +
               '<span><a href="' + o.prescription_url + '" target="_blank" rel="noopener" style="color:#1a73e8">View Rx</a></span>' +
            '</div>'
-         : (o.items || []).map(function(i) { return '<div class="order-item"><span>' + i.name + ' × ' + i.qty + '</span><span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span></div>'; }).join('');
+         : (itemCount
+            ? '<details class="order-items-toggle"><summary>📦 ' + itemCount + ' item' + (itemCount === 1 ? '' : 's') +
+              ' &middot; ' + totalQty + ' unit' + (totalQty === 1 ? '' : 's') +
+              ' <span class="order-items-hint">(click to view)</span></summary>' + itemRows + '</details>'
+            : '');
       var totalHtml = rxOnly && !o.total
          ? '<span class="order-total" style="color:#888;font-style:italic">Awaiting quote</span>'
          : '<span class="order-total">Total: ₹' + (o.total || 0).toLocaleString('en-IN') + '</span>';

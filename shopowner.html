@@ -399,29 +399,36 @@
       </div>
    </div>
 
-   <!-- WALK-IN BILL MODAL — counter-staff builds a bill for a customer who walked in -->
-   <div class="sp-modal-overlay hidden" id="walkinBillModal" onclick="if(event.target===this)closeWalkinBillModal()">
+   <!-- WALK-IN BILL MODAL — counter-staff builds a bill for a customer who walked in.
+        Click outside does NOT close (cashiers were losing half-typed bills). Use
+        the minimize button to park the bill and come back to it. -->
+   <div class="sp-modal-overlay hidden" id="walkinBillModal">
       <div class="sp-modal" style="max-width:900px">
          <div class="sp-modal-header" style="background:#ef6c00">
             <h3>🧾 Walk-in Bill</h3>
-            <button onclick="closeWalkinBillModal()">✕</button>
+            <div style="display:flex;gap:6px;align-items:center">
+               <button onclick="minimizeWalkinBillModal()" title="Minimize — your bill is kept, click Walk-in Bill to restore" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 8px">🗕</button>
+               <button onclick="closeWalkinBillModal()" title="Discard bill" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 8px">✕</button>
+            </div>
          </div>
          <div class="sp-modal-body">
             <!-- Customer info row (optional — owner can leave blank for anonymous sale) -->
             <div class="walkin-cust-row">
                <div class="sp-field">
                   <label>Customer Name <small style="color:#888;font-weight:400">(optional)</small></label>
-                  <input type="text" id="walkin-name" placeholder="e.g. Ramesh"/>
+                  <input type="text" id="walkin-name" placeholder="e.g. Ramesh" onblur="walkinLookupHistory()"/>
                </div>
                <div class="sp-field">
                   <label>Phone <small style="color:#888;font-weight:400">(optional — auto-recalls repeat customers)</small></label>
-                  <input type="tel" id="walkin-phone" placeholder="98765 43210" onblur="walkinLookupByPhone()"/>
+                  <input type="tel" id="walkin-phone" placeholder="98765 43210" onblur="walkinLookupByPhone();walkinLookupHistory()"/>
                </div>
                <div class="sp-field">
                   <label>Doctor <small style="color:#888;font-weight:400">(optional)</small></label>
                   <input type="text" id="walkin-doctor" placeholder="e.g. Dr Sharma"/>
                </div>
             </div>
+            <!-- Previous-orders banner — populated by walkinLookupHistory() when a phone/name match returns prior bills -->
+            <div id="walkin-history-banner" class="hidden"></div>
 
             <!-- Item picker — type to search this store's products -->
             <div class="sp-field" style="margin-top:8px">
@@ -444,6 +451,24 @@
             <button class="sp-btn-save" onclick="saveWalkinBill(false)">💾 Save Only</button>
             <button class="sp-btn-save" style="background:#1a73e8" onclick="saveWalkinBill(true)">🖨 Save &amp; Print</button>
          </div>
+      </div>
+   </div>
+
+   <!-- WALK-IN MINIMIZED PILL — appears when the bill is minimized; click to restore -->
+   <div id="walkinMinimizedPill" class="hidden" onclick="restoreWalkinBillModal()" title="Restore Walk-in Bill">
+      <span class="walkin-mini-icon">🧾</span>
+      <span class="walkin-mini-text">Walk-in Bill</span>
+      <span class="walkin-mini-count" id="walkinMiniCount">0 items</span>
+   </div>
+
+   <!-- WALK-IN PREVIOUS-ORDERS POPUP — appears when cashier clicks the "previous orders available" banner -->
+   <div class="sp-modal-overlay hidden" id="walkinHistoryModal" onclick="if(event.target===this)closeWalkinHistory()">
+      <div class="sp-modal" style="max-width:760px">
+         <div class="sp-modal-header" style="background:#5e35b1">
+            <h3>🕘 Previous Bills</h3>
+            <button onclick="closeWalkinHistory()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 8px">✕</button>
+         </div>
+         <div class="sp-modal-body" id="walkinHistoryBody"></div>
       </div>
    </div>
 

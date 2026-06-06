@@ -338,7 +338,12 @@ ALTER TABLE public.orders
    ADD COLUMN IF NOT EXISTS discount_pct      numeric DEFAULT 0,
    ADD COLUMN IF NOT EXISTS bill_number       text,
    ADD COLUMN IF NOT EXISTS walk_in           boolean DEFAULT false,
-   ADD COLUMN IF NOT EXISTS doctor_name       text DEFAULT '';
+   ADD COLUMN IF NOT EXISTS doctor_name       text DEFAULT '',
+   -- Flips to true once inventory_batches.qty_remaining has been decremented
+   -- for this order's items (on transition to status='Completed' for customer
+   -- orders, or at insert time for walk-in counter sales). Prevents double-
+   -- deduction if status is toggled back and forth.
+   ADD COLUMN IF NOT EXISTS stock_deducted    boolean DEFAULT false;
 CREATE INDEX IF NOT EXISTS orders_store_provider_idx ON public.orders(store_provider_id);
 
 -- 19. WALKIN_CUSTOMERS — lightweight directory of customers who walked in to a
@@ -355,6 +360,17 @@ CREATE TABLE IF NOT EXISTS public.walkin_customers (
 ALTER TABLE public.walkin_customers DISABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS walkin_customers_phone_idx ON public.walkin_customers(phone);
 CREATE INDEX IF NOT EXISTS walkin_customers_store_idx ON public.walkin_customers(store_provider_id);
+
+-- Fuzzy phone recall: store digits-only, last-10 form (strips +91 / spaces /
+-- dashes / brackets) so "+91 98765 43210", "9876543210", "(987) 654-3210"
+-- all resolve to the same customer when the cashier types any of them.
+ALTER TABLE public.walkin_customers
+   ADD COLUMN IF NOT EXISTS phone_normalized text;
+UPDATE public.walkin_customers
+   SET phone_normalized = right(regexp_replace(coalesce(phone, ''), '\D', '', 'g'), 10)
+   WHERE phone_normalized IS NULL;
+CREATE INDEX IF NOT EXISTS walkin_customers_phone_norm_idx
+   ON public.walkin_customers(store_provider_id, phone_normalized);
 
 -- 13b. STORE_CATEGORIES — per-category field schema (admin-editable).
 --      Each row holds a JSONB array of field defs like:

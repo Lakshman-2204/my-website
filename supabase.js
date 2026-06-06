@@ -56,7 +56,8 @@ function _orderFromDB(r) {
             discount_pct:      r.discount_pct      || 0,
             bill_number:       r.bill_number       || null,
             walk_in:           !!r.walk_in,
-            doctor_name:       r.doctor_name       || '' };
+            doctor_name:       r.doctor_name       || '',
+            stock_deducted:    !!r.stock_deducted };
 }
 function _orderToDB(o) {
    return { order_id: o.orderId || o.order_id,
@@ -75,7 +76,8 @@ function _orderToDB(o) {
             discount_pct:      typeof o.discount_pct === 'number' ? o.discount_pct : 0,
             bill_number:       o.bill_number       || null,
             walk_in:           !!o.walk_in,
-            doctor_name:       o.doctor_name       || '' };
+            doctor_name:       o.doctor_name       || '',
+            stock_deducted:    !!o.stock_deducted };
 }
 
 window.AppDB = {
@@ -218,17 +220,53 @@ window.AppDB = {
    },
 
    // ── WALK-IN CUSTOMERS (Phase 4) ──────────────────────────
+   // Strip everything that isn't a digit, then keep only the last 10. This
+   // makes "+91 98765 43210", "9876543210", "(987) 654-3210", "91-9876543210"
+   // all resolve to the same key.
+   _normalizePhone(p) {
+      return (p || '').replace(/\D/g, '').slice(-10);
+   },
+
    // Look up an existing walk-in customer by phone (so the owner can recall a
    // repeat customer's name + bill history). Returns null if not found.
    async findWalkinByPhone(storeProviderId, phone) {
-      if (!phone) return null;
+      const norm = this._normalizePhone(phone);
+      if (norm.length < 10) return null;   // not enough digits to be confident
       const { data, error } = await _sb.from('walkin_customers')
          .select('*')
          .eq('store_provider_id', storeProviderId)
-         .eq('phone', phone)
+         .eq('phone_normalized', norm)
          .limit(1);
       if (error) { console.error('findWalkinByPhone:', error.message); return null; }
       return (data && data[0]) || null;
+   },
+
+   // Fetch this store's walk-in bills for a single customer (by normalized
+   // phone OR by case-insensitive name). Returns a list of orders newest-first,
+   // capped at 10 — used by the "previous orders available" banner so the
+   // cashier can repeat a prior bill in one click.
+   async findWalkinOrders(storeProviderId, { phone, name } = {}) {
+      const norm = this._normalizePhone(phone);
+      let q = _sb.from('orders').select('*')
+         .eq('store_provider_id', storeProviderId)
+         .eq('walk_in', true)
+         .order('created_at', { ascending: false })
+         .limit(10);
+      if (norm && norm.length === 10) {
+         // Phone is the high-confidence signal — match in JS after fetch since
+         // orders.customer_phone may be stored in mixed formats (older rows).
+      } else if (name && name.length >= 3) {
+         q = q.ilike('customer_name', '%' + name.replace(/[%_]/g, '\\$&') + '%');
+      } else {
+         return [];
+      }
+      const { data, error } = await q;
+      if (error) { console.error('findWalkinOrders:', error.message); return []; }
+      let rows = (data || []).map(_orderFromDB);
+      if (norm && norm.length === 10) {
+         rows = rows.filter(o => (o.customerPhone || '').replace(/\D/g, '').slice(-10) === norm);
+      }
+      return rows;
    },
 
    // Insert a walk-in customer (called only when phone is provided and the
@@ -238,7 +276,8 @@ window.AppDB = {
          id:                c.id,
          store_provider_id: c.store_provider_id,
          name:              c.name  || '',
-         phone:             c.phone || ''
+         phone:             c.phone || '',
+         phone_normalized:  this._normalizePhone(c.phone)
       };
       const { error } = await _sb.from('walkin_customers').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertWalkinCustomer:', error.message); return false; }

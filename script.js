@@ -1063,6 +1063,16 @@ async function placeMedicalOrder() {
    var btn = document.getElementById('medCheckoutPlaceBtn');
    if (btn) { btn.disabled = true; btn.textContent = 'Placing order…'; }
 
+   // Self-heal: hydrate any cart items missing store_provider_id by looking it
+   // up in _db.storeProducts. Protects against stale cart entries created
+   // before the script.js cache fix landed.
+   cart.forEach(function(c) {
+      if (!c.store_provider_id) {
+         var prod = (_db.storeProducts || []).find(function(p) { return p.id === c.id; });
+         if (prod && prod.store_provider_id) c.store_provider_id = prod.store_provider_id;
+      }
+   });
+
    // Group cart by store and create one order per store
    var groups = {};
    cart.forEach(function(c) {

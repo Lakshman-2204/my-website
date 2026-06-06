@@ -3316,6 +3316,21 @@ async function saveStoreProvider() {
    };
    var ok = await AppDB.upsertStoreProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
+
+   // Sync to the owner's user record so the store's address / phone / store-name
+   // also show up in their Profile page. Only fills BLANK fields — never
+   // overwrites a value the owner may have already personalised.
+   if (provider.owner_email) {
+      var u = (_db.users || []).find(function(x) { return (x.email || '').toLowerCase() === provider.owner_email.toLowerCase(); });
+      if (u) {
+         var patched = false;
+         if (provider.address && !u.address)         { u.address   = provider.address; patched = true; }
+         if (provider.phone   && !u.phone)           { u.phone     = provider.phone;   patched = true; }
+         if (provider.name    && !u.storeName)       { u.storeName = provider.name;    patched = true; }
+         if (patched) await AppDB.upsertUser(u);
+      }
+   }
+
    closeStoreProviderModal();
    await renderStoreProvidersAdmin();
 }
@@ -6017,75 +6032,65 @@ function renderShopDashboard(filterStatus) {
       return;
    }
 
-   list.innerHTML = '';
-   filtered.forEach(function(order) {
-      var statusClass = order.status === 'Completed' ? 'status-completed' :
-                        order.status === 'Ready'     ? 'status-ready'     : 'status-pending';
+   // Mirror the appointments-table layout: one compact row per order, all info
+   // scannable at a glance, multiple orders per screen instead of one-per-page.
+   var rowsHtml = filtered.map(function(order) {
+      var status = order.status || 'Pending Pickup';
+      var statusClass = status === 'Completed' ? 'completed' :
+                        status === 'Ready'     ? 'confirmed' :
+                        status === 'Cancelled' ? 'cancelled' : 'pending';
+      var oid = (order.orderId || order.order_id || '').replace(/'/g, "\\'");
+      var itemsCount = (order.items || []).length;
+      var firstItem = (order.items || [])[0];
+      var totalQty = (order.items || []).reduce(function(s, it) { return s + (it.qty || 0); }, 0);
+      var itemsCell = firstItem
+         ? '<div class="apt-tbl-name">' + firstItem.name + (itemsCount > 1 ? ' <span style="color:#888;font-weight:400">+ ' + (itemsCount-1) + ' more</span>' : '') + '</div>' +
+           '<div class="apt-tbl-sub">' + totalQty + ' unit' + (totalQty === 1 ? '' : 's') + '</div>'
+         : '<span style="color:#bbb">—</span>';
 
-      var itemsHTML = order.items.map(function(item) {
-         return '<div class="shop-order-item">' +
-                   '<img src="' + item.img + '" alt="' + item.name + '" onerror="this.src=\'https://placehold.co/60x60?text=Item\'"/>' +
-                   '<div class="shop-order-item-info">' +
-                      '<div class="shop-item-name">' + item.name + '</div>' +
-                      '<div class="shop-item-qty">Qty: ' + item.qty + ' &nbsp;·&nbsp; &#8377;' + (item.price * item.qty).toLocaleString('en-IN') + '</div>' +
-                   '</div>' +
-                '</div>';
-      }).join('');
-
-      // Phase 3 additions: Rx thumbnail + delivery address + bill button
-      var rxBlock = '';
-      if (order.prescription_url) {
-         rxBlock = '<div class="shop-order-rx">' +
-                      '⚠️ Prescription: ' +
-                      '<a href="' + order.prescription_url + '" target="_blank" rel="noopener">' +
-                         '<img src="' + order.prescription_url + '" class="shop-rx-thumb"/>' +
-                      '</a>' +
-                   '</div>';
-      }
-      var addrBlock = '';
-      if (order.delivery_address) {
-         var a = order.delivery_address;
-         addrBlock = '<div class="shop-order-addr">' +
-                       '🚚 <strong>Deliver to:</strong> ' +
-                       (a.name || '') + (a.phone ? ' · 📞 ' + a.phone : '') + '<br/>' +
-                       (a.line || '') + (a.city ? ', ' + a.city : '') +
-                       (a.state ? ', ' + a.state : '') + (a.pin ? ' - ' + a.pin : '') +
-                    '</div>';
-      }
-      var paymentBlock = order.payment_mode === 'COD' || order.method === 'COD'
-         ? '<div class="shop-order-pay">💵 Pay on delivery (Cash / UPI)</div>'
+      var rxIcon = order.prescription_url
+         ? ' <a href="' + order.prescription_url + '" target="_blank" rel="noopener" title="View prescription" style="color:#c62828;text-decoration:none">⚠️Rx</a>'
          : '';
+      var deliveryIcon = order.delivery_address ? ' <span title="Home delivery">🚚</span>' : '';
+      var phoneTxt = (((window._adminSettings || {}).showCustomerPhone && order.customerPhone)
+         ? '<div class="apt-tbl-sub">📞 ' + order.customerPhone + '</div>' : '');
 
-      var card = document.createElement('div');
-      card.className = 'shop-order-card';
-      card.id = 'shopcard-' + order.orderId;
-      card.innerHTML =
-         '<div class="shop-order-header">' +
-            '<div>' +
-               '<div class="shop-order-id">' + order.orderId + '</div>' +
-               '<div class="shop-order-meta">' + order.customerName +
-                  (((window._adminSettings || {}).showCustomerPhone && order.customerPhone) ? ' &nbsp;·&nbsp; 📞 ' + order.customerPhone : '') +
-                  ' &nbsp;·&nbsp; ' + order.date + '</div>' +
-            '</div>' +
-            '<div class="shop-order-right">' +
-               '<span class="shop-status-badge ' + statusClass + '">' + order.status + '</span>' +
-               '<div class="shop-order-total">&#8377;' + order.total.toLocaleString('en-IN') + '</div>' +
-            '</div>' +
-         '</div>' +
-         '<div class="shop-order-items">' + itemsHTML + '</div>' +
-         rxBlock + addrBlock + paymentBlock +
-         '<div class="shop-order-actions">' +
-            '<button class="shop-btn-bill" onclick="openOrderBillModal(\'' + order.orderId + '\')">📝 Edit &amp; Bill</button>' +
-            (order.status === 'Pending Pickup' ?
-               '<button class="shop-btn-ready" onclick="updateOrderStatus(\'' + order.orderId + '\',\'Ready\')">✅ Mark Ready</button>' : '') +
-            (order.status === 'Ready' ?
-               '<button class="shop-btn-complete" onclick="updateOrderStatus(\'' + order.orderId + '\',\'Completed\')">🏁 Mark Completed</button>' +
-               '<button class="shop-btn-pending" onclick="updateOrderStatus(\'' + order.orderId + '\',\'Pending Pickup\')">↩ Back to Pending</button>' : '') +
-            (order.status === 'Completed' ?
-               '<span class="shop-done-label">✔ Done — collected by customer</span>' : '') +
-         '</div>';
-      list.appendChild(card);
-   });
+      var actions =
+         '<button class="apt-view-btn" style="background:#1a73e8" onclick="openOrderBillModal(\'' + oid + '\')">📝 Bill</button>' +
+         (status === 'Pending Pickup'
+            ? ' <button class="apt-view-btn" style="background:#2e7d32" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">✅ Ready</button>' : '') +
+         (status === 'Ready'
+            ? ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">🏁 Done</button>' : '');
+
+      return '<tr>' +
+                '<td><div class="apt-tbl-name">' + (order.orderId || '') + '</div>' +
+                    '<div class="apt-tbl-sub">' + (order.date || '') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (order.customerName || '—') + rxIcon + deliveryIcon + '</div>' + phoneTxt + '</td>' +
+                '<td>' + itemsCell + '</td>' +
+                '<td style="text-align:right"><div class="apt-tbl-fee">₹' + Number(order.total || 0).toLocaleString('en-IN') + '</div>' +
+                    '<div class="apt-tbl-fee-tag" style="background:#fff8e1;color:#6d4c41;border:1px solid #ffd54f">' +
+                    (order.payment_mode === 'COD' || order.method === 'COD' || order.method === 'COD-Delivery' ? '💵 COD' :
+                     order.method === 'Walk-in' ? '🧾 Walk-in' : (order.method || '')) +
+                    '</div></td>' +
+                '<td><span class="apt-status ' + statusClass + '">' + status + '</span></td>' +
+                '<td>' + actions + '</td>' +
+             '</tr>';
+   }).join('');
+
+   list.innerHTML =
+      '<div class="apt-tbl-wrap">' +
+        '<table class="apt-tbl">' +
+           '<thead><tr>' +
+              '<th>Order ID / Date</th>' +
+              '<th>Customer</th>' +
+              '<th>Items</th>' +
+              '<th style="text-align:right">Total</th>' +
+              '<th>Status</th>' +
+              '<th>Actions</th>' +
+           '</tr></thead>' +
+           '<tbody>' + rowsHtml + '</tbody>' +
+        '</table>' +
+      '</div>';
 }
 
 function updateOrderStatus(orderId, newStatus) {

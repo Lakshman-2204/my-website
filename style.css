@@ -1790,6 +1790,20 @@ body.guest .store-section-divider {
 }
 .apt-tbl-fee-tag.unpaid { background: #ffebee; color: #c62828; }
 .apt-tbl-fee-tag.paid   { background: #e8f5e9; color: #2e7d32; }
+
+/* Owner orders table reuses the apt-tbl skeleton; this is the status pill */
+.apt-status {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: 999px;
+	font-size: 0.75rem;
+	font-weight: 700;
+	white-space: nowrap;
+}
+.apt-status.pending   { background: #fff3e0; color: #e65100; }
+.apt-status.confirmed { background: #e3f2fd; color: #1565c0; }
+.apt-status.completed { background: #e8f5e9; color: #2e7d32; }
+.apt-status.cancelled { background: #ffebee; color: #c62828; }
 .apt-token-badge {
 	display: inline-block;
 	background: #1a73e8;
@@ -2205,7 +2219,8 @@ body.guest .store-section-divider {
 	font-size: 0.95rem;
 }
 
-/* Order card */
+/* Order card (kept for fallback, but the live render now uses the appointments
+   table style — one row per order, compact + scannable). */
 .shop-order-card {
 	background: white;
 	border-radius: 14px;

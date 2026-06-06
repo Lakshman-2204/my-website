@@ -977,6 +977,127 @@ function checkout() {
    switchTab('upi', document.querySelector('.rp-tab'));
 }
 
+// ── Prescription-only order (customer can't / doesn't want to pick items) ──
+var _rxOnlyStoreId = null;
+
+async function openRxOnlyOrderModal(storeProviderId) {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { promptAuth('Please log in to send a prescription.'); return; }
+   if (!_db.addresses || !_db.addresses.length) {
+      try { await loadUserData(user.email); } catch (e) {}
+   }
+   try { await loadStoreProviders(); } catch (e) {}
+   _rxOnlyStoreId = storeProviderId;
+   document.getElementById('rxOnlyFileInput').value = '';
+   document.getElementById('rxOnlyNotes').value = '';
+   document.getElementById('rxOnlyPreview').classList.add('hidden');
+   document.getElementById('rxOnlyPreview').innerHTML = '';
+   document.getElementById('rxOnlyStatus').textContent = '';
+   var submitBtn = document.getElementById('rxOnlySubmitBtn');
+   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '📤 Send to Pharmacist'; }
+
+   // Address picker (only if the store has home delivery enabled)
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === storeProviderId; }) || {};
+   var addrHost = document.getElementById('rxOnlyAddrSection');
+   if (store.door_delivery) {
+      var addrs = _db.addresses || [];
+      var defaultId = (addrs.find(function(a) { return a.isDefault; }) || addrs[0] || {}).id || '';
+      window._rxOnlySelectedAddr = defaultId;
+      if (!addrs.length) {
+         addrHost.innerHTML = '<div class="sp-field" style="margin-top:10px"><label>Delivery Address</label>' +
+            '<p style="color:#c62828;font-size:0.85rem">No saved addresses. ' +
+            '<button onclick="closeRxOnlyOrderModal();window.location=\'profile.html?tab=addresses\'" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer">➕ Add Address</button></p></div>';
+      } else {
+         var opts = addrs.map(function(a) {
+            var label = a.name + ' · ' + (a.line || '') + (a.city ? ', ' + a.city : '') + (a.pin ? ' ' + a.pin : '');
+            return '<option value="' + a.id + '"' + (a.id === defaultId ? ' selected' : '') + '>' + label + '</option>';
+         }).join('');
+         addrHost.innerHTML = '<div class="sp-field" style="margin-top:10px"><label>Delivery Address</label>' +
+            '<select id="rxOnlyAddr" onchange="window._rxOnlySelectedAddr=this.value" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px">' + opts + '</select></div>';
+      }
+   } else {
+      addrHost.innerHTML = '<p style="color:#666;font-size:0.85rem;margin-top:8px;padding:8px;background:#fff8e1;border-radius:6px">🛍️ This store does not deliver. Please collect from the store after the pharmacist confirms.</p>';
+   }
+
+   // Live preview on file pick
+   var input = document.getElementById('rxOnlyFileInput');
+   input.onchange = function() {
+      var f = input.files && input.files[0];
+      if (!f) return;
+      var url = URL.createObjectURL(f);
+      var prev = document.getElementById('rxOnlyPreview');
+      prev.innerHTML = '<img src="' + url + '" style="max-width:100%;max-height:240px;border-radius:8px;margin-top:10px"/>';
+      prev.classList.remove('hidden');
+   };
+
+   document.getElementById('rxOnlyOverlay').classList.remove('hidden');
+}
+
+function closeRxOnlyOrderModal() {
+   document.getElementById('rxOnlyOverlay').classList.add('hidden');
+   _rxOnlyStoreId = null;
+}
+
+async function submitRxOnlyOrder() {
+   var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { promptAuth(); return; }
+   var input = document.getElementById('rxOnlyFileInput');
+   var status = document.getElementById('rxOnlyStatus');
+   var btn = document.getElementById('rxOnlySubmitBtn');
+   var f = input.files && input.files[0];
+   if (!f) { status.innerHTML = '<span style="color:#c62828">Please pick a prescription photo.</span>'; return; }
+   btn.disabled = true; btn.textContent = 'Uploading…';
+   status.textContent = '';
+
+   // Upload prescription image
+   var url = await AppDB.uploadPrescription(f, user.email);
+   if (!url) {
+      status.innerHTML = '<span style="color:#c62828">Upload failed. Try a smaller image.</span>';
+      btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return;
+   }
+
+   // Find the store + delivery address
+   try { await loadStoreProviders(); } catch (e) {}
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _rxOnlyStoreId; });
+   if (!store) { status.innerHTML = '<span style="color:#c62828">Store not found.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
+   var needsAddr = !!store.door_delivery;
+   var addr = null;
+   if (needsAddr) {
+      addr = (_db.addresses || []).find(function(a) { return a.id === window._rxOnlySelectedAddr; });
+      if (!addr) { status.innerHTML = '<span style="color:#c62828">Pick a delivery address first.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
+   }
+
+   var notes = document.getElementById('rxOnlyNotes').value.trim();
+   var now = new Date();
+   var yy = String(now.getFullYear()).slice(2);
+   var mm = String(now.getMonth() + 1).padStart(2, '0');
+   var dd = String(now.getDate()).padStart(2, '0');
+   var orderId = 'RX-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+   var order = {
+      orderId: orderId, order_id: orderId,
+      date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      customerName:  user.name, customerEmail: user.email, customerPhone: user.phone || '',
+      items: [],                                  // empty — pharmacist fills via Bill modal
+      total: 0,
+      method:        needsAddr ? 'COD-Delivery' : 'Pickup',
+      status:        'Pending Pickup',
+      storeId:       store.owner_email || null,
+      storeName:     store.name || '',
+      store_provider_id: store.id,
+      prescription_url:  url,
+      delivery_address:  needsAddr ? addr : null,
+      payment_mode:  'COD',
+      doctor_name:   notes                        // reuse doctor_name column for free-form pharmacist notes
+   };
+   _db.orders.unshift(order);
+   var ok = await AppDB.insertOrder(order);
+   if (!ok) { status.innerHTML = '<span style="color:#c62828">Failed to save order.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
+
+   closeRxOnlyOrderModal();
+   alert('✅ Prescription sent!\n\nThe pharmacist will review and prepare your medicines.\nThey will contact you on ' + (user.phone || 'your registered number') + '.');
+   window.location = 'profile.html?tab=orders';
+}
+
 // Medical-flow checkout: address picker (required when store has home delivery),
 // prescription preview, COD-on-delivery. One order per store provider.
 function openMedicalCheckout() {
@@ -4460,6 +4581,13 @@ async function showStoreProvider(providerId) {
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
    var html = '<button class="apt-back-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g, "\\'") + '\')">← Back to ' + meta.label + '</button>';
+   // For medical stores, surface a prescription-only ordering option for customers
+   // who can't search drug names themselves.
+   if (p.category === 'medical') {
+      html += '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">' +
+                 '📋 Order via Prescription <small style="font-weight:400;opacity:0.85">(don\'t know the medicine names? Just upload your Rx)</small>' +
+              '</button>';
+   }
    html += '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id) + '</div>';
    grid.innerHTML = html;
    window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -6086,17 +6214,28 @@ function renderShopDashboard(filterStatus) {
       var itemsCount = (order.items || []).length;
       var firstItem = (order.items || [])[0];
       var totalQty = (order.items || []).reduce(function(s, it) { return s + (it.qty || 0); }, 0);
-      var itemsCell = firstItem
-         ? '<div class="apt-tbl-name">' + firstItem.name + (itemsCount > 1 ? ' <span style="color:#888;font-weight:400">+ ' + (itemsCount-1) + ' more</span>' : '') + '</div>' +
-           '<div class="apt-tbl-sub">' + totalQty + ' unit' + (totalQty === 1 ? '' : 's') + '</div>'
-         : '<span style="color:#bbb">—</span>';
+      var rxOnly = !itemsCount && order.prescription_url;
+      var itemsCell = rxOnly
+         ? '<div class="apt-tbl-name" style="color:#1565c0">📋 Rx-only order</div>' +
+           '<div class="apt-tbl-sub" style="color:#c62828">Read Rx → click Bill to add items</div>'
+         : (firstItem
+            ? '<div class="apt-tbl-name">' + firstItem.name + (itemsCount > 1 ? ' <span style="color:#888;font-weight:400">+ ' + (itemsCount-1) + ' more</span>' : '') + '</div>' +
+              '<div class="apt-tbl-sub">' + totalQty + ' unit' + (totalQty === 1 ? '' : 's') + '</div>'
+            : '<span style="color:#bbb">—</span>');
 
       var rxIcon = order.prescription_url
          ? ' <a href="' + order.prescription_url + '" target="_blank" rel="noopener" title="View prescription" style="color:#c62828;text-decoration:none">⚠️Rx</a>'
          : '';
       var deliveryIcon = order.delivery_address ? ' <span title="Home delivery">🚚</span>' : '';
-      var phoneTxt = (((window._adminSettings || {}).showCustomerPhone && order.customerPhone)
-         ? '<div class="apt-tbl-sub">📞 ' + order.customerPhone + '</div>' : '');
+      // Owner ALWAYS sees customer phone (pharmacy needs it — Rx clarifications,
+      // delivery coordination, missing-item callbacks). Prefers the delivery
+      // address phone if present (usually more reliable than profile phone).
+      var phoneNum = (order.delivery_address && order.delivery_address.phone)
+         ? order.delivery_address.phone
+         : order.customerPhone;
+      var phoneTxt = phoneNum
+         ? '<div class="apt-tbl-sub">📞 <a href="tel:' + String(phoneNum).replace(/[^0-9+]/g, '') + '" style="color:#1a73e8">' + phoneNum + '</a></div>'
+         : '<div class="apt-tbl-sub" style="color:#bbb">no phone</div>';
 
       // 4-step delivery journey vs 3-step pickup journey
       var isDelivery = (order.method === 'COD-Delivery') || !!order.delivery_address;
@@ -7028,9 +7167,22 @@ function _renderOrderBillBody() {
    var overallDisc = subtotal * (_billDiscountPct / 100);
    var net = Math.round((subtotal - overallDisc) * 100) / 100;
 
+   var emptyHint = (!_billOrder.items.length && _billOrder.prescription_url)
+      ? '<div style="background:#e3f2fd;border:1px solid #90caf9;padding:8px 12px;border-radius:6px;margin:8px 0;color:#1565c0;font-size:0.9rem">📋 <strong>Prescription-only order.</strong> Read the Rx and search items below to add them.</div>'
+      : '';
+   var searchBlock =
+      '<div style="position:relative;margin:8px 0">' +
+         '<input type="text" id="bill-item-search" placeholder="🔍 Add item to this order (type to search store products)" ' +
+                'oninput="billDoSearch()" autocomplete="off" ' +
+                'style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem"/>' +
+         '<div id="bill-item-results" class="sp-catalog-results hidden" style="position:absolute;z-index:20;background:#fff;left:0;right:0;border:1px solid #ddd;border-radius:6px;max-height:260px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.08)"></div>' +
+      '</div>';
+
    var body = document.getElementById('orderBillBody');
    body.innerHTML =
       '<div class="bill-meta-row">' + rxBlock + addrBlock + '</div>' +
+      emptyHint +
+      searchBlock +
       '<table class="bill-edit-table">' +
          '<thead><tr><th>Product</th><th style="width:60px">Qty</th><th style="width:90px">MRP ₹</th><th style="width:70px">Disc %</th><th style="width:90px">Net</th><th></th></tr></thead>' +
          '<tbody>' + rowsHtml + '</tbody>' +
@@ -7090,6 +7242,59 @@ function _billRemoveLine(i) {
    if (!confirm('Remove this line item from the order?')) return;
    _billOrder.items.splice(i, 1);
    _renderOrderBillBody();   // structural change → full re-render is fine
+}
+
+var _billSearchTimer = null;
+function billDoSearch() {
+   clearTimeout(_billSearchTimer);
+   _billSearchTimer = setTimeout(_billRunSearch, 220);
+}
+function _billRunSearch() {
+   var box = document.getElementById('bill-item-results');
+   var input = document.getElementById('bill-item-search');
+   if (!box || !input) return;
+   var q = (input.value || '').trim().toLowerCase();
+   if (q.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+   var pool = _currentMyStoreProds || [];
+   var hits = pool.filter(function(p) {
+      var hay = ((p.name || '') + ' ' + (p.desc || '')).toLowerCase();
+      return hay.indexOf(q) !== -1;
+   }).slice(0, 20);
+   if (!hits.length) {
+      box.innerHTML = '<div style="padding:10px;text-align:center;color:#888">No matches in this store.</div>';
+      box.classList.remove('hidden'); return;
+   }
+   box.innerHTML = hits.map(function(p) {
+      var pid = p.id.replace(/'/g, "\\'");
+      var img = p.img ? '<img src="' + p.img + '" onerror="this.style.display=\'none\'"/>' : '<span style="font-size:1.4rem">💊</span>';
+      return '<div class="sp-catalog-result" onclick="addBillItem(\'' + pid + '\')">' +
+                '<div class="sp-catalog-result-img">' + img + '</div>' +
+                '<div class="sp-catalog-result-info">' +
+                   '<div class="sp-catalog-result-name">' + p.name + (p.rx_required ? ' <span style="color:#c62828;font-size:0.78rem">⚠️Rx</span>' : '') + '</div>' +
+                   '<div class="sp-catalog-result-meta">' + (p.desc || '') + ' · ₹' + Number(p.price || 0).toLocaleString('en-IN') + '</div>' +
+                '</div>' +
+             '</div>';
+   }).join('');
+   box.classList.remove('hidden');
+}
+function addBillItem(productId) {
+   if (!_billOrder) return;
+   var p = (_currentMyStoreProds || []).find(function(x) { return x.id === productId; });
+   if (!p) return;
+   var existing = _billOrder.items.find(function(x) { return x.id === productId; });
+   if (existing) { existing.qty += 1; }
+   else {
+      _billOrder.items.push({
+         id:    p.id,
+         name:  p.name,
+         qty:   1,
+         price: Number(p.price) || 0,
+         mrp:   Number(p.price) || 0,
+         disc_pct: 0,
+         rx_required: !!p.rx_required
+      });
+   }
+   _renderOrderBillBody();   // structural change → full re-render
 }
 
 async function saveOrderEdits() {
@@ -10714,8 +10919,20 @@ async function renderOrders() {
 
    list.innerHTML = filtered.slice().reverse().map(function(o) {
       var liveStatus = statusMap[o.orderId] || o.status || 'Pending Pickup';
-      var displayStatus = _customerStatusLabel(liveStatus, o.method);
+      var rxOnly = (!o.items || !o.items.length) && o.prescription_url;
+      var displayStatus = rxOnly && liveStatus === 'Pending Pickup'
+         ? '📋 Pharmacist preparing'
+         : _customerStatusLabel(liveStatus, o.method);
       var cls = orderStatusClass(liveStatus);
+      var itemsHtml = rxOnly
+         ? '<div class="order-item" style="color:#1565c0;font-style:italic">' +
+              '<span>📋 Prescription sent — pharmacist is preparing your medicines</span>' +
+              '<span><a href="' + o.prescription_url + '" target="_blank" rel="noopener" style="color:#1a73e8">View Rx</a></span>' +
+           '</div>'
+         : (o.items || []).map(function(i) { return '<div class="order-item"><span>' + i.name + ' × ' + i.qty + '</span><span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span></div>'; }).join('');
+      var totalHtml = rxOnly && !o.total
+         ? '<span class="order-total" style="color:#888;font-style:italic">Awaiting quote</span>'
+         : '<span class="order-total">Total: ₹' + (o.total || 0).toLocaleString('en-IN') + '</span>';
       return ''
        + '<div class="order-card">'
        +    '<div class="order-card-header">'
@@ -10723,12 +10940,10 @@ async function renderOrders() {
        +       '<span class="order-badge ' + cls + '">' + displayStatus + '</span>'
        +    '</div>'
        +    (o.storeName ? '<div class="order-store-tag">🏪 ' + o.storeName + '</div>' : '')
-       +    '<div class="order-items">'
-       +       o.items.map(function(i) { return '<div class="order-item"><span>' + i.name + ' × ' + i.qty + '</span><span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span></div>'; }).join('')
-       +    '</div>'
+       +    '<div class="order-items">' + itemsHtml + '</div>'
        +    '<div class="order-footer">'
        +       '<span>' + _orderFooterLabel(o) + '</span>'
-       +       '<span class="order-total">Total: ₹' + o.total.toLocaleString('en-IN') + '</span>'
+       +       totalHtml
        +    '</div>'
        + '</div>';
    }).join('');

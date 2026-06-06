@@ -9906,7 +9906,15 @@ async function editPartnerRate(email) {
 async function renderAdminOrders() {
    var container = document.getElementById('adminOrdersContent');
    if (!container) return;
-   _liveSubscribe('adminOrders', 'orders', renderAdminOrders);
+   // Live: when ANY orders row changes anywhere, re-fetch fresh + re-render.
+   // (Previously this just called renderAdminOrders which used cached _db.orders
+   //  from initDB, so new orders only appeared on a manual page refresh.)
+   _liveSubscribe('adminOrders', 'orders', function() {
+      AppDB.getAllOrders().then(function(rows) {
+         _db.orders = rows || [];
+         renderAdminOrders();
+      });
+   });
 
    await initDB();
    var all = (_db.orders || []).slice();
@@ -10520,6 +10528,16 @@ async function renderOrders() {
    const user   = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const list   = document.getElementById('ordersList');
    if (!user) { list.innerHTML = '<p class="prof-empty">Please log in.</p>'; return; }
+
+   // Live: when admin/owner updates or deletes an order anywhere, re-fetch
+   // and re-render so the customer's My Orders page reflects it without
+   // needing a manual refresh.
+   _liveSubscribe('myOrders', 'orders', function() {
+      AppDB.getAllOrders().then(function(rows) {
+         _db.orders = rows || [];
+         renderOrders();
+      });
+   });
 
    // Make sure store metadata is ready so we can derive each order's category
    // AND know each store's door_delivery flag (used by _orderFooterLabel)

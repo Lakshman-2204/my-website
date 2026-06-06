@@ -47,7 +47,16 @@ function _orderFromDB(r) {
             customerName: r.customer_name, customerEmail: r.customer_email,
             customerPhone: r.customer_phone, items: r.items,
             total: r.total, status: r.status, method: r.method,
-            storeId: r.store_id, storeName: r.store_name };
+            storeId: r.store_id, storeName: r.store_name,
+            // New columns (Phase 2/3/4) — must read these back for the owner UI:
+            store_provider_id: r.store_provider_id || null,
+            prescription_url:  r.prescription_url  || null,
+            delivery_address:  r.delivery_address  || null,
+            payment_mode:      r.payment_mode      || 'COD',
+            discount_pct:      r.discount_pct      || 0,
+            bill_number:       r.bill_number       || null,
+            walk_in:           !!r.walk_in,
+            doctor_name:       r.doctor_name       || '' };
 }
 function _orderToDB(o) {
    return { order_id: o.orderId || o.order_id,
@@ -56,7 +65,17 @@ function _orderToDB(o) {
             timestamp: o.timestamp || 0, items: o.items || [],
             total: o.total || 0, status: o.status || 'Pending Pickup',
             method: o.method || 'Pickup',
-            store_id: o.storeId || null, store_name: o.storeName || '' };
+            store_id: o.storeId || null, store_name: o.storeName || '',
+            // New columns (Phase 2/3/4) — must persist these or the DB row
+            // ends up with default/null values (which broke owner visibility):
+            store_provider_id: o.store_provider_id || null,
+            prescription_url:  o.prescription_url  || null,
+            delivery_address:  o.delivery_address  || null,
+            payment_mode:      o.payment_mode      || 'COD',
+            discount_pct:      typeof o.discount_pct === 'number' ? o.discount_pct : 0,
+            bill_number:       o.bill_number       || null,
+            walk_in:           !!o.walk_in,
+            doctor_name:       o.doctor_name       || '' };
 }
 
 window.AppDB = {

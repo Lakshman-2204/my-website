@@ -654,7 +654,11 @@ function doAddToCart(item, catKey) {
       existing.qty += qty;
    } else {
       cart.push({ id: cartId, name: label, price: unitPrice, qty, img: item.img,
-                  storeId: item.storeId || null, storeName: item.storeName || null });
+                  storeId: item.storeId || null, storeName: item.storeName || null,
+                  // Carry these through so the medical checkout knows which store
+                  // provider the items came from and whether to enforce Rx upload:
+                  store_provider_id: item.store_provider_id || null,
+                  rx_required:       !!item.rx_required });
    }
    updateCartUI();
    showToast('"' + label + '" added to cart!');
@@ -1097,8 +1101,8 @@ async function placeMedicalOrder() {
          customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
          items: g.items.map(function(c) { return { id: c.id, name: c.name, qty: c.qty, price: c.price, rx_required: !!c.rx_required }; }),
          total: subtotal,
-         method: 'COD',
-         status: 'Pending Pickup',
+         method: needsAddr ? 'COD-Delivery' : 'Pickup',     // distinguishes from the legacy "Pickup" default
+         status: 'Pending Pickup',                          // same status word — owner workflow is unchanged
          storeId: g.storeId || null, storeName: g.storeName || prov.name || null,
          store_provider_id: g.spId || null,
          prescription_url:  hasAnyRx ? window._cartPrescriptionUrl : null,
@@ -6115,9 +6119,11 @@ function lookupOrder() {
 // ── SHOP OWNER: PRODUCT MANAGEMENT ──
 // \u2500\u2500 Shop-owner: NEW My Stores \u2192 per-store Products flow \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 // View preference (list / grid) is per-browser, saved in localStorage.
+// Default is grid \u2014 more visual and works well for medical stores at low
+// item counts. Owner can switch to list via the toggle button.
 function _getShopProductsView() {
-   try { return localStorage.getItem('shopProductsView') || 'list'; }
-   catch (e) { return 'list'; }
+   try { return localStorage.getItem('shopProductsView') || 'grid'; }
+   catch (e) { return 'grid'; }
 }
 function toggleShopProductsView() {
    var current = _getShopProductsView();
@@ -10545,7 +10551,13 @@ async function renderOrders() {
        +       o.items.map(function(i) { return '<div class="order-item"><span>' + i.name + ' × ' + i.qty + '</span><span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span></div>'; }).join('')
        +    '</div>'
        +    '<div class="order-footer">'
-       +       '<span>' + (o.method === 'Pickup' ? '🛍️ Pickup at store' : 'Paid via ' + o.method) + '</span>'
+       +       '<span>' + (
+                    o.method === 'COD-Delivery' ? '🚚 Cash/UPI on delivery' :
+                    o.method === 'Pickup'       ? '🛍️ Pickup at store' :
+                    o.method === 'COD'          ? '💵 Cash on delivery' :
+                    o.method === 'Walk-in'      ? '🧾 Walk-in sale' :
+                    ('Paid via ' + o.method)
+                 ) + '</span>'
        +       '<span class="order-total">Total: ₹' + o.total.toLocaleString('en-IN') + '</span>'
        +    '</div>'
        + '</div>';

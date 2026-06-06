@@ -6114,6 +6114,25 @@ function lookupOrder() {
 
 // ── SHOP OWNER: PRODUCT MANAGEMENT ──
 // \u2500\u2500 Shop-owner: NEW My Stores \u2192 per-store Products flow \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// View preference (list / grid) is per-browser, saved in localStorage.
+function _getShopProductsView() {
+   try { return localStorage.getItem('shopProductsView') || 'list'; }
+   catch (e) { return 'list'; }
+}
+function toggleShopProductsView() {
+   var current = _getShopProductsView();
+   var next = current === 'list' ? 'grid' : 'list';
+   try { localStorage.setItem('shopProductsView', next); } catch (e) {}
+   _applyShopProductsViewToggle();
+   if (_currentMyStoreId) renderMyStoreProducts(_currentMyStoreId);
+}
+function _applyShopProductsViewToggle() {
+   var btn = document.getElementById('shopProductViewToggle');
+   if (!btn) return;
+   var v = _getShopProductsView();
+   btn.textContent = v === 'grid' ? '\u25a6 Grid' : '\ud83d\udccb List';
+}
+
 // Inline SVG placeholder for missing/broken product images. Used both as the
 // initial src (when product has no img URL) and the onerror fallback. Lives
 // as a data URI so the browser never has to hit the network \u2014 that's what was
@@ -6151,8 +6170,7 @@ async function renderStoreOwnerProducts() {
       return (p.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
    });
    if (mine.length === 1) {
-      _currentMyStoreId = mine[0].id;
-      renderMyStoreProducts(_currentMyStoreId);
+      enterMyStore(mine[0].id);   // fetches stock then renders
    } else {
       renderMyStoresList();
    }
@@ -6190,8 +6208,18 @@ function renderMyStoresList() {
    }).join('');
 }
 
-function enterMyStore(storeId) {
+async function enterMyStore(storeId) {
    _currentMyStoreId = storeId;
+   // Fetch inventory snapshot ONCE per store entry; downstream renders read
+   // from _currentStockByProduct without re-fetching (was a bad recursion
+   // bug previously — every search keystroke triggered another fetch).
+   try {
+      var rows = await AppDB.getBatchesForStore(storeId);
+      _currentStockByProduct = {};
+      (rows || []).forEach(function(b) {
+         (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
+      });
+   } catch (e) { _currentStockByProduct = {}; }
    renderMyStoreProducts(storeId);
 }
 function exitMyStore() {
@@ -6241,19 +6269,16 @@ function renderMyStoreProducts(storeId) {
                   catalog_name: p.catalog_item_id ? p.name : null,
                   variants: p.variants || undefined };
       });
-   // Refresh in-memory stock snapshot for stock badges. Fire-and-forget — the
-   // render below will show "Out of stock" until this resolves on first open.
-   AppDB.getBatchesForStore(storeId).then(function(rows) {
-      _currentStockByProduct = {};
-      (rows || []).forEach(function(b) {
-         (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
-      });
-      // Re-render with fresh badges
-      renderMyStoreProducts(storeId);
-   });
+   // Batch snapshot is fetched ONCE per store entry (in enterMyStore), not here.
+   // Calling it from inside renderMyStoreProducts caused an infinite re-render
+   // loop on every search keystroke + broke button onclick indices.
 
    var container = document.getElementById('shopProductList');
    if (!container) return;
+   // Apply the chosen list/grid view class (also refreshes the toggle button text)
+   var view = _getShopProductsView();
+   container.classList.toggle('grid', view === 'grid');
+   _applyShopProductsViewToggle();
    if (!_currentMyStoreProds.length) {
       container.innerHTML = '<p class="shop-empty">No products in this store yet. Click \u2795 Add Product or \ud83d\udce6 Bulk Add to get started.</p>';
       return;
@@ -6352,16 +6377,36 @@ function openStoreProductModal(idx) {
    document.getElementById('sp-img').value   = p ? p.img   : '';
    document.getElementById('sp-badge').value = p ? (p.badge || '') : '';
    document.getElementById('sp-catkey').value = p ? p.catKey : defaultCatKey;
-   // Catalogue-side fields — blank for a brand-new item; prefilled when editing
-   // a product that's already linked to a catalogue entry (filled via pickCatalogItem).
-   document.getElementById('sp-brand').value       = p ? (p._brand       || p.desc || '') : '';
-   document.getElementById('sp-composition').value = p ? (p._composition || '') : '';
-   document.getElementById('sp-pack').value        = p ? (p._pack        || '') : '';
-   document.getElementById('sp-dose').value        = p ? (p._dose        || '') : '';
-   document.getElementById('sp-units').value       = p ? (p._units       || '') : '';
-   document.getElementById('sp-expiry').value      = p ? (p._expiry      || '') : '';
-   document.getElementById('sp-hsn').value         = p ? (p._hsn         || '3004') : '3004';
-   document.getElementById('sp-rx').checked        = p ? !!p._rx : false;
+   // Catalogue-side fields start blank; if this product is linked to a
+   // catalogue entry, fetch it asynchronously and prefill (Bug-fix: previously
+   // we relied on phantom _composition / _pack / _dose fields that nobody sets).
+   document.getElementById('sp-brand').value       = p ? (p.desc || '') : '';
+   document.getElementById('sp-composition').value = '';
+   document.getElementById('sp-pack').value        = '';
+   document.getElementById('sp-dose').value        = '';
+   document.getElementById('sp-units').value       = '';
+   document.getElementById('sp-expiry').value      = '';
+   document.getElementById('sp-hsn').value         = '3004';
+   document.getElementById('sp-rx').checked        = false;
+   if (p && p.catalog_item_id) {
+      AppDB.getCatalogItemById(p.catalog_item_id).then(function(it) {
+         if (!it) return;
+         var attrs = it.attrs || {};
+         var setIf = function(id, v) {
+            var el = document.getElementById(id);
+            if (el && !el.value) el.value = (v == null ? '' : v);
+         };
+         setIf('sp-brand',       it.brand);
+         setIf('sp-composition', attrs.composition);
+         setIf('sp-pack',        attrs.pack_size);
+         setIf('sp-dose',        attrs.dose);
+         setIf('sp-units',       attrs.units_per_strip);
+         setIf('sp-expiry',      attrs.expiry_date);
+         setIf('sp-hsn',         attrs.hsn);
+         var rxEl = document.getElementById('sp-rx');
+         if (rxEl) rxEl.checked = !!attrs.rx_required;
+      });
+   }
 
    // Catalogue link (Phase 5.4b)
    var catSearch  = document.getElementById('sp-catalog-search');

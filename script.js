@@ -4580,14 +4580,13 @@ async function showStoreProvider(providerId) {
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
-   var html = '<button class="apt-back-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g, "\\'") + '\')">← Back to ' + meta.label + '</button>';
-   // For medical stores, surface a prescription-only ordering option for customers
-   // who can't search drug names themselves.
-   if (p.category === 'medical') {
-      html += '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">' +
-                 '📋 Order via Prescription <small style="font-weight:400;opacity:0.85">(don\'t know the medicine names? Just upload your Rx)</small>' +
-              '</button>';
-   }
+   var rxBtn = (p.category === 'medical')
+      ? '<button class="rx-only-btn" title="Don\'t know the medicine names? Just upload your prescription." onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Order via Rx</button>'
+      : '';
+   var html = '<div class="store-topbar">' +
+                 '<button class="apt-back-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g, "\\'") + '\')">← Back to ' + meta.label + '</button>' +
+                 rxBtn +
+              '</div>';
    html += '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id) + '</div>';
    grid.innerHTML = html;
    window.scrollTo({ top: 0, behavior: 'smooth' });

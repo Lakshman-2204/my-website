@@ -4233,6 +4233,32 @@ async function deleteAllShownAppointments() {
    renderAllAppointments();
 }
 
+// Same pattern for the admin Orders tab — deletes every order currently
+// visible after the active status filter. Type-to-confirm avoids accidental wipes.
+async function deleteAllShownOrders() {
+   var matching = (window._adminOrdersFiltered || []);
+   if (!matching.length) { alert('Nothing to delete with the current filters.'); return; }
+   var phrase = 'DELETE';
+   var typed = prompt(
+      '⚠️ This will permanently delete ' + matching.length + ' order' +
+      (matching.length === 1 ? '' : 's') + ' currently shown by your filters.\n\n' +
+      'Type ' + phrase + ' (in caps) to confirm:'
+   );
+   if (typed !== phrase) { if (typed != null) alert('Cancelled — phrase did not match.'); return; }
+
+   var ok = 0, fail = 0;
+   for (var i = 0; i < matching.length; i++) {
+      var id = matching[i].orderId || matching[i].order_id;
+      var success = await AppDB.deleteOrder(id);
+      if (success) ok++; else fail++;
+   }
+   _db.orders = _db.orders.filter(function(o) {
+      return !matching.some(function(m) { return (m.orderId || m.order_id) === (o.orderId || o.order_id); });
+   });
+   alert('Deleted ' + ok + ' order' + (ok === 1 ? '' : 's') + '.' + (fail ? '\n❌ ' + fail + ' failed.' : ''));
+   renderAdminOrders();
+}
+
 // ── STORES (customer-side) ─────────────────────────────────────
 // Three-step drilldown that mirrors the appointments flow:
 //   showStoresList()              → category tiles (General, Medical, Wholesale, …)
@@ -6088,6 +6114,26 @@ function lookupOrder() {
 
 // ── SHOP OWNER: PRODUCT MANAGEMENT ──
 // \u2500\u2500 Shop-owner: NEW My Stores \u2192 per-store Products flow \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Inline SVG placeholder for missing/broken product images. Used both as the
+// initial src (when product has no img URL) and the onerror fallback. Lives
+// as a data URI so the browser never has to hit the network \u2014 that's what was
+// causing the "blinking" loop when placehold.co was unreachable.
+var _ITEM_PLACEHOLDER_DATA = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+   '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">' +
+   '<rect width="60" height="60" rx="8" fill="#e0e0e0"/>' +
+   '<text x="30" y="34" font-family="Arial" font-size="11" fill="#888" text-anchor="middle" font-weight="700">Item</text>' +
+   '</svg>'
+);
+function _fallbackItemImg(imgEl) {
+   // Guard against infinite onerror loops: if we're already showing the
+   // placeholder, do nothing.
+   if (!imgEl || imgEl.src === _ITEM_PLACEHOLDER_DATA) {
+      if (imgEl) imgEl.onerror = null;
+      return;
+   }
+   imgEl.onerror = null;     // belt-and-braces \u2014 only allow one fallback
+   imgEl.src = _ITEM_PLACEHOLDER_DATA;
+}
 // Owner's selected store id (null = show stores list).
 let _currentMyStoreId = null;
 // Per-store product cache (lazy, refreshed on save/delete).
@@ -6236,8 +6282,9 @@ function renderMyStoreProducts(storeId) {
       // Use the product's real index in _currentMyStoreProds so edit/delete buttons work
       var idx = _currentMyStoreProds.indexOf(p);
       var stockBadge = _stockBadgeFor(p);
+      var imgSrc = (p.img && p.img.trim()) ? p.img : _ITEM_PLACEHOLDER_DATA;
       return '<div class="shop-prod-card">' +
-                '<img src="' + p.img + '" onerror="this.src=\'https://placehold.co/60x60?text=Item\'"/>' +
+                '<img src="' + imgSrc + '" onerror="_fallbackItemImg(this)"/>' +
                 '<div class="shop-prod-info">' +
                    '<div class="shop-prod-name">' + p.name + stockBadge + '</div>' +
                    '<div class="shop-prod-meta">\u20b9' + (p.price || 0).toLocaleString('en-IN') + ' \xb7 ' + (p.desc || '') + '</div>' +
@@ -6652,12 +6699,34 @@ function addWalkinItem(productId) {
 
 function _walkinEditLine(i, field, val) {
    if (!_walkinItems[i]) return;
-   _walkinItems[i][field] = Math.max(0, parseFloat(val) || 0);
-   _renderWalkinTable();
+   // Allow intermediate empty state ("" / NaN) so the user can clear and retype.
+   // We only persist a clean numeric value; rendering treats empty as 0.
+   var n = parseFloat(val);
+   _walkinItems[i][field] = isNaN(n) || n < 0 ? 0 : n;
+   _updateWalkinTotals(i);   // only update the Net cell + summary; leave inputs alone
+}
+function _updateWalkinTotals(highlightIdx) {
+   var rows = document.querySelectorAll('#walkin-items-table tbody tr');
+   _walkinItems.forEach(function(it, i) {
+      var net = it.mrp * it.qty * (1 - it.disc_pct / 100);
+      if (rows[i]) {
+         var netCell = rows[i].querySelector('.bill-line-net');
+         if (netCell) netCell.textContent = '₹' + net.toFixed(2);
+      }
+   });
+   var gross    = _walkinItems.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
+   var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var net      = gross - lineDisc;
+   var rounded  = Math.round(net);
+   var sum = document.getElementById('walkin-summary');
+   if (sum) sum.innerHTML =
+      '<div>Gross: ₹' + gross.toFixed(2) + '</div>' +
+      '<div>Line discounts: −₹' + lineDisc.toFixed(2) + '</div>' +
+      '<div class="bill-net">Net Amount: ₹' + rounded.toFixed(2) + '</div>';
 }
 function _walkinRemoveLine(i) {
    _walkinItems.splice(i, 1);
-   _renderWalkinTable();
+   _renderWalkinTable();   // structural change → full re-render is fine
 }
 
 function _renderWalkinTable() {
@@ -6850,15 +6919,45 @@ function _renderOrderBillBody() {
 
 function _billEditLine(i, field, val) {
    if (!_billOrder || !_billOrder.items[i]) return;
-   _billOrder.items[i][field] = Math.max(0, parseFloat(val) || 0);
-   _renderOrderBillBody();
+   // Allow intermediate empty state — clear-and-retype shouldn't break focus.
+   var n = parseFloat(val);
+   _billOrder.items[i][field] = isNaN(n) || n < 0 ? 0 : n;
+   _updateBillTotals();   // only update Net cells + summary; leave inputs alone
 }
-function _billEditOverallDisc(val) { _billDiscountPct = Math.max(0, Math.min(100, parseFloat(val) || 0)); _renderOrderBillBody(); }
+function _billEditOverallDisc(val) {
+   var n = parseFloat(val);
+   _billDiscountPct = isNaN(n) ? 0 : Math.max(0, Math.min(100, n));
+   _updateBillTotals();
+}
+function _updateBillTotals() {
+   if (!_billOrder) return;
+   var rows = document.querySelectorAll('.bill-edit-table tbody tr');
+   _billOrder.items.forEach(function(it, i) {
+      var net = it.mrp * it.qty * (1 - it.disc_pct / 100);
+      if (rows[i]) {
+         var netCell = rows[i].querySelector('.bill-line-net');
+         if (netCell) netCell.textContent = '₹' + net.toFixed(2);
+      }
+   });
+   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
+   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var subtotal = gross - lineDisc;
+   var overallDisc = subtotal * (_billDiscountPct / 100);
+   var net = Math.round((subtotal - overallDisc) * 100) / 100;
+   var sum = document.querySelector('.bill-summary');
+   if (!sum) return;
+   sum.innerHTML =
+      '<div>Gross: ₹' + gross.toFixed(2) + '</div>' +
+      '<div>Line discounts: −₹' + lineDisc.toFixed(2) + '</div>' +
+      '<div>Subtotal: ₹' + subtotal.toFixed(2) + '</div>' +
+      '<div>Overall discount: <input type="number" min="0" max="100" step="0.5" value="' + _billDiscountPct + '" oninput="_billEditOverallDisc(this.value)" style="width:60px"/> % &nbsp; −₹' + overallDisc.toFixed(2) + '</div>' +
+      '<div class="bill-net">Net Amount: ₹' + net.toFixed(2) + '</div>';
+}
 function _billRemoveLine(i) {
    if (!_billOrder) return;
    if (!confirm('Remove this line item from the order?')) return;
    _billOrder.items.splice(i, 1);
-   _renderOrderBillBody();
+   _renderOrderBillBody();   // structural change → full re-render is fine
 }
 
 async function saveOrderEdits() {
@@ -7003,6 +7102,7 @@ function _renderBillHtml(d) {
       '.bill-wrap{border:1.5px solid #000;padding:8px}' +
       '.bill-head{text-align:center;font-weight:700;border-bottom:1.5px solid #000;padding:4px 0}' +
       '.bill-head h2{margin:0;font-size:18px}' +
+      '.bill-head .label{font-size:11px;letter-spacing:0.15em;color:#555;font-weight:600;margin-bottom:2px}' +
       '.bill-info{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:6px 4px;border-bottom:1.5px solid #000}' +
       '.bill-info div{font-size:11px}' +
       'table{width:100%;border-collapse:collapse;margin-top:4px}' +
@@ -7016,7 +7116,7 @@ function _renderBillHtml(d) {
    '</style></head><body>' +
    '<div class="no-print" style="text-align:right;margin-bottom:8px"><button onclick="window.print()" style="padding:6px 14px;background:#1a73e8;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Print</button></div>' +
    '<div class="bill-wrap">' +
-      '<div class="bill-head"><h2>TAX INVOICE</h2><h2>' + (d.store.name || 'STORE').toUpperCase() + '</h2></div>' +
+      '<div class="bill-head"><div class="label">TAX INVOICE</div><h2>' + (d.store.name || 'STORE').toUpperCase() + '</h2></div>' +
       '<div class="bill-info">' +
          '<div><b>GSTIN:</b> ' + (d.store.gstin || '—') + '</div>' +
          '<div><b>Form 20:</b> ' + (d.store.form20_no || '—') + '</div>' +
@@ -9731,6 +9831,7 @@ async function renderAdminOrders() {
       }
       return true;
    });
+   window._adminOrdersFiltered = filtered;   // used by deleteAllShownOrders
 
    if (!filtered.length) {
       container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No orders match the current filters.</p>';

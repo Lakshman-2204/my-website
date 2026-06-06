@@ -330,6 +330,12 @@ window.AppDB = {
       return true;
    },
 
+   async deleteOrder(orderId) {
+      const { error } = await _sb.from('orders').delete().eq('order_id', orderId);
+      if (error) { console.error('deleteOrder:', error.message); return false; }
+      return true;
+   },
+
    async deleteCustomerOrders(email) {
       const { error } = await _sb.from('orders').delete()
          .eq('customer_email', email.toLowerCase());

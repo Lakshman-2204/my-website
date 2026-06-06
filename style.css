@@ -2208,8 +2208,6 @@ body.guest .store-section-divider {
 /* Order list */
 .shop-order-list {
 	padding: 1rem 1.2rem;
-	max-width: 860px;
-	margin: 0 auto;
 }
 
 .shop-empty {

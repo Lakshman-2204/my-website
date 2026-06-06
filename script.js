@@ -5933,6 +5933,8 @@ async function checkShopOwnerLogin() {
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
+   var walkinTab = document.getElementById('shop-tab-walkin');
+   if (walkinTab) walkinTab.classList.toggle('hidden', !ownsStores);
    // Rename the products tab depending on how many stores the owner runs:
    //   1 store  → "🛍️ Products"      (skips the picker, goes straight in)
    //   2+ stores → "🏪 My Stores"     (shows the picker)
@@ -5951,8 +5953,11 @@ async function checkShopOwnerLogin() {
 
    // Render whichever panel makes sense
    if (ownsStores) renderShopDashboard();
-   // Hospital owners land on Dashboard; store-only owners land on My Stores
-   var defaultTab = ownsHospital ? 'dashboard' : 'products';
+   // Default landing tab:
+   //   store owners → Orders (so they immediately see incoming customer orders)
+   //   hospital owners → Dashboard
+   //   anyone else → Products
+   var defaultTab = ownsStores ? 'orders' : (ownsHospital ? 'dashboard' : 'products');
    switchShopTab(defaultTab);
 
    // Auto-refresh if admin enabled it
@@ -5967,6 +5972,14 @@ function renderShopDashboard(filterStatus) {
    var list = document.getElementById('shopOrderList');
    if (!list) return;
    window._shopCurrentFilter = filterStatus || '';
+   // Live: when a customer places a new order or another tab updates one,
+   // re-fetch and re-render automatically (no manual refresh).
+   _liveSubscribe('shopOrders', 'orders', function() {
+      AppDB.getAllOrders().then(function(rows) {
+         _db.orders = rows || [];
+         renderShopDashboard(window._shopCurrentFilter);
+      });
+   });
 
    // Filter to store-owner's own orders if not admin
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
@@ -6662,6 +6675,21 @@ async function bulkAddSaveAll() {
 var _walkinItems = [];        // [{ id, name, qty, mrp, disc_pct, rx_required }]
 var _walkinSearchTimer = null;
 
+// Top-level button (next to the tabs) — sets the store context for single-store
+// owners so they don't have to navigate into Products first.
+async function openWalkinBillFromTab() {
+   if (!_currentMyStoreId) {
+      var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+      var mine = (_storeProvidersCache || []).filter(function(p) {
+         return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+      });
+      if (mine.length === 0) { alert('No stores assigned to you yet.'); return; }
+      if (mine.length === 1) { await enterMyStore(mine[0].id); }
+      else { alert('You manage multiple stores. Open the store first in 🏪 My Stores → then click Walk-in Bill.'); return; }
+   }
+   openWalkinBillModal();
+}
+
 function openWalkinBillModal() {
    if (!_currentMyStoreId) { alert('Open a store first.'); return; }
    _walkinItems = [];
@@ -7046,7 +7074,18 @@ async function saveOrderEdits() {
 async function generatePrintableBill() {
    if (!_billOrder) return;
    var user  = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
-   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _billOrder.store_provider_id; }) || {};
+   // Make sure the store cache is loaded (could be stale on a long-lived tab)
+   try { await loadStoreProviders(true); } catch (e) {}
+   var store = (_storeProvidersCache || []).find(function(x) { return x.id === _billOrder.store_provider_id; });
+   // Fallback for legacy orders that were saved before store_provider_id was
+   // wired up — use the logged-in owner's own store so the bill still has
+   // GSTIN / Form 20 / FSSAI / address / phone instead of all dashes.
+   if (!store) {
+      store = (_storeProvidersCache || []).find(function(x) {
+         return (x.owner_email || '').toLowerCase() === (user.email || '').toLowerCase();
+      });
+   }
+   store = store || {};
 
    // Generate a bill number if the order doesn't already have one
    var billNo = _billOrder.bill_number;
@@ -10539,12 +10578,18 @@ async function renderOrders() {
 
    list.innerHTML = filtered.slice().reverse().map(function(o) {
       var liveStatus = statusMap[o.orderId] || o.status || 'Pending Pickup';
+      // Friendlier badge label for customers: "Pending Pickup" is owner-side jargon.
+      var displayStatus = liveStatus;
+      if (o.method === 'COD-Delivery') {
+         if (liveStatus === 'Pending Pickup') displayStatus = 'Confirmed';
+         else if (liveStatus === 'Ready')     displayStatus = 'Out for delivery';
+      }
       var cls = orderStatusClass(liveStatus);
       return ''
        + '<div class="order-card">'
        +    '<div class="order-card-header">'
        +       '<div><span class="order-id">' + o.orderId + '</span> <span class="order-date">' + o.date + '</span></div>'
-       +       '<span class="order-badge ' + cls + '">' + liveStatus + '</span>'
+       +       '<span class="order-badge ' + cls + '">' + displayStatus + '</span>'
        +    '</div>'
        +    (o.storeName ? '<div class="order-store-tag">🏪 ' + o.storeName + '</div>' : '')
        +    '<div class="order-items">'

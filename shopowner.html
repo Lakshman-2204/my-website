@@ -29,7 +29,8 @@
    <div class="announcement-bar hidden" id="shopAnnouncementBar"></div>
 
    <!-- TOP-LEVEL TABS: Orders / Appointments / My Products
-        All hidden by default — checkShopOwnerLogin reveals only the ones this user owns. -->
+        All hidden by default — checkShopOwnerLogin reveals only the ones this user owns.
+        Walk-in Bill is a top-level shortcut (opens modal directly — no tab switch). -->
    <div class="shop-main-tabs">
       <button class="shop-main-tab hidden" id="shop-tab-dashboard"    onclick="switchShopTab('dashboard')">🏠 Dashboard</button>
       <button class="shop-main-tab hidden" id="shop-tab-orders"       onclick="switchShopTab('orders')">📋 Orders</button>
@@ -37,6 +38,7 @@
       <button class="shop-main-tab hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')">👨‍⚕️ Doctors</button>
       <button class="shop-main-tab hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')">📞 Schedule</button>
       <button class="shop-main-tab hidden" id="shop-tab-products"     onclick="switchShopTab('products')">🏪 My Stores</button>
+      <button class="shop-main-tab hidden" id="shop-tab-walkin" style="background:#ef6c00;color:#fff;border-color:#ef6c00" onclick="openWalkinBillFromTab()">🧾 Walk-in Bill</button>
    </div>
 
    <!-- DASHBOARD PANEL — overview of hospital info + quick stats -->

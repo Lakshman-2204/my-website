@@ -10498,12 +10498,31 @@ function orderStatusClass(status) {
    return 'badge-pending';
 }
 
+// Resolve the footer label for one order. Falls back to the linked store's
+// door_delivery flag when the order itself doesn't have explicit delivery
+// metadata (handles legacy rows + protects future renames).
+function _orderFooterLabel(o) {
+   if (o.method === 'COD-Delivery')              return '🚚 Cash/UPI on delivery';
+   if (o.method === 'Walk-in')                   return '🧾 Walk-in sale';
+   if (o.method === 'COD')                       return '💵 Cash on delivery';
+   if (o.delivery_address)                       return '🚚 Cash/UPI on delivery';
+   // Look up the store: delivery enabled? — show delivery text
+   var providers = (window._storeProvidersCache || []);
+   var store = providers.find(function(s) {
+      return s.id === o.store_provider_id || s.name === o.storeName;
+   });
+   if (store && store.door_delivery)             return '🚚 Cash/UPI on delivery';
+   if (o.method === 'Pickup')                    return '🛍️ Pickup at store';
+   return 'Paid via ' + (o.method || 'COD');
+}
+
 async function renderOrders() {
    const user   = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const list   = document.getElementById('ordersList');
    if (!user) { list.innerHTML = '<p class="prof-empty">Please log in.</p>'; return; }
 
    // Make sure store metadata is ready so we can derive each order's category
+   // AND know each store's door_delivery flag (used by _orderFooterLabel)
    try { await loadStoreCategories(); await loadStoreProviders(); } catch (e) {}
 
    const allOrders = _db.orders.filter(function(o) { return o.customerEmail === user.email; });
@@ -10601,13 +10620,7 @@ async function renderOrders() {
        +       o.items.map(function(i) { return '<div class="order-item"><span>' + i.name + ' × ' + i.qty + '</span><span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span></div>'; }).join('')
        +    '</div>'
        +    '<div class="order-footer">'
-       +       '<span>' + (
-                    o.method === 'COD-Delivery' ? '🚚 Cash/UPI on delivery' :
-                    o.method === 'Pickup'       ? '🛍️ Pickup at store' :
-                    o.method === 'COD'          ? '💵 Cash on delivery' :
-                    o.method === 'Walk-in'      ? '🧾 Walk-in sale' :
-                    ('Paid via ' + o.method)
-                 ) + '</span>'
+       +       '<span>' + _orderFooterLabel(o) + '</span>'
        +       '<span class="order-total">Total: ₹' + o.total.toLocaleString('en-IN') + '</span>'
        +    '</div>'
        + '</div>';

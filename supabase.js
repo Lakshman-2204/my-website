@@ -60,7 +60,7 @@ function _orderFromDB(r) {
             stock_deducted:    !!r.stock_deducted };
 }
 function _orderToDB(o) {
-   return { order_id: o.orderId || o.order_id,
+   const row = { order_id: o.orderId || o.order_id,
             customer_name: o.customerName || '', customer_email: o.customerEmail || '',
             customer_phone: o.customerPhone || '', date: o.date || '',
             timestamp: o.timestamp || 0, items: o.items || [],
@@ -76,8 +76,12 @@ function _orderToDB(o) {
             discount_pct:      typeof o.discount_pct === 'number' ? o.discount_pct : 0,
             bill_number:       o.bill_number       || null,
             walk_in:           !!o.walk_in,
-            doctor_name:       o.doctor_name       || '',
-            stock_deducted:    !!o.stock_deducted };
+            doctor_name:       o.doctor_name       || '' };
+   // Only include stock_deducted when it's explicitly set (walk-in inserts).
+   // Customer orders shouldn't send it — if the migration hasn't been run yet,
+   // sending the column would make Supabase reject the entire insert.
+   if (o.stock_deducted) row.stock_deducted = true;
+   return row;
 }
 
 window.AppDB = {

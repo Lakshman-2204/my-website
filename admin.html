@@ -459,11 +459,13 @@
                <input type="search" id="adminOrderSearch" class="apt-search-input" placeholder="🔍 Search order ID, customer, store" oninput="renderAdminOrders()"/>
                <select id="adminOrderStatusFilter" class="admin-filter-select" onchange="renderAdminOrders()">
                   <option value="">All statuses</option>
-                  <option value="Pending Pickup">Pending</option>
-                  <option value="Ready">Packed / Ready</option>
-                  <option value="Out for Delivery">Out for Delivery</option>
-                  <option value="Completed">Delivered / Completed</option>
-                  <option value="Cancelled">Cancelled</option>
+                  <option value="Pending Pickup">📥 Order Received</option>
+                  <option value="Confirmed">✅ Confirmed</option>
+                  <option value="Packed">📦 Packed</option>
+                  <option value="Out for Delivery">🚚 Out for Delivery</option>
+                  <option value="Ready">🏪 Ready for Pickup</option>
+                  <option value="Completed">✅ Delivered / Picked up</option>
+                  <option value="Cancelled">❌ Cancelled</option>
                </select>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">

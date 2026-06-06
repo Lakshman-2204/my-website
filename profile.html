@@ -195,9 +195,13 @@
                   <input type="date" id="myOrderRangeTo"    class="admin-filter-select" style="display:none" title="To"   onchange="renderOrders()"/>
                   <select id="myOrderStatusFilter"   class="admin-filter-select" onchange="renderOrders()">
                      <option value="">⌛ All statuses</option>
-                     <option value="Pending Pickup">Pending Pickup</option>
-                     <option value="Ready">Ready</option>
-                     <option value="Completed">Completed</option>
+                     <option value="Pending Pickup">📋 Order Placed</option>
+                     <option value="Confirmed">✅ Confirmed</option>
+                     <option value="Packed">📦 Packed</option>
+                     <option value="Out for Delivery">🚚 Out for Delivery</option>
+                     <option value="Ready">🏪 Ready for Pickup</option>
+                     <option value="Completed">✅ Completed</option>
+                     <option value="Cancelled">❌ Cancelled</option>
                      <option value="Cancelled">Cancelled</option>
                   </select>
                </div>

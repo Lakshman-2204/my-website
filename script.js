@@ -853,13 +853,18 @@ function makeOrder() {
       return 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
    }
 
-   // Group cart by store
+   // Group cart by store (preserve store_provider_id for delivery resolution)
    var groups = {};
    var groupKeys = [];
    cart.forEach(function(c) {
-      var key = c.storeId || '__platform__';
+      var key = c.store_provider_id || c.storeId || '__platform__';
       if (!groups[key]) {
-         groups[key] = { storeId: c.storeId || null, storeName: c.storeName || getStoreName(c.storeId), items: [] };
+         groups[key] = {
+            storeId: c.storeId || null,
+            storeName: c.storeName || getStoreName(c.storeId),
+            store_provider_id: c.store_provider_id || null,
+            items: []
+         };
          groupKeys.push(key);
       }
       groups[key].items.push(c);
@@ -873,11 +878,24 @@ function makeOrder() {
       var total   = grp.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
       var items   = grp.items.map(function(c) { return { id: c.id, name: c.name, price: c.price, qty: c.qty, img: c.img }; });
 
+      // Resolve the store provider so we can set method correctly. Without
+      // this, the order shows as "Pickup" even if the store has home delivery
+      // — which breaks the customer-facing status label + footer.
+      var prov = grp.store_provider_id
+         ? (_storeProvidersCache || []).find(function(p) { return p.id === grp.store_provider_id; })
+         : (_storeProvidersCache || []).find(function(p) {
+              return p.name === grp.storeName ||
+                     (p.owner_email || '').toLowerCase() === (grp.storeId || '').toLowerCase();
+           });
+      var supportsDelivery = !!(prov && prov.door_delivery);
+
       var newOrder = {
          orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
          customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
          items: items, total: total, status: 'Pending Pickup',
-         storeId: grp.storeId, storeName: grp.storeName
+         method: supportsDelivery ? 'COD-Delivery' : 'Pickup',
+         storeId: grp.storeId, storeName: grp.storeName,
+         store_provider_id: grp.store_provider_id || (prov && prov.id) || null
       };
       _db.orders.unshift(newOrder);
       AppDB.insertOrder(newOrder);
@@ -6213,7 +6231,9 @@ function renderShopDashboard(filterStatus) {
       var status = order.status || 'Pending Pickup';
       var statusClass = status === 'Completed'        ? 'completed' :
                         status === 'Out for Delivery' ? 'outfor'    :
+                        status === 'Packed'           ? 'packed'    :
                         status === 'Ready'            ? 'packed'    :
+                        status === 'Confirmed'        ? 'confirmed' :
                         status === 'Cancelled'        ? 'cancelled' : 'pending';
       var oid = (order.orderId || order.order_id || '').replace(/'/g, "\\'");
       var itemsCount = (order.items || []).length;
@@ -6242,15 +6262,29 @@ function renderShopDashboard(filterStatus) {
          ? '<div class="apt-tbl-sub">📞 <a href="tel:' + String(phoneNum).replace(/[^0-9+]/g, '') + '" style="color:#1a73e8">' + phoneNum + '</a></div>'
          : '<div class="apt-tbl-sub" style="color:#bbb">no phone</div>';
 
-      // 4-step delivery journey vs 3-step pickup journey
+      // 4-step delivery journey vs 3-step pickup journey.
+      // Fall back to the store's door_delivery flag for orders placed via the
+      // generic cart flow (no explicit method='COD-Delivery' or delivery_address).
       var isDelivery = (order.method === 'COD-Delivery') || !!order.delivery_address;
+      if (!isDelivery) {
+         var providers = window._storeProvidersCache || [];
+         var ownerStore = providers.find(function(s) {
+            return s.id === order.store_provider_id || s.name === order.storeName;
+         });
+         if (ownerStore && ownerStore.door_delivery) isDelivery = true;
+      }
       var actions = '<button class="apt-view-btn" style="background:#1a73e8" onclick="openOrderBillModal(\'' + oid + '\')">📝 Bill</button>';
+      // Shared first step: Pending → Confirmed
+      if (status === 'Pending Pickup') actions += ' <button class="apt-view-btn" style="background:#7b1fa2" onclick="updateOrderStatus(\'' + oid + '\',\'Confirmed\')">✅ Confirm</button>';
+      // Shared second step: Confirmed → Packed
+      if (status === 'Confirmed')      actions += ' <button class="apt-view-btn" style="background:#ef6c00" onclick="updateOrderStatus(\'' + oid + '\',\'Packed\')">📦 Mark Packed</button>';
       if (isDelivery) {
-         if (status === 'Pending Pickup')   actions += ' <button class="apt-view-btn" style="background:#ef6c00" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">📦 Packed</button>';
-         if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#1565c0" onclick="updateOrderStatus(\'' + oid + '\',\'Out for Delivery\')">🚚 Out for Delivery</button>';
+         if (status === 'Packed')           actions += ' <button class="apt-view-btn" style="background:#1565c0" onclick="updateOrderStatus(\'' + oid + '\',\'Out for Delivery\')">🚚 Out for Delivery</button>';
          if (status === 'Out for Delivery') actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">✅ Delivered</button>';
+         // Legacy delivery rows still on 'Ready' — let owner advance them
+         if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#1565c0" onclick="updateOrderStatus(\'' + oid + '\',\'Out for Delivery\')">🚚 Out for Delivery</button>';
       } else {
-         if (status === 'Pending Pickup')   actions += ' <button class="apt-view-btn" style="background:#2e7d32" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">✅ Ready</button>';
+         if (status === 'Packed')           actions += ' <button class="apt-view-btn" style="background:#2e7d32" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">🏪 Ready for Pickup</button>';
          if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">🏁 Picked up</button>';
       }
 
@@ -11200,6 +11234,8 @@ function deleteAddress(idx) {
 
 // ── ORDERS ──
 function orderStatusClass(status) {
+   if (status === 'Confirmed')         return 'badge-confirmed';
+   if (status === 'Packed')            return 'badge-packed';
    if (status === 'Ready')             return 'badge-ready';
    if (status === 'Out for Delivery')  return 'badge-out';
    if (status === 'Completed')         return 'badge-completed';
@@ -11210,34 +11246,62 @@ function orderStatusClass(status) {
 // Owner-side label — keeps the DB status word but pretties it for delivery orders.
 function _ownerStatusLabel(status, order) {
    var isDelivery = (order.method === 'COD-Delivery') || !!order.delivery_address;
+   if (!isDelivery) {
+      // Same fallback as the customer label and footer label — if the store
+      // offers home delivery, treat the order as delivery regardless of method
+      var providers = window._storeProvidersCache || [];
+      var store = providers.find(function(s) {
+         return s.id === order.store_provider_id || s.name === order.storeName;
+      });
+      if (store && store.door_delivery) isDelivery = true;
+   }
+   // Shared steps across both flows
+   if (status === 'Pending Pickup') return '📥 Order received';
+   if (status === 'Confirmed')      return '✅ Confirmed';
+   if (status === 'Packed')         return '📦 Packed';
+   if (status === 'Cancelled')      return '❌ Cancelled';
    if (isDelivery) {
-      if (status === 'Pending Pickup') return 'Pending';
-      if (status === 'Ready')          return 'Packed';
-      if (status === 'Out for Delivery') return 'Out for delivery';
-      if (status === 'Completed')      return 'Delivered';
+      if (status === 'Out for Delivery') return '🚚 Out for delivery';
+      if (status === 'Ready')            return '📦 Packed';   // legacy delivery orders
+      if (status === 'Completed')        return '✅ Delivered';
    } else {
-      if (status === 'Pending Pickup') return 'Pending';
-      if (status === 'Ready')          return 'Ready';
-      if (status === 'Completed')      return 'Picked up';
+      if (status === 'Ready')            return '🏪 Ready for pickup';
+      if (status === 'Completed')        return '🏁 Picked up';
    }
    return status;
 }
 
 // Map DB status + order method to a customer-facing label.
 // Delivery orders get a 4-step journey; pickup orders keep the 3-step flow.
-function _customerStatusLabel(status, method) {
-   if (method === 'COD-Delivery') {
-      if (status === 'Pending Pickup')   return '📋 Confirmed';
-      if (status === 'Ready')            return '📦 Packed';
-      if (status === 'Out for Delivery') return '🚚 Out for delivery';
-      if (status === 'Completed')        return '✅ Delivered';
-      if (status === 'Cancelled')        return '❌ Cancelled';
+// Was: (status, method). Now takes the full order object so it can fall back
+// to the linked store's door_delivery flag — handles orders placed via the
+// generic cart flow (makeOrder) which doesn't set method='COD-Delivery'.
+function _customerStatusLabel(status, orderOrMethod) {
+   // Back-compat: accept a method string for any legacy call site
+   var o = (orderOrMethod && typeof orderOrMethod === 'object') ? orderOrMethod : null;
+   var method = o ? o.method : orderOrMethod;
+   var isDelivery = method === 'COD-Delivery' || (o && !!o.delivery_address);
+   if (!isDelivery && o) {
+      // Fall back to the store's door_delivery flag
+      var providers = window._storeProvidersCache || [];
+      var store = providers.find(function(s) {
+         return s.id === o.store_provider_id || s.name === o.storeName;
+      });
+      if (store && store.door_delivery) isDelivery = true;
    }
-   // Pickup / fallback
-   if (status === 'Pending Pickup') return '⏳ Pending pickup';
-   if (status === 'Ready')          return '✅ Ready for pickup';
-   if (status === 'Completed')      return '✅ Picked up';
+   // Shared steps across both flows
+   if (status === 'Pending Pickup') return '📋 Order placed';
+   if (status === 'Confirmed')      return '✅ Confirmed';
+   if (status === 'Packed')         return '📦 Packed';
    if (status === 'Cancelled')      return '❌ Cancelled';
+   if (isDelivery) {
+      if (status === 'Out for Delivery') return '🚚 Out for delivery';
+      if (status === 'Ready')            return '📦 Packed';   // legacy delivery orders
+      if (status === 'Completed')        return '✅ Delivered';
+   }
+   // Pickup
+   if (status === 'Ready')          return '🏪 Ready for pickup';
+   if (status === 'Completed')      return '🏁 Picked up';
    return status;
 }
 
@@ -11358,7 +11422,7 @@ async function renderOrders() {
       var rxOnly = (!o.items || !o.items.length) && o.prescription_url;
       var displayStatus = rxOnly && liveStatus === 'Pending Pickup'
          ? '📋 Pharmacist preparing'
-         : _customerStatusLabel(liveStatus, o.method);
+         : _customerStatusLabel(liveStatus, o);
       var cls = orderStatusClass(liveStatus);
       var itemRows = (o.items || []).map(function(i) {
          return '<div class="order-item"><span>' + i.name + ' × ' + i.qty + '</span><span>₹' + (i.price * i.qty).toLocaleString('en-IN') + '</span></div>';

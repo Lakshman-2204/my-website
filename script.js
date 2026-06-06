@@ -1063,6 +1063,18 @@ async function placeMedicalOrder() {
    var btn = document.getElementById('medCheckoutPlaceBtn');
    if (btn) { btn.disabled = true; btn.textContent = 'Placing order…'; }
 
+   // Ensure both caches are loaded before we group / look up door_delivery.
+   // If the customer reached checkout via a code path that didn't trigger
+   // loadStoreProviders (e.g. direct cart access), prov lookup would fail
+   // and method would default to "Pickup" even for delivery-enabled stores.
+   try { await loadStoreProviders(); } catch (e) {}
+   if (!(_db && _db.storeProducts && _db.storeProducts.length)) {
+      try {
+         var prods = await AppDB.getAllStoreProducts();
+         _db.storeProducts = prods || [];
+      } catch (e) {}
+   }
+
    // Self-heal: hydrate any cart items missing store_provider_id by looking it
    // up in _db.storeProducts. Protects against stale cart entries created
    // before the script.js cache fix landed.
@@ -3625,6 +3637,7 @@ function renderCatalogFieldsList() {
                          '<option value="number"'   + (f.type === 'number'   ? ' selected' : '') + '>Number</option>' +
                          '<option value="checkbox"' + (f.type === 'checkbox' ? ' selected' : '') + '>Checkbox</option>' +
                          '<option value="date"'     + (f.type === 'date'     ? ' selected' : '') + '>Date</option>' +
+                         '<option value="month"'    + (f.type === 'month'    ? ' selected' : '') + '>Month/Year</option>' +
                       '</select>' +
                    '</div>' +
                    '<div class="catalog-field-cell">' +
@@ -5978,6 +5991,25 @@ async function checkShopOwnerLogin() {
 
    // Render whichever panel makes sense
    if (ownsStores) renderShopDashboard();
+
+   // Live subscribe to orders at LOGIN time (not just on Orders tab) so the
+   // owner gets pushed updates from any change anywhere — admin deleting,
+   // customer placing, status changing. Works even when owner is on a
+   // different tab; when they switch back to Orders the table is already fresh.
+   if (ownsStores && typeof _liveSubscribe === 'function') {
+      _liveSubscribe('shopOrders', 'orders', function() {
+         AppDB.getAllOrders().then(function(rows) {
+            _db.orders = rows || [];
+            // Only re-render if Orders tab is visible (avoids touching DOM
+            // that doesn't exist when owner is on Products / Walk-in / etc.)
+            var ordersPanel = document.getElementById('shop-panel-orders');
+            if (ordersPanel && !ordersPanel.classList.contains('hidden')) {
+               renderShopDashboard(window._shopCurrentFilter);
+            }
+         });
+      });
+   }
+
    // Default landing tab:
    //   store owners → Orders (so they immediately see incoming customer orders)
    //   hospital owners → Dashboard
@@ -6046,9 +6078,10 @@ function renderShopDashboard(filterStatus) {
    // scannable at a glance, multiple orders per screen instead of one-per-page.
    var rowsHtml = filtered.map(function(order) {
       var status = order.status || 'Pending Pickup';
-      var statusClass = status === 'Completed' ? 'completed' :
-                        status === 'Ready'     ? 'confirmed' :
-                        status === 'Cancelled' ? 'cancelled' : 'pending';
+      var statusClass = status === 'Completed'        ? 'completed' :
+                        status === 'Out for Delivery' ? 'outfor'    :
+                        status === 'Ready'            ? 'packed'    :
+                        status === 'Cancelled'        ? 'cancelled' : 'pending';
       var oid = (order.orderId || order.order_id || '').replace(/'/g, "\\'");
       var itemsCount = (order.items || []).length;
       var firstItem = (order.items || [])[0];
@@ -6065,12 +6098,17 @@ function renderShopDashboard(filterStatus) {
       var phoneTxt = (((window._adminSettings || {}).showCustomerPhone && order.customerPhone)
          ? '<div class="apt-tbl-sub">📞 ' + order.customerPhone + '</div>' : '');
 
-      var actions =
-         '<button class="apt-view-btn" style="background:#1a73e8" onclick="openOrderBillModal(\'' + oid + '\')">📝 Bill</button>' +
-         (status === 'Pending Pickup'
-            ? ' <button class="apt-view-btn" style="background:#2e7d32" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">✅ Ready</button>' : '') +
-         (status === 'Ready'
-            ? ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">🏁 Done</button>' : '');
+      // 4-step delivery journey vs 3-step pickup journey
+      var isDelivery = (order.method === 'COD-Delivery') || !!order.delivery_address;
+      var actions = '<button class="apt-view-btn" style="background:#1a73e8" onclick="openOrderBillModal(\'' + oid + '\')">📝 Bill</button>';
+      if (isDelivery) {
+         if (status === 'Pending Pickup')   actions += ' <button class="apt-view-btn" style="background:#ef6c00" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">📦 Packed</button>';
+         if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#1565c0" onclick="updateOrderStatus(\'' + oid + '\',\'Out for Delivery\')">🚚 Out for Delivery</button>';
+         if (status === 'Out for Delivery') actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">✅ Delivered</button>';
+      } else {
+         if (status === 'Pending Pickup')   actions += ' <button class="apt-view-btn" style="background:#2e7d32" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">✅ Ready</button>';
+         if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">🏁 Picked up</button>';
+      }
 
       return '<tr>' +
                 '<td><div class="apt-tbl-name">' + (order.orderId || '') + '</div>' +
@@ -6082,7 +6120,7 @@ function renderShopDashboard(filterStatus) {
                     (order.payment_mode === 'COD' || order.method === 'COD' || order.method === 'COD-Delivery' ? '💵 COD' :
                      order.method === 'Walk-in' ? '🧾 Walk-in' : (order.method || '')) +
                     '</div></td>' +
-                '<td><span class="apt-status ' + statusClass + '">' + status + '</span></td>' +
+                '<td><span class="apt-status ' + statusClass + '">' + _ownerStatusLabel(status, order) + '</span></td>' +
                 '<td>' + actions + '</td>' +
              '</tr>';
    }).join('');
@@ -7312,7 +7350,7 @@ async function openStockModal(productId) {
             var bid = b.id.replace(/'/g, "\\'");
             return '<tr class="' + expClass + '">' +
                '<td>' + (b.batch_no || '<em style="color:#bbb">—</em>') + '</td>' +
-               '<td>' + (b.expiry_date || '<em style="color:#bbb">—</em>') + '</td>' +
+               '<td>' + (_formatMonthYear(b.expiry_date) || '<em style="color:#bbb">—</em>') + '</td>' +
                '<td>' + (b.qty_received || 0) + '</td>' +
                '<td><strong>' + (b.qty_remaining || 0) + '</strong></td>' +
                '<td>₹' + Number(b.mrp || 0).toFixed(2) + '</td>' +
@@ -7325,6 +7363,13 @@ async function openStockModal(productId) {
    var modal = document.getElementById('stockModal');
    modal.classList.remove('hidden');
    var inner = modal.querySelector('.sp-modal'); if (inner) inner.scrollTop = 0;
+}
+
+// Format an ISO date / YYYY-MM string as "MM/YYYY" for pharmacy display.
+function _formatMonthYear(s) {
+   if (!s) return '';
+   var m = String(s).match(/^(\d{4})-(\d{2})/);
+   return m ? (m[2] + '/' + m[1]) : s;
 }
 
 function _sellUnitPlural(unit, n) {
@@ -7341,13 +7386,16 @@ async function saveStockBatch() {
    if (!productId || !_currentMyStoreId) { alert('No product / store context.'); return; }
    var qty = parseFloat(document.getElementById('stk-qty').value) || 0;
    if (qty <= 0) { alert('Quantity must be greater than 0.'); return; }
+   // <input type="month"> returns "YYYY-MM" — DB column is `date`, so append "-01"
+   // so we always store the 1st of the month. Display strips it back to MM/YYYY.
+   var monthToDate = function(v) { return v ? (v + '-01') : null; };
    var batch = {
       id:                'inv_' + productId.split('_').pop().slice(0,6) + '_' + Date.now(),
       product_id:        productId,
       store_provider_id: _currentMyStoreId,
       batch_no:          document.getElementById('stk-batch').value.trim(),
-      mfg_date:          document.getElementById('stk-mfg').value || null,
-      expiry_date:       document.getElementById('stk-exp').value || null,
+      mfg_date:          monthToDate(document.getElementById('stk-mfg').value),
+      expiry_date:       monthToDate(document.getElementById('stk-exp').value),
       qty_received:      qty,
       qty_remaining:     qty,
       mrp:               parseFloat(document.getElementById('stk-mrp').value) || 0,
@@ -10511,9 +10559,45 @@ function deleteAddress(idx) {
 
 // ── ORDERS ──
 function orderStatusClass(status) {
-   if (status === 'Ready')     return 'badge-ready';
-   if (status === 'Completed') return 'badge-completed';
+   if (status === 'Ready')             return 'badge-ready';
+   if (status === 'Out for Delivery')  return 'badge-out';
+   if (status === 'Completed')         return 'badge-completed';
+   if (status === 'Cancelled')         return 'badge-cancelled';
    return 'badge-pending';
+}
+
+// Owner-side label — keeps the DB status word but pretties it for delivery orders.
+function _ownerStatusLabel(status, order) {
+   var isDelivery = (order.method === 'COD-Delivery') || !!order.delivery_address;
+   if (isDelivery) {
+      if (status === 'Pending Pickup') return 'Pending';
+      if (status === 'Ready')          return 'Packed';
+      if (status === 'Out for Delivery') return 'Out for delivery';
+      if (status === 'Completed')      return 'Delivered';
+   } else {
+      if (status === 'Pending Pickup') return 'Pending';
+      if (status === 'Ready')          return 'Ready';
+      if (status === 'Completed')      return 'Picked up';
+   }
+   return status;
+}
+
+// Map DB status + order method to a customer-facing label.
+// Delivery orders get a 4-step journey; pickup orders keep the 3-step flow.
+function _customerStatusLabel(status, method) {
+   if (method === 'COD-Delivery') {
+      if (status === 'Pending Pickup')   return '📋 Confirmed';
+      if (status === 'Ready')            return '📦 Packed';
+      if (status === 'Out for Delivery') return '🚚 Out for delivery';
+      if (status === 'Completed')        return '✅ Delivered';
+      if (status === 'Cancelled')        return '❌ Cancelled';
+   }
+   // Pickup / fallback
+   if (status === 'Pending Pickup') return '⏳ Pending pickup';
+   if (status === 'Ready')          return '✅ Ready for pickup';
+   if (status === 'Completed')      return '✅ Picked up';
+   if (status === 'Cancelled')      return '❌ Cancelled';
+   return status;
 }
 
 // Resolve the footer label for one order. Falls back to the linked store's
@@ -10630,12 +10714,7 @@ async function renderOrders() {
 
    list.innerHTML = filtered.slice().reverse().map(function(o) {
       var liveStatus = statusMap[o.orderId] || o.status || 'Pending Pickup';
-      // Friendlier badge label for customers: "Pending Pickup" is owner-side jargon.
-      var displayStatus = liveStatus;
-      if (o.method === 'COD-Delivery') {
-         if (liveStatus === 'Pending Pickup') displayStatus = 'Confirmed';
-         else if (liveStatus === 'Ready')     displayStatus = 'Out for delivery';
-      }
+      var displayStatus = _customerStatusLabel(liveStatus, o.method);
       var cls = orderStatusClass(liveStatus);
       return ''
        + '<div class="order-card">'

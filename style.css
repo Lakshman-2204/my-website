@@ -1801,8 +1801,10 @@ body.guest .store-section-divider {
 	white-space: nowrap;
 }
 .apt-status.pending   { background: #fff3e0; color: #e65100; }
-.apt-status.confirmed { background: #e3f2fd; color: #1565c0; }
+.apt-status.packed    { background: #fff8e1; color: #b07000; }
+.apt-status.outfor    { background: #e3f2fd; color: #1565c0; }
 .apt-status.completed { background: #e8f5e9; color: #2e7d32; }
+.apt-status.confirmed { background: #e3f2fd; color: #1565c0; }
 .apt-status.cancelled { background: #ffebee; color: #c62828; }
 .apt-token-badge {
 	display: inline-block;
@@ -4948,8 +4950,10 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 }
 
 .order-badge.badge-pending   { background: #fff3e0; color: #e65100; }
-.order-badge.badge-ready     { background: #e8f5e9; color: #2e7d32; }
-.order-badge.badge-completed { background: #e3f2fd; color: #1565c0; }
+.order-badge.badge-ready     { background: #fff8e1; color: #b07000; }   /* Packed — amber */
+.order-badge.badge-out       { background: #e3f2fd; color: #1565c0; }   /* Out for delivery — blue */
+.order-badge.badge-completed { background: #e8f5e9; color: #2e7d32; }   /* Delivered/Done — green */
+.order-badge.badge-cancelled { background: #ffebee; color: #c62828; }
 .order-badge.confirmed       { background: #e8f5e9; color: #2e7d32; }
 .order-badge.cancelled       { background: #ffebee; color: #c62828; }
 .order-badge.completed       { background: #e3f2fd; color: #1565c0; }

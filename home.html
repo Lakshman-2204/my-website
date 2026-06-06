@@ -454,13 +454,21 @@
             if (typeof _startSettingsPolling === 'function') _startSettingsPolling();
             var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
             if (_u) AppDB.getWishlist(_u.email).then(function(ids) { _db.wishlist = ids || []; });
-            // Re-render current view now that products are loaded
-            var activeEl = document.querySelector('.cat-item.active');
-            var activeCat = activeEl ? activeEl.id.replace('cat-','') : 'all';
-            if (activeCat && activeCat !== 'all') catClick(activeCat);
-            else if (document.getElementById('productsSection') &&
-                     !document.getElementById('productsSection').classList.contains('hidden')) {
-               showAllProducts();
+            // Re-render current view now that products are loaded.
+            // IMPORTANT: don't clobber the Stores view if the user clicked it
+            // before products finished loading — Stores button isn't a .cat-item,
+            // so the old code defaulted to 'all' and overwrote the stores list.
+            var storesBtn = document.querySelector('.header-stores-btn');
+            if (storesBtn && storesBtn.classList.contains('active')) {
+               /* user is viewing Stores — let showStoresList() finish, do nothing */
+            } else {
+               var activeEl = document.querySelector('.cat-item.active');
+               var activeCat = activeEl ? activeEl.id.replace('cat-','') : 'all';
+               if (activeCat && activeCat !== 'all') catClick(activeCat);
+               else if (document.getElementById('productsSection') &&
+                        !document.getElementById('productsSection').classList.contains('hidden')) {
+                  showAllProducts();
+               }
             }
          });
       </script>

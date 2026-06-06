@@ -6267,7 +6267,7 @@ function renderShopDashboard(filterStatus) {
       // generic cart flow (no explicit method='COD-Delivery' or delivery_address).
       var isDelivery = (order.method === 'COD-Delivery') || !!order.delivery_address;
       if (!isDelivery) {
-         var providers = window._storeProvidersCache || [];
+         var providers = _storeProvidersCache || [];
          var ownerStore = providers.find(function(s) {
             return s.id === order.store_provider_id || s.name === order.storeName;
          });
@@ -11249,7 +11249,7 @@ function _ownerStatusLabel(status, order) {
    if (!isDelivery) {
       // Same fallback as the customer label and footer label — if the store
       // offers home delivery, treat the order as delivery regardless of method
-      var providers = window._storeProvidersCache || [];
+      var providers = _storeProvidersCache || [];
       var store = providers.find(function(s) {
          return s.id === order.store_provider_id || s.name === order.storeName;
       });
@@ -11283,7 +11283,7 @@ function _customerStatusLabel(status, orderOrMethod) {
    var isDelivery = method === 'COD-Delivery' || (o && !!o.delivery_address);
    if (!isDelivery && o) {
       // Fall back to the store's door_delivery flag
-      var providers = window._storeProvidersCache || [];
+      var providers = _storeProvidersCache || [];
       var store = providers.find(function(s) {
          return s.id === o.store_provider_id || s.name === o.storeName;
       });
@@ -11314,7 +11314,7 @@ function _orderFooterLabel(o) {
    if (o.method === 'COD')                       return '💵 Cash on delivery';
    if (o.delivery_address)                       return '🚚 Cash/UPI on delivery';
    // Look up the store: delivery enabled? — show delivery text
-   var providers = (window._storeProvidersCache || []);
+   var providers = (_storeProvidersCache || []);
    var store = providers.find(function(s) {
       return s.id === o.store_provider_id || s.name === o.storeName;
    });

@@ -837,11 +837,44 @@ function clearCart() {
    updateCartUI();
 }
 
+// ── COD: phone is mandatory ──
+// The shop owner needs to call the customer to coordinate delivery / pickup /
+// missing-item callbacks. If the user's profile has no phone, prompt for one,
+// validate it's 10 digits, save to their profile, and refresh sessionStorage.
+// Returns the phone string on success, null if the user cancelled (caller
+// should abort the order).
+async function _ensureCustomerPhone(user) {
+   var phone = (user && user.phone || '').trim();
+   var norm  = phone.replace(/\D/g, '').slice(-10);
+   if (norm.length === 10) return phone;     // already on file
+   while (true) {
+      var input = window.prompt(
+         '📞 Phone number required for COD orders\n\n' +
+         'The store needs your phone to coordinate the order.\n' +
+         'Enter a 10-digit mobile number (we\'ll save it to your profile):',
+         phone || ''
+      );
+      if (input === null) return null;       // user cancelled
+      var n = input.replace(/\D/g, '').slice(-10);
+      if (n.length === 10) {
+         user.phone = n;
+         sessionStorage.setItem('loggedInUser', JSON.stringify(user));
+         try { await AppDB.updateUser(user.email, { phone: n }); } catch (e) {}
+         return n;
+      }
+      alert('That doesn\'t look like a valid mobile number. Please enter 10 digits.');
+   }
+}
+
 // ── MAKE ORDER (offline pickup) ──
-function makeOrder() {
+async function makeOrder() {
    if (cart.length === 0) { showToast('Your cart is empty!'); return; }
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { showToast('Please login to place an order.'); return; }
+
+   // COD orders require a phone on file
+   var phone = await _ensureCustomerPhone(user);
+   if (!phone) { showToast('Phone number is required to place a COD order.'); return; }
 
    var now    = new Date();
    var yy     = String(now.getFullYear()).slice(2);
@@ -891,7 +924,7 @@ function makeOrder() {
 
       var newOrder = {
          orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
-         customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
+         customerName: user.name, customerEmail: user.email, customerPhone: phone,
          items: items, total: total, status: 'Pending Pickup',
          method: supportsDelivery ? 'COD-Delivery' : 'Pickup',
          storeId: grp.storeId, storeName: grp.storeName,
@@ -1064,6 +1097,9 @@ async function submitRxOnlyOrder() {
    var btn = document.getElementById('rxOnlySubmitBtn');
    var f = input.files && input.files[0];
    if (!f) { status.innerHTML = '<span style="color:#c62828">Please pick a prescription photo.</span>'; return; }
+   // COD orders require a phone — pharmacist needs to call for Rx clarifications
+   var phone = await _ensureCustomerPhone(user);
+   if (!phone) { status.innerHTML = '<span style="color:#c62828">Phone number is required to send a prescription.</span>'; return; }
    btn.disabled = true; btn.textContent = 'Uploading…';
    status.textContent = '';
 
@@ -1094,7 +1130,7 @@ async function submitRxOnlyOrder() {
    var order = {
       orderId: orderId, order_id: orderId,
       date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      customerName:  user.name, customerEmail: user.email, customerPhone: user.phone || '',
+      customerName:  user.name, customerEmail: user.email, customerPhone: phone,
       items: [],                                  // empty — pharmacist fills via Bill modal
       total: 0,
       method:        needsAddr ? 'COD-Delivery' : 'Pickup',
@@ -1199,6 +1235,11 @@ async function placeMedicalOrder() {
    if (!user) { promptAuth(); return; }
    if (!cart.length) { showToast('Cart is empty'); return; }
 
+   // COD orders require a phone — pharmacist needs to call for prescription
+   // clarifications, missing items, delivery coordination, etc.
+   var phone = await _ensureCustomerPhone(user);
+   if (!phone) { showToast('Phone number is required to place a COD order.'); return; }
+
    var btn = document.getElementById('medCheckoutPlaceBtn');
    if (btn) { btn.disabled = true; btn.textContent = 'Placing order…'; }
 
@@ -1259,7 +1300,7 @@ async function placeMedicalOrder() {
       var order = {
          orderId: orderId, order_id: orderId,
          date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-         customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
+         customerName: user.name, customerEmail: user.email, customerPhone: phone,
          items: g.items.map(function(c) { return { id: c.id, name: c.name, qty: c.qty, price: c.price, rx_required: !!c.rx_required }; }),
          total: subtotal,
          method: needsAddr ? 'COD-Delivery' : 'Pickup',     // distinguishes from the legacy "Pickup" default
@@ -1326,7 +1367,7 @@ function processPayment(method) {
       const order = {
          orderId: orderId, order_id: orderId,
          date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-         customerName: user.name, customerEmail: user.email, customerPhone: user.phone || '',
+         customerName: user.name, customerEmail: user.email, customerPhone: phone,
          items: cart.map(c => ({ id: c.id, name: c.name, qty: c.qty, price: c.price })),
          total, method, status: 'Confirmed',
          storeId: null, storeName: null

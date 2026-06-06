@@ -4683,7 +4683,13 @@ function filterStoreProducts(input) {
    if (sort === 'price-desc') hits.sort(function(a,b){ return (b.item.price||0) - (a.item.price||0); });
    if (sort === 'name-asc')   hits.sort(function(a,b){ return (a.item.name||'').localeCompare(b.item.name||''); });
 
-   if (sidebar) sidebar.style.display = q ? 'none' : '';   // keep sidebar for sort-only
+   // Hide sidebar for text-search; keep it visible for sort-only.
+   // Also collapse the 2-col grid to a single column when sidebar is hidden,
+   // otherwise the products panel auto-places into the 170px column and every
+   // card stacks vertically in a narrow strip.
+   var layout = document.querySelector('.subcat-layout');
+   if (sidebar) sidebar.style.display = q ? 'none' : '';
+   if (layout)  layout.style.gridTemplateColumns = q ? '1fr' : '';
 
    var headline = q
       ? hits.length + ' match' + (hits.length === 1 ? '' : 'es') + ' for "' + q + '"'

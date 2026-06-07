@@ -6242,19 +6242,32 @@ function renderShopDashboard(filterStatus) {
       return _isDateInRange(o.date || o.created_at || o.timestamp, df.range, df);
    });
 
-   // Update stats — reflect the date filter so numbers match what's visible
-   var pending   = allOrders.filter(function(o) { return o.status === 'Pending Pickup'; }).length;
-   var ready     = allOrders.filter(function(o) { return o.status === 'Ready'; }).length;
-   var completed = allOrders.filter(function(o) { return o.status === 'Completed'; }).length;
-   var statPending   = document.getElementById('statPending');
-   var statReady     = document.getElementById('statReady');
-   var statCompleted = document.getElementById('statCompleted');
-   if (statPending)   statPending.textContent   = pending;
-   if (statReady)     statReady.textContent     = ready;
-   if (statCompleted) statCompleted.textContent = completed;
+   // Update stats — reflect the date filter so numbers match what's visible.
+   // Stat tiles mirror the four stages the owner cares about most.
+   var statusIn = function(o, set) { return set.indexOf(o.status) !== -1; };
+   var dispatched = ['Out for Delivery', 'Ready'];
+   var counts = {
+      'new':        allOrders.filter(function(o) { return o.status === 'Pending Pickup'; }).length,
+      'packed':     allOrders.filter(function(o) { return o.status === 'Packed';         }).length,
+      'dispatched': allOrders.filter(function(o) { return statusIn(o, dispatched);       }).length,
+      'completed':  allOrders.filter(function(o) { return o.status === 'Completed';      }).length
+   };
+   var setStat = function(id, n) { var el = document.getElementById(id); if (el) el.textContent = n; };
+   setStat('statNew',        counts['new']);
+   setStat('statPacked',     counts['packed']);
+   setStat('statDispatched', counts['dispatched']);
+   setStat('statCompleted',  counts['completed']);
 
-   // Filter
-   var filtered = filterStatus ? allOrders.filter(function(o) { return o.status === filterStatus; }) : allOrders;
+   // Filter — 'Dispatched' is a virtual filter that bundles Out for Delivery
+   // + Ready (handover happens at this stage regardless of delivery vs pickup).
+   var filtered;
+   if (filterStatus === 'Dispatched') {
+      filtered = allOrders.filter(function(o) { return statusIn(o, dispatched); });
+   } else if (filterStatus) {
+      filtered = allOrders.filter(function(o) { return o.status === filterStatus; });
+   } else {
+      filtered = allOrders;
+   }
 
    // Update active tab
    document.querySelectorAll('.shop-tab').forEach(function(t) { t.classList.remove('active'); });
@@ -6262,7 +6275,10 @@ function renderShopDashboard(filterStatus) {
    if (activeTab) activeTab.classList.add('active');
 
    if (filtered.length === 0) {
-      list.innerHTML = '<div class="shop-empty">No orders ' + (filterStatus ? 'with status "' + filterStatus + '"' : 'yet') + '.</div>';
+      var filterLabel = filterStatus === 'Dispatched' ? 'Out for Delivery / Ready for Pickup'
+                      : filterStatus === 'Pending Pickup' ? 'New (awaiting confirmation)'
+                      : filterStatus || '';
+      list.innerHTML = '<div class="shop-empty">No orders ' + (filterLabel ? 'in "' + filterLabel + '"' : 'yet') + '.</div>';
       return;
    }
 

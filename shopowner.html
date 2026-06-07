@@ -51,19 +51,23 @@
    <!-- ORDERS PANEL (hidden until checkShopOwnerLogin decides) -->
    <div id="shop-panel-orders" class="hidden">
 
-   <!-- STATS BAR -->
+   <!-- STATS BAR — surface the three stages that need owner action -->
    <div class="shop-stats-bar">
       <div class="shop-stat" onclick="renderShopDashboard('Pending Pickup')">
-         <div class="shop-stat-num" id="statPending">0</div>
-         <div class="shop-stat-label">Pending</div>
+         <div class="shop-stat-num" id="statNew">0</div>
+         <div class="shop-stat-label">📥 New</div>
       </div>
-      <div class="shop-stat" onclick="renderShopDashboard('Ready')">
-         <div class="shop-stat-num" id="statReady">0</div>
-         <div class="shop-stat-label">Ready</div>
+      <div class="shop-stat" onclick="renderShopDashboard('Packed')">
+         <div class="shop-stat-num" id="statPacked">0</div>
+         <div class="shop-stat-label">📦 Packed</div>
+      </div>
+      <div class="shop-stat" onclick="renderShopDashboard('Dispatched')">
+         <div class="shop-stat-num" id="statDispatched">0</div>
+         <div class="shop-stat-label">🚚 Dispatched</div>
       </div>
       <div class="shop-stat" onclick="renderShopDashboard('Completed')">
          <div class="shop-stat-num" id="statCompleted">0</div>
-         <div class="shop-stat-label">Completed</div>
+         <div class="shop-stat-label">🏁 Completed</div>
       </div>
    </div>
 
@@ -73,13 +77,21 @@
              oninput="lookupOrder()" autocomplete="off"/>
    </div>
 
-   <!-- FILTER TABS -->
+   <!-- FILTER TABS — one tab per workflow stage. Out for Delivery and Ready
+        for Pickup are separate because they describe different operational
+        states: one means a courier has the package; the other means it's
+        sitting on the counter waiting for the customer to walk in. The
+        🚚 Dispatched stat tile bundles both as a quick "in-handover" view. -->
    <div class="shop-tabs" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-         <button class="shop-tab active" id="tab-all" data-filter="" onclick="renderShopDashboard()">All Orders</button>
-         <button class="shop-tab" id="tab-Pending Pickup" data-filter="Pending Pickup" onclick="renderShopDashboard('Pending Pickup')">⏳ Pending</button>
-         <button class="shop-tab" id="tab-Ready" data-filter="Ready" onclick="renderShopDashboard('Ready')">✅ Ready</button>
-         <button class="shop-tab" id="tab-Completed" data-filter="Completed" onclick="renderShopDashboard('Completed')">🏁 Completed</button>
+         <button class="shop-tab active" id="tab-all"               data-filter=""                  onclick="renderShopDashboard()">All Orders</button>
+         <button class="shop-tab"        id="tab-Pending Pickup"    data-filter="Pending Pickup"    onclick="renderShopDashboard('Pending Pickup')">📥 New</button>
+         <button class="shop-tab"        id="tab-Confirmed"         data-filter="Confirmed"         onclick="renderShopDashboard('Confirmed')">✅ Confirmed</button>
+         <button class="shop-tab"        id="tab-Packed"            data-filter="Packed"            onclick="renderShopDashboard('Packed')">📦 Packed</button>
+         <button class="shop-tab"        id="tab-Out for Delivery"  data-filter="Out for Delivery"  onclick="renderShopDashboard('Out for Delivery')">🚚 Out for Delivery</button>
+         <button class="shop-tab"        id="tab-Ready"             data-filter="Ready"             onclick="renderShopDashboard('Ready')">🏪 Ready for Pickup</button>
+         <button class="shop-tab"        id="tab-Completed"         data-filter="Completed"         onclick="renderShopDashboard('Completed')">🏁 Completed</button>
+         <button class="shop-tab"        id="tab-Cancelled"         data-filter="Cancelled"         onclick="renderShopDashboard('Cancelled')">❌ Cancelled</button>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
          <select id="shopOrderDateFilter" class="admin-filter-select" onchange="renderShopDashboard(window._shopCurrentFilter)">

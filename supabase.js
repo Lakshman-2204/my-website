@@ -523,7 +523,7 @@ window.AppDB = {
    // compute "currently serving" / "patients ahead".
    async getProviderDayQueue(providerId, dateYmd) {
       const { data, error } = await _sb.from('appointments')
-         .select('id, provider_id, doctor_id, doctor_name, date, slot, token, status, is_followup, created_at')
+         .select('id, provider_id, doctor_id, doctor_name, date, slot, token, status, is_followup, is_paid, created_at')
          .eq('provider_id', providerId)
          .eq('date', dateYmd);
       if (error) { console.error('getProviderDayQueue:', error.message); return []; }

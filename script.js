@@ -12180,7 +12180,7 @@ async function renderMyAppointments() {
          todayConfirmed.map(function(a, i) {
             var aid = (a.apt_id || a.id || 'lq' + i);
             return '<div class="live-queue-card live-queue-loading" data-apt-id="' + aid + '">' +
-                      '⏳ Loading live queue for ' + (a.doctor_name || 'your appointment') + '…' +
+                      '⏳ ' + (a.doctor_name || 'Loading…') +
                    '</div>';
          }).join('') +
       '</div>';
@@ -12213,8 +12213,59 @@ async function renderMyAppointments() {
    }
 }
 
+// ── Shared queue-state computation (card + pill both use this) ──
+// Important rules:
+//   • Scope to the customer's OWN slot. Tokens reset per slot (T1 in 9am
+//     slot is a different person from T1 in 10am slot), so a customer with
+//     a 10am appointment shouldn't see the 9am queue's "now serving".
+//   • "Now serving" = first paid+Confirmed token in the slot. The owner
+//     marks Paid when the patient walks in & pays, so paid = at the counter.
+//     If no one is paid yet, "now serving" is null (idle / clinic not started).
+//   • No-show: if the owner marks T1 No-show, T1 drops out of the Confirmed
+//     list and the next Confirmed becomes the queue head — fully automatic.
+function _computeQueueState(queueData, myApt) {
+   var doctorQ = (queueData || []).filter(function(q) {
+      return q.doctor_id === myApt.doctor_id
+          && q.status !== 'Cancelled'
+          && q.status !== 'No-show';
+   });
+   // Scope to MY slot. Token-mode doctors have empty slot — both sides match
+   // on empty string and the whole day acts as one queue.
+   var mySlotKey = myApt.slot || '';
+   var slotQ = doctorQ.filter(function(q) { return (q.slot || '') === mySlotKey; });
+   slotQ.sort(function(x, y) {
+      return new Date(x.created_at || 0) - new Date(y.created_at || 0);
+   });
+
+   var confirmedQ      = slotQ.filter(function(q) { return q.status === 'Confirmed'; });
+   var paidConfirmedQ  = confirmedQ.filter(function(q) { return q.is_paid; });
+   var nowServing      = paidConfirmedQ[0] || null;
+   var anyCompleted    = slotQ.some(function(q) { return q.status === 'Completed'; });
+
+   var matchMine = function(q) {
+      return (q.id && q.id === myApt.id) ||
+             (q.token === myApt.token && q.is_followup === myApt.is_followup);
+   };
+   var myIdx  = confirmedQ.findIndex(matchMine);
+   var myRow  = myIdx >= 0 ? confirmedQ[myIdx] : null;
+   var myPaid = !!(myRow && myRow.is_paid);
+   var ahead  = myIdx > 0 ? myIdx : 0;
+   var isMyTurn = !!(nowServing && matchMine(nowServing));
+
+   return {
+      slotQ:        slotQ,
+      confirmedQ:   confirmedQ,
+      nowServing:   nowServing,
+      anyCompleted: anyCompleted,
+      myIdx:        myIdx,
+      ahead:        ahead,
+      isMyTurn:     isMyTurn,
+      myPaid:       myPaid
+   };
+}
+
 // Fetch the day's queue for one provider+doctor, compute the customer's
-// position, and replace the card's loading placeholder with live status.
+// position, and replace the loading placeholder with a compact chip.
 // Privacy: never renders other patients' names — only their tokens (which
 // the customer can also see on the doctor's queue board in person).
 async function _populateLiveQueueCard(myApt) {
@@ -12222,75 +12273,55 @@ async function _populateLiveQueueCard(myApt) {
    var card = document.querySelector('.live-queue-card[data-apt-id="' + aid + '"]');
    if (!card) return;
 
-   var queueData = await AppDB.getProviderDayQueue(myApt.provider_id, myApt.date);
-   // Same doctor only — each doctor has their own queue
-   var doctorQ = (queueData || []).filter(function(q) {
-      return q.doctor_id === myApt.doctor_id && q.status !== 'Cancelled' && q.status !== 'No-show';
-   });
-   // Sort: slot first (slot mode), then by created_at (token-mode + within-slot order)
-   doctorQ.sort(function(x, y) {
-      if ((x.slot || '') !== (y.slot || '')) return (x.slot || '').localeCompare(y.slot || '');
-      return new Date(x.created_at || 0) - new Date(y.created_at || 0);
-   });
+   var qState = _computeQueueState(await AppDB.getProviderDayQueue(myApt.provider_id, myApt.date), myApt);
+   var nowServing    = qState.nowServing;
+   var anyCompleted  = qState.anyCompleted;
+   var myIdx         = qState.myIdx;
+   var ahead         = qState.ahead;
+   var isMyTurn      = qState.isMyTurn;
+   var myPaid        = qState.myPaid;
 
-   // "Now serving" = the LAST Completed in queue order, OR if none Completed,
-   // the next Confirmed isn't yet being served (clinic hasn't started).
-   var lastCompleted = null;
-   for (var i = doctorQ.length - 1; i >= 0; i--) {
-      if (doctorQ[i].status === 'Completed') { lastCompleted = doctorQ[i]; break; }
-   }
-
-   // My position among Confirmed (still pending) appointments
-   var confirmedQ = doctorQ.filter(function(q) { return q.status === 'Confirmed'; });
-   var myIdx = confirmedQ.findIndex(function(q) { return (q.id && q.id === myApt.id) || (q.token === myApt.token && q.is_followup === myApt.is_followup); });
-   var ahead = myIdx > 0 ? myIdx : 0;
-   var isMyTurn = myIdx === 0;
-
-   var nowServingHtml = lastCompleted
-      ? '<span class="lq-token lq-token-done">' + _tokenLabel(lastCompleted) + '</span>'
-      : '<span class="lq-token lq-token-idle">— not yet started —</span>';
-
-   var statusLine, statusColor;
+   // Compact chip: urgency drives the chip color.
+   // "Now serving" = first paid+Confirmed token in MY slot (clinic accepts
+   // payment when the patient arrives → paid = at the counter / being seen).
+   var urgencyCls;
+   var statusText;
    if (isMyTurn) {
-      statusLine = '🩺 <strong>You\'re up next — head to the clinic now.</strong>';
-      statusColor = '#0a8a3a';
+      urgencyCls = 'lq-chip-turn';
+      statusText = '🩺 It\'s your turn — go in';
+   } else if (ahead === 0 && !myPaid) {
+      urgencyCls = 'lq-chip-urgent';
+      statusText = anyCompleted ? '🚶 You\'re next — pay at counter' : '🚶 Reach clinic & pay at counter';
    } else if (ahead === 1) {
-      statusLine = '🏃 <strong>1 patient ahead</strong> — start heading over.';
-      statusColor = '#ef6c00';
+      urgencyCls = 'lq-chip-urgent';
+      statusText = '🏃 1 ahead';
    } else if (ahead > 0) {
-      statusLine = '👥 <strong>' + ahead + ' patients ahead</strong> of you.';
-      statusColor = '#1565c0';
+      urgencyCls = 'lq-chip-wait';
+      statusText = '👥 ' + ahead + ' ahead';
    } else {
-      statusLine = '⏳ Waiting for the clinic to start the queue.';
-      statusColor = '#888';
+      urgencyCls = 'lq-chip-idle';
+      statusText = anyCompleted ? '🏁 Queue done' : '⏳ Clinic not started';
    }
 
-   // Wait estimate (best-effort): 10 min per patient ahead unless provider sets one
-   var prov = _aptGetProvider(myApt.provider_id) || {};
-   var perPatient = Number(prov.avg_consult_minutes) || 10;
-   var waitMins = ahead * perPatient;
-   var waitLine = ahead > 0
-      ? '⏱ Approx wait: <strong>' + waitMins + ' min</strong> <span style="color:#888;font-size:0.78rem">(~' + perPatient + ' min/patient)</span>'
-      : '';
-
-   var docLine = '🩺 <strong>' + (myApt.doctor_name || '') + '</strong>' +
-                 (myApt.provider_name ? ' · ' + myApt.provider_name : '');
-   var myTokenHtml = myApt.token
-      ? '<span class="lq-token lq-token-mine">' + _tokenLabel(myApt) + '</span>'
-      : '<span style="color:#bbb">—</span>';
+   var nowServingLabel = nowServing
+      ? _tokenLabel(nowServing)
+      : (anyCompleted ? 'queue done' : 'idle');
+   var docShort = (myApt.doctor_name || '').split(/\s+/).slice(0, 2).join(' ');
+   var titleAttr = ((myApt.doctor_name || '') +
+                    (myApt.provider_name ? ' · ' + myApt.provider_name : '') +
+                    (myApt.slot ? ' · ' + _formatSlot12(myApt.slot) : '')).replace(/"/g, '&quot;');
 
    card.classList.remove('live-queue-loading');
+   card.classList.add(urgencyCls);
+   card.setAttribute('title', titleAttr);
    card.innerHTML =
-      '<div class="lq-head">' +
-         '<div class="lq-doc">' + docLine + '</div>' +
-         '<div class="lq-date">📅 Today' + (myApt.slot ? ' · ' + _formatSlot12(myApt.slot) : '') + '</div>' +
-      '</div>' +
-      '<div class="lq-tokens">' +
-         '<div class="lq-token-group"><label>🎟 Your token</label>' + myTokenHtml + '</div>' +
-         '<div class="lq-token-group"><label>▶ Now serving</label>' + nowServingHtml + '</div>' +
-      '</div>' +
-      '<div class="lq-status" style="color:' + statusColor + '">' + statusLine + '</div>' +
-      (waitLine ? '<div class="lq-wait">' + waitLine + '</div>' : '');
+      '<span class="lq-chip-icon">🎟</span>' +
+      '<span class="lq-chip-token">' + _tokenLabel(myApt) + '</span>' +
+      (docShort ? '<span class="lq-chip-doc">· ' + docShort + '</span>' : '') +
+      '<span class="lq-chip-sep">·</span>' +
+      '<span class="lq-chip-now">Now: <strong>' + nowServingLabel + '</strong></span>' +
+      '<span class="lq-chip-sep">·</span>' +
+      '<span class="lq-chip-status">' + statusText + '</span>';
 }
 
 // ── Live-token pill (floats on every customer page when a today appointment is active) ──
@@ -12324,30 +12355,25 @@ async function _refreshLiveTokenPill() {
    });
    if (!myToday.length) { if (container) container.remove(); return; }
 
-   // For each today appointment, fetch the doctor's queue + compute "ahead"
+   // For each today appointment, fetch the doctor's queue + compute state
    var enriched = await Promise.all(myToday.map(async function(apt) {
       var queueData = await AppDB.getProviderDayQueue(apt.provider_id, apt.date);
-      var doctorQ = (queueData || []).filter(function(q) {
-         return q.doctor_id === apt.doctor_id && q.status !== 'Cancelled' && q.status !== 'No-show';
-      });
-      doctorQ.sort(function(x, y) {
-         if ((x.slot || '') !== (y.slot || '')) return (x.slot || '').localeCompare(y.slot || '');
-         return new Date(x.created_at || 0) - new Date(y.created_at || 0);
-      });
-      var lastCompleted = null;
-      for (var i = doctorQ.length - 1; i >= 0; i--) {
-         if (doctorQ[i].status === 'Completed') { lastCompleted = doctorQ[i]; break; }
-      }
-      var confirmedQ = doctorQ.filter(function(q) { return q.status === 'Confirmed'; });
-      var myIdx = confirmedQ.findIndex(function(q) { return (q.id && q.id === apt.id) || (q.token === apt.token && q.is_followup === apt.is_followup); });
-      return { apt: apt, lastCompleted: lastCompleted, ahead: myIdx > 0 ? myIdx : 0, myIdx: myIdx };
+      var st = _computeQueueState(queueData, apt);
+      return {
+         apt:          apt,
+         nowServing:   st.nowServing,
+         anyCompleted: st.anyCompleted,
+         ahead:        st.ahead,
+         myIdx:        st.myIdx,
+         isMyTurn:     st.isMyTurn,
+         myPaid:       st.myPaid
+      };
    }));
 
-   // Sort by urgency — "your turn" (myIdx === 0) wins; then by smaller "ahead";
-   // then by slot time. So the most-urgent appointment is always on top.
+   // Sort by urgency — "It's your turn" wins; then smaller "ahead"; then slot time.
    enriched.sort(function(x, y) {
-      var ax = x.myIdx === 0 ? -1 : (x.ahead < 0 ? 9999 : x.ahead);
-      var ay = y.myIdx === 0 ? -1 : (y.ahead < 0 ? 9999 : y.ahead);
+      var ax = x.isMyTurn ? -1 : (x.ahead < 0 ? 9999 : x.ahead);
+      var ay = y.isMyTurn ? -1 : (y.ahead < 0 ? 9999 : y.ahead);
       if (ax !== ay) return ax - ay;
       if ((x.apt.slot || '') !== (y.apt.slot || '')) return (x.apt.slot || '').localeCompare(y.apt.slot || '');
       return new Date(x.apt.created_at || 0) - new Date(y.apt.created_at || 0);
@@ -12373,12 +12399,15 @@ async function _refreshLiveTokenPill() {
 
 function _renderTokenPill(item) {
    var apt = item.apt;
-   var nowServingLabel = item.lastCompleted ? _tokenLabel(item.lastCompleted) : 'idle';
+   var nowServingLabel = item.nowServing
+      ? _tokenLabel(item.nowServing)
+      : (item.anyCompleted ? 'queue done' : 'idle');
    var msg, urgentCls = '';
-   if (item.myIdx === 0)         { msg = '🩺 Up next!'; urgentCls = 'lqp-turn'; }
-   else if (item.ahead === 1)    { msg = '🏃 1 ahead'; urgentCls = 'lqp-urgent'; }
-   else if (item.ahead > 0)      { msg = '👥 ' + item.ahead + ' ahead'; }
-   else                          { msg = '⏳ Idle'; }
+   if (item.isMyTurn)                                 { msg = '🩺 Your turn!';                                                  urgentCls = 'lqp-turn'; }
+   else if (item.ahead === 0 && !item.myPaid)         { msg = item.anyCompleted ? '🚶 You\'re next — go pay' : '🚶 Go pay';      urgentCls = 'lqp-urgent'; }
+   else if (item.ahead === 1)                         { msg = '🏃 1 ahead';                                                     urgentCls = 'lqp-urgent'; }
+   else if (item.ahead > 0)                           { msg = '👥 ' + item.ahead + ' ahead'; }
+   else                                               { msg = item.anyCompleted ? '🏁 Queue done' : '⏳ Clinic not started'; }
    // Short doctor label: first two words to keep the pill compact
    var docShort = (apt.doctor_name || '').split(/\s+/).slice(0, 2).join(' ');
    var titleAttr = ((apt.doctor_name || '') + (apt.provider_name ? ' · ' + apt.provider_name : '')).replace(/"/g, '&quot;');

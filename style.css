@@ -3282,6 +3282,14 @@ body.guest .store-section-divider {
 .live-queue-card.lq-chip-wait   { background: #e3f2fd; border-color: #1565c0; color: #1565c0; }
 .live-queue-card.lq-chip-idle   { background: #f5f5f5; border-color: #bdbdbd; color: #666; }
 
+/* Mobile: drop the "Now: T2" and doctor name on chips to keep them on one line */
+@media (max-width: 600px) {
+	.live-queue-card { padding: 5px 11px; font-size: 0.78rem; gap: 5px; }
+	.live-queue-card .lq-chip-doc { display: none; }
+	.live-queue-card .lq-chip-now { display: none; }
+	.live-queue-card .lq-chip-sep { display: none; }
+}
+
 /* Home-page floating token pills — stacked, one per today's appointment (max 3 visible, "+N more" pill links to My Appointments) */
 #liveTokenPills {
 	position: fixed; bottom: 78px; right: 20px; z-index: 9998;
@@ -3304,6 +3312,34 @@ body.guest .store-section-divider {
 .live-token-pill-more {
 	background: #f5f7ff; border-style: dashed; color: #5e6cc7;
 	justify-content: center; font-size: 0.82rem;
+}
+/* +N counter overlaid on the visible pill (mobile only — see media query) */
+.live-token-pill .lqp-count-badge { display: none; }
+
+/* ── MOBILE: collapse the stack to one compact pill (most urgent only) ──
+   The full chip list still lives at the top of the My Appointments tab.
+   Tap the floater to jump there. */
+@media (max-width: 600px) {
+	#liveTokenPills {
+		bottom: 16px; right: 12px; max-width: none;
+		flex-direction: row; align-items: flex-end;
+	}
+	#liveTokenPills .live-token-pill { padding: 6px 12px; font-size: 0.78rem; gap: 6px; }
+	/* Show only the first pill; hide "+N more" — that count moves onto a
+	   badge on the visible pill */
+	#liveTokenPills .live-token-pill:not(:first-child) { display: none; }
+	/* Hide noisy parts (Now: …, separators, doctor name) — keep token + status */
+	#liveTokenPills .live-token-pill .lqp-divider { display: none; }
+	#liveTokenPills .live-token-pill .lqp-doc { display: none; }
+	#liveTokenPills .live-token-pill .lqp-now-block { display: none; }
+	/* Show the +N badge if it was rendered */
+	#liveTokenPills .live-token-pill .lqp-count-badge {
+		display: inline-flex; align-items: center; justify-content: center;
+		min-width: 18px; height: 18px; padding: 0 5px;
+		border-radius: 999px; background: #c62828; color: #fff;
+		font-size: 0.65rem; font-weight: 700;
+		margin-left: 2px;
+	}
 }
 
 /* Bill modals: per-line batch picker chip */

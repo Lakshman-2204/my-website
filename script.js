@@ -12303,9 +12303,10 @@ async function _populateLiveQueueCard(myApt) {
       statusText = anyCompleted ? '🏁 Queue done' : '⏳ Clinic not started';
    }
 
+   var queueFinished = qState.confirmedQ.length === 0 && anyCompleted;
    var nowServingLabel = nowServing
       ? _tokenLabel(nowServing)
-      : (anyCompleted ? 'queue done' : 'idle');
+      : (queueFinished ? 'queue done' : '—');
    var docShort = (myApt.doctor_name || '').split(/\s+/).slice(0, 2).join(' ');
    var titleAttr = ((myApt.doctor_name || '') +
                     (myApt.provider_name ? ' · ' + myApt.provider_name : '') +
@@ -12363,6 +12364,7 @@ async function _refreshLiveTokenPill() {
          apt:          apt,
          nowServing:   st.nowServing,
          anyCompleted: st.anyCompleted,
+         queueFinished: st.confirmedQ.length === 0 && st.anyCompleted,
          ahead:        st.ahead,
          myIdx:        st.myIdx,
          isMyTurn:     st.isMyTurn,
@@ -12380,11 +12382,16 @@ async function _refreshLiveTokenPill() {
    });
 
    var top = enriched.slice(0, 3);
-   var extra = enriched.length - top.length;
+   var extraDesktop = enriched.length - top.length;
+   // Mobile collapses the stack to the first pill only — total of the others
+   // (including any beyond top 3) becomes the badge count on it.
+   var extraMobile = enriched.length - 1;
 
-   var pillsHtml = top.map(_renderTokenPill).join('');
-   if (extra > 0) {
-      pillsHtml += '<div class="live-token-pill live-token-pill-more" onclick="window.location=\'profile.html?tab=appointments\'">+ ' + extra + ' more appointment' + (extra === 1 ? '' : 's') + ' →</div>';
+   var pillsHtml = top.map(function(item, i) {
+      return _renderTokenPill(item, i === 0 ? extraMobile : 0);
+   }).join('');
+   if (extraDesktop > 0) {
+      pillsHtml += '<div class="live-token-pill live-token-pill-more" onclick="window.location=\'profile.html?tab=appointments\'">+ ' + extraDesktop + ' more appointment' + (extraDesktop === 1 ? '' : 's') + ' →</div>';
    }
 
    if (container) {
@@ -12397,27 +12404,30 @@ async function _refreshLiveTokenPill() {
    }
 }
 
-function _renderTokenPill(item) {
+// extraCount: number of other appointments collapsed onto this pill on
+// mobile (rendered as a small red badge — desktop hides it via CSS).
+function _renderTokenPill(item, extraCount) {
    var apt = item.apt;
    var nowServingLabel = item.nowServing
       ? _tokenLabel(item.nowServing)
-      : (item.anyCompleted ? 'queue done' : 'idle');
+      : (item.queueFinished ? 'queue done' : '—');
    var msg, urgentCls = '';
    if (item.isMyTurn)                                 { msg = '🩺 Your turn!';                                                  urgentCls = 'lqp-turn'; }
    else if (item.ahead === 0 && !item.myPaid)         { msg = item.anyCompleted ? '🚶 You\'re next — go pay' : '🚶 Go pay';      urgentCls = 'lqp-urgent'; }
    else if (item.ahead === 1)                         { msg = '🏃 1 ahead';                                                     urgentCls = 'lqp-urgent'; }
    else if (item.ahead > 0)                           { msg = '👥 ' + item.ahead + ' ahead'; }
    else                                               { msg = item.anyCompleted ? '🏁 Queue done' : '⏳ Clinic not started'; }
-   // Short doctor label: first two words to keep the pill compact
    var docShort = (apt.doctor_name || '').split(/\s+/).slice(0, 2).join(' ');
    var titleAttr = ((apt.doctor_name || '') + (apt.provider_name ? ' · ' + apt.provider_name : '')).replace(/"/g, '&quot;');
+   var badge = extraCount > 0 ? '<span class="lqp-count-badge">+' + extraCount + '</span>' : '';
    return '<div class="live-token-pill" onclick="window.location=\'profile.html?tab=appointments\'" title="' + titleAttr + '">' +
              '<span class="lqp-emoji">🎟</span>' +
-             '<span><strong>' + _tokenLabel(apt) + '</strong>' + (docShort ? ' · ' + docShort : '') + '</span>' +
+             '<span><strong>' + _tokenLabel(apt) + '</strong>' + (docShort ? ' <span class="lqp-doc">· ' + docShort + '</span>' : '') + '</span>' +
              '<span class="lqp-divider">·</span>' +
-             '<span>Now: <span class="lqp-now">' + nowServingLabel + '</span></span>' +
+             '<span class="lqp-now-block">Now: <span class="lqp-now">' + nowServingLabel + '</span></span>' +
              '<span class="lqp-divider">·</span>' +
              '<span class="' + urgentCls + '">' + msg + '</span>' +
+             badge +
           '</div>';
 }
 

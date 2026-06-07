@@ -344,6 +344,8 @@
             <button class="btn-back" id="shopStoreBackBtn" onclick="exitMyStore()">← My Stores</button>
             <div id="shopStoreMeta" class="shop-store-meta-inline"></div>
             <div class="shop-store-action-buttons">
+               <!-- Delivery pause toggle (only visible for stores with door_delivery on; populated by renderMyStoreProducts) -->
+               <button class="shop-btn-add-prod hidden" id="shopDeliveryToggleBtn" onclick="toggleDeliveryPaused()"></button>
                <button class="shop-btn-add-prod" style="background:#ef6c00" onclick="openWalkinBillModal()">🧾 Walk-in Bill</button>
                <button class="shop-btn-add-prod" style="background:#1a73e8" onclick="openBulkAddModal()">📦 Bulk Add</button>
                <button class="shop-btn-add-prod" onclick="openStoreProductModal(-1)">➕ Add Item</button>

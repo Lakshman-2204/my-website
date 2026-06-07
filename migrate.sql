@@ -249,7 +249,12 @@ ALTER TABLE public.store_providers
    ADD COLUMN IF NOT EXISTS fssai_no         text    DEFAULT '',
    ADD COLUMN IF NOT EXISTS commission_type  text    DEFAULT 'percent',  -- 'percent' | 'fixed_monthly'
    ADD COLUMN IF NOT EXISTS commission_value numeric DEFAULT 0,
-   ADD COLUMN IF NOT EXISTS door_delivery    boolean DEFAULT false;
+   ADD COLUMN IF NOT EXISTS door_delivery    boolean DEFAULT false,
+   -- Owner-toggleable temporary pause for delivery (e.g., delivery boy off
+   -- today). When true, NEW customer orders force Pickup even if the store
+   -- normally delivers; in-flight delivery orders are NOT auto-converted —
+   -- owner switches them per-order via the "🔄 Switch to pickup" button.
+   ADD COLUMN IF NOT EXISTS delivery_paused  boolean DEFAULT false;
 
 -- 13. CATALOG_ITEMS — admin-curated master list of items per store category.
 --     Stores pick from this list when adding products (avoids duplicate entries

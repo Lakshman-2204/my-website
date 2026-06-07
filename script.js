@@ -920,7 +920,7 @@ async function makeOrder() {
               return p.name === grp.storeName ||
                      (p.owner_email || '').toLowerCase() === (grp.storeId || '').toLowerCase();
            });
-      var supportsDelivery = !!(prov && prov.door_delivery);
+      var supportsDelivery = _storeAcceptsDeliveryNow(prov);
 
       var newOrder = {
          orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
@@ -1047,10 +1047,10 @@ async function openRxOnlyOrderModal(storeProviderId) {
    var submitBtn = document.getElementById('rxOnlySubmitBtn');
    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '📤 Send to Pharmacist'; }
 
-   // Address picker (only if the store has home delivery enabled)
+   // Address picker (only if the store has home delivery enabled AND not paused)
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === storeProviderId; }) || {};
    var addrHost = document.getElementById('rxOnlyAddrSection');
-   if (store.door_delivery) {
+   if (_storeAcceptsDeliveryNow(store)) {
       var addrs = _db.addresses || [];
       var defaultId = (addrs.find(function(a) { return a.isDefault; }) || addrs[0] || {}).id || '';
       window._rxOnlySelectedAddr = defaultId;
@@ -1114,7 +1114,7 @@ async function submitRxOnlyOrder() {
    try { await loadStoreProviders(); } catch (e) {}
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === _rxOnlyStoreId; });
    if (!store) { status.innerHTML = '<span style="color:#c62828">Store not found.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
-   var needsAddr = !!store.door_delivery;
+   var needsAddr = _storeAcceptsDeliveryNow(store);
    var addr = null;
    if (needsAddr) {
       addr = (_db.addresses || []).find(function(a) { return a.id === window._rxOnlySelectedAddr; });
@@ -1180,7 +1180,11 @@ function openMedicalCheckout() {
       var subtotal = g.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
       html += '<div class="med-checkout-group">' +
                 '<div class="med-checkout-store">🏪 <strong>' + (prov.name || g.storeName || 'Store') + '</strong>' +
-                  (prov.door_delivery ? ' <span style="color:#0a8a3a;font-size:0.8rem">🚚 Home delivery</span>' : ' <span style="color:#888;font-size:0.8rem">Self pickup</span>') +
+                  (_storeAcceptsDeliveryNow(prov)
+                     ? ' <span style="color:#0a8a3a;font-size:0.8rem">🚚 Home delivery</span>'
+                     : prov.door_delivery
+                        ? ' <span style="color:#c62828;font-size:0.8rem">⏸ Delivery paused · pickup only</span>'
+                        : ' <span style="color:#888;font-size:0.8rem">Self pickup</span>') +
                 '</div>' +
                 '<ul class="med-checkout-items">' +
                   g.items.map(function(c) {
@@ -1202,7 +1206,7 @@ function openMedicalCheckout() {
    // Address picker — required if any group has door delivery
    var needsAddr = Object.keys(groups).some(function(k) {
       var p = (_storeProvidersCache || []).find(function(x) { return x.id === groups[k].spId; });
-      return p && p.door_delivery;
+      return _storeAcceptsDeliveryNow(p);
    });
    if (needsAddr) {
       html += '<div class="med-checkout-address"><strong>Delivery Address:</strong>';
@@ -1293,7 +1297,7 @@ async function placeMedicalOrder() {
    for (var key in groups) {
       var g = groups[key];
       var prov = (_storeProvidersCache || []).find(function(x) { return x.id === g.spId; }) || {};
-      var needsAddr = !!prov.door_delivery;
+      var needsAddr = _storeAcceptsDeliveryNow(prov);
       if (needsAddr && !addr) { alert('Please choose a delivery address for ' + (prov.name || g.storeName) + '.'); btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; return; }
       var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
       var subtotal = g.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
@@ -1583,6 +1587,14 @@ async function loadAptProviders(force) {
 let STORE_CAT_META = {};            // { id: {icon,label,desc,sortOrder} }
 let _storeCatsLoaded = false;
 let _storeProvidersCache = null;    // [{id, category, name, ...}]
+
+// Customer-facing check: does this store accept NEW home-delivery orders RIGHT
+// NOW? Honors both the admin's door_delivery setting AND the owner's temporary
+// delivery_paused toggle. Label/footer fallback for EXISTING orders uses just
+// door_delivery so an order's display doesn't flip if the owner pauses later.
+function _storeAcceptsDeliveryNow(store) {
+   return !!(store && store.door_delivery && !store.delivery_paused);
+}
 
 async function loadStoreCategories(force) {
    if (_storeCatsLoaded && !force) return STORE_CAT_META;
@@ -4591,7 +4603,11 @@ async function showStoreCategory(catKey) {
                    (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
                    (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
                    (p.phone   ? '<div class="apt-provider-meta" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
-                   (p.door_delivery ? '<div class="apt-provider-meta" style="color:#0a8a3a;font-weight:600">🚚 Home delivery available</div>' : '') +
+                   (p.door_delivery
+                      ? (p.delivery_paused
+                         ? '<div class="apt-provider-meta" style="color:#c62828;font-weight:600">⏸ Delivery paused · pickup only</div>'
+                         : '<div class="apt-provider-meta" style="color:#0a8a3a;font-weight:600">🚚 Home delivery available</div>')
+                      : '') +
                    '<div class="apt-provider-footer">' +
                       '<span>Tap to browse products</span>' +
                       '<button class="apt-view-btn" onclick="event.stopPropagation();showStoreProvider(\'' + pid + '\')">View Products →</button>' +
@@ -4630,7 +4646,11 @@ async function showStoreProvider(providerId) {
    if (p.address) inline.push('📍 ' + _mapsLink(p.address));
    if (p.timing)  inline.push('🕒 ' + p.timing);
    if (p.phone)   inline.push('📞 ' + _phoneLink(p.phone));
-   if (p.door_delivery) inline.push('<span style="color:#0a8a3a;font-weight:600">🚚 Home delivery</span>');
+   if (p.door_delivery) {
+      inline.push(p.delivery_paused
+         ? '<span style="color:#c62828;font-weight:600" title="The store owner has temporarily paused home delivery — orders are pickup-only right now">⏸ Delivery paused · pickup only</span>'
+         : '<span style="color:#0a8a3a;font-weight:600">🚚 Home delivery</span>');
+   }
    var titleText = (p.icon || meta.icon) + ' ' + p.name;
    var titleEl = document.getElementById('productTitle');
    titleEl.innerHTML = titleText +
@@ -6345,6 +6365,13 @@ function renderShopDashboard(filterStatus) {
          if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">🏁 Picked up</button>';
       }
 
+      // "Switch to pickup" — for delivery orders that are still in-flight.
+      // Use when delivery boy unavailable + customer agrees on phone to collect.
+      var inFlight = status !== 'Completed' && status !== 'Cancelled';
+      if (isDelivery && inFlight) {
+         actions += ' <button class="apt-view-btn" style="background:#f57c00" title="Call the customer first to confirm — this removes their delivery address and flips the order to pickup mode" onclick="switchOrderToPickup(\'' + oid + '\')">🔄 Switch to pickup</button>';
+      }
+
       return '<tr>' +
                 '<td><div class="apt-tbl-name">' + (order.orderId || '') + '</div>' +
                     '<div class="apt-tbl-sub">' + (order.date || '') + '</div></td>' +
@@ -6374,6 +6401,27 @@ function renderShopDashboard(filterStatus) {
            '<tbody>' + rowsHtml + '</tbody>' +
         '</table>' +
       '</div>';
+}
+
+// Owner-initiated: convert a single in-flight delivery order to pickup. Used
+// when the delivery boy is unavailable but the customer is OK collecting from
+// the store. Confirms first (this is a customer-visible change), then strips
+// method='COD-Delivery' / delivery_address so the status labels and action
+// buttons re-render as a pickup flow.
+async function switchOrderToPickup(orderId) {
+   var order = _db.orders.find(function(o) { return o.orderId === orderId || o.order_id === orderId; });
+   if (!order) return;
+   var custName = order.customerName || 'this customer';
+   var phone = (order.delivery_address && order.delivery_address.phone) || order.customerPhone || '';
+   if (!confirm('Switch this order to pickup mode?\n\n' +
+                'Make sure you\'ve called ' + custName + (phone ? ' (📞 ' + phone + ')' : '') + ' and they\'re OK collecting from the store.\n\n' +
+                'Their delivery address will be removed from this order.')) return;
+   order.method = 'Pickup';
+   order.delivery_address = null;
+   // Persist
+   var ok = await AppDB.patchOrder(orderId, { method: 'Pickup', delivery_address: null });
+   if (!ok) { alert('Failed to update order.'); return; }
+   renderShopDashboard(window._shopCurrentFilter);
 }
 
 async function updateOrderStatus(orderId, newStatus) {
@@ -6600,6 +6648,29 @@ function renderMyStoresList() {
    }).join('');
 }
 
+// Owner clicks ⏸ Pause / ▶ Resume Delivery on the store action bar.
+// Flips delivery_paused on store_providers; existing in-flight delivery
+// orders stay as delivery (owner must use per-order "Switch to pickup" for those).
+async function toggleDeliveryPaused() {
+   var btn = document.getElementById('shopDeliveryToggleBtn');
+   if (!btn || !btn.dataset.storeId) return;
+   var storeId = btn.dataset.storeId;
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
+   if (!store) return;
+   var nextPaused = !store.delivery_paused;
+   var msg = nextPaused
+      ? 'Pause home delivery for "' + store.name + '"?\n\nNew customer orders will be forced to Pickup.\nExisting delivery orders STAY as delivery — switch them per-order if needed.'
+      : 'Resume home delivery for "' + store.name + '"?\n\nNew customers can place delivery orders again.';
+   if (!confirm(msg)) return;
+   btn.disabled = true;
+   var ok = await AppDB.setDeliveryPaused(storeId, nextPaused);
+   btn.disabled = false;
+   if (!ok) { alert('Failed to update delivery setting. Try again.'); return; }
+   // Refresh cache + re-render
+   store.delivery_paused = nextPaused;
+   renderMyStoreProducts(storeId);
+}
+
 async function enterMyStore(storeId) {
    _currentMyStoreId = storeId;
    // Fetch inventory snapshot ONCE per store entry; downstream renders read
@@ -6645,7 +6716,30 @@ function renderMyStoreProducts(storeId) {
       if (store.address) parts.push('\ud83d\udccd ' + store.address);
       if (store.timing)  parts.push('\ud83d\udd52 ' + store.timing);
       if (store.phone)   parts.push('\ud83d\udcde ' + store.phone);
+      if (store.door_delivery && store.delivery_paused) {
+         parts.push('<span style="color:#c62828;font-weight:600">\u23f8 Delivery paused</span>');
+      }
       metaEl.innerHTML = parts.join(' \u00b7 ');
+   }
+
+   // Delivery pause toggle: visible only for stores that have door_delivery enabled.
+   var dlvBtn = document.getElementById('shopDeliveryToggleBtn');
+   if (dlvBtn) {
+      if (store.door_delivery) {
+         dlvBtn.classList.remove('hidden');
+         dlvBtn.dataset.storeId = store.id;
+         if (store.delivery_paused) {
+            dlvBtn.textContent = '\u25b6 Resume Delivery';
+            dlvBtn.style.background = '#2e7d32';
+            dlvBtn.title = 'Click to resume accepting home-delivery orders';
+         } else {
+            dlvBtn.textContent = '\u23f8 Pause Delivery';
+            dlvBtn.style.background = '#c62828';
+            dlvBtn.title = 'Click to pause home-delivery orders (existing orders stay as delivery; new orders forced to pickup)';
+         }
+      } else {
+         dlvBtn.classList.add('hidden');
+      }
    }
 
    // Filter products by store_provider_id (new model).
@@ -7761,9 +7855,10 @@ async function openOrderBillModal(orderId) {
    if (!o) { alert('Order not found.'); return; }
    _billOrder = JSON.parse(JSON.stringify(o));   // deep clone so cancel doesn't mutate
 
-   // Load this order's store's batch inventory so the per-line batch picker
-   // has something to draw from. The owner may be on Orders tab without
-   // having "entered" the store via My Stores → so we fetch fresh.
+   // Load this order's store's batch inventory + product list so the
+   // per-line batch picker and "Add item to this order" search have data to
+   // work with. The owner may be on Orders tab without having "entered" the
+   // store via My Stores → so we fetch fresh keyed off the order itself.
    if (_billOrder.store_provider_id) {
       try {
          var batches = await AppDB.getBatchesForStore(_billOrder.store_provider_id);
@@ -7772,6 +7867,16 @@ async function openOrderBillModal(orderId) {
             (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
          });
       } catch (e) { /* keep whatever was already loaded */ }
+      try {
+         // _db.storeProducts is the canonical cross-store catalog; filter to
+         // this order's store so the inline search matches the walk-in flow.
+         if (!_db.storeProducts || !_db.storeProducts.length) {
+            _db.storeProducts = (await AppDB.getAllStoreProducts()) || [];
+         }
+         _currentMyStoreProds = (_db.storeProducts || []).filter(function(p) {
+            return p.store_provider_id === _billOrder.store_provider_id;
+         });
+      } catch (e) { /* search will just say "no matches" — owner sees the same error and reloads */ }
    }
 
    _billOrder.items = (_billOrder.items || []).map(function(it) {

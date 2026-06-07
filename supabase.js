@@ -766,10 +766,22 @@ window.AppDB = {
          commission_type:  p.commission_type  || 'percent',
          commission_value: typeof p.commission_value === 'number' ? p.commission_value : (parseFloat(p.commission_value) || 0),
          door_delivery:    !!p.door_delivery,
+         delivery_paused:  !!p.delivery_paused,
          owner_email:      (p.owner_email || '').toLowerCase()
       };
       const { error } = await _sb.from('store_providers').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertStoreProvider:', error.message); return false; }
+      return true;
+   },
+
+   // Owner-side toggle: pause / resume home delivery for one store. Owner
+   // shouldn't touch admin-only fields (commission etc.) so we use a narrow
+   // partial update instead of going through upsertStoreProvider.
+   async setDeliveryPaused(storeId, paused) {
+      const { error } = await _sb.from('store_providers')
+         .update({ delivery_paused: !!paused })
+         .eq('id', storeId);
+      if (error) { console.error('setDeliveryPaused:', error.message); return false; }
       return true;
    },
 

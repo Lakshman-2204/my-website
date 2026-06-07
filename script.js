@@ -12245,6 +12245,18 @@ function _computeQueueState(queueData, myApt) {
    var nowServing      = confirmedQ[0] || null;
    var anyCompleted    = slotQ.some(function(q) { return q.status === 'Completed'; });
 
+   // Slot active? A later slot (e.g. 10 PM) doesn't really start until
+   // every earlier slot (9 PM, etc.) has no Confirmed patients left.
+   // Otherwise the doctor is still busy with the prior slot and the
+   // customer's "Now serving: T1 awaiting" is misleading.
+   var slotIsActive = true;
+   if (mySlotKey) {
+      slotIsActive = !doctorQ.some(function(q) {
+         var qs = q.slot || '';
+         return qs !== '' && qs < mySlotKey && q.status === 'Confirmed';
+      });
+   }
+
    var matchMine = function(q) {
       return (q.id && q.id === myApt.id) ||
              (q.token === myApt.token && q.is_followup === myApt.is_followup);
@@ -12265,8 +12277,9 @@ function _computeQueueState(queueData, myApt) {
       anyCompleted: anyCompleted,
       myIdx:        myIdx,
       ahead:        ahead,
-      isMyTurn:     isMyTurn,
-      myPaid:       myPaid
+      isMyTurn:     isMyTurn && slotIsActive,   // even if you're first + paid, your slot hasn't started
+      myPaid:       myPaid,
+      slotIsActive: slotIsActive
    };
 }
 
@@ -12288,7 +12301,14 @@ async function _populateLiveQueueCard(myApt) {
 
    var queueFinished = qState.confirmedQ.length === 0 && anyCompleted;
    var nowServingHtml;
-   if (nowServing) {
+   if (!qState.slotIsActive) {
+      // Doctor is still busy with an earlier slot — don't claim anyone is
+      // "now serving" in this slot yet. Show the next-in-line token greyed
+      // so the customer knows their place but doesn't head over early.
+      nowServingHtml = nowServing
+         ? '<span class="lq-token lq-token-idle">' + _tokenLabel(nowServing) + ' <span class="lq-pending-tag">slot not started</span></span>'
+         : '<span class="lq-token lq-token-idle">slot not started</span>';
+   } else if (nowServing) {
       var paidCls    = nowServing.is_paid ? 'lq-token-done' : 'lq-token-pending';
       var paidSuffix = nowServing.is_paid ? '' : ' <span class="lq-pending-tag">awaiting</span>';
       nowServingHtml = '<span class="lq-token ' + paidCls + '">' + _tokenLabel(nowServing) + paidSuffix + '</span>';
@@ -12300,7 +12320,10 @@ async function _populateLiveQueueCard(myApt) {
       : '<span style="color:#bbb">—</span>';
 
    var statusLine, statusColor;
-   if (isMyTurn) {
+   if (!qState.slotIsActive) {
+      statusLine = '⏳ <strong>Waiting for an earlier slot to finish</strong> — no need to head over yet.';
+      statusColor = '#666';
+   } else if (isMyTurn) {
       statusLine = '🩺 <strong>It\'s your turn — go in now.</strong>';
       statusColor = '#0a8a3a';
    } else if (ahead === 0 && !myPaid) {
@@ -12379,19 +12402,22 @@ async function _refreshLiveTokenPill() {
       var queueData = await AppDB.getProviderDayQueue(apt.provider_id, apt.date);
       var st = _computeQueueState(queueData, apt);
       return {
-         apt:          apt,
-         nowServing:   st.nowServing,
-         anyCompleted: st.anyCompleted,
+         apt:           apt,
+         nowServing:    st.nowServing,
+         anyCompleted:  st.anyCompleted,
          queueFinished: st.confirmedQ.length === 0 && st.anyCompleted,
-         ahead:        st.ahead,
-         myIdx:        st.myIdx,
-         isMyTurn:     st.isMyTurn,
-         myPaid:       st.myPaid
+         ahead:         st.ahead,
+         myIdx:         st.myIdx,
+         isMyTurn:      st.isMyTurn,
+         myPaid:        st.myPaid,
+         slotIsActive:  st.slotIsActive
       };
    }));
 
-   // Sort by urgency — "It's your turn" wins; then smaller "ahead"; then slot time.
+   // Sort by urgency — active slots beat inactive (later) slots; within
+   // active, "your turn" wins, then smaller "ahead", then slot time.
    enriched.sort(function(x, y) {
+      if (x.slotIsActive !== y.slotIsActive) return x.slotIsActive ? -1 : 1;
       var ax = x.isMyTurn ? -1 : (x.ahead < 0 ? 9999 : x.ahead);
       var ay = y.isMyTurn ? -1 : (y.ahead < 0 ? 9999 : y.ahead);
       if (ax !== ay) return ax - ay;
@@ -12430,7 +12456,8 @@ function _renderTokenPill(item, extraCount) {
       ? _tokenLabel(item.nowServing)
       : (item.queueFinished ? 'queue done' : '—');
    var msg, urgentCls = '';
-   if (item.isMyTurn)                                 { msg = '🩺 Your turn!';                                                  urgentCls = 'lqp-turn'; }
+   if (!item.slotIsActive)                            { msg = '⏳ Earlier slot still running'; }
+   else if (item.isMyTurn)                            { msg = '🩺 Your turn!';                                                  urgentCls = 'lqp-turn'; }
    else if (item.ahead === 0 && !item.myPaid)         { msg = item.anyCompleted ? '🚶 You\'re next — go pay' : '🚶 Go pay';      urgentCls = 'lqp-urgent'; }
    else if (item.ahead === 1)                         { msg = '🏃 1 ahead';                                                     urgentCls = 'lqp-urgent'; }
    else if (item.ahead > 0)                           { msg = '👥 ' + item.ahead + ' ahead'; }

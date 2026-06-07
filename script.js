@@ -6412,6 +6412,22 @@ async function _deductStockForOrder(order) {
    (order.items || []).forEach(function(it) {
       var need = Number(it.qty) || 0;
       if (!need) return;
+      // PREFERRED: deduct from the explicit per-line allocations saved on the
+      // order. This guarantees the bill print matches the stock deduction.
+      if (it.allocations && it.allocations.length) {
+         it.allocations.forEach(function(a) {
+            var qty = Number(a.qty) || 0;
+            if (!qty) return;
+            var lot = (byProduct[it.id] || []).find(function(b) { return b.id === a.batchId; });
+            if (!lot) { shortfalls.push({ name: it.name, short: qty, reason: 'batch ' + (a.batchNo || a.batchId) + ' no longer exists' }); return; }
+            var have = Number(lot.qty_remaining) || 0;
+            var take = Math.min(have, qty);
+            updates.push({ batchRef: lot, newRemaining: have - take });
+            if (take < qty) shortfalls.push({ name: it.name, short: qty - take, reason: 'batch ' + (lot.batch_no || lot.id) + ' short' });
+         });
+         return;
+      }
+      // FALLBACK: legacy orders without allocations — auto-FEFO across batches
       var lots = (byProduct[it.id] || []).slice().sort(function(a, b) {
          var da = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
          var db = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
@@ -6419,12 +6435,12 @@ async function _deductStockForOrder(order) {
       });
       var remaining = need;
       for (var i = 0; i < lots.length && remaining > 0; i++) {
-         var lot = lots[i];
-         var have = Number(lot.qty_remaining) || 0;
-         if (have <= 0) continue;
-         var take = Math.min(have, remaining);
-         updates.push({ batchRef: lot, newRemaining: have - take });
-         remaining -= take;
+         var lot2 = lots[i];
+         var have2 = Number(lot2.qty_remaining) || 0;
+         if (have2 <= 0) continue;
+         var take2 = Math.min(have2, remaining);
+         updates.push({ batchRef: lot2, newRemaining: have2 - take2 });
+         remaining -= take2;
       }
       if (remaining > 0) shortfalls.push({ name: it.name, short: remaining });
    });
@@ -7278,6 +7294,134 @@ function _planFEFODeduction(items) {
    return { updates: updates, shortfalls: shortfalls };
 }
 
+// ── Batch allocations (per-line, owner-overridable) ──────────────────
+// Each bill / walk-in line item carries allocations:
+//   [{ batchId, batchNo, expiryDate, qty }, ...]
+// where sum(qty) = item.qty. Default allocation is FEFO (oldest expiry first);
+// the owner can re-distribute via the expandable batch picker on each line.
+function _sortedBatchesForProduct(productId) {
+   return (_currentStockByProduct[productId] || []).slice()
+      .filter(function(b) { return Number(b.qty_remaining) > 0 || _allocationsUsingBatch(b.id) > 0; })
+      .sort(function(a, b) {
+         var da = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+         var db = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
+         return da - db;
+      });
+}
+// How many units of a batch are already claimed by other lines in the current
+// bill — needed so we don't over-allocate the same batch across multiple items
+// of the same product (rare but possible during merge from history etc.).
+function _allocationsUsingBatch(batchId) {
+   var pool = (window._currentEditableItems || []);
+   return pool.reduce(function(s, it) {
+      return s + (it.allocations || []).reduce(function(t, a) {
+         return t + (a.batchId === batchId ? Number(a.qty) || 0 : 0);
+      }, 0);
+   }, 0);
+}
+// Build FEFO allocations for a product totalling `qty`. Returns array (possibly
+// empty if no stock). Used on add-item and on main-row qty edit.
+function _allocateFEFO(productId, qty) {
+   var allocs = [];
+   var need = Number(qty) || 0;
+   if (need <= 0) return allocs;
+   var batches = _sortedBatchesForProduct(productId);
+   for (var i = 0; i < batches.length && need > 0; i++) {
+      var b = batches[i];
+      var have = Number(b.qty_remaining) || 0;
+      if (have <= 0) continue;
+      var take = Math.min(have, need);
+      allocs.push({
+         batchId:    b.id,
+         batchNo:    b.batch_no || '',
+         expiryDate: b.expiry_date || null,
+         qty:        take
+      });
+      need -= take;
+   }
+   return allocs;
+}
+function _itemTotalQty(item) {
+   if (item.allocations && item.allocations.length) {
+      return item.allocations.reduce(function(s, a) { return s + (Number(a.qty) || 0); }, 0);
+   }
+   return Number(item.qty) || 0;
+}
+// Render the expandable batch picker for one line. `pool` selects which cart
+// to update on edit: 'walkin' or 'bill'.
+function _renderBatchPicker(item, itemIdx, pool) {
+   var batches = _sortedBatchesForProduct(item.id);
+   if (!batches.length) {
+      return '<div style="padding:8px 12px;color:#c62828;font-size:0.85rem;background:#ffebee;border-radius:6px">⚠️ No batches on file for this product. Adjust stock in Manage Stock.</div>';
+   }
+   var allocByBatch = {};
+   (item.allocations || []).forEach(function(a) { allocByBatch[a.batchId] = Number(a.qty) || 0; });
+   var fn = pool === 'walkin' ? '_walkinEditAlloc' : '_billEditAlloc';
+   var rows = batches.map(function(b) {
+      var allocated = allocByBatch[b.id] || 0;
+      var avail     = (Number(b.qty_remaining) || 0) + allocated;     // give the picker back what's already on this line
+      var exp       = _formatMonthYear(b.expiry_date);
+      var batchLbl  = (b.batch_no || '—') + (exp ? ' · Exp ' + exp : '');
+      return '<tr>' +
+                '<td style="padding:4px 8px">' + batchLbl + '</td>' +
+                '<td style="padding:4px 8px;color:#888;font-size:0.82rem">' + avail + ' avail</td>' +
+                '<td style="padding:4px 8px"><input type="number" min="0" step="1" max="' + avail + '" value="' + allocated + '" style="width:70px;padding:3px 6px;border:1px solid #ccc;border-radius:4px" oninput="' + fn + '(' + itemIdx + ',\'' + b.id.replace(/'/g, "\\'") + '\',this.value)"/></td>' +
+             '</tr>';
+   }).join('');
+   return '<table style="width:100%;background:#fafbfc;border:1px solid #e6e8eb;border-radius:6px;border-collapse:collapse;margin-top:6px">' +
+             '<thead><tr style="background:#eef3ff;font-size:0.82rem">' +
+                '<th style="text-align:left;padding:4px 8px">Batch · Expiry</th>' +
+                '<th style="text-align:left;padding:4px 8px">Available</th>' +
+                '<th style="text-align:left;padding:4px 8px">Qty from this batch</th>' +
+             '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+// Build a deduction plan from explicit per-line allocations (preferred over
+// _planFEFODeduction once the bill UI surfaces batch pickers). Returns
+//   { updates: [{batchRef, newRemaining}], shortfalls: [{name, reason}] }
+function _planAllocatedDeduction(items) {
+   var updates = [];
+   var shortfalls = [];
+   // Group allocations by batch so multiple items hitting the same batch
+   // (rare) get summed before checking stock.
+   var byBatch = {};
+   items.forEach(function(it) {
+      var totalQty = _itemTotalQty(it);
+      if (!totalQty) return;
+      if (!it.allocations || !it.allocations.length) {
+         shortfalls.push({ name: it.name, reason: 'no batch allocated' });
+         return;
+      }
+      var allocSum = it.allocations.reduce(function(s, a) { return s + (Number(a.qty) || 0); }, 0);
+      if (allocSum !== totalQty) {
+         shortfalls.push({ name: it.name, reason: 'batch allocations (' + allocSum + ') don\'t match line qty (' + totalQty + ')' });
+         return;
+      }
+      it.allocations.forEach(function(a) {
+         if (!a.batchId || !a.qty) return;
+         byBatch[a.batchId] = (byBatch[a.batchId] || 0) + Number(a.qty);
+      });
+   });
+   // Validate each batch has enough stock + build update set
+   Object.keys(byBatch).forEach(function(batchId) {
+      var need = byBatch[batchId];
+      // Find the batch in any product's pool
+      var found = null;
+      Object.keys(_currentStockByProduct).some(function(pid) {
+         var hit = (_currentStockByProduct[pid] || []).find(function(b) { return b.id === batchId; });
+         if (hit) { found = hit; return true; }
+         return false;
+      });
+      if (!found) { shortfalls.push({ name: 'batch ' + batchId, reason: 'batch not found' }); return; }
+      var have = Number(found.qty_remaining) || 0;
+      if (need > have) {
+         shortfalls.push({ name: found.batch_no || batchId, reason: 'need ' + need + ', only ' + have + ' in batch' });
+         return;
+      }
+      updates.push({ batchRef: found, newRemaining: have - need });
+   });
+   return { updates: updates, shortfalls: shortfalls };
+}
+
 // Dispatch the deduction plan to Supabase + update the in-memory cache so
 // the next search / table-render reflects the new stock immediately.
 async function _commitFEFODeduction(updates) {
@@ -7348,27 +7492,35 @@ function _walkinRunSearch() {
 function addWalkinItem(productId) {
    var p = _currentMyStoreProds.find(function(x) { return x.id === productId; });
    if (!p) return;
+   window._currentEditableItems = _walkinItems;     // for _allocationsUsingBatch
    var avail = _availableStock(productId);
    if (avail <= 0) {
       alert('❌ "' + p.name + '" is out of stock.\n\nAdd a new batch from Products → Stock before billing.');
       return;
    }
    var existing = _walkinItems.find(function(x) { return x.id === productId; });
-   var currentQty = existing ? existing.qty : 0;
+   var currentQty = existing ? _itemTotalQty(existing) : 0;
    if (currentQty + 1 > avail) {
       alert('⚠️ Only ' + avail + ' unit' + (avail === 1 ? '' : 's') + ' of "' + p.name + '" in stock.\nAlready added: ' + currentQty + '. Cannot add more.');
       return;
    }
-   if (existing) { existing.qty += 1; }
-   else {
-      _walkinItems.push({
+   if (existing) {
+      // Re-FEFO with the new total — keeps allocations aligned with stock
+      existing.allocations = _allocateFEFO(productId, currentQty + 1);
+      existing.qty = _itemTotalQty(existing);
+   } else {
+      var item = {
          id:    p.id,
          name:  p.name,
          qty:   1,
          mrp:   Number(p.price) || 0,
          disc_pct: 0,
-         rx_required: !!p.rx_required
-      });
+         rx_required: !!p.rx_required,
+         allocations: []
+      };
+      item.allocations = _allocateFEFO(productId, 1);
+      item.qty = _itemTotalQty(item);
+      _walkinItems.push(item);
    }
    document.getElementById('walkin-item-search').value = '';
    document.getElementById('walkin-item-results').classList.add('hidden');
@@ -7377,37 +7529,73 @@ function addWalkinItem(productId) {
 
 function _walkinEditLine(i, field, val) {
    if (!_walkinItems[i]) return;
-   // Allow intermediate empty state ("" / NaN) so the user can clear and retype.
-   // We only persist a clean numeric value; rendering treats empty as 0.
+   window._currentEditableItems = _walkinItems;
    var n = parseFloat(val);
    var clean = isNaN(n) || n < 0 ? 0 : n;
-   // Cap qty at available stock — prevents selling phantom units.
    if (field === 'qty') {
       var avail = _availableStock(_walkinItems[i].id);
       if (clean > avail) {
          clean = avail;
-         var input = document.querySelectorAll('#walkin-items-table tbody tr')[i];
-         if (input) {
-            var qtyInput = input.querySelector('input[type="number"]');
-            if (qtyInput) qtyInput.value = avail;
-         }
          alert('⚠️ Only ' + avail + ' unit' + (avail === 1 ? '' : 's') + ' of "' + _walkinItems[i].name + '" in stock. Quantity capped.');
       }
+      // Re-allocate via FEFO when the main qty changes
+      _walkinItems[i].allocations = _allocateFEFO(_walkinItems[i].id, clean);
+      _walkinItems[i].qty = _itemTotalQty(_walkinItems[i]);
+      _renderWalkinTable();   // re-render so the batch picker reflects new allocations
+      return;
    }
    _walkinItems[i][field] = clean;
-   _updateWalkinTotals(i);   // only update the Net cell + summary; leave inputs alone
+   _updateWalkinTotals(i);
+}
+// Owner explicitly sets qty for one batch on one line. Sums up to update item total.
+function _walkinEditAlloc(itemIdx, batchId, val) {
+   var it = _walkinItems[itemIdx];
+   if (!it) return;
+   var q = parseFloat(val); if (isNaN(q) || q < 0) q = 0;
+   it.allocations = it.allocations || [];
+   var alloc = it.allocations.find(function(a) { return a.batchId === batchId; });
+   if (alloc) {
+      if (q === 0) it.allocations = it.allocations.filter(function(a) { return a.batchId !== batchId; });
+      else         alloc.qty = q;
+   } else if (q > 0) {
+      // Owner just enabled a batch that FEFO didn't pick — pull its metadata
+      var b = (_currentStockByProduct[it.id] || []).find(function(x) { return x.id === batchId; });
+      if (b) {
+         it.allocations.push({
+            batchId:    b.id,
+            batchNo:    b.batch_no || '',
+            expiryDate: b.expiry_date || null,
+            qty:        q
+         });
+      }
+   }
+   it.qty = _itemTotalQty(it);
+   _updateWalkinTotals(itemIdx);
+   // Update the main-row qty cell only (don't full re-render; keep picker open)
+   var rows = document.querySelectorAll('#walkin-items-table > table > tbody > tr.main-row');
+   var row = rows[itemIdx];
+   if (row) {
+      var qtyCell = row.querySelector('.line-qty');
+      if (qtyCell) qtyCell.textContent = it.qty;
+   }
+}
+function _toggleWalkinBatchPicker(i) {
+   var row = document.querySelector('#walkin-items-table .batch-row[data-idx="' + i + '"]');
+   if (!row) return;
+   row.classList.toggle('hidden');
 }
 function _updateWalkinTotals(highlightIdx) {
-   var rows = document.querySelectorAll('#walkin-items-table tbody tr');
+   var rows = document.querySelectorAll('#walkin-items-table tbody tr.main-row');
    _walkinItems.forEach(function(it, i) {
-      var net = it.mrp * it.qty * (1 - it.disc_pct / 100);
+      var qty = _itemTotalQty(it);
+      var net = it.mrp * qty * (1 - it.disc_pct / 100);
       if (rows[i]) {
          var netCell = rows[i].querySelector('.bill-line-net');
          if (netCell) netCell.textContent = '₹' + net.toFixed(2);
       }
    });
-   var gross    = _walkinItems.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
-   var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var gross    = _walkinItems.reduce(function(s, it) { return s + it.mrp * _itemTotalQty(it); }, 0);
+   var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
    var net      = gross - lineDisc;
    var rounded  = Math.round(net);
    var sum = document.getElementById('walkin-summary');
@@ -7418,27 +7606,38 @@ function _updateWalkinTotals(highlightIdx) {
 }
 function _walkinRemoveLine(i) {
    _walkinItems.splice(i, 1);
-   _renderWalkinTable();   // structural change → full re-render is fine
+   _renderWalkinTable();
 }
 
 function _renderWalkinTable() {
    var host = document.getElementById('walkin-items-table');
    if (!host) return;
+   window._currentEditableItems = _walkinItems;
    if (!_walkinItems.length) {
       host.innerHTML = '<p style="color:#999;text-align:center;padding:20px;background:#fafbfc;border-radius:8px">No items yet. Use the search box above to add products.</p>';
       document.getElementById('walkin-summary').innerHTML = '';
       return;
    }
    var rows = _walkinItems.map(function(it, i) {
-      var net = it.mrp * it.qty * (1 - it.disc_pct / 100);
-      return '<tr>' +
-                '<td>' + (i+1) + '. ' + it.name + (it.rx_required ? ' <span style="color:#c62828;font-size:0.75rem">⚠️Rx</span>' : '') + '</td>' +
-                '<td><input type="number" min="1" step="1"   value="' + it.qty + '" oninput="_walkinEditLine(' + i + ',\'qty\',this.value)"/></td>' +
+      var qty = _itemTotalQty(it);
+      var net = it.mrp * qty * (1 - it.disc_pct / 100);
+      var allocCount  = (it.allocations || []).length;
+      var totalBatches = _sortedBatchesForProduct(it.id).length;
+      var batchChip = totalBatches > 0
+         ? '<span class="batch-chip" onclick="_toggleWalkinBatchPicker(' + i + ')" title="Click to allocate across batches">📦 Batches: ' + allocCount + '/' + totalBatches + ' ▾</span>'
+         : '<span style="color:#c62828;font-size:0.78rem">⚠️ No batches</span>';
+      var mainRow = '<tr class="main-row">' +
+                '<td>' + (i+1) + '. ' + it.name + (it.rx_required ? ' <span style="color:#c62828;font-size:0.75rem">⚠️Rx</span>' : '') +
+                   '<div style="margin-top:3px">' + batchChip + '</div>' +
+                '</td>' +
+                '<td class="line-qty" style="text-align:center;font-weight:600">' + qty + '</td>' +
                 '<td><input type="number" min="0" step="0.01" value="' + it.mrp + '" oninput="_walkinEditLine(' + i + ',\'mrp\',this.value)"/></td>' +
                 '<td><input type="number" min="0" max="100" step="0.1" value="' + it.disc_pct + '" oninput="_walkinEditLine(' + i + ',\'disc_pct\',this.value)"/></td>' +
                 '<td class="bill-line-net">₹' + net.toFixed(2) + '</td>' +
                 '<td><button class="apt-view-btn" style="background:#c62828" onclick="_walkinRemoveLine(' + i + ')">🗑</button></td>' +
              '</tr>';
+      var pickerRow = '<tr class="batch-row hidden" data-idx="' + i + '"><td colspan="6" style="padding:0 12px 10px;background:#fafbfc">' + _renderBatchPicker(it, i, 'walkin') + '</td></tr>';
+      return mainRow + pickerRow;
    }).join('');
    host.innerHTML =
       '<table class="bill-edit-table">' +
@@ -7446,29 +7645,20 @@ function _renderWalkinTable() {
          '<tbody>' + rows + '</tbody>' +
       '</table>';
 
-   var gross    = _walkinItems.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
-   var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
-   var net      = gross - lineDisc;
-   var rounded  = Math.round(net);
-   document.getElementById('walkin-summary').innerHTML =
-      '<div>Gross: ₹' + gross.toFixed(2) + '</div>' +
-      '<div>Line discounts: −₹' + lineDisc.toFixed(2) + '</div>' +
-      '<div class="bill-net">Net Amount: ₹' + rounded.toFixed(2) + '</div>';
+   _updateWalkinTotals();
 }
 
 async function saveWalkinBill(printAfter) {
    if (!_walkinItems.length) { alert('Add at least one item before saving.'); return; }
    if (!_currentMyStoreId) { alert('No store context.'); return; }
 
-   // Stock check + FEFO plan BEFORE inserting the order, so we never persist
-   // a bill that can't actually be fulfilled from inventory.
-   var plan = _planFEFODeduction(_walkinItems);
+   // Use explicit per-line allocations the owner saw on screen; build the
+   // deduction plan from those so what was billed matches what was deducted.
+   var plan = _planAllocatedDeduction(_walkinItems);
    if (plan.shortfalls.length) {
-      alert('❌ Cannot save — insufficient stock:\n\n' +
-            plan.shortfalls.map(function(s) {
-               return '• ' + s.name + ': need ' + s.needed + ', only ' + s.available + ' available';
-            }).join('\n') +
-            '\n\nAdjust quantities or add a new batch.');
+      alert('❌ Cannot save — these items have no batch selected:\n\n' +
+            plan.shortfalls.map(function(s) { return '• ' + s.name + ': ' + s.reason; }).join('\n') +
+            '\n\nOpen 📦 Batches under each line and allocate quantities.');
       return;
    }
 
@@ -7496,8 +7686,8 @@ async function saveWalkinBill(printAfter) {
    var mm = String(now.getMonth() + 1).padStart(2, '0');
    var dd = String(now.getDate()).padStart(2, '0');
    var orderId = 'WLK-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-   var gross    = _walkinItems.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
-   var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var gross    = _walkinItems.reduce(function(s, it) { return s + it.mrp * _itemTotalQty(it); }, 0);
+   var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
    var net = gross - lineDisc;
 
    var order = {
@@ -7507,7 +7697,7 @@ async function saveWalkinBill(printAfter) {
       customerEmail: '',
       customerPhone: phone || '',
       items: _walkinItems.map(function(it) {
-         return { id: it.id, name: it.name, qty: it.qty, price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required };
+         return { id: it.id, name: it.name, qty: _itemTotalQty(it), price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required, allocations: it.allocations || [] };
       }),
       total: net,
       method: 'Walk-in',
@@ -7524,7 +7714,8 @@ async function saveWalkinBill(printAfter) {
    var ok = await AppDB.insertOrder(order);
    if (!ok) { alert('Failed to save bill.'); return; }
 
-   // Order persisted — now deduct stock from inventory_batches (FEFO).
+   // Order persisted — now deduct stock from inventory_batches using the
+   // explicit per-line allocations the owner just confirmed on screen.
    // We use the plan computed at the top of this function so the deduction
    // matches exactly what we validated against.
    try { await _commitFEFODeduction(plan.updates); } catch (e) { console.error('Stock deduction failed:', e); }
@@ -7592,20 +7783,31 @@ function _renderOrderBillBody() {
                   (a.state ? ', ' + a.state : '') + (a.pin ? ' - ' + a.pin : '') +
                   '</div>';
    }
+   window._currentEditableItems = _billOrder.items;
    var rowsHtml = _billOrder.items.map(function(it, i) {
-      var net = (it.mrp * it.qty) * (1 - it.disc_pct / 100);
-      return '<tr>' +
-                '<td>' + (i + 1) + '. ' + it.name + (it.rx_required ? ' <span style="color:#c62828;font-size:0.75rem">⚠️Rx</span>' : '') + '</td>' +
-                '<td><input type="number" min="0" step="1"   value="' + it.qty      + '" oninput="_billEditLine(' + i + ',\'qty\',this.value)"/></td>' +
-                '<td><input type="number" min="0" step="0.01" value="' + it.mrp      + '" oninput="_billEditLine(' + i + ',\'mrp\',this.value)"/></td>' +
+      var qty = _itemTotalQty(it);
+      var net = (it.mrp * qty) * (1 - it.disc_pct / 100);
+      var allocCount  = (it.allocations || []).length;
+      var totalBatches = _sortedBatchesForProduct(it.id).length;
+      var batchChip = totalBatches > 0
+         ? '<span class="batch-chip" onclick="_toggleBillBatchPicker(' + i + ')" title="Click to allocate across batches">📦 Batches: ' + allocCount + '/' + totalBatches + ' ▾</span>'
+         : '<span style="color:#c62828;font-size:0.78rem">⚠️ No batches on file</span>';
+      var mainRow = '<tr class="main-row">' +
+                '<td>' + (i + 1) + '. ' + it.name + (it.rx_required ? ' <span style="color:#c62828;font-size:0.75rem">⚠️Rx</span>' : '') +
+                   '<div style="margin-top:3px">' + batchChip + '</div>' +
+                '</td>' +
+                '<td class="line-qty" style="text-align:center;font-weight:600">' + qty + '</td>' +
+                '<td><input type="number" min="0" step="0.01" value="' + it.mrp + '" oninput="_billEditLine(' + i + ',\'mrp\',this.value)"/></td>' +
                 '<td><input type="number" min="0" step="0.1" max="100" value="' + it.disc_pct + '" oninput="_billEditLine(' + i + ',\'disc_pct\',this.value)"/></td>' +
                 '<td class="bill-line-net">₹' + net.toFixed(2) + '</td>' +
                 '<td><button class="apt-view-btn" style="background:#c62828" onclick="_billRemoveLine(' + i + ')">🗑</button></td>' +
              '</tr>';
+      var pickerRow = '<tr class="batch-row hidden" data-idx="' + i + '"><td colspan="6" style="padding:0 12px 10px;background:#fafbfc">' + _renderBatchPicker(it, i, 'bill') + '</td></tr>';
+      return mainRow + pickerRow;
    }).join('');
 
-   var gross = _billOrder.items.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
-   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var gross = _billOrder.items.reduce(function(s, it) { return s + it.mrp * _itemTotalQty(it); }, 0);
+   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
    var subtotal = gross - lineDisc;
    var overallDisc = subtotal * (_billDiscountPct / 100);
    var net = Math.round((subtotal - overallDisc) * 100) / 100;
@@ -7646,10 +7848,56 @@ function _renderOrderBillBody() {
 
 function _billEditLine(i, field, val) {
    if (!_billOrder || !_billOrder.items[i]) return;
-   // Allow intermediate empty state — clear-and-retype shouldn't break focus.
+   window._currentEditableItems = _billOrder.items;
    var n = parseFloat(val);
-   _billOrder.items[i][field] = isNaN(n) || n < 0 ? 0 : n;
-   _updateBillTotals();   // only update Net cells + summary; leave inputs alone
+   var clean = isNaN(n) || n < 0 ? 0 : n;
+   if (field === 'qty') {
+      var avail = _availableStock(_billOrder.items[i].id);
+      if (clean > avail) {
+         clean = avail;
+         alert('⚠️ Only ' + avail + ' unit' + (avail === 1 ? '' : 's') + ' of "' + _billOrder.items[i].name + '" in stock. Quantity capped.');
+      }
+      _billOrder.items[i].allocations = _allocateFEFO(_billOrder.items[i].id, clean);
+      _billOrder.items[i].qty = _itemTotalQty(_billOrder.items[i]);
+      _renderOrderBillBody();
+      return;
+   }
+   _billOrder.items[i][field] = clean;
+   _updateBillTotals();
+}
+function _billEditAlloc(itemIdx, batchId, val) {
+   var it = _billOrder && _billOrder.items[itemIdx];
+   if (!it) return;
+   var q = parseFloat(val); if (isNaN(q) || q < 0) q = 0;
+   it.allocations = it.allocations || [];
+   var alloc = it.allocations.find(function(a) { return a.batchId === batchId; });
+   if (alloc) {
+      if (q === 0) it.allocations = it.allocations.filter(function(a) { return a.batchId !== batchId; });
+      else         alloc.qty = q;
+   } else if (q > 0) {
+      var b = (_currentStockByProduct[it.id] || []).find(function(x) { return x.id === batchId; });
+      if (b) {
+         it.allocations.push({
+            batchId:    b.id,
+            batchNo:    b.batch_no || '',
+            expiryDate: b.expiry_date || null,
+            qty:        q
+         });
+      }
+   }
+   it.qty = _itemTotalQty(it);
+   _updateBillTotals();
+   var rows = document.querySelectorAll('.bill-edit-table tbody tr.main-row');
+   var row = rows[itemIdx];
+   if (row) {
+      var qtyCell = row.querySelector('.line-qty');
+      if (qtyCell) qtyCell.textContent = it.qty;
+   }
+}
+function _toggleBillBatchPicker(i) {
+   var row = document.querySelector('.bill-edit-table .batch-row[data-idx="' + i + '"]');
+   if (!row) return;
+   row.classList.toggle('hidden');
 }
 function _billEditOverallDisc(val) {
    var n = parseFloat(val);
@@ -7658,16 +7906,17 @@ function _billEditOverallDisc(val) {
 }
 function _updateBillTotals() {
    if (!_billOrder) return;
-   var rows = document.querySelectorAll('.bill-edit-table tbody tr');
+   var rows = document.querySelectorAll('.bill-edit-table tbody tr.main-row');
    _billOrder.items.forEach(function(it, i) {
-      var net = it.mrp * it.qty * (1 - it.disc_pct / 100);
+      var qty = _itemTotalQty(it);
+      var net = it.mrp * qty * (1 - it.disc_pct / 100);
       if (rows[i]) {
          var netCell = rows[i].querySelector('.bill-line-net');
          if (netCell) netCell.textContent = '₹' + net.toFixed(2);
       }
    });
-   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
-   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * _itemTotalQty(it); }, 0);
+   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
    var subtotal = gross - lineDisc;
    var overallDisc = subtotal * (_billDiscountPct / 100);
    var net = Math.round((subtotal - overallDisc) * 100) / 100;
@@ -7724,35 +7973,53 @@ function addBillItem(productId) {
    if (!_billOrder) return;
    var p = (_currentMyStoreProds || []).find(function(x) { return x.id === productId; });
    if (!p) return;
+   window._currentEditableItems = _billOrder.items;
+   var avail = _availableStock(productId);
+   if (avail <= 0) {
+      alert('❌ "' + p.name + '" is out of stock.\n\nAdd a new batch from Products → Stock first.');
+      return;
+   }
    var existing = _billOrder.items.find(function(x) { return x.id === productId; });
-   if (existing) { existing.qty += 1; }
-   else {
-      _billOrder.items.push({
+   var currentQty = existing ? _itemTotalQty(existing) : 0;
+   if (currentQty + 1 > avail) {
+      alert('⚠️ Only ' + avail + ' unit' + (avail === 1 ? '' : 's') + ' of "' + p.name + '" in stock.\nAlready added: ' + currentQty + '.');
+      return;
+   }
+   if (existing) {
+      existing.allocations = _allocateFEFO(productId, currentQty + 1);
+      existing.qty = _itemTotalQty(existing);
+   } else {
+      var item = {
          id:    p.id,
          name:  p.name,
          qty:   1,
          price: Number(p.price) || 0,
          mrp:   Number(p.price) || 0,
          disc_pct: 0,
-         rx_required: !!p.rx_required
-      });
+         rx_required: !!p.rx_required,
+         allocations: []
+      };
+      item.allocations = _allocateFEFO(productId, 1);
+      item.qty = _itemTotalQty(item);
+      _billOrder.items.push(item);
    }
-   _renderOrderBillBody();   // structural change → full re-render
+   _renderOrderBillBody();
 }
 
 async function saveOrderEdits() {
    if (!_billOrder) return;
    var orderId = _billOrder.orderId || _billOrder.order_id;
-   // Compute the new total
-   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
-   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   // Compute the new total from allocation-derived quantities
+   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * _itemTotalQty(it); }, 0);
+   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
    var subtotal = gross - lineDisc;
    var overallDisc = subtotal * (_billDiscountPct / 100);
    var net = Math.round((subtotal - overallDisc) * 100) / 100;
 
    var patch = {
       items: _billOrder.items.map(function(it) {
-         return { id: it.id, name: it.name, qty: it.qty, price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required };
+         var qty = _itemTotalQty(it);
+         return { id: it.id, name: it.name, qty: qty, price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required, allocations: it.allocations || [] };
       }),
       total: net,
       discount_pct: _billDiscountPct
@@ -7864,26 +8131,44 @@ function _amountInWords(n) {
 }
 
 function _renderBillHtml(d) {
-   var rows = d.order.items.map(function(it, i) {
-      var amt = it.mrp * it.qty;
-      var disc = amt * (it.disc_pct / 100);
-      var net  = amt - disc;
-      return '<tr>' +
-                '<td>' + (i+1) + '</td>' +
-                '<td>' + it.name + '</td>' +
+   // One printed row per (item, allocation). If an item has no allocations
+   // (legacy bills), fall back to a single row with "—" in Batch/Exp.
+   var sno = 0;
+   var rows = d.order.items.map(function(it) {
+      var allocs = (it.allocations && it.allocations.length)
+         ? it.allocations
+         : [{ batchNo: '—', expiryDate: null, qty: Number(it.qty) || 0 }];
+      var packLbl = (it.sell_unit && it.units_per_pack)
+         ? (it.units_per_pack + ' ' + it.sell_unit + (it.units_per_pack === 1 ? '' : 's'))
+         : '—';
+      return allocs.map(function(a, ai) {
+         sno += 1;
+         var amt = it.mrp * (Number(a.qty) || 0);
+         var disc = amt * (it.disc_pct / 100);
+         var net  = amt - disc;
+         var nameCell = ai === 0
+            ? it.name + (it.rx_required ? ' <span style="color:#c62828">⚠️Rx</span>' : '')
+            : '<span style="color:#888;font-style:italic">↳ same item, different batch</span>';
+         return '<tr>' +
+                '<td>' + sno + '</td>' +
+                '<td>' + nameCell + '</td>' +
                 '<td>3004</td>' +
-                '<td>—</td>' +
-                '<td>—</td>' +
-                '<td>—</td>' +
-                '<td style="text-align:right">' + it.qty + '</td>' +
+                '<td>' + packLbl + '</td>' +
+                '<td><b>' + (a.batchNo || '—') + '</b></td>' +
+                '<td>' + (a.expiryDate ? _formatMonthYear(a.expiryDate) : '—') + '</td>' +
+                '<td style="text-align:right">' + (Number(a.qty) || 0) + '</td>' +
                 '<td style="text-align:right">' + it.mrp.toFixed(2) + '</td>' +
                 '<td style="text-align:right">' + amt.toFixed(2) + '</td>' +
                 '<td style="text-align:right">' + it.disc_pct.toFixed(1) + '</td>' +
                 '<td style="text-align:right">5</td>' +
                 '<td style="text-align:right"><b>' + net.toFixed(2) + '</b></td>' +
              '</tr>';
+      }).join('');
    }).join('');
-   var totalQty = d.order.items.reduce(function(s, it) { return s + it.qty; }, 0);
+   var totalQty = d.order.items.reduce(function(s, it) {
+      var allocs = (it.allocations && it.allocations.length) ? it.allocations : null;
+      return s + (allocs ? allocs.reduce(function(t, a) { return t + (Number(a.qty) || 0); }, 0) : (Number(it.qty) || 0));
+   }, 0);
    var dateStr = d.now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
    var timeStr = d.now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 

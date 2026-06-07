@@ -3252,6 +3252,14 @@ body.guest .store-section-divider {
 
 .store-topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 
+/* Bill modals: per-line batch picker chip */
+.batch-chip {
+	display: inline-block; cursor: pointer; user-select: none;
+	background: #eef3ff; color: #1a73e8; font-size: 0.78rem; font-weight: 600;
+	padding: 2px 9px; border-radius: 999px; border: 1px solid #c5cae9;
+}
+.batch-chip:hover { background: #dde7ff; }
+
 /* Walk-in modal: taller, draggable via the header */
 #walkinBillModal .sp-modal {
 	height: 88vh; max-height: 88vh; display: flex; flex-direction: column;

@@ -3252,42 +3252,38 @@ body.guest .store-section-divider {
 
 .store-topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 
-/* Live-queue chips on customer's My Appointments (today only) — one
-   compact pill per today appointment, arranged in a single wrap-row */
+/* Live-queue cards on customer's My Appointments (today only) — narrow
+   cards arranged in a multi-column grid so multiple appointments fit on
+   one row. Auto-fit means: as many ~320px columns as the viewport allows. */
 .live-queue-list {
-	display: flex; flex-wrap: wrap; gap: 8px;
-	margin-bottom: 14px;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	gap: 10px; margin-bottom: 16px;
 }
 .live-queue-card {
-	display: inline-flex; align-items: center; gap: 8px;
-	padding: 7px 14px; border-radius: 999px;
-	font-size: 0.85rem; font-weight: 600;
-	border: 1.5px solid; cursor: default;
-	white-space: nowrap;
+	background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+	border: 1px solid #a5d6a7; border-radius: 12px;
+	padding: 12px 14px; box-shadow: 0 2px 10px rgba(46, 125, 50, 0.10);
 }
-.live-queue-card.live-queue-loading {
-	background: #fafbfc; border-color: #e0e0e0; color: #888;
-	font-weight: 500;
+.live-queue-card.live-queue-loading { background: #fafbfc; border-color: #e0e0e0; color: #888; padding: 10px 14px; }
+.live-queue-card .lq-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; font-size: 0.88rem; }
+.live-queue-card .lq-doc  { color: #1b5e20; }
+.live-queue-card .lq-date { font-size: 0.78rem; color: #555; }
+.live-queue-card .lq-tokens { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; }
+.live-queue-card .lq-token-group { display: flex; flex-direction: column; gap: 3px; }
+.live-queue-card .lq-token-group label { font-size: 0.68rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.live-queue-card .lq-token {
+	display: inline-block; padding: 3px 12px; border-radius: 999px;
+	font-weight: 700; font-size: 1rem;
 }
-.live-queue-card .lq-chip-icon   { font-size: 1rem; }
-.live-queue-card .lq-chip-token  { background: rgba(255,255,255,0.7); padding: 1px 8px; border-radius: 999px; font-weight: 700; }
-.live-queue-card .lq-chip-doc    { color: inherit; opacity: 0.9; }
-.live-queue-card .lq-chip-sep    { opacity: 0.4; }
-.live-queue-card .lq-chip-now strong { font-weight: 700; }
-.live-queue-card .lq-chip-status { font-weight: 700; }
+.live-queue-card .lq-token-mine { background: #1a73e8; color: #fff; }
+.live-queue-card .lq-token-done { background: #2e7d32; color: #fff; }
+.live-queue-card .lq-token-idle { background: #f5f5f5; color: #888; font-size: 0.8rem; font-weight: 500; }
+.live-queue-card .lq-status { font-size: 0.88rem; padding-top: 5px; border-top: 1px dashed #c5e1c5; }
+.live-queue-card .lq-wait   { font-size: 0.78rem; color: #666; margin-top: 3px; }
 
-/* Urgency-driven colours */
-.live-queue-card.lq-chip-turn   { background: #e8f5e9; border-color: #0a8a3a; color: #0a8a3a; }
-.live-queue-card.lq-chip-urgent { background: #fff3e0; border-color: #ef6c00; color: #ef6c00; }
-.live-queue-card.lq-chip-wait   { background: #e3f2fd; border-color: #1565c0; color: #1565c0; }
-.live-queue-card.lq-chip-idle   { background: #f5f5f5; border-color: #bdbdbd; color: #666; }
-
-/* Mobile: drop the "Now: T2" and doctor name on chips to keep them on one line */
-@media (max-width: 600px) {
-	.live-queue-card { padding: 5px 11px; font-size: 0.78rem; gap: 5px; }
-	.live-queue-card .lq-chip-doc { display: none; }
-	.live-queue-card .lq-chip-now { display: none; }
-	.live-queue-card .lq-chip-sep { display: none; }
+@media (max-width: 480px) {
+	.live-queue-list { grid-template-columns: 1fr; }
 }
 
 /* Home-page floating token pills — stacked, one per today's appointment (max 3 visible, "+N more" pill links to My Appointments) */

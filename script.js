@@ -12276,53 +12276,60 @@ async function _populateLiveQueueCard(myApt) {
    var qState = _computeQueueState(await AppDB.getProviderDayQueue(myApt.provider_id, myApt.date), myApt);
    var nowServing    = qState.nowServing;
    var anyCompleted  = qState.anyCompleted;
-   var myIdx         = qState.myIdx;
    var ahead         = qState.ahead;
    var isMyTurn      = qState.isMyTurn;
    var myPaid        = qState.myPaid;
 
-   // Compact chip: urgency drives the chip color.
-   // "Now serving" = first paid+Confirmed token in MY slot (clinic accepts
-   // payment when the patient arrives → paid = at the counter / being seen).
-   var urgencyCls;
-   var statusText;
+   var queueFinished = qState.confirmedQ.length === 0 && anyCompleted;
+   var nowServingHtml = nowServing
+      ? '<span class="lq-token lq-token-done">' + _tokenLabel(nowServing) + '</span>'
+      : '<span class="lq-token lq-token-idle">' + (queueFinished ? 'queue done' : '—') + '</span>';
+   var myTokenHtml = myApt.token
+      ? '<span class="lq-token lq-token-mine">' + _tokenLabel(myApt) + '</span>'
+      : '<span style="color:#bbb">—</span>';
+
+   var statusLine, statusColor;
    if (isMyTurn) {
-      urgencyCls = 'lq-chip-turn';
-      statusText = '🩺 It\'s your turn — go in';
+      statusLine = '🩺 <strong>It\'s your turn — go in now.</strong>';
+      statusColor = '#0a8a3a';
    } else if (ahead === 0 && !myPaid) {
-      urgencyCls = 'lq-chip-urgent';
-      statusText = anyCompleted ? '🚶 You\'re next — pay at counter' : '🚶 Reach clinic & pay at counter';
+      statusLine = anyCompleted
+         ? '🚶 <strong>You\'re next</strong> — pay at the counter.'
+         : '🚶 <strong>Reach the clinic</strong> & pay at the counter.';
+      statusColor = '#ef6c00';
    } else if (ahead === 1) {
-      urgencyCls = 'lq-chip-urgent';
-      statusText = '🏃 1 ahead';
+      statusLine = '🏃 <strong>1 patient ahead</strong> of you.';
+      statusColor = '#ef6c00';
    } else if (ahead > 0) {
-      urgencyCls = 'lq-chip-wait';
-      statusText = '👥 ' + ahead + ' ahead';
+      statusLine = '👥 <strong>' + ahead + ' patients ahead</strong> of you.';
+      statusColor = '#1565c0';
    } else {
-      urgencyCls = 'lq-chip-idle';
-      statusText = anyCompleted ? '🏁 Queue done' : '⏳ Clinic not started';
+      statusLine = anyCompleted ? '🏁 Queue done for this slot.' : '⏳ Clinic hasn\'t started this slot.';
+      statusColor = '#666';
    }
 
-   var queueFinished = qState.confirmedQ.length === 0 && anyCompleted;
-   var nowServingLabel = nowServing
-      ? _tokenLabel(nowServing)
-      : (queueFinished ? 'queue done' : '—');
-   var docShort = (myApt.doctor_name || '').split(/\s+/).slice(0, 2).join(' ');
-   var titleAttr = ((myApt.doctor_name || '') +
-                    (myApt.provider_name ? ' · ' + myApt.provider_name : '') +
-                    (myApt.slot ? ' · ' + _formatSlot12(myApt.slot) : '')).replace(/"/g, '&quot;');
+   var prov = _aptGetProvider(myApt.provider_id) || {};
+   var perPatient = Number(prov.avg_consult_minutes) || 10;
+   var waitMins = ahead * perPatient;
+   var waitLine = ahead > 0
+      ? '⏱ Approx wait: <strong>' + waitMins + ' min</strong> <span style="color:#888;font-size:0.78rem">(~' + perPatient + ' min/patient)</span>'
+      : '';
+
+   var docLine = '🩺 <strong>' + (myApt.doctor_name || '') + '</strong>' +
+                 (myApt.provider_name ? ' · ' + myApt.provider_name : '');
 
    card.classList.remove('live-queue-loading');
-   card.classList.add(urgencyCls);
-   card.setAttribute('title', titleAttr);
    card.innerHTML =
-      '<span class="lq-chip-icon">🎟</span>' +
-      '<span class="lq-chip-token">' + _tokenLabel(myApt) + '</span>' +
-      (docShort ? '<span class="lq-chip-doc">· ' + docShort + '</span>' : '') +
-      '<span class="lq-chip-sep">·</span>' +
-      '<span class="lq-chip-now">Now: <strong>' + nowServingLabel + '</strong></span>' +
-      '<span class="lq-chip-sep">·</span>' +
-      '<span class="lq-chip-status">' + statusText + '</span>';
+      '<div class="lq-head">' +
+         '<div class="lq-doc">' + docLine + '</div>' +
+         '<div class="lq-date">📅 Today' + (myApt.slot ? ' · ' + _formatSlot12(myApt.slot) : '') + '</div>' +
+      '</div>' +
+      '<div class="lq-tokens">' +
+         '<div class="lq-token-group"><label>🎟 Your token</label>' + myTokenHtml + '</div>' +
+         '<div class="lq-token-group"><label>▶ Now serving</label>' + nowServingHtml + '</div>' +
+      '</div>' +
+      '<div class="lq-status" style="color:' + statusColor + '">' + statusLine + '</div>' +
+      (waitLine ? '<div class="lq-wait">' + waitLine + '</div>' : '');
 }
 
 // ── Live-token pill (floats on every customer page when a today appointment is active) ──

@@ -6182,7 +6182,7 @@ async function checkShopOwnerLogin() {
    }
 
    // Render whichever panel makes sense
-   if (ownsStores) renderShopDashboard();
+   if (ownsStores) renderShopDashboard('Pending Pickup');   // default to "New" tab — surfaces orders awaiting confirmation
 
    // Live subscribe to orders at LOGIN time (not just on Orders tab) so the
    // owner gets pushed updates from any change anywhere — admin deleting,
@@ -6479,7 +6479,9 @@ async function _deductStockForOrder(order) {
 
 function lookupOrder() {
    var val = document.getElementById('shopSearchInput').value.trim().toUpperCase();
-   if (!val) { renderShopDashboard(); return; }
+   // Search cleared → restore whichever tab the owner had selected (don't
+   // snap back to 'All Orders' and lose their context).
+   if (!val) { renderShopDashboard(window._shopCurrentFilter); return; }
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var allOrders = _db.orders;
    // Restrict to this store owner's orders (admins see all)

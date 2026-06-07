@@ -3276,21 +3276,29 @@ body.guest .store-section-divider {
 .live-queue-card .lq-status { font-size: 0.95rem; padding-top: 4px; border-top: 1px dashed #c5e1c5; }
 .live-queue-card .lq-wait   { font-size: 0.82rem; color: #666; margin-top: 4px; }
 
-/* Home-page floating pill — token tracker visible across all pages when customer has today's appointment */
-#liveTokenPill {
+/* Home-page floating token pills — stacked, one per today's appointment (max 3 visible, "+N more" pill links to My Appointments) */
+#liveTokenPills {
 	position: fixed; bottom: 78px; right: 20px; z-index: 9998;
+	display: flex; flex-direction: column; gap: 8px;
+	max-width: 380px;
+}
+.live-token-pill {
 	display: flex; align-items: center; gap: 10px;
 	background: #fff; border: 1.5px solid #1a73e8; border-radius: 999px;
 	padding: 8px 16px; cursor: pointer; box-shadow: 0 6px 20px rgba(26, 115, 232, 0.25);
 	font-size: 0.88rem; font-weight: 600; color: #1a73e8;
-	max-width: 380px;
+	white-space: nowrap; overflow: hidden;
 }
-#liveTokenPill:hover { background: #f5f9ff; transform: translateY(-1px); }
-#liveTokenPill .lqp-emoji { font-size: 1.1rem; }
-#liveTokenPill .lqp-divider { color: #ccc; }
-#liveTokenPill .lqp-now { color: #2e7d32; font-weight: 700; }
-#liveTokenPill .lqp-urgent { color: #ef6c00; }
-#liveTokenPill .lqp-turn   { color: #0a8a3a; }
+.live-token-pill:hover { background: #f5f9ff; transform: translateY(-1px); }
+.live-token-pill .lqp-emoji   { font-size: 1.1rem; }
+.live-token-pill .lqp-divider { color: #ccc; }
+.live-token-pill .lqp-now     { color: #2e7d32; font-weight: 700; }
+.live-token-pill .lqp-urgent  { color: #ef6c00; }
+.live-token-pill .lqp-turn    { color: #0a8a3a; }
+.live-token-pill-more {
+	background: #f5f7ff; border-style: dashed; color: #5e6cc7;
+	justify-content: center; font-size: 0.82rem;
+}
 
 /* Bill modals: per-line batch picker chip */
 .batch-chip {

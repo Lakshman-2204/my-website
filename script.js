@@ -12312,62 +12312,84 @@ async function _initLiveTokenPill() {
 async function _refreshLiveTokenPill() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) return;
-   var existing = document.getElementById('liveTokenPill');
+   // Tear down any old single-pill from a previous session
+   var legacy = document.getElementById('liveTokenPill');
+   if (legacy) legacy.remove();
+   var container = document.getElementById('liveTokenPills');
+
    var apts = await AppDB.getAppointments(user.email);
    var todayYmd = _todayLocalYmd();
    var myToday = (apts || []).filter(function(a) {
       return a.date === todayYmd && a.status === 'Confirmed';
    });
-   if (!myToday.length) { if (existing) existing.remove(); return; }
+   if (!myToday.length) { if (container) container.remove(); return; }
 
-   // Pick the appointment with the lowest token (most likely "up next" today)
-   myToday.sort(function(x, y) {
-      if ((x.slot || '') !== (y.slot || '')) return (x.slot || '').localeCompare(y.slot || '');
-      return (Number(x.token) || 0) - (Number(y.token) || 0);
-   });
-   var myApt = myToday[0];
+   // For each today appointment, fetch the doctor's queue + compute "ahead"
+   var enriched = await Promise.all(myToday.map(async function(apt) {
+      var queueData = await AppDB.getProviderDayQueue(apt.provider_id, apt.date);
+      var doctorQ = (queueData || []).filter(function(q) {
+         return q.doctor_id === apt.doctor_id && q.status !== 'Cancelled' && q.status !== 'No-show';
+      });
+      doctorQ.sort(function(x, y) {
+         if ((x.slot || '') !== (y.slot || '')) return (x.slot || '').localeCompare(y.slot || '');
+         return new Date(x.created_at || 0) - new Date(y.created_at || 0);
+      });
+      var lastCompleted = null;
+      for (var i = doctorQ.length - 1; i >= 0; i--) {
+         if (doctorQ[i].status === 'Completed') { lastCompleted = doctorQ[i]; break; }
+      }
+      var confirmedQ = doctorQ.filter(function(q) { return q.status === 'Confirmed'; });
+      var myIdx = confirmedQ.findIndex(function(q) { return (q.id && q.id === apt.id) || (q.token === apt.token && q.is_followup === apt.is_followup); });
+      return { apt: apt, lastCompleted: lastCompleted, ahead: myIdx > 0 ? myIdx : 0, myIdx: myIdx };
+   }));
 
-   var queueData = await AppDB.getProviderDayQueue(myApt.provider_id, myApt.date);
-   var doctorQ = (queueData || []).filter(function(q) {
-      return q.doctor_id === myApt.doctor_id && q.status !== 'Cancelled' && q.status !== 'No-show';
+   // Sort by urgency — "your turn" (myIdx === 0) wins; then by smaller "ahead";
+   // then by slot time. So the most-urgent appointment is always on top.
+   enriched.sort(function(x, y) {
+      var ax = x.myIdx === 0 ? -1 : (x.ahead < 0 ? 9999 : x.ahead);
+      var ay = y.myIdx === 0 ? -1 : (y.ahead < 0 ? 9999 : y.ahead);
+      if (ax !== ay) return ax - ay;
+      if ((x.apt.slot || '') !== (y.apt.slot || '')) return (x.apt.slot || '').localeCompare(y.apt.slot || '');
+      return new Date(x.apt.created_at || 0) - new Date(y.apt.created_at || 0);
    });
-   doctorQ.sort(function(x, y) {
-      if ((x.slot || '') !== (y.slot || '')) return (x.slot || '').localeCompare(y.slot || '');
-      return new Date(x.created_at || 0) - new Date(y.created_at || 0);
-   });
-   var lastCompleted = null;
-   for (var i = doctorQ.length - 1; i >= 0; i--) {
-      if (doctorQ[i].status === 'Completed') { lastCompleted = doctorQ[i]; break; }
+
+   var top = enriched.slice(0, 3);
+   var extra = enriched.length - top.length;
+
+   var pillsHtml = top.map(_renderTokenPill).join('');
+   if (extra > 0) {
+      pillsHtml += '<div class="live-token-pill live-token-pill-more" onclick="window.location=\'profile.html?tab=appointments\'">+ ' + extra + ' more appointment' + (extra === 1 ? '' : 's') + ' →</div>';
    }
-   var confirmedQ = doctorQ.filter(function(q) { return q.status === 'Confirmed'; });
-   var myIdx = confirmedQ.findIndex(function(q) { return (q.id && q.id === myApt.id) || (q.token === myApt.token && q.is_followup === myApt.is_followup); });
-   var ahead = myIdx > 0 ? myIdx : 0;
 
-   var nowServingLabel = lastCompleted ? _tokenLabel(lastCompleted) : 'idle';
-   var msg, urgentCls = '';
-   if (myIdx === 0) { msg = '🩺 You\'re up next!'; urgentCls = 'lqp-turn'; }
-   else if (ahead === 1) { msg = '🏃 1 ahead — head over'; urgentCls = 'lqp-urgent'; }
-   else if (ahead > 0)   { msg = '👥 ' + ahead + ' ahead'; }
-   else                  { msg = '⏳ Waiting for queue start'; }
-
-   var html =
-      '<span class="lqp-emoji">🎟</span>' +
-      '<span>Token <strong>' + _tokenLabel(myApt) + '</strong></span>' +
-      '<span class="lqp-divider">·</span>' +
-      '<span>Now: <span class="lqp-now">' + nowServingLabel + '</span></span>' +
-      '<span class="lqp-divider">·</span>' +
-      '<span class="' + urgentCls + '">' + msg + '</span>';
-
-   if (existing) {
-      existing.innerHTML = html;
+   if (container) {
+      container.innerHTML = pillsHtml;
    } else {
-      var pill = document.createElement('div');
-      pill.id = 'liveTokenPill';
-      pill.title = 'Open My Appointments for full live queue';
-      pill.onclick = function() { window.location = 'profile.html?tab=appointments'; };
-      pill.innerHTML = html;
-      document.body.appendChild(pill);
+      container = document.createElement('div');
+      container.id = 'liveTokenPills';
+      container.innerHTML = pillsHtml;
+      document.body.appendChild(container);
    }
+}
+
+function _renderTokenPill(item) {
+   var apt = item.apt;
+   var nowServingLabel = item.lastCompleted ? _tokenLabel(item.lastCompleted) : 'idle';
+   var msg, urgentCls = '';
+   if (item.myIdx === 0)         { msg = '🩺 Up next!'; urgentCls = 'lqp-turn'; }
+   else if (item.ahead === 1)    { msg = '🏃 1 ahead'; urgentCls = 'lqp-urgent'; }
+   else if (item.ahead > 0)      { msg = '👥 ' + item.ahead + ' ahead'; }
+   else                          { msg = '⏳ Idle'; }
+   // Short doctor label: first two words to keep the pill compact
+   var docShort = (apt.doctor_name || '').split(/\s+/).slice(0, 2).join(' ');
+   var titleAttr = ((apt.doctor_name || '') + (apt.provider_name ? ' · ' + apt.provider_name : '')).replace(/"/g, '&quot;');
+   return '<div class="live-token-pill" onclick="window.location=\'profile.html?tab=appointments\'" title="' + titleAttr + '">' +
+             '<span class="lqp-emoji">🎟</span>' +
+             '<span><strong>' + _tokenLabel(apt) + '</strong>' + (docShort ? ' · ' + docShort : '') + '</span>' +
+             '<span class="lqp-divider">·</span>' +
+             '<span>Now: <span class="lqp-now">' + nowServingLabel + '</span></span>' +
+             '<span class="lqp-divider">·</span>' +
+             '<span class="' + urgentCls + '">' + msg + '</span>' +
+          '</div>';
 }
 
 // Helper: populate a <select> with unique values from a list, preserving current selection.

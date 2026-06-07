@@ -7742,14 +7742,36 @@ async function openOrderBillModal(orderId) {
    var o = _db.orders.find(function(x) { return x.orderId === orderId || x.order_id === orderId; });
    if (!o) { alert('Order not found.'); return; }
    _billOrder = JSON.parse(JSON.stringify(o));   // deep clone so cancel doesn't mutate
+
+   // Load this order's store's batch inventory so the per-line batch picker
+   // has something to draw from. The owner may be on Orders tab without
+   // having "entered" the store via My Stores → so we fetch fresh.
+   if (_billOrder.store_provider_id) {
+      try {
+         var batches = await AppDB.getBatchesForStore(_billOrder.store_provider_id);
+         _currentStockByProduct = {};
+         (batches || []).forEach(function(b) {
+            (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
+         });
+      } catch (e) { /* keep whatever was already loaded */ }
+   }
+
    _billOrder.items = (_billOrder.items || []).map(function(it) {
-      return {
-         id: it.id, name: it.name, qty: Number(it.qty) || 1,
+      var qty = Number(it.qty) || 1;
+      var item = {
+         id: it.id, name: it.name, qty: qty,
          price: Number(it.price) || 0,
          mrp:   Number(it.mrp || it.price) || 0,
          disc_pct: Number(it.disc_pct) || 0,
-         rx_required: !!it.rx_required
+         rx_required: !!it.rx_required,
+         allocations: it.allocations || []     // preserve if already saved
       };
+      // No allocations on file (legacy or freshly-placed customer order) →
+      // auto-pick FEFO. Owner can override via the per-line batch picker.
+      if (!item.allocations.length) {
+         item.allocations = _allocateFEFO(item.id, qty);
+      }
+      return item;
    });
    _billDiscountPct = Number(o.discount_pct) || 0;
    document.getElementById('orderBillTitle').textContent = '📝 Order ' + orderId + ' — ' + (o.customerName || '');
@@ -8064,13 +8086,20 @@ async function generatePrintableBill() {
       var yy        = String(new Date().getFullYear()).slice(2);
       billNo = storeCode + '/' + catCode + '/' + yy + '/' + String(seq).padStart(4, '0');
       _billOrder.bill_number = billNo;
-      // Persist bill_number on the order (best-effort)
-      AppDB.patchOrder(_billOrder.orderId || _billOrder.order_id, { bill_number: billNo });
+      // Persist bill_number + the items+allocations snapshot on the order so
+      // (a) the stock deduction on Delivered/Picked up uses the exact batches
+      //     that were printed, and
+      // (b) re-printing the bill later shows the same batches.
+      var itemsSnapshot = _billOrder.items.map(function(it) {
+         var qty = _itemTotalQty(it);
+         return { id: it.id, name: it.name, qty: qty, price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required, allocations: it.allocations || [] };
+      });
+      AppDB.patchOrder(_billOrder.orderId || _billOrder.order_id, { bill_number: billNo, items: itemsSnapshot });
    }
 
    // Recompute totals
-   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * it.qty; }, 0);
-   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * it.qty * it.disc_pct / 100); }, 0);
+   var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * _itemTotalQty(it); }, 0);
+   var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
    var subtotal = gross - lineDisc;
    var overallDisc = subtotal * (_billDiscountPct / 100);
    var net = subtotal - overallDisc;

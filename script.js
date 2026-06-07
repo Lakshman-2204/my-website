@@ -12238,8 +12238,11 @@ function _computeQueueState(queueData, myApt) {
    });
 
    var confirmedQ      = slotQ.filter(function(q) { return q.status === 'Confirmed'; });
-   var paidConfirmedQ  = confirmedQ.filter(function(q) { return q.is_paid; });
-   var nowServing      = paidConfirmedQ[0] || null;
+   // "Now serving" = the next Confirmed token in queue order (the one about
+   // to be / being seen by the doctor). We always show a real token here so
+   // the badge isn't empty. Payment status is shown separately as a hint —
+   // it tells the customer whether that next patient has actually arrived.
+   var nowServing      = confirmedQ[0] || null;
    var anyCompleted    = slotQ.some(function(q) { return q.status === 'Completed'; });
 
    var matchMine = function(q) {
@@ -12250,7 +12253,10 @@ function _computeQueueState(queueData, myApt) {
    var myRow  = myIdx >= 0 ? confirmedQ[myIdx] : null;
    var myPaid = !!(myRow && myRow.is_paid);
    var ahead  = myIdx > 0 ? myIdx : 0;
-   var isMyTurn = !!(nowServing && matchMine(nowServing));
+   // "Your turn" requires BOTH: you're first in line AND you've paid (= at
+   // the counter, ready to go in). If you're first but haven't paid, the
+   // doctor isn't seeing you yet — status text nudges you to pay first.
+   var isMyTurn = !!(myRow && myRow.is_paid && myIdx === 0);
 
    return {
       slotQ:        slotQ,
@@ -12281,12 +12287,14 @@ async function _populateLiveQueueCard(myApt) {
    var myPaid        = qState.myPaid;
 
    var queueFinished = qState.confirmedQ.length === 0 && anyCompleted;
-   var idleLabel = queueFinished
-      ? 'queue done'
-      : (anyCompleted ? 'between patients' : 'not started');
-   var nowServingHtml = nowServing
-      ? '<span class="lq-token lq-token-done">' + _tokenLabel(nowServing) + '</span>'
-      : '<span class="lq-token lq-token-idle">' + idleLabel + '</span>';
+   var nowServingHtml;
+   if (nowServing) {
+      var paidCls    = nowServing.is_paid ? 'lq-token-done' : 'lq-token-pending';
+      var paidSuffix = nowServing.is_paid ? '' : ' <span class="lq-pending-tag">awaiting</span>';
+      nowServingHtml = '<span class="lq-token ' + paidCls + '">' + _tokenLabel(nowServing) + paidSuffix + '</span>';
+   } else {
+      nowServingHtml = '<span class="lq-token lq-token-idle">' + (queueFinished ? 'queue done' : 'no one waiting') + '</span>';
+   }
    var myTokenHtml = myApt.token
       ? '<span class="lq-token lq-token-mine">' + _tokenLabel(myApt) + '</span>'
       : '<span style="color:#bbb">—</span>';

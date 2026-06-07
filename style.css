@@ -3252,6 +3252,46 @@ body.guest .store-section-divider {
 
 .store-topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 
+/* Live-queue card on customer's My Appointments (today only) */
+.live-queue-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.live-queue-card {
+	background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+	border: 1px solid #a5d6a7; border-radius: 12px;
+	padding: 14px 18px; box-shadow: 0 2px 10px rgba(46, 125, 50, 0.12);
+}
+.live-queue-card.live-queue-loading { background: #fafbfc; border-color: #e0e0e0; color: #888; padding: 12px 18px; }
+.live-queue-card .lq-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.live-queue-card .lq-doc  { font-size: 1rem; color: #1b5e20; }
+.live-queue-card .lq-date { font-size: 0.85rem; color: #555; }
+.live-queue-card .lq-tokens { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 10px; }
+.live-queue-card .lq-token-group { display: flex; flex-direction: column; gap: 4px; }
+.live-queue-card .lq-token-group label { font-size: 0.72rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.live-queue-card .lq-token {
+	display: inline-block; padding: 4px 14px; border-radius: 999px;
+	font-weight: 700; font-size: 1.1rem;
+}
+.live-queue-card .lq-token-mine { background: #1a73e8; color: #fff; }
+.live-queue-card .lq-token-done { background: #2e7d32; color: #fff; }
+.live-queue-card .lq-token-idle { background: #f5f5f5; color: #888; font-size: 0.85rem; font-weight: 500; }
+.live-queue-card .lq-status { font-size: 0.95rem; padding-top: 4px; border-top: 1px dashed #c5e1c5; }
+.live-queue-card .lq-wait   { font-size: 0.82rem; color: #666; margin-top: 4px; }
+
+/* Home-page floating pill — token tracker visible across all pages when customer has today's appointment */
+#liveTokenPill {
+	position: fixed; bottom: 78px; right: 20px; z-index: 9998;
+	display: flex; align-items: center; gap: 10px;
+	background: #fff; border: 1.5px solid #1a73e8; border-radius: 999px;
+	padding: 8px 16px; cursor: pointer; box-shadow: 0 6px 20px rgba(26, 115, 232, 0.25);
+	font-size: 0.88rem; font-weight: 600; color: #1a73e8;
+	max-width: 380px;
+}
+#liveTokenPill:hover { background: #f5f9ff; transform: translateY(-1px); }
+#liveTokenPill .lqp-emoji { font-size: 1.1rem; }
+#liveTokenPill .lqp-divider { color: #ccc; }
+#liveTokenPill .lqp-now { color: #2e7d32; font-weight: 700; }
+#liveTokenPill .lqp-urgent { color: #ef6c00; }
+#liveTokenPill .lqp-turn   { color: #0a8a3a; }
+
 /* Bill modals: per-line batch picker chip */
 .batch-chip {
 	display: inline-block; cursor: pointer; user-select: none;

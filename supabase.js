@@ -517,6 +517,19 @@ window.AppDB = {
       return data || [];
    },
 
+   // Customer-side "live queue" widget needs to know the token/status of
+   // OTHER patients booked today at the same provider — but NOT their names,
+   // phones, or reasons (privacy). Selects only the columns required to
+   // compute "currently serving" / "patients ahead".
+   async getProviderDayQueue(providerId, dateYmd) {
+      const { data, error } = await _sb.from('appointments')
+         .select('id, provider_id, doctor_id, doctor_name, date, slot, token, status, is_followup, created_at')
+         .eq('provider_id', providerId)
+         .eq('date', dateYmd);
+      if (error) { console.error('getProviderDayQueue:', error.message); return []; }
+      return data || [];
+   },
+
    async insertAppointment(apt) {
       // Normalize email to lowercase so customer's My Appointments query
       // (which lowercases the filter) always matches.

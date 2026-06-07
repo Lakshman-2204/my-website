@@ -12167,7 +12167,26 @@ async function renderMyAppointments() {
              '</tr>';
    }).join('');
 
-   list.innerHTML =
+   // Live-queue card(s) at the top — only when the customer has at least one
+   // Confirmed appointment with date === today. Each card asynchronously
+   // fetches the provider's queue and updates itself once data arrives.
+   var liveQueueHtml = '';
+   var todayYmd = _todayLocalYmd();
+   var todayConfirmed = (all || []).filter(function(a) {
+      return a.date === todayYmd && a.status === 'Confirmed';
+   });
+   if (todayConfirmed.length) {
+      liveQueueHtml = '<div id="liveQueueCards" class="live-queue-list">' +
+         todayConfirmed.map(function(a, i) {
+            var aid = (a.apt_id || a.id || 'lq' + i);
+            return '<div class="live-queue-card live-queue-loading" data-apt-id="' + aid + '">' +
+                      '⏳ Loading live queue for ' + (a.doctor_name || 'your appointment') + '…' +
+                   '</div>';
+         }).join('') +
+      '</div>';
+   }
+
+   list.innerHTML = liveQueueHtml +
       '<div class="apt-tbl-wrap">' +
         '<table class="apt-tbl">' +
            '<thead><tr>' +
@@ -12186,6 +12205,169 @@ async function renderMyAppointments() {
            '<tbody>' + rows + '</tbody>' +
         '</table>' +
       '</div>';
+
+   // After the table is rendered, fill in each live-queue card with the
+   // customer's actual position. Done async so the table renders immediately.
+   if (todayConfirmed.length) {
+      todayConfirmed.forEach(function(a) { _populateLiveQueueCard(a); });
+   }
+}
+
+// Fetch the day's queue for one provider+doctor, compute the customer's
+// position, and replace the card's loading placeholder with live status.
+// Privacy: never renders other patients' names — only their tokens (which
+// the customer can also see on the doctor's queue board in person).
+async function _populateLiveQueueCard(myApt) {
+   var aid = myApt.apt_id || myApt.id;
+   var card = document.querySelector('.live-queue-card[data-apt-id="' + aid + '"]');
+   if (!card) return;
+
+   var queueData = await AppDB.getProviderDayQueue(myApt.provider_id, myApt.date);
+   // Same doctor only — each doctor has their own queue
+   var doctorQ = (queueData || []).filter(function(q) {
+      return q.doctor_id === myApt.doctor_id && q.status !== 'Cancelled' && q.status !== 'No-show';
+   });
+   // Sort: slot first (slot mode), then by created_at (token-mode + within-slot order)
+   doctorQ.sort(function(x, y) {
+      if ((x.slot || '') !== (y.slot || '')) return (x.slot || '').localeCompare(y.slot || '');
+      return new Date(x.created_at || 0) - new Date(y.created_at || 0);
+   });
+
+   // "Now serving" = the LAST Completed in queue order, OR if none Completed,
+   // the next Confirmed isn't yet being served (clinic hasn't started).
+   var lastCompleted = null;
+   for (var i = doctorQ.length - 1; i >= 0; i--) {
+      if (doctorQ[i].status === 'Completed') { lastCompleted = doctorQ[i]; break; }
+   }
+
+   // My position among Confirmed (still pending) appointments
+   var confirmedQ = doctorQ.filter(function(q) { return q.status === 'Confirmed'; });
+   var myIdx = confirmedQ.findIndex(function(q) { return (q.id && q.id === myApt.id) || (q.token === myApt.token && q.is_followup === myApt.is_followup); });
+   var ahead = myIdx > 0 ? myIdx : 0;
+   var isMyTurn = myIdx === 0;
+
+   var nowServingHtml = lastCompleted
+      ? '<span class="lq-token lq-token-done">' + _tokenLabel(lastCompleted) + '</span>'
+      : '<span class="lq-token lq-token-idle">— not yet started —</span>';
+
+   var statusLine, statusColor;
+   if (isMyTurn) {
+      statusLine = '🩺 <strong>You\'re up next — head to the clinic now.</strong>';
+      statusColor = '#0a8a3a';
+   } else if (ahead === 1) {
+      statusLine = '🏃 <strong>1 patient ahead</strong> — start heading over.';
+      statusColor = '#ef6c00';
+   } else if (ahead > 0) {
+      statusLine = '👥 <strong>' + ahead + ' patients ahead</strong> of you.';
+      statusColor = '#1565c0';
+   } else {
+      statusLine = '⏳ Waiting for the clinic to start the queue.';
+      statusColor = '#888';
+   }
+
+   // Wait estimate (best-effort): 10 min per patient ahead unless provider sets one
+   var prov = _aptGetProvider(myApt.provider_id) || {};
+   var perPatient = Number(prov.avg_consult_minutes) || 10;
+   var waitMins = ahead * perPatient;
+   var waitLine = ahead > 0
+      ? '⏱ Approx wait: <strong>' + waitMins + ' min</strong> <span style="color:#888;font-size:0.78rem">(~' + perPatient + ' min/patient)</span>'
+      : '';
+
+   var docLine = '🩺 <strong>' + (myApt.doctor_name || '') + '</strong>' +
+                 (myApt.provider_name ? ' · ' + myApt.provider_name : '');
+   var myTokenHtml = myApt.token
+      ? '<span class="lq-token lq-token-mine">' + _tokenLabel(myApt) + '</span>'
+      : '<span style="color:#bbb">—</span>';
+
+   card.classList.remove('live-queue-loading');
+   card.innerHTML =
+      '<div class="lq-head">' +
+         '<div class="lq-doc">' + docLine + '</div>' +
+         '<div class="lq-date">📅 Today' + (myApt.slot ? ' · ' + _formatSlot12(myApt.slot) : '') + '</div>' +
+      '</div>' +
+      '<div class="lq-tokens">' +
+         '<div class="lq-token-group"><label>🎟 Your token</label>' + myTokenHtml + '</div>' +
+         '<div class="lq-token-group"><label>▶ Now serving</label>' + nowServingHtml + '</div>' +
+      '</div>' +
+      '<div class="lq-status" style="color:' + statusColor + '">' + statusLine + '</div>' +
+      (waitLine ? '<div class="lq-wait">' + waitLine + '</div>' : '');
+}
+
+// ── Live-token pill (floats on every customer page when a today appointment is active) ──
+// Wired from home.html / profile.html init. Listens to realtime appointment
+// changes so it refreshes when the doctor advances the queue. The pill links
+// to My Appointments where the full live-queue card lives.
+async function _initLiveTokenPill() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) return;
+   // On profile.html, the My Appointments tab already has the full card —
+   // don't double up with a floating pill on top of it.
+   if (location.pathname.endsWith('profile.html') && (location.search || '').indexOf('tab=appointments') !== -1) return;
+   await _refreshLiveTokenPill();
+   if (typeof _liveSubscribe === 'function') {
+      _liveSubscribe('liveTokenPill', 'appointments', _refreshLiveTokenPill);
+   }
+}
+
+async function _refreshLiveTokenPill() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) return;
+   var existing = document.getElementById('liveTokenPill');
+   var apts = await AppDB.getAppointments(user.email);
+   var todayYmd = _todayLocalYmd();
+   var myToday = (apts || []).filter(function(a) {
+      return a.date === todayYmd && a.status === 'Confirmed';
+   });
+   if (!myToday.length) { if (existing) existing.remove(); return; }
+
+   // Pick the appointment with the lowest token (most likely "up next" today)
+   myToday.sort(function(x, y) {
+      if ((x.slot || '') !== (y.slot || '')) return (x.slot || '').localeCompare(y.slot || '');
+      return (Number(x.token) || 0) - (Number(y.token) || 0);
+   });
+   var myApt = myToday[0];
+
+   var queueData = await AppDB.getProviderDayQueue(myApt.provider_id, myApt.date);
+   var doctorQ = (queueData || []).filter(function(q) {
+      return q.doctor_id === myApt.doctor_id && q.status !== 'Cancelled' && q.status !== 'No-show';
+   });
+   doctorQ.sort(function(x, y) {
+      if ((x.slot || '') !== (y.slot || '')) return (x.slot || '').localeCompare(y.slot || '');
+      return new Date(x.created_at || 0) - new Date(y.created_at || 0);
+   });
+   var lastCompleted = null;
+   for (var i = doctorQ.length - 1; i >= 0; i--) {
+      if (doctorQ[i].status === 'Completed') { lastCompleted = doctorQ[i]; break; }
+   }
+   var confirmedQ = doctorQ.filter(function(q) { return q.status === 'Confirmed'; });
+   var myIdx = confirmedQ.findIndex(function(q) { return (q.id && q.id === myApt.id) || (q.token === myApt.token && q.is_followup === myApt.is_followup); });
+   var ahead = myIdx > 0 ? myIdx : 0;
+
+   var nowServingLabel = lastCompleted ? _tokenLabel(lastCompleted) : 'idle';
+   var msg, urgentCls = '';
+   if (myIdx === 0) { msg = '🩺 You\'re up next!'; urgentCls = 'lqp-turn'; }
+   else if (ahead === 1) { msg = '🏃 1 ahead — head over'; urgentCls = 'lqp-urgent'; }
+   else if (ahead > 0)   { msg = '👥 ' + ahead + ' ahead'; }
+   else                  { msg = '⏳ Waiting for queue start'; }
+
+   var html =
+      '<span class="lqp-emoji">🎟</span>' +
+      '<span>Token <strong>' + _tokenLabel(myApt) + '</strong></span>' +
+      '<span class="lqp-divider">·</span>' +
+      '<span>Now: <span class="lqp-now">' + nowServingLabel + '</span></span>' +
+      '<span class="lqp-divider">·</span>' +
+      '<span class="' + urgentCls + '">' + msg + '</span>';
+
+   if (existing) {
+      existing.innerHTML = html;
+   } else {
+      var pill = document.createElement('div');
+      pill.id = 'liveTokenPill';
+      pill.title = 'Open My Appointments for full live queue';
+      pill.onclick = function() { window.location = 'profile.html?tab=appointments'; };
+      pill.innerHTML = html;
+      document.body.appendChild(pill);
+   }
 }
 
 // Helper: populate a <select> with unique values from a list, preserving current selection.

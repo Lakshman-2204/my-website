@@ -3253,12 +3253,14 @@ body.guest .store-section-divider {
 .store-topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 
 /* Live-queue cards on customer's My Appointments (today only) — narrow
-   cards arranged in a multi-column grid so multiple appointments fit on
-   one row. Auto-fit means: as many ~320px columns as the viewport allows. */
+   fixed-width cards arranged in a wrap-row so multiple appointments fit on
+   one line. A single card stays compact instead of stretching across the
+   whole viewport (auto-fill, not auto-fit). */
 .live-queue-list {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(320px, 360px));
 	gap: 10px; margin-bottom: 16px;
+	justify-content: start;
 }
 .live-queue-card {
 	background: linear-gradient(135deg, #e8f5e9, #f1f8e9);

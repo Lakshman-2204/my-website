@@ -12281,9 +12281,12 @@ async function _populateLiveQueueCard(myApt) {
    var myPaid        = qState.myPaid;
 
    var queueFinished = qState.confirmedQ.length === 0 && anyCompleted;
+   var idleLabel = queueFinished
+      ? 'queue done'
+      : (anyCompleted ? 'between patients' : 'not started');
    var nowServingHtml = nowServing
       ? '<span class="lq-token lq-token-done">' + _tokenLabel(nowServing) + '</span>'
-      : '<span class="lq-token lq-token-idle">' + (queueFinished ? 'queue done' : '—') + '</span>';
+      : '<span class="lq-token lq-token-idle">' + idleLabel + '</span>';
    var myTokenHtml = myApt.token
       ? '<span class="lq-token lq-token-mine">' + _tokenLabel(myApt) + '</span>'
       : '<span style="color:#bbb">—</span>';

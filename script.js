@@ -12249,12 +12249,30 @@ function _computeQueueState(queueData, myApt) {
    // every earlier slot (9 PM, etc.) has no Confirmed patients left.
    // Otherwise the doctor is still busy with the prior slot and the
    // customer's "Now serving: T1 awaiting" is misleading.
+   //
+   // Also surface how many Confirmed patients remain in the IMMEDIATELY
+   // PREVIOUS slot — gives the 10 PM customer a heads-up to start heading
+   // over before the doctor finishes 9 PM (otherwise they get zero notice).
    var slotIsActive = true;
+   var prevSlotRemaining = 0;
+   var prevSlotKey = '';
    if (mySlotKey) {
       slotIsActive = !doctorQ.some(function(q) {
          var qs = q.slot || '';
          return qs !== '' && qs < mySlotKey && q.status === 'Confirmed';
       });
+      if (!slotIsActive) {
+         // Find the latest slot strictly before mine that still has Confirmed
+         doctorQ.forEach(function(q) {
+            var qs = q.slot || '';
+            if (qs !== '' && qs < mySlotKey && q.status === 'Confirmed') {
+               if (qs > prevSlotKey) prevSlotKey = qs;
+            }
+         });
+         prevSlotRemaining = doctorQ.filter(function(q) {
+            return q.status === 'Confirmed' && (q.slot || '') === prevSlotKey;
+         }).length;
+      }
    }
 
    var matchMine = function(q) {
@@ -12279,7 +12297,9 @@ function _computeQueueState(queueData, myApt) {
       ahead:        ahead,
       isMyTurn:     isMyTurn && slotIsActive,   // even if you're first + paid, your slot hasn't started
       myPaid:       myPaid,
-      slotIsActive: slotIsActive
+      slotIsActive: slotIsActive,
+      prevSlotKey:  prevSlotKey,
+      prevSlotRemaining: prevSlotRemaining
    };
 }
 
@@ -12321,8 +12341,20 @@ async function _populateLiveQueueCard(myApt) {
 
    var statusLine, statusColor;
    if (!qState.slotIsActive) {
-      statusLine = '⏳ <strong>Waiting for an earlier slot to finish</strong> — no need to head over yet.';
-      statusColor = '#666';
+      var prevLbl = qState.prevSlotKey ? ' (' + _formatSlot12(qState.prevSlotKey) + ')' : '';
+      if (qState.prevSlotRemaining === 1) {
+         statusLine = '🚶 <strong>Head over now</strong> — only 1 patient left in the previous slot' + prevLbl + '.';
+         statusColor = '#ef6c00';
+      } else if (qState.prevSlotRemaining === 2) {
+         statusLine = '⏳ Previous slot' + prevLbl + ' has <strong>2 patients left</strong> — start getting ready.';
+         statusColor = '#1565c0';
+      } else if (qState.prevSlotRemaining > 0) {
+         statusLine = '⏳ Previous slot' + prevLbl + ' has <strong>' + qState.prevSlotRemaining + ' patients left</strong> — no need to head over yet.';
+         statusColor = '#666';
+      } else {
+         statusLine = '⏳ <strong>Waiting for an earlier slot to finish</strong>.';
+         statusColor = '#666';
+      }
    } else if (isMyTurn) {
       statusLine = '🩺 <strong>It\'s your turn — go in now.</strong>';
       statusColor = '#0a8a3a';
@@ -12402,15 +12434,16 @@ async function _refreshLiveTokenPill() {
       var queueData = await AppDB.getProviderDayQueue(apt.provider_id, apt.date);
       var st = _computeQueueState(queueData, apt);
       return {
-         apt:           apt,
-         nowServing:    st.nowServing,
-         anyCompleted:  st.anyCompleted,
-         queueFinished: st.confirmedQ.length === 0 && st.anyCompleted,
-         ahead:         st.ahead,
-         myIdx:         st.myIdx,
-         isMyTurn:      st.isMyTurn,
-         myPaid:        st.myPaid,
-         slotIsActive:  st.slotIsActive
+         apt:               apt,
+         nowServing:        st.nowServing,
+         anyCompleted:      st.anyCompleted,
+         queueFinished:     st.confirmedQ.length === 0 && st.anyCompleted,
+         ahead:             st.ahead,
+         myIdx:             st.myIdx,
+         isMyTurn:          st.isMyTurn,
+         myPaid:            st.myPaid,
+         slotIsActive:      st.slotIsActive,
+         prevSlotRemaining: st.prevSlotRemaining
       };
    }));
 
@@ -12456,7 +12489,11 @@ function _renderTokenPill(item, extraCount) {
       ? _tokenLabel(item.nowServing)
       : (item.queueFinished ? 'queue done' : '—');
    var msg, urgentCls = '';
-   if (!item.slotIsActive)                            { msg = '⏳ Earlier slot still running'; }
+   if (!item.slotIsActive) {
+      if (item.prevSlotRemaining === 1)      { msg = '🚶 Head over — 1 left in prev slot'; urgentCls = 'lqp-urgent'; }
+      else if (item.prevSlotRemaining > 0)   { msg = '⏳ ' + item.prevSlotRemaining + ' left in prev slot'; }
+      else                                   { msg = '⏳ Earlier slot still running'; }
+   }
    else if (item.isMyTurn)                            { msg = '🩺 Your turn!';                                                  urgentCls = 'lqp-turn'; }
    else if (item.ahead === 0 && !item.myPaid)         { msg = item.anyCompleted ? '🚶 You\'re next — go pay' : '🚶 Go pay';      urgentCls = 'lqp-urgent'; }
    else if (item.ahead === 1)                         { msg = '🏃 1 ahead';                                                     urgentCls = 'lqp-urgent'; }

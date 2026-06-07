@@ -256,6 +256,15 @@ ALTER TABLE public.store_providers
    -- owner switches them per-order via the "🔄 Switch to pickup" button.
    ADD COLUMN IF NOT EXISTS delivery_paused  boolean DEFAULT false;
 
+-- Realtime broadcasting: needed so customer/admin pages auto-refresh when an
+-- owner pauses/resumes delivery (or admin edits any store). Idempotent — the
+-- DO block silently skips if the table is already in the publication.
+DO $$
+BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.store_providers;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- 13. CATALOG_ITEMS — admin-curated master list of items per store category.
 --     Stores pick from this list when adding products (avoids duplicate entries
 --     like "Paracetamol 500", "Para 500mg", "Crocin Tab" all meaning the same drug).
@@ -348,7 +357,12 @@ ALTER TABLE public.orders
    -- for this order's items (on transition to status='Completed' for customer
    -- orders, or at insert time for walk-in counter sales). Prevents double-
    -- deduction if status is toggled back and forth.
-   ADD COLUMN IF NOT EXISTS stock_deducted    boolean DEFAULT false;
+   ADD COLUMN IF NOT EXISTS stock_deducted    boolean DEFAULT false,
+   -- Owner used "🔄 Switch to pickup" on a delivery order. Without this flag,
+   -- the customer/owner label fallback (which looks at store.door_delivery)
+   -- would silently re-upgrade the display back to delivery. This flag forces
+   -- the order to render as pickup regardless of the store's current setting.
+   ADD COLUMN IF NOT EXISTS pickup_override   boolean DEFAULT false;
 CREATE INDEX IF NOT EXISTS orders_store_provider_idx ON public.orders(store_provider_id);
 
 -- 19. WALKIN_CUSTOMERS — lightweight directory of customers who walked in to a

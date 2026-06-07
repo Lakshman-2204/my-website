@@ -57,7 +57,8 @@ function _orderFromDB(r) {
             bill_number:       r.bill_number       || null,
             walk_in:           !!r.walk_in,
             doctor_name:       r.doctor_name       || '',
-            stock_deducted:    !!r.stock_deducted };
+            stock_deducted:    !!r.stock_deducted,
+            pickup_override:   !!r.pickup_override };
 }
 function _orderToDB(o) {
    const row = { order_id: o.orderId || o.order_id,
@@ -81,6 +82,7 @@ function _orderToDB(o) {
    // Customer orders shouldn't send it — if the migration hasn't been run yet,
    // sending the column would make Supabase reject the entire insert.
    if (o.stock_deducted) row.stock_deducted = true;
+   if (o.pickup_override) row.pickup_override = true;
    return row;
 }
 

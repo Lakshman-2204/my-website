@@ -4532,6 +4532,12 @@ async function showStoresList() {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = '🏪 Stores';
+   // Live-refresh when any store changes (e.g., owner pauses delivery): force
+   // the cache to reload, then re-call this render.
+   _liveSubscribe('storeProvsCustomer', 'store_providers', async function() {
+      await loadStoreProviders(true);
+      showStoresList();
+   });
 
    // Hide the product-category bar (For You, Daily Needs, …) — it's irrelevant
    // here because customers are now browsing by store, not by product category.
@@ -4576,6 +4582,11 @@ async function showStoreCategory(catKey) {
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = meta.icon + ' ' + meta.label;
    _setStoresChromeMode(true);
+   // Live-refresh on any store change (delivery pause/resume etc.)
+   _liveSubscribe('storeProvsCustomer', 'store_providers', async function() {
+      await loadStoreProviders(true);
+      showStoreCategory(catKey);
+   });
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
@@ -4625,6 +4636,11 @@ async function showStoreProvider(providerId) {
    var p = (_storeProvidersCache || []).find(function(x) { return x.id === providerId; });
    if (!p) return;
    var meta = STORE_CAT_META[p.category] || { icon: '🏪', label: p.category };
+   // Live-refresh when this store's delivery/door_delivery flag changes
+   _liveSubscribe('storeProvsCustomer', 'store_providers', async function() {
+      await loadStoreProviders(true);
+      showStoreProvider(providerId);
+   });
 
    // Refresh in-memory stock snapshot so we can render Out-of-stock / In-stock
    // badges on each card. This drives addToCart() guards too.
@@ -6342,8 +6358,10 @@ function renderShopDashboard(filterStatus) {
       // 4-step delivery journey vs 3-step pickup journey.
       // Fall back to the store's door_delivery flag for orders placed via the
       // generic cart flow (no explicit method='COD-Delivery' or delivery_address).
-      var isDelivery = (order.method === 'COD-Delivery') || !!order.delivery_address;
-      if (!isDelivery) {
+      // pickup_override wins over everything — owner explicitly switched this
+      // order to pickup, so don't sneak it back into the delivery flow.
+      var isDelivery = !order.pickup_override && ((order.method === 'COD-Delivery') || !!order.delivery_address);
+      if (!isDelivery && !order.pickup_override) {
          var providers = _storeProvidersCache || [];
          var ownerStore = providers.find(function(s) {
             return s.id === order.store_provider_id || s.name === order.storeName;
@@ -6418,8 +6436,11 @@ async function switchOrderToPickup(orderId) {
                 'Their delivery address will be removed from this order.')) return;
    order.method = 'Pickup';
    order.delivery_address = null;
-   // Persist
-   var ok = await AppDB.patchOrder(orderId, { method: 'Pickup', delivery_address: null });
+   order.pickup_override = true;
+   // Persist. pickup_override is the key bit: without it, the label fallback
+   // would look at store.door_delivery and silently flip the order back to
+   // a delivery display, making this whole action look like it did nothing.
+   var ok = await AppDB.patchOrder(orderId, { method: 'Pickup', delivery_address: null, pickup_override: true });
    if (!ok) { alert('Failed to update order.'); return; }
    renderShopDashboard(window._shopCurrentFilter);
 }
@@ -6695,6 +6716,15 @@ function renderMyStoreProducts(storeId) {
    var prodView = document.getElementById('shopStoreProductsView');
    if (listView) listView.classList.add('hidden');
    if (prodView) prodView.classList.remove('hidden');
+
+   // Live: react to store-level changes (e.g., admin updates store, or another
+   // owner tab toggles delivery pause). Forces a cache refresh + re-render.
+   if (typeof _liveSubscribe === 'function') {
+      _liveSubscribe('storeProvsOwner', 'store_providers', async function() {
+         await loadStoreProviders(true);
+         renderMyStoreProducts(storeId);
+      });
+   }
 
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === storeId; });
    if (!store) { exitMyStore(); return; }
@@ -11723,8 +11753,8 @@ function orderStatusClass(status) {
 
 // Owner-side label — keeps the DB status word but pretties it for delivery orders.
 function _ownerStatusLabel(status, order) {
-   var isDelivery = (order.method === 'COD-Delivery') || !!order.delivery_address;
-   if (!isDelivery) {
+   var isDelivery = !order.pickup_override && ((order.method === 'COD-Delivery') || !!order.delivery_address);
+   if (!isDelivery && !order.pickup_override) {
       // Same fallback as the customer label and footer label — if the store
       // offers home delivery, treat the order as delivery regardless of method
       var providers = _storeProvidersCache || [];
@@ -11758,8 +11788,9 @@ function _customerStatusLabel(status, orderOrMethod) {
    // Back-compat: accept a method string for any legacy call site
    var o = (orderOrMethod && typeof orderOrMethod === 'object') ? orderOrMethod : null;
    var method = o ? o.method : orderOrMethod;
-   var isDelivery = method === 'COD-Delivery' || (o && !!o.delivery_address);
-   if (!isDelivery && o) {
+   var pickupOverride = o && o.pickup_override;
+   var isDelivery = !pickupOverride && (method === 'COD-Delivery' || (o && !!o.delivery_address));
+   if (!isDelivery && o && !pickupOverride) {
       // Fall back to the store's door_delivery flag
       var providers = _storeProvidersCache || [];
       var store = providers.find(function(s) {
@@ -11787,6 +11818,9 @@ function _customerStatusLabel(status, orderOrMethod) {
 // door_delivery flag when the order itself doesn't have explicit delivery
 // metadata (handles legacy rows + protects future renames).
 function _orderFooterLabel(o) {
+   // Owner manually switched a delivery order to pickup — short-circuit before
+   // the door_delivery fallback so it stays as pickup in the customer's view.
+   if (o.pickup_override)                        return '🛍️ Pickup at store';
    if (o.method === 'COD-Delivery')              return '🚚 Cash/UPI on delivery';
    if (o.method === 'Walk-in')                   return '🧾 Walk-in sale';
    if (o.method === 'COD')                       return '💵 Cash on delivery';

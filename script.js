@@ -9299,7 +9299,15 @@ function _renderHospitalSurvey(apts) {
       '</svg>';
 
    // Serialize the data the hover handler needs (kept tiny — just numbers).
-   var daysIso = labels.map(function(d) { return d.toISOString().slice(0, 10); });
+   // Use LOCAL YMD, not toISOString — toISOString converts to UTC which in
+   // IST (+5:30) shifts midnight back to the previous day's evening, making
+   // "9 Jun" render as "8 Jun" in the tooltip.
+   var _ymd = function(d) {
+      return d.getFullYear() + '-' +
+             String(d.getMonth() + 1).padStart(2, '0') + '-' +
+             String(d.getDate()).padStart(2, '0');
+   };
+   var daysIso = labels.map(_ymd);
    var dataAttrs =
       ' data-days="' + daysIso.join(',') + '"' +
       ' data-new="' + newSeries.join(',') + '"' +

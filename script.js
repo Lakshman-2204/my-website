@@ -9405,11 +9405,29 @@ function _hospitalSurveyHide(e) {
 }
 
 // Sidebar card: appointment status donut — Confirmed / Completed / No-show / Cancelled.
-// Counts ALL appointments for this hospital (not just today) so the doctor
-// can spot a creeping no-show or cancellation rate over time.
+// Filterable by Day / Week / Month / Year via the pill toggle at the top.
+function _filterAptsByRange(apts, range) {
+   var today = new Date(); today.setHours(0, 0, 0, 0);
+   var todayYmd = _todayLocalYmd();
+   var weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay()); weekStart.setHours(0,0,0,0);
+   var monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+   var yearStart  = new Date(today.getFullYear(), 0, 1);
+   return (apts || []).filter(function(a) {
+      var d = new Date((a.date || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return false;
+      if (range === 'day')   return a.date === todayYmd;
+      if (range === 'week')  return d >= weekStart;
+      if (range === 'month') return d >= monthStart;
+      if (range === 'year')  return d >= yearStart;
+      return true;                                            // 'all' / default
+   });
+}
+
 function _renderStatusDonut(apts) {
+   var range = window._donutRange || 'month';
+   var filtered = _filterAptsByRange(apts, range);
    var counts = { Confirmed: 0, Completed: 0, 'No-show': 0, Cancelled: 0 };
-   (apts || []).forEach(function(a) {
+   filtered.forEach(function(a) {
       if (counts[a.status] !== undefined) counts[a.status] += 1;
    });
    var total = counts.Confirmed + counts.Completed + counts['No-show'] + counts.Cancelled;
@@ -9457,8 +9475,17 @@ function _renderStatusDonut(apts) {
              '</div>';
    }).join('');
 
+   var ranges = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year']];
+   var rangeToggle = '<div class="donut-range">' +
+      ranges.map(function(r) {
+         return '<button class="donut-range-btn' + (range === r[0] ? ' active' : '') +
+                '" onclick="_setDonutRange(\'' + r[0] + '\')">' + r[1] + '</button>';
+      }).join('') +
+   '</div>';
+
    return '<div class="status-donut-card">' +
              '<div class="donut-title">Appointments Status</div>' +
+             rangeToggle +
              '<div class="donut-wrap">' +
                 '<svg viewBox="0 0 ' + size + ' ' + size + '" width="140" height="140">' + svg + '</svg>' +
                 '<div class="donut-center">' +
@@ -9468,6 +9495,12 @@ function _renderStatusDonut(apts) {
              '</div>' +
              '<div class="donut-legend">' + legend + '</div>' +
           '</div>';
+}
+
+// Range toggle handler — re-renders the dashboard so the donut updates.
+function _setDonutRange(r) {
+   window._donutRange = r;
+   renderShopOverview();
 }
 
 // Sidebar card: total today's appointments split into completed / upcoming

@@ -51,23 +51,35 @@
    <!-- ORDERS PANEL (hidden until checkShopOwnerLogin decides) -->
    <div id="shop-panel-orders" class="hidden">
 
-   <!-- STATS BAR — surface the three stages that need owner action -->
+   <!-- STATS BAR — Cliniva-style KPI cards: pastel icon tile + number + label -->
    <div class="shop-stats-bar">
       <div class="shop-stat" onclick="renderShopDashboard('Pending Pickup')">
-         <div class="shop-stat-num" id="statNew">0</div>
-         <div class="shop-stat-label">📥 New</div>
+         <div class="shop-stat-icon shop-stat-icon-purple">📥</div>
+         <div class="shop-stat-body">
+            <div class="shop-stat-num" id="statNew">0</div>
+            <div class="shop-stat-label">New</div>
+         </div>
       </div>
       <div class="shop-stat" onclick="renderShopDashboard('Packed')">
-         <div class="shop-stat-num" id="statPacked">0</div>
-         <div class="shop-stat-label">📦 Packed</div>
+         <div class="shop-stat-icon shop-stat-icon-orange">📦</div>
+         <div class="shop-stat-body">
+            <div class="shop-stat-num" id="statPacked">0</div>
+            <div class="shop-stat-label">Packed</div>
+         </div>
       </div>
       <div class="shop-stat" onclick="renderShopDashboard('Dispatched')">
-         <div class="shop-stat-num" id="statDispatched">0</div>
-         <div class="shop-stat-label">🚚 Dispatched</div>
+         <div class="shop-stat-icon shop-stat-icon-blue">🚚</div>
+         <div class="shop-stat-body">
+            <div class="shop-stat-num" id="statDispatched">0</div>
+            <div class="shop-stat-label">Dispatched</div>
+         </div>
       </div>
       <div class="shop-stat" onclick="renderShopDashboard('Completed')">
-         <div class="shop-stat-num" id="statCompleted">0</div>
-         <div class="shop-stat-label">🏁 Completed</div>
+         <div class="shop-stat-icon shop-stat-icon-green">🏁</div>
+         <div class="shop-stat-body">
+            <div class="shop-stat-num" id="statCompleted">0</div>
+            <div class="shop-stat-label">Completed</div>
+         </div>
       </div>
    </div>
 
@@ -117,16 +129,25 @@
    <div id="shop-panel-appointments" class="hidden">
       <div class="shop-stats-bar">
          <div class="shop-stat" onclick="renderShopAppointments('Confirmed')">
-            <div class="shop-stat-num" id="statAptConfirmed">0</div>
-            <div class="shop-stat-label">Confirmed</div>
+            <div class="shop-stat-icon shop-stat-icon-purple">⏳</div>
+            <div class="shop-stat-body">
+               <div class="shop-stat-num" id="statAptConfirmed">0</div>
+               <div class="shop-stat-label">Confirmed</div>
+            </div>
          </div>
          <div class="shop-stat" onclick="renderShopAppointments('Completed')">
-            <div class="shop-stat-num" id="statAptCompleted">0</div>
-            <div class="shop-stat-label">Completed</div>
+            <div class="shop-stat-icon shop-stat-icon-green">✅</div>
+            <div class="shop-stat-body">
+               <div class="shop-stat-num" id="statAptCompleted">0</div>
+               <div class="shop-stat-label">Completed</div>
+            </div>
          </div>
          <div class="shop-stat" onclick="renderShopAppointments('Cancelled')">
-            <div class="shop-stat-num" id="statAptCancelled">0</div>
-            <div class="shop-stat-label">Cancelled</div>
+            <div class="shop-stat-icon shop-stat-icon-red">❌</div>
+            <div class="shop-stat-body">
+               <div class="shop-stat-num" id="statAptCancelled">0</div>
+               <div class="shop-stat-label">Cancelled</div>
+            </div>
          </div>
       </div>
       <div class="shop-tabs" style="justify-content:space-between;flex-wrap:wrap;gap:8px;padding:0.6rem 1rem">

@@ -1735,41 +1735,38 @@ body.guest .store-section-divider {
 
 .apt-tbl-wrap {
 	background: #fff;
-	border-radius: 12px;
-	box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+	border: 1px solid #eef0f5;
+	border-radius: 14px;
+	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
 	overflow-x: auto;
-	margin-top: 0.5rem;
+	margin-top: 4px;
 }
 .apt-tbl {
 	width: 100%;
-	border-collapse: collapse;
+	border-collapse: separate;
+	border-spacing: 0;
 	font-size: 0.88rem;
 }
 .apt-tbl thead th {
-	background: #f8f9ff;
-	color: #555;
-	font-size: 0.74rem;
+	background: #f7f9fc;
+	color: #8a93a7;
+	font-size: 0.72rem;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	padding: 10px 12px;
+	letter-spacing: 0.05em;
+	padding: 14px 14px;
 	text-align: left;
-	border-bottom: 2px solid #c5cae9;
-	border-right: 1px solid #e3e7f0;
+	border: none;
+	border-bottom: 1px solid #eef0f5;
 	white-space: nowrap;
 }
-.apt-tbl thead th:last-child { border-right: none; }
-
 .apt-tbl tbody td {
-	padding: 12px;
-	border-bottom: 1px solid #d6dce8;
-	border-right: 1px solid #ecf0f7;
+	padding: 14px;
+	border: none;
+	border-bottom: 1px solid #f2f4f8;
 	vertical-align: middle;
 }
-.apt-tbl tbody td:last-child { border-right: none; }
-.apt-tbl tbody tr:hover {
-	background: #fafbff;
-}
+.apt-tbl tbody tr:hover { background: #fafbfd; }
 .apt-tbl tbody tr:last-child td { border-bottom: none; }
 
 .apt-tbl-date    { font-weight: 600; color: #1a1a2e; }
@@ -1794,11 +1791,12 @@ body.guest .store-section-divider {
 /* Owner orders table reuses the apt-tbl skeleton; this is the status pill */
 .apt-status {
 	display: inline-block;
-	padding: 3px 10px;
+	padding: 5px 12px;
 	border-radius: 999px;
-	font-size: 0.75rem;
+	font-size: 0.74rem;
 	font-weight: 700;
 	white-space: nowrap;
+	letter-spacing: 0.02em;
 }
 .apt-status.pending   { background: #fff3e0; color: #e65100; }
 .apt-status.confirmed { background: #f3e5f5; color: #6a1b9a; }   /* Order Confirmed — purple */
@@ -1892,47 +1890,47 @@ body.guest .store-section-divider {
 .apt-mode-badge.mode-slot  { background: #e3f2fd; color: #1565c0; }
 .apt-mode-badge.mode-token { background: #fce4ec; color: #c2185b; }
 
-/* ── Shopowner Dashboard (overview tab) ── */
+/* ── Shopowner Dashboard (overview tab) — Cliniva look ── */
 .shop-ov-card {
 	background: #fff;
-	border-radius: 14px;
-	box-shadow: 0 2px 16px rgba(0,0,0,0.06);
-	margin-bottom: 1.2rem;
+	border: 1px solid #eef0f5;
+	border-radius: 16px;
+	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+	margin: 18px 22px;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	min-height: calc(100vh - 140px);   /* fill viewport below the header + tabs */
 }
 .shop-ov-header {
 	display: flex;
 	align-items: center;
-	gap: 1rem;
-	padding: 1.2rem 1.4rem;
-	background: linear-gradient(135deg, #1a1a2e 0%, #2d2d5e 100%);
-	color: #fff;
+	gap: 16px;
+	padding: 20px 24px;
+	background: #fff;
+	color: #1a1a2e;
+	border-bottom: 1px solid #f2f4f8;
 }
 .shop-ov-icon {
-	font-size: 2.6rem;
-	width: 60px;
-	height: 60px;
-	border-radius: 12px;
-	background: rgba(255,255,255,0.15);
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	font-size: 1.8rem;
+	width: 56px; height: 56px;
+	border-radius: 14px;
+	background: #ede7f6;
+	color: #5e35b1;
+	display: flex; align-items: center; justify-content: center;
 	flex-shrink: 0;
 }
-.shop-ov-name    { font-size: 1.3rem; font-weight: 800; margin: 0; }
-.shop-ov-tagline { font-size: 0.88rem; opacity: 0.85; margin-top: 4px; }
-.shop-ov-meta    { font-size: 0.78rem; opacity: 0.7; margin-top: 4px; }
+.shop-ov-name    { font-size: 1.25rem; font-weight: 700; margin: 0; color: #1a1a2e; }
+.shop-ov-tagline { font-size: 0.85rem; color: #6b7280; margin-top: 4px; }
+.shop-ov-meta    { font-size: 0.78rem; color: #8a93a7; margin-top: 4px; }
 .shop-ov-info {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 1rem 2rem;
-	padding: 0.9rem 1.4rem;
+	padding: 14px 24px;
 	font-size: 0.88rem;
-	color: #444;
-	border-bottom: 1px solid #f0f0f0;
+	color: #4b5563;
+	border-bottom: 1px solid #f2f4f8;
+	background: #fafbfd;
 }
 .shop-ov-info a { color: #1a73e8; text-decoration: none; font-weight: 600; }
 .shop-ov-info a:hover { text-decoration: underline; }
@@ -1951,57 +1949,60 @@ body.guest .store-section-divider {
 .shop-ov-stat-val   { font-size: 1.4rem; font-weight: 800; color: #1a1a2e; margin-top: 4px; }
 .shop-ov-stat-label { font-size: 0.74rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
 
-/* ── New dashboard layout: content on left, stats column on right ── */
+/* Dashboard layout: content on left, stats column on right */
 .shop-ov-layout {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) 200px;   /* slim 200px sidebar */
-	gap: 1rem;
-	padding: 1rem 1.4rem 1.4rem;
-	flex: 1;            /* grow to fill the .shop-ov-card vertically */
+	grid-template-columns: minmax(0, 1fr) 220px;
+	gap: 18px;
+	padding: 18px 24px 24px;
+	flex: 1;
 	min-height: 0;
-	align-items: start; /* don't stretch the queue card to match the sidebar height */
+	align-items: start;
 }
-/* Main content area is a 2-column grid so the Today's Queue widget sits in
-   one column and future widgets (Pending Actions, Revenue chart, etc.) can
-   occupy the second column instead of stacking below. On narrower screens
-   it collapses to a single column. */
-.shop-ov-main    { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-width: 0; align-content: start; }
-@media (max-width: 1100px) {
-	.shop-ov-main { grid-template-columns: 1fr; }
-}
-.shop-ov-sidebar { display: flex; flex-direction: column; gap: 6px; }
+.shop-ov-main    { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-width: 0; align-content: start; }
+@media (max-width: 1100px) { .shop-ov-main { grid-template-columns: 1fr; } }
+.shop-ov-sidebar { display: flex; flex-direction: column; gap: 10px; }
 
-/* Queue card stays its natural size — capped at header + 5 rows.
-   The empty space below is reserved for upcoming widgets (Pending Actions,
-   Quick Actions, Revenue chart, etc.) */
-
-/* Sidebar stat rows — compact */
+/* Sidebar stat rows — Cliniva pastel tile style */
 .shop-stat-row {
-	display: flex; align-items: center; gap: 10px;
-	background: #f8f9ff;
-	padding: 8px 10px;
-	border-radius: 8px;
-	border: 1px solid #e8eaf2;
+	display: flex; align-items: center; gap: 12px;
+	background: #fff;
+	padding: 12px 14px;
+	border-radius: 12px;
+	border: 1px solid #eef0f5;
+	transition: border-color 0.15s, box-shadow 0.15s;
 }
-.shop-stat-row-icon { font-size: 1.25rem; line-height: 1; flex-shrink: 0; }
+.shop-stat-row:hover {
+	border-color: #dfe5f3;
+	box-shadow: 0 4px 14px rgba(15,23,42,0.05);
+}
+.shop-stat-row-icon {
+	width: 38px; height: 38px;
+	border-radius: 10px;
+	background: #f3f6fc;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 1.05rem; line-height: 1; flex-shrink: 0;
+}
 .shop-stat-row-body { flex: 1; min-width: 0; }
-.shop-stat-row-val  { font-size: 1.05rem; font-weight: 800; color: #1a1a2e; line-height: 1.1; }
-.shop-stat-row-lbl  { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+.shop-stat-row-val  { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; line-height: 1.1; }
+.shop-stat-row-lbl  { font-size: 0.7rem; color: #8a93a7; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; font-weight: 600; }
 
 /* Today's Queue widget */
 .shop-queue-card {
 	background: #fff;
-	border-radius: 12px;
-	border: 1px solid #e0e0e0;
+	border-radius: 14px;
+	border: 1px solid #eef0f5;
 	overflow: hidden;
+	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
 }
 .shop-queue-head {
 	display: flex; justify-content: space-between; align-items: center;
-	background: linear-gradient(135deg, #1a73e8 0%, #4a90e2 100%);
-	color: #fff;
-	padding: 10px 14px;
+	background: #fff;
+	color: #1a1a2e;
+	padding: 14px 18px;
 	font-weight: 700;
-	font-size: 0.92rem;
+	font-size: 0.95rem;
+	border-bottom: 1px solid #f2f4f8;
 }
 .shop-queue-more   { font-weight: 400; font-size: 0.78rem; opacity: 0.9; }
 .shop-queue-empty  { color: #999; padding: 28px 14px; text-align: center; font-style: italic; }
@@ -2129,87 +2130,118 @@ body.guest .store-section-divider {
 }
 .shop-profile-btn:hover { background: rgba(255,255,255,0.22); }
 
-/* Stats bar */
+/* ── KPI stat cards (Cliniva-style) — pastel icon tile + number + label ── */
 .shop-stats-bar {
-	display: flex;
-	gap: 1px;
-	background: #dde2ee;
-	border-bottom: 1px solid #dde2ee;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 16px;
+	padding: 18px 22px;
+	background: transparent;
+	border-bottom: none;
 }
-
 .shop-stat {
-	flex: 1;
-	background: white;
-	text-align: center;
-	padding: 0.9rem 0.5rem;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 18px 20px;
+	background: #fff;
+	border: 1px solid #eef0f5;
+	border-radius: 14px;
+	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
 	cursor: pointer;
-	transition: background 0.15s;
+	transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
 }
-.shop-stat:hover { background: #f0f4ff; }
-
+.shop-stat:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 12px 28px rgba(15,23,42,0.08);
+	border-color: #dfe5f3;
+}
+.shop-stat-icon {
+	width: 50px; height: 50px;
+	border-radius: 12px;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 1.55rem; flex-shrink: 0;
+}
+.shop-stat-icon-purple { background: #ede7f6; }
+.shop-stat-icon-orange { background: #ffeed3; }
+.shop-stat-icon-green  { background: #e0f4e2; }
+.shop-stat-icon-blue   { background: #dfeeff; }
+.shop-stat-icon-red    { background: #ffe1e1; }
+.shop-stat-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .shop-stat-num {
-	font-size: 1.5rem;
-	font-weight: 800;
-	color: #1a73e8;
+	font-size: 1.7rem; font-weight: 700;
+	color: #1a1a2e; line-height: 1.1;
 }
-
 .shop-stat-label {
-	font-size: 0.75rem;
-	color: #777;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
+	font-size: 0.75rem; color: #8a93a7;
+	text-transform: uppercase; letter-spacing: 0.04em;
+	font-weight: 600;
 }
 
-/* Search bar */
+@media (max-width: 720px) {
+	.shop-stats-bar { padding: 14px; gap: 10px; }
+	.shop-stat { padding: 14px 16px; gap: 12px; }
+	.shop-stat-icon { width: 44px; height: 44px; font-size: 1.3rem; }
+	.shop-stat-num { font-size: 1.4rem; }
+}
+
+/* Search bar — modern card style */
 .shop-search-bar {
-	padding: 0.9rem 1.2rem;
-	background: white;
-	border-bottom: 1px solid #eee;
+	padding: 6px 22px 12px;
+	background: transparent;
+	border-bottom: none;
 }
-
 .shop-search-bar input {
 	width: 100%;
-	padding: 10px 14px;
-	border: 2px solid #e0e0e0;
-	border-radius: 8px;
-	font-size: 0.9rem;
+	padding: 11px 16px;
+	border: 1px solid #e0e4ec;
+	border-radius: 10px;
+	font-size: 0.92rem;
 	outline: none;
 	box-sizing: border-box;
-	transition: border-color 0.2s;
+	background: #fff;
+	transition: border-color 0.18s, box-shadow 0.18s;
 }
-.shop-search-bar input:focus { border-color: #1a73e8; }
+.shop-search-bar input:focus {
+	border-color: #1a73e8;
+	box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+}
 
-/* Filter tabs */
+/* Filter tabs — pill style, no underlines */
 .shop-tabs {
 	display: flex;
-	background: white;
-	border-bottom: 2px solid #eee;
-	padding: 0 1rem;
+	background: transparent;
+	border-bottom: none;
+	padding: 0 22px 12px;
 	overflow-x: auto;
+	gap: 6px;
 }
-
 .shop-tab {
-	padding: 0.7rem 1.1rem;
-	border: none;
-	background: none;
-	font-size: 0.85rem;
+	padding: 8px 16px;
+	border: 1px solid #e0e4ec;
+	background: #fff;
+	border-radius: 999px;
+	font-size: 0.82rem;
 	font-weight: 600;
-	color: #777;
+	color: #5f6473;
 	cursor: pointer;
-	border-bottom: 3px solid transparent;
 	white-space: nowrap;
-	transition: all 0.15s;
-	margin-bottom: -2px;
+	transition: all 0.18s;
 }
-
+.shop-tab:hover {
+	background: #f3f6fc;
+	border-color: #cbd4e3;
+}
 .shop-tab.active {
-	color: #1a73e8;
-	border-bottom-color: #1a73e8;
+	color: #fff;
+	background: #1a73e8;
+	border-color: #1a73e8;
+	box-shadow: 0 3px 10px rgba(26,115,232,0.28);
 }
 
-/* Order list */
+/* Order list — sits on soft grey page bg as a white card */
 .shop-order-list {
-	padding: 1rem 1.2rem;
+	padding: 0 22px 22px;
 }
 
 .shop-empty {
@@ -2905,18 +2937,21 @@ body.guest .store-section-divider {
 }
 .admin-filter-search input:focus { border-color: #4a90e2; }
 .admin-filter-select {
-	padding: 8px 12px;
-	border: 1.5px solid #ddd;
-	border-radius: 8px;
-	font-size: 0.88rem;
+	padding: 9px 14px;
+	border: 1px solid #e0e4ec;
+	border-radius: 10px;
+	font-size: 0.86rem;
 	background: #fff;
 	color: #333;
 	cursor: pointer;
 	outline: none;
 	min-width: 160px;
-	transition: border-color 0.15s;
+	transition: border-color 0.18s, box-shadow 0.18s;
 }
-.admin-filter-select:focus { border-color: #4a90e2; }
+.admin-filter-select:focus {
+	border-color: #1a73e8;
+	box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+}
 .admin-filter-clear-btn {
 	display: inline-flex;
 	align-items: center;
@@ -5381,33 +5416,47 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	border-top: 1px dashed #ddd;
 }
 
-/* ── SHOP OWNER: main tab bar ── */
+/* ── SHOP OWNER: page chrome ── soft grey page bg gives white cards room to breathe */
+#shop-panel-orders,
+#shop-panel-appointments,
+#shop-panel-products,
+#shop-panel-dashboard,
+#shop-panel-schedule,
+#shop-panel-doctors,
+#shop-panel-stores { background: #f5f7fb; min-height: calc(100vh - 110px); }
+
+/* Main tab bar — pill style, no underline */
 .shop-main-tabs {
 	display: flex;
-	background: #fff;
-	border-bottom: 2px solid #eee;
-	padding: 0 20px;
-	overflow-x: auto;            /* tabs scroll horizontally on narrow viewports */
+	background: #f5f7fb;
+	border-bottom: none;
+	padding: 14px 22px 4px;
+	overflow-x: auto;
 	-webkit-overflow-scrolling: touch;
 	scrollbar-width: thin;
+	gap: 6px;
 }
 .shop-main-tab {
-	padding: 12px 20px;
-	background: none;
-	border: none;
-	border-bottom: 2px solid transparent;
-	margin-bottom: -2px;
-	font-size: 0.9rem;
+	padding: 10px 18px;
+	background: #fff;
+	border: 1px solid #e0e4ec;
+	border-radius: 999px;
+	margin-bottom: 0;
+	font-size: 0.88rem;
 	font-weight: 600;
-	color: #888;
+	color: #5f6473;
 	cursor: pointer;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	flex: 0 0 auto;              /* never shrink — keeps tab labels intact */
-	white-space: nowrap;
+	display: flex; align-items: center; gap: 8px;
+	flex: 0 0 auto; white-space: nowrap;
+	transition: all 0.18s;
 }
-.shop-main-tab.active { color: #1a237e; border-bottom-color: #1a237e; }
+.shop-main-tab:hover { background: #f3f6fc; border-color: #cbd4e3; }
+.shop-main-tab.active {
+	color: #fff;
+	background: linear-gradient(135deg, #1a73e8, #1557b0);
+	border-color: #1a73e8;
+	box-shadow: 0 3px 12px rgba(26,115,232,0.28);
+}
 .shop-add-prod-btn {
 	font-size: 0.75rem;
 	padding: 3px 10px;

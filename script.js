@@ -8873,12 +8873,11 @@ async function renderShopAppointments(filterStatus) {
       renderShopAppointments(window._shopAptCurrentFilter);
    });
 
-   // Highlight active filter pill
-   ['', 'Confirmed', 'Completed', 'Cancelled', 'No-show'].forEach(function(f) {
-      var id = 'apt-tab-' + (f || 'all');
-      var btn = document.getElementById(id);
-      if (btn) btn.classList.toggle('active', (filterStatus || '') === f);
-   });
+   // Sync the status dropdown with the current filter (was a tab-pill row before).
+   var statusSel = document.getElementById('shopAptStatusFilter');
+   if (statusSel && statusSel.value !== (filterStatus || '')) {
+      statusSel.value = filterStatus || '';
+   }
 
    if (!_shopAptsCache) {
       list.innerHTML = '<div class="shop-empty">Loading…</div>';
@@ -9166,23 +9165,10 @@ async function renderShopOverview() {
       var photoBlock = '';
       if (p.icon) photoBlock = '<div class="shop-ov-icon">' + p.icon + '</div>';
 
+      // Hospital identity is already in the sidebar profile (and shows up on
+      // every page) — skip the redundant header/info block on the dashboard.
       html +=
          '<div class="shop-ov-card">' +
-            '<div class="shop-ov-header">' +
-               photoBlock +
-               '<div style="flex:1;min-width:0">' +
-                  '<h2 class="shop-ov-name">' + p.name + '</h2>' +
-                  (p.tagline ? '<div class="shop-ov-tagline">' + p.tagline + '</div>' : '') +
-                  '<div class="shop-ov-meta">' +
-                     (meta.icon || '') + ' ' + (meta.label || '') +
-                  '</div>' +
-               '</div>' +
-            '</div>' +
-            '<div class="shop-ov-info">' +
-               (p.address ? '<div>📍 ' + _mapsLink(p.address) + '</div>' : '') +
-               (p.timing  ? '<div>🕒 ' + p.timing  + '</div>' : '') +
-               (p.phone   ? '<div>📞 ' + _phoneLink(p.phone) + '</div>' : '') +
-            '</div>' +
             // Cliniva-style KPI cards — 4 prominent stats with 7-day sparkline trends
             '<div class="shop-ov-kpis">' +
                _kpiCard('purple', '📅', todayApts.length,                                   'Today\'s Bookings', _last7DayCounts(provApts, 'all')) +
@@ -9222,34 +9208,26 @@ function _kpiCard(color, icon, value, label, trend) {
 }
 
 // ── Cliniva Hospital Survey area chart — 30-day daily appointments ──
+// "New" = regular bookings (is_followup=false). "Follow-up" = free FT* bookings.
 function _renderHospitalSurvey(apts) {
    var days = 30;
    var labels = [];
-   var newSeries = new Array(days).fill(0);   // first-time patients (no prior appts before this date)
-   var oldSeries = new Array(days).fill(0);   // returning patients
+   var newSeries = new Array(days).fill(0);   // regular bookings
+   var oldSeries = new Array(days).fill(0);   // follow-up bookings (FT*)
    var today = new Date(); today.setHours(0, 0, 0, 0);
    for (var i = 0; i < days; i++) {
       var d = new Date(today); d.setDate(today.getDate() - (days - 1 - i));
       labels.push(d);
    }
-   // Sort apts by date asc for "new vs returning" classification
-   var byCustFirst = {};
-   (apts || []).slice().sort(function(a, b) {
-      return new Date(a.date || 0) - new Date(b.date || 0);
-   }).forEach(function(a) {
+   (apts || []).forEach(function(a) {
       if (a.status === 'Cancelled') return;
       var d = new Date((a.date || '') + 'T00:00:00');
       if (isNaN(d.getTime())) return;
       var diff = Math.round((today - d) / 86400000);
       if (diff < 0 || diff >= days) return;
       var idx = days - 1 - diff;
-      var custKey = (a.user_email || a.patient_phone || a.patient_name || '').toLowerCase();
-      if (custKey && byCustFirst[custKey] === undefined) {
-         byCustFirst[custKey] = a.date;
-         newSeries[idx] += 1;
-      } else {
-         oldSeries[idx] += 1;
-      }
+      if (a.is_followup) oldSeries[idx] += 1;
+      else               newSeries[idx] += 1;
    });
 
    // SVG area chart
@@ -9313,7 +9291,7 @@ function _renderHospitalSurvey(apts) {
                 '<div class="hs-title">Hospital Survey</div>' +
                 '<div class="hs-legend">' +
                    '<span class="hs-leg-dot" style="background:#1e88e5"></span>New Patients' +
-                   '<span class="hs-leg-dot" style="background:#ef6c00;margin-left:14px"></span>Returning' +
+                   '<span class="hs-leg-dot" style="background:#ef6c00;margin-left:14px"></span>Follow-up' +
                 '</div>' +
              '</div>' +
              '<div class="hs-chart">' + svg + '</div>' +

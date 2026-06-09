@@ -30,8 +30,19 @@
          <button class="shop-side-item hidden" id="shop-tab-orders"       onclick="switchShopTab('orders')"><span class="ssi-icon">📋</span><span>Orders</span></button>
          <button class="shop-side-item hidden" id="shop-tab-appointments" onclick="switchShopTab('appointments')"><span class="ssi-icon">📅</span><span>Appointments</span></button>
          <button class="shop-side-item hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')"><span class="ssi-icon">👨‍⚕️</span><span>Doctors</span></button>
-         <button class="shop-side-item hidden" id="shop-tab-patients"     onclick="switchShopTab('patients')"><span class="ssi-icon">🧑‍🤝‍🧑</span><span>Patients</span></button>
-         <button class="shop-side-item hidden" id="shop-tab-admissions"   onclick="switchShopTab('admissions')"><span class="ssi-icon">🛏️</span><span>Admissions</span></button>
+         <!-- Patients group: parent toggles the children, each child opens its own view -->
+         <button class="shop-side-item shop-side-item-parent hidden" id="shop-tab-patients" onclick="_toggleSideGroup('patients')">
+            <span class="ssi-icon">🧑‍🤝‍🧑</span><span>Patients</span><span class="ssi-chev">+</span>
+         </button>
+         <div class="shop-side-children" id="shop-side-children-patients">
+            <button class="shop-side-subitem" id="shop-tab-patients-out" onclick="switchShopTab('patients-out')">
+               <span class="ssi-icon">🚶</span><span>Out-patients</span>
+            </button>
+            <button class="shop-side-subitem" id="shop-tab-patients-in"  onclick="switchShopTab('patients-in')">
+               <span class="ssi-icon">🛏️</span><span>In-patients</span>
+            </button>
+         </div>
+         <button class="shop-side-item hidden" id="shop-tab-admissions"   onclick="switchShopTab('admissions')"><span class="ssi-icon">📋</span><span>Admissions</span></button>
          <button class="shop-side-item hidden" id="shop-tab-staff"        onclick="switchShopTab('staff')"><span class="ssi-icon">👥</span><span>Staff</span></button>
          <button class="shop-side-item hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')"><span class="ssi-icon">📞</span><span>Schedule</span></button>
          <button class="shop-side-item hidden" id="shop-tab-products"     onclick="switchShopTab('products')"><span class="ssi-icon">🏪</span><span>My Stores</span></button>

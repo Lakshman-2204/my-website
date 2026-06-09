@@ -8649,27 +8649,61 @@ async function deleteStoreProduct(idx) {
 }
 
 function switchShopTab(tab) {
+   // Sub-routes for the expandable Patients group — both feed the same panel,
+   // they just set the mode (Out / In) before rendering.
+   var patientsSub = null;
+   if (tab === 'patients-out') { patientsSub = 'out'; tab = 'patients'; }
+   else if (tab === 'patients-in') { patientsSub = 'in';  tab = 'patients'; }
+
    ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'admissions', 'staff', 'schedule', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
-      if (btn)   btn.classList.toggle('active',   t === tab);
+      if (btn)   btn.classList.toggle('active',   t === tab && t !== 'patients');
    });
+   // Sub-item active state (only the chosen child gets the blue pill)
+   ['patients-out', 'patients-in'].forEach(function(sid) {
+      var b = document.getElementById('shop-tab-' + sid);
+      if (b) b.classList.toggle('active', tab === 'patients' && (sid === 'patients-' + patientsSub));
+   });
+   // Auto-expand the Patients group when one of its children is active
+   if (tab === 'patients') {
+      var parent = document.getElementById('shop-tab-patients');
+      if (parent) {
+         parent.classList.add('open');
+         var chev = parent.querySelector('.ssi-chev');
+         if (chev) chev.textContent = '−';
+      }
+   }
    var titleEl = document.getElementById('shopTopbarTitle');
    if (titleEl) {
       var titleMap = { dashboard: 'Dashboard', orders: 'Orders', appointments: 'Appointments',
-                       doctors: 'Doctors', patients: 'Patients', admissions: 'Admissions',
+                       doctors: 'Doctors', admissions: 'Admissions',
                        staff: 'Staff', schedule: 'Schedule', products: 'My Stores' };
-      titleEl.textContent = titleMap[tab] || 'Dashboard';
+      if (tab === 'patients') {
+         titleEl.textContent = patientsSub === 'in' ? 'In-patients' : 'Out-patients';
+      } else {
+         titleEl.textContent = titleMap[tab] || 'Dashboard';
+      }
    }
    if (tab !== 'products') _currentMyStoreId = null;
    if (tab === 'dashboard')    renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'appointments') { _shopAptsCache = null; renderShopAppointments('Confirmed'); }
    if (tab === 'doctors')      renderShopDoctors();
-   if (tab === 'patients')     renderShopPatients();
+   if (tab === 'patients')     { _patientsMode = patientsSub || _patientsMode || 'out'; renderShopPatients(); }
    if (tab === 'admissions')   renderShopAdmissions();
    if (tab === 'schedule')     renderShopSchedule();
+}
+
+// Toggle expand/collapse for a sidebar group (e.g. Patients parent).
+// Updates the chevron and reveals/hides .shop-side-children below.
+function _toggleSideGroup(name) {
+   var parent = document.getElementById('shop-tab-' + name);
+   if (!parent) return;
+   parent.classList.toggle('open');
+   var chev = parent.querySelector('.ssi-chev');
+   if (chev) chev.textContent = parent.classList.contains('open') ? '−' : '+';
 }
 
 // Quick-add doctor shortcut from the Doctors tab "+ Add" button.
@@ -9677,17 +9711,17 @@ async function renderShopPatients() {
    _liveSubscribe('shopPatients',     'appointments', renderShopPatients);
    _liveSubscribe('shopPatientsAdm',  'admissions',   renderShopPatients);
 
+   // Mode is now driven by the sidebar sub-item (Out-patients / In-patients).
+   // Header inside the card reflects the current view; no inline toggle.
    var mode = _patientsMode;
-   var modeToggle =
-      '<div class="donut-range" style="grid-column:1/-1;max-width:300px;margin-bottom:12px">' +
-         '<button class="donut-range-btn' + (mode === 'out' ? ' active' : '') + '" onclick="_setPatientsMode(\'out\')">🚶 Out-patients</button>' +
-         '<button class="donut-range-btn' + (mode === 'in'  ? ' active' : '') + '" onclick="_setPatientsMode(\'in\')">🛏️ In-patients</button>' +
-      '</div>';
+   var header = mode === 'in'
+      ? '<div class="profile-card-header" style="grid-column:1/-1">🛏️ In-patients <small style="font-weight:400;color:#8a93a7">— currently admitted</small></div>'
+      : '<div class="profile-card-header" style="grid-column:1/-1">🚶 Out-patients <small style="font-weight:400;color:#8a93a7">— booked via appointments</small></div>';
 
    if (mode === 'in') {
-      body.innerHTML = modeToggle + await _renderInPatientsTable(user);
+      body.innerHTML = header + await _renderInPatientsTable(user);
    } else {
-      body.innerHTML = modeToggle + await _renderOutPatientsTable(user);
+      body.innerHTML = header + await _renderOutPatientsTable(user);
    }
 }
 

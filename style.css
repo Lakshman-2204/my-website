@@ -5605,6 +5605,40 @@ body.shopowner-page { background: #f5f7fb; }
 .shop-side-item-cta:hover { background: #d84315; color: #fff; }
 .shop-side-item-foot { font-weight: 500; color: #8a93a7; font-size: 0.85rem; }
 
+/* Expandable sidebar group (e.g. Patients → In-patients / Out-patients).
+   The chevron text (+/−) is updated by JS — see switchShopTab + _toggleSideGroup. */
+.shop-side-item-parent .ssi-chev {
+	margin-left: auto;
+	font-weight: 700; font-size: 0.95rem; color: #b0b6c4;
+	width: 18px; text-align: center;
+}
+.shop-side-item-parent.open .ssi-chev { color: #1a73e8; }
+.shop-side-children {
+	display: none;
+	margin: 2px 0 4px 8px;
+	border-left: 2px solid #eef0f5;
+	padding-left: 6px;
+}
+.shop-side-item-parent.open + .shop-side-children { display: block; }
+.shop-side-subitem {
+	display: flex; align-items: center; gap: 10px;
+	padding: 8px 12px;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	color: #5f6473;
+	font-size: 0.84rem; font-weight: 500;
+	cursor: pointer; width: 100%; text-align: left;
+	transition: all 0.18s;
+}
+.shop-side-subitem .ssi-icon { font-size: 0.95rem; line-height: 1; }
+.shop-side-subitem:hover { background: #f3f6fc; color: #1a73e8; }
+.shop-side-subitem.active {
+	background: linear-gradient(135deg, #1a73e8, #1557b0);
+	color: #fff;
+	box-shadow: 0 3px 10px rgba(26,115,232,0.28);
+}
+
 .shop-main-area { display: flex; flex-direction: column; min-width: 0; }
 .shop-topbar {
 	background: #fff;

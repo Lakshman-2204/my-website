@@ -459,3 +459,33 @@ CREATE INDEX IF NOT EXISTS products_catalog_item_id_idx ON public.products(catal
 ALTER TABLE public.products
    ADD COLUMN IF NOT EXISTS store_provider_id text DEFAULT NULL;
 CREATE INDEX IF NOT EXISTS products_store_provider_id_idx ON public.products(store_provider_id);
+
+-- 20. ADMISSIONS — inpatient tracking (Phase 7). Each row = one admitted
+--     patient currently occupying a bed at a hospital. status flips to
+--     'Discharged' when the patient is sent home. Drives the Admissions tab
+--     on the hospital owner dashboard.
+CREATE TABLE IF NOT EXISTS public.admissions (
+   id                 text         PRIMARY KEY,
+   provider_id        text         NOT NULL,    -- FK apt_providers.id (hospital)
+   patient_name       text         NOT NULL,
+   patient_phone      text         DEFAULT '',
+   patient_ref        text         DEFAULT '',  -- optional patient ID / chart no
+   ward               text         DEFAULT '',  -- e.g. 'Ward B', 'ICU'
+   room_bed           text         DEFAULT '',  -- e.g. 'Rm 104', 'Bed A'
+   admit_date         date         NOT NULL,
+   target_discharge   date,                     -- expected discharge (nullable)
+   status             text         DEFAULT 'Admitted',  -- 'Admitted' | 'Discharged'
+   rounds_status      text         DEFAULT 'pending',   -- 'pending' | 'complete'
+   notes              text         DEFAULT '',
+   created_at         timestamptz  DEFAULT now(),
+   updated_at         timestamptz  DEFAULT now()
+);
+ALTER TABLE public.admissions DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS admissions_provider_idx ON public.admissions(provider_id);
+CREATE INDEX IF NOT EXISTS admissions_status_idx   ON public.admissions(status);
+
+-- Realtime broadcast — needed so multiple owner tabs / admin views auto-refresh
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.admissions;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

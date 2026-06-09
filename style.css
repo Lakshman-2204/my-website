@@ -1962,14 +1962,15 @@ body.guest .store-section-divider {
 }
 .shop-ov-kpis .shop-stat { border: 1px solid #eef0f5; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
 
-/* Hospital Survey area chart card */
+/* Hospital Survey area chart card — narrower so the donut/queue fit beside */
 .hospital-survey {
-	grid-column: 1 / -1;       /* span both columns of shop-ov-main */
+	grid-column: 1 / -1;
 	background: #fff;
 	border: 1px solid #eef0f5;
 	border-radius: 14px;
-	padding: 16px 18px;
+	padding: 12px 16px;
 	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+	max-width: 720px;
 }
 .hospital-survey .hs-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
 .hospital-survey .hs-title { font-weight: 700; color: #1a1a2e; font-size: 1rem; }
@@ -2010,6 +2011,30 @@ body.guest .store-section-divider {
 .total-apts-card .tac-chip-lbl { font-size: 0.7rem; font-weight: 600; opacity: 0.85; margin-top: 3px; }
 .total-apts-card .tac-done { background: #dfeeff; color: #1565c0; }
 .total-apts-card .tac-up   { background: #ffeed3; color: #e65100; }
+
+/* Appointments Status donut — sidebar card */
+.status-donut-card {
+	background: #fff;
+	border: 1px solid #eef0f5;
+	border-radius: 14px;
+	padding: 14px 16px;
+	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+}
+.status-donut-card .donut-title { font-size: 0.78rem; color: #8a93a7; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; text-align: center; margin-bottom: 6px; }
+.status-donut-card .donut-wrap { position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+.status-donut-card .donut-center {
+	position: absolute; inset: 0;
+	display: flex; flex-direction: column; align-items: center; justify-content: center;
+	pointer-events: none;
+}
+.status-donut-card .donut-center-num { font-size: 1.5rem; font-weight: 800; color: #1a1a2e; line-height: 1; }
+.status-donut-card .donut-center-lbl { font-size: 0.66rem; color: #8a93a7; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.status-donut-card .donut-legend { display: flex; flex-direction: column; gap: 4px; }
+.status-donut-card .donut-leg-row { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; }
+.status-donut-card .donut-leg-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.status-donut-card .donut-leg-lbl { flex: 1; color: #4b5563; }
+.status-donut-card .donut-leg-num { color: #1a1a2e; font-weight: 700; }
+.status-donut-card .donut-leg-pct { color: #8a93a7; font-weight: 500; font-size: 0.72rem; }
 
 /* Dashboard layout: content on left, stats column on right */
 .shop-ov-layout {

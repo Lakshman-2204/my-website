@@ -6191,6 +6191,8 @@ async function checkShopOwnerLogin() {
    var ordersTab = document.getElementById('shop-tab-orders');
    var aptTab    = document.getElementById('shop-tab-appointments');
    var docTab    = document.getElementById('shop-tab-doctors');
+   var patTab    = document.getElementById('shop-tab-patients');
+   var staffTab  = document.getElementById('shop-tab-staff');
    var schedTab  = document.getElementById('shop-tab-schedule');
    var prodTab   = document.getElementById('shop-tab-products');
    if (dashTab)   dashTab.classList.toggle('hidden',   !ownsHospital);
@@ -6198,6 +6200,8 @@ async function checkShopOwnerLogin() {
    if (prodTab)   prodTab.classList.toggle('hidden',   !ownsStores);
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
+   if (patTab)    patTab.classList.toggle('hidden',    !ownsHospital);
+   if (staffTab)  staffTab.classList.toggle('hidden',  !ownsHospital);
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
    var walkinTab = document.getElementById('shop-tab-walkin');
    if (walkinTab) walkinTab.classList.toggle('hidden', !ownsStores);
@@ -8643,25 +8647,25 @@ async function deleteStoreProduct(idx) {
 }
 
 function switchShopTab(tab) {
-   ['dashboard', 'orders', 'appointments', 'doctors', 'schedule', 'products'].forEach(function(t) {
+   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'staff', 'schedule', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
       if (btn)   btn.classList.toggle('active',   t === tab);
    });
-   // Topbar title mirrors the active tab — Cliniva-style breadcrumb
    var titleEl = document.getElementById('shopTopbarTitle');
    if (titleEl) {
       var titleMap = { dashboard: 'Dashboard', orders: 'Orders', appointments: 'Appointments',
-                       doctors: 'Doctors', schedule: 'Schedule', products: 'My Stores' };
+                       doctors: 'Doctors', patients: 'Patients', staff: 'Staff',
+                       schedule: 'Schedule', products: 'My Stores' };
       titleEl.textContent = titleMap[tab] || 'Dashboard';
    }
-   // Reset My Stores drilldown whenever owner leaves the products tab.
    if (tab !== 'products') _currentMyStoreId = null;
    if (tab === 'dashboard')    renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'appointments') { _shopAptsCache = null; renderShopAppointments('Confirmed'); }
    if (tab === 'doctors')      renderShopDoctors();
+   if (tab === 'patients')     renderShopPatients();
    if (tab === 'schedule')     renderShopSchedule();
 }
 
@@ -9182,7 +9186,7 @@ async function renderShopOverview() {
                   _todayQueueWidget(provApts, todayYmd) +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
-                  _renderTotalAppointmentsCard(todayApts, todayPending, todayDone) +
+                  _renderStatusDonut(provApts) +
                   _statRow('👨‍⚕️', docCount,         'Doctors') +
                   _statRow('📊',  thisWeek.length,  'This Week') +
                '</aside>' +
@@ -9230,8 +9234,8 @@ function _renderHospitalSurvey(apts) {
       else               newSeries[idx] += 1;
    });
 
-   // SVG area chart
-   var w = 760, h = 220, padL = 32, padR = 14, padT = 18, padB = 28;
+   // SVG area chart — narrower viewBox; the CSS container caps width
+   var w = 760, h = 180, padL = 32, padR = 14, padT = 14, padB = 26;
    var plotW = w - padL - padR;
    var plotH = h - padT - padB;
    var maxVal = Math.max(1, Math.max.apply(null, newSeries.concat(oldSeries)));
@@ -9397,6 +9401,72 @@ function _hospitalSurveyHide(e) {
    if (tip) tip.classList.add('hidden');
 }
 
+// Sidebar card: appointment status donut — Confirmed / Completed / No-show / Cancelled.
+// Counts ALL appointments for this hospital (not just today) so the doctor
+// can spot a creeping no-show or cancellation rate over time.
+function _renderStatusDonut(apts) {
+   var counts = { Confirmed: 0, Completed: 0, 'No-show': 0, Cancelled: 0 };
+   (apts || []).forEach(function(a) {
+      if (counts[a.status] !== undefined) counts[a.status] += 1;
+   });
+   var total = counts.Confirmed + counts.Completed + counts['No-show'] + counts.Cancelled;
+
+   // Color palette matches the badge colors used elsewhere
+   var segments = [
+      { key: 'Confirmed', label: 'Confirmed', color: '#7e57c2', count: counts.Confirmed },
+      { key: 'Completed', label: 'Completed', color: '#2e7d32', count: counts.Completed },
+      { key: 'No-show',   label: 'No-show',   color: '#ef6c00', count: counts['No-show'] },
+      { key: 'Cancelled', label: 'Cancelled', color: '#c62828', count: counts.Cancelled }
+   ];
+
+   var size = 140, cx = size / 2, cy = size / 2, r = 56, rInner = 38;
+   var svg = '';
+   if (total === 0) {
+      // Empty state — grey ring
+      svg = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#eef0f5" stroke-width="' + (r - rInner) + '"/>';
+   } else {
+      var angle = -Math.PI / 2;   // start at 12 o'clock
+      segments.forEach(function(s) {
+         if (s.count === 0) return;
+         var slice = (s.count / total) * Math.PI * 2;
+         var a0 = angle, a1 = angle + slice;
+         var x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+         var x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+         var xi1 = cx + rInner * Math.cos(a1), yi1 = cy + rInner * Math.sin(a1);
+         var xi0 = cx + rInner * Math.cos(a0), yi0 = cy + rInner * Math.sin(a0);
+         var largeArc = slice > Math.PI ? 1 : 0;
+         var d = 'M' + x0 + ',' + y0 +
+                 ' A' + r + ',' + r + ' 0 ' + largeArc + ' 1 ' + x1 + ',' + y1 +
+                 ' L' + xi1 + ',' + yi1 +
+                 ' A' + rInner + ',' + rInner + ' 0 ' + largeArc + ' 0 ' + xi0 + ',' + yi0 +
+                 ' Z';
+         svg += '<path d="' + d + '" fill="' + s.color + '"><title>' + s.label + ': ' + s.count + '</title></path>';
+         angle = a1;
+      });
+   }
+
+   var legend = segments.map(function(s) {
+      var pct = total ? Math.round((s.count / total) * 100) : 0;
+      return '<div class="donut-leg-row">' +
+                '<span class="donut-leg-dot" style="background:' + s.color + '"></span>' +
+                '<span class="donut-leg-lbl">' + s.label + '</span>' +
+                '<span class="donut-leg-num">' + s.count + ' <span class="donut-leg-pct">(' + pct + '%)</span></span>' +
+             '</div>';
+   }).join('');
+
+   return '<div class="status-donut-card">' +
+             '<div class="donut-title">Appointments Status</div>' +
+             '<div class="donut-wrap">' +
+                '<svg viewBox="0 0 ' + size + ' ' + size + '" width="140" height="140">' + svg + '</svg>' +
+                '<div class="donut-center">' +
+                   '<div class="donut-center-num">' + total + '</div>' +
+                   '<div class="donut-center-lbl">Total</div>' +
+                '</div>' +
+             '</div>' +
+             '<div class="donut-legend">' + legend + '</div>' +
+          '</div>';
+}
+
 // Sidebar card: total today's appointments split into completed / upcoming
 function _renderTotalAppointmentsCard(todayApts, todayPending, todayDone) {
    return '<div class="total-apts-card">' +
@@ -9552,6 +9622,70 @@ function _todayQueueWidget(provApts, todayYmd) {
              headerRow +
              bodyHtml +
           '</div>';
+}
+
+// ── PATIENTS tab — directory of unique patients who've booked here ──
+// Deduplicates by patient_phone (fall back to user_email + name). Sortable
+// by name, by last visit, by total visits. All numbers come from the
+// hospital's own appointment history — no extra fetches needed.
+async function renderShopPatients() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var body = document.getElementById('shopPatientsBody');
+   if (!body) return;
+   _liveSubscribe('shopPatients', 'appointments', renderShopPatients);
+
+   var all = await AppDB.getAppointmentsByOwner(user.email);
+   if (!all || !all.length) {
+      body.innerHTML = '<div class="shop-empty" style="grid-column:1/-1">No patients yet. Once customers book, they\'ll appear here.</div>';
+      return;
+   }
+   var groups = {};
+   all.forEach(function(a) {
+      var key = (a.patient_phone || a.user_email || a.patient_name || '').toLowerCase().trim();
+      if (!key) return;
+      if (!groups[key]) {
+         groups[key] = { name: a.patient_name || '—', phone: a.patient_phone || '', email: a.user_email || '', visits: 0, completed: 0, lastDate: '', totalFee: 0 };
+      }
+      var g = groups[key];
+      g.visits += 1;
+      if (a.status === 'Completed') g.completed += 1;
+      if (a.date && a.date > g.lastDate) g.lastDate = a.date;
+      if (a.status === 'Completed' && a.fee) g.totalFee += Number(a.fee) || 0;
+      if (a.patient_name && g.name === '—') g.name = a.patient_name;
+      if (!g.phone && a.patient_phone) g.phone = a.patient_phone;
+      if (!g.email && a.user_email)   g.email = a.user_email;
+   });
+   var rows = Object.values(groups).sort(function(a, b) {
+      return (b.lastDate || '').localeCompare(a.lastDate || '');
+   });
+
+   var rowHtml = rows.map(function(p) {
+      var lastLbl = p.lastDate ? new Date(p.lastDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      return '<tr>' +
+                '<td><div class="apt-tbl-name">' + p.name + '</div>' +
+                    (p.email ? '<div class="apt-tbl-sub">' + p.email + '</div>' : '') +
+                '</td>' +
+                '<td>' + (p.phone ? '<a href="tel:' + String(p.phone).replace(/[^0-9+]/g, '') + '" style="color:#1a73e8;font-weight:600">' + p.phone + '</a>' : '<span style="color:#bbb">—</span>') + '</td>' +
+                '<td style="text-align:center"><div class="apt-tbl-fee">' + p.visits + '</div><div class="apt-tbl-sub">' + p.completed + ' completed</div></td>' +
+                '<td><div class="apt-tbl-name">' + lastLbl + '</div></td>' +
+                '<td style="text-align:right"><div class="apt-tbl-fee">₹' + p.totalFee.toLocaleString('en-IN') + '</div></td>' +
+             '</tr>';
+   }).join('');
+
+   body.innerHTML =
+      '<div style="grid-column:1/-1;font-size:0.85rem;color:#666;padding-bottom:8px"><strong>' + rows.length + '</strong> unique patient' + (rows.length === 1 ? '' : 's') + ' on file</div>' +
+      '<div class="apt-tbl-wrap" style="grid-column:1/-1">' +
+         '<table class="apt-tbl">' +
+            '<thead><tr>' +
+               '<th>Patient</th>' +
+               '<th>Phone</th>' +
+               '<th style="text-align:center">Visits</th>' +
+               '<th>Last Visit</th>' +
+               '<th style="text-align:right">Total Paid</th>' +
+            '</tr></thead>' +
+            '<tbody>' + rowHtml + '</tbody>' +
+         '</table>' +
+      '</div>';
 }
 
 // ── SCHEDULE (owner books on behalf of offline customers) ──

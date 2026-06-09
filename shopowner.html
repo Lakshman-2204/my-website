@@ -30,6 +30,8 @@
          <button class="shop-side-item hidden" id="shop-tab-orders"       onclick="switchShopTab('orders')"><span class="ssi-icon">📋</span><span>Orders</span></button>
          <button class="shop-side-item hidden" id="shop-tab-appointments" onclick="switchShopTab('appointments')"><span class="ssi-icon">📅</span><span>Appointments</span></button>
          <button class="shop-side-item hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')"><span class="ssi-icon">👨‍⚕️</span><span>Doctors</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-patients"     onclick="switchShopTab('patients')"><span class="ssi-icon">🧑‍🤝‍🧑</span><span>Patients</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-staff"        onclick="switchShopTab('staff')"><span class="ssi-icon">👥</span><span>Staff</span></button>
          <button class="shop-side-item hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')"><span class="ssi-icon">📞</span><span>Schedule</span></button>
          <button class="shop-side-item hidden" id="shop-tab-products"     onclick="switchShopTab('products')"><span class="ssi-icon">🏪</span><span>My Stores</span></button>
          <button class="shop-side-item shop-side-item-cta hidden" id="shop-tab-walkin" onclick="openWalkinBillFromTab()"><span class="ssi-icon">🧾</span><span>Walk-in Bill</span></button>
@@ -196,6 +198,34 @@
       <div class="shop-tabs" id="shopAptDoctorTabs" style="padding:0.4rem 1rem;overflow-x:auto"></div>
       <div class="shop-order-list" id="shopAppointmentList">
          <div class="shop-empty">Loading…</div>
+      </div>
+   </div>
+
+   <!-- PATIENTS PANEL — list of unique patients who've booked with this hospital -->
+   <div id="shop-panel-patients" class="hidden">
+      <div style="padding:18px 22px">
+         <div id="shopPatientsContent" class="profile-card">
+            <div class="profile-card-header">🧑‍🤝‍🧑 Patients</div>
+            <div class="profile-card-body" id="shopPatientsBody">
+               <div class="shop-empty" style="grid-column:1/-1">Loading…</div>
+            </div>
+         </div>
+      </div>
+   </div>
+
+   <!-- STAFF PANEL — non-doctor employees (placeholder) -->
+   <div id="shop-panel-staff" class="hidden">
+      <div style="padding:18px 22px">
+         <div class="profile-card">
+            <div class="profile-card-header">👥 Staff</div>
+            <div class="profile-card-body">
+               <div style="grid-column:1/-1;color:#888;text-align:center;padding:40px 20px">
+                  <div style="font-size:2.4rem;margin-bottom:8px">🚧</div>
+                  <div style="font-weight:600;color:#5f6473;margin-bottom:4px">Staff directory coming soon</div>
+                  <div style="font-size:0.85rem">Add nurses, receptionists, and other team members. For now, manage doctors from the Doctors tab.</div>
+               </div>
+            </div>
+         </div>
       </div>
    </div>
 

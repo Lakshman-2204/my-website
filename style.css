@@ -2065,7 +2065,7 @@ body.guest .store-section-divider {
 /* Single-column main so Hospital Survey and Today's Queue render at the
    same width, stacked vertically. max-width keeps them narrow (matches the
    Today's Queue's natural size — the chart was previously stretched too wide). */
-.shop-ov-main    { display: grid; grid-template-columns: 1fr; gap: 10px; min-width: 0; align-content: start; max-width: 700px; }
+.shop-ov-main    { display: grid; grid-template-columns: 1fr; gap: 10px; min-width: 0; align-content: start; max-width: 600px; }
 .shop-ov-sidebar { display: flex; flex-direction: column; gap: 10px; }
 
 /* Sidebar stat rows — Cliniva pastel tile style */

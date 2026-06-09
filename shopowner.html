@@ -10,36 +10,48 @@
 </head>
 <body class="shopowner-page">
 
-   <!-- HEADER -->
-   <div class="shop-header">
-      <div class="shop-header-left">
-         <div class="shop-site-name">myWebsite</div>
-      </div>
-      <div class="shop-header-center">
-         <div class="shop-business-name" id="shopBusinessName"></div>
-         <div class="shop-owner-name" id="shopOwnerName"></div>
-      </div>
-      <div class="shop-header-right">
-         <button class="shop-profile-btn" onclick="window.location='profile.html'" title="My Profile">👤</button>
-         <button class="shop-logout-btn" onclick="logout()">Logout</button>
-      </div>
-   </div>
+   <!-- ── CLINIVA-STYLE LAYOUT: left sidebar + main content ── -->
+   <div class="shop-app-layout">
 
-   <!-- Internal shop announcement (admin-controlled) -->
-   <div class="announcement-bar hidden" id="shopAnnouncementBar"></div>
+      <!-- LEFT SIDEBAR — logo, profile card, vertical nav -->
+      <aside class="shop-side-nav">
+         <div class="shop-side-brand">
+            <span class="shop-side-logo">🏥</span>
+            <span class="shop-side-brand-name">myWebsite</span>
+         </div>
+         <div class="shop-side-profile">
+            <div class="shop-side-avatar">👤</div>
+            <div class="shop-side-profile-name" id="shopBusinessName"></div>
+            <div class="shop-side-profile-role" id="shopOwnerName"></div>
+         </div>
+         <div class="shop-side-menu-label">MAIN</div>
+         <!-- All hidden by default — checkShopOwnerLogin reveals only the ones this user owns -->
+         <button class="shop-side-item hidden" id="shop-tab-dashboard"    onclick="switchShopTab('dashboard')"><span class="ssi-icon">🏠</span><span>Dashboard</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-orders"       onclick="switchShopTab('orders')"><span class="ssi-icon">📋</span><span>Orders</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-appointments" onclick="switchShopTab('appointments')"><span class="ssi-icon">📅</span><span>Appointments</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')"><span class="ssi-icon">👨‍⚕️</span><span>Doctors</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')"><span class="ssi-icon">📞</span><span>Schedule</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-products"     onclick="switchShopTab('products')"><span class="ssi-icon">🏪</span><span>My Stores</span></button>
+         <button class="shop-side-item shop-side-item-cta hidden" id="shop-tab-walkin" onclick="openWalkinBillFromTab()"><span class="ssi-icon">🧾</span><span>Walk-in Bill</span></button>
+         <div style="flex:1"></div>
+         <button class="shop-side-item shop-side-item-foot" onclick="window.location='profile.html'"><span class="ssi-icon">⚙️</span><span>My Profile</span></button>
+         <button class="shop-side-item shop-side-item-foot" onclick="logout()"><span class="ssi-icon">↪️</span><span>Logout</span></button>
+      </aside>
 
-   <!-- TOP-LEVEL TABS: Orders / Appointments / My Products
-        All hidden by default — checkShopOwnerLogin reveals only the ones this user owns.
-        Walk-in Bill is a top-level shortcut (opens modal directly — no tab switch). -->
-   <div class="shop-main-tabs">
-      <button class="shop-main-tab hidden" id="shop-tab-dashboard"    onclick="switchShopTab('dashboard')">🏠 Dashboard</button>
-      <button class="shop-main-tab hidden" id="shop-tab-orders"       onclick="switchShopTab('orders')">📋 Orders</button>
-      <button class="shop-main-tab hidden" id="shop-tab-appointments" onclick="switchShopTab('appointments')">📅 Appointments</button>
-      <button class="shop-main-tab hidden" id="shop-tab-doctors"      onclick="switchShopTab('doctors')">👨‍⚕️ Doctors</button>
-      <button class="shop-main-tab hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')">📞 Schedule</button>
-      <button class="shop-main-tab hidden" id="shop-tab-products"     onclick="switchShopTab('products')">🏪 My Stores</button>
-      <button class="shop-main-tab hidden" id="shop-tab-walkin" style="background:#ef6c00;color:#fff;border-color:#ef6c00" onclick="openWalkinBillFromTab()">🧾 Walk-in Bill</button>
-   </div>
+      <!-- MAIN AREA — topbar + scrollable content -->
+      <div class="shop-main-area">
+
+         <!-- TOPBAR — breadcrumb / page title + actions -->
+         <header class="shop-topbar">
+            <div class="shop-topbar-title" id="shopTopbarTitle">Dashboard</div>
+            <div class="shop-topbar-actions">
+               <span class="shop-topbar-bell" title="Notifications">🔔</span>
+               <button class="shop-topbar-user" onclick="window.location='profile.html'"><span>👤</span></button>
+            </div>
+         </header>
+
+         <!-- Internal shop announcement (admin-controlled) -->
+         <div class="announcement-bar hidden" id="shopAnnouncementBar"></div>
 
    <!-- DASHBOARD PANEL — overview of hospital info + quick stats -->
    <div id="shop-panel-dashboard" class="hidden">
@@ -678,6 +690,9 @@
          </div>
       </div>
    </div>
+
+      </div><!-- /.shop-main-area -->
+   </div><!-- /.shop-app-layout -->
 
    <script src="script.js"></script>
    <script>

@@ -1960,6 +1960,39 @@ body.guest .store-section-divider {
 }
 .shop-ov-kpis .shop-stat { border: 1px solid #eef0f5; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
 
+/* Hospital Survey area chart card */
+.hospital-survey {
+	grid-column: 1 / -1;       /* span both columns of shop-ov-main */
+	background: #fff;
+	border: 1px solid #eef0f5;
+	border-radius: 14px;
+	padding: 16px 18px;
+	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+}
+.hospital-survey .hs-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.hospital-survey .hs-title { font-weight: 700; color: #1a1a2e; font-size: 1rem; }
+.hospital-survey .hs-legend { font-size: 0.78rem; color: #5f6473; display: flex; align-items: center; }
+.hospital-survey .hs-leg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+.hospital-survey .hs-chart   { overflow: hidden; }
+
+/* Total Appointments side card */
+.total-apts-card {
+	background: #fff;
+	border: 1px solid #eef0f5;
+	border-radius: 14px;
+	padding: 16px 18px;
+	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+	display: flex; flex-direction: column; gap: 10px;
+}
+.total-apts-card .tac-label { font-size: 0.82rem; color: #8a93a7; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.04em; }
+.total-apts-card .tac-total { font-size: 2rem; font-weight: 800; color: #1a1a2e; text-align: center; line-height: 1; }
+.total-apts-card .tac-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.total-apts-card .tac-chip { border-radius: 10px; padding: 10px; text-align: center; }
+.total-apts-card .tac-chip-num { font-size: 1.15rem; font-weight: 800; line-height: 1.1; }
+.total-apts-card .tac-chip-lbl { font-size: 0.7rem; font-weight: 600; opacity: 0.85; margin-top: 3px; }
+.total-apts-card .tac-done { background: #dfeeff; color: #1565c0; }
+.total-apts-card .tac-up   { background: #ffeed3; color: #e65100; }
+
 /* Dashboard layout: content on left, stats column on right */
 .shop-ov-layout {
 	display: grid;
@@ -2188,6 +2221,7 @@ body.guest .store-section-divider {
 	text-transform: uppercase; letter-spacing: 0.04em;
 	font-weight: 600;
 }
+.shop-stat .kpi-spark { display: block; margin-top: 4px; max-width: 100%; }
 
 @media (max-width: 720px) {
 	.shop-stats-bar { padding: 14px; gap: 10px; }
@@ -5427,7 +5461,117 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	border-top: 1px dashed #ddd;
 }
 
-/* ── SHOP OWNER: page chrome ── soft grey page bg gives white cards room to breathe */
+/* ──────────────────────────────────────────────────────────────────
+   SHOP OWNER: Cliniva-style layout (left sidebar + main area)
+   ────────────────────────────────────────────────────────────────── */
+body.shopowner-page { background: #f5f7fb; }
+.shop-app-layout {
+	display: grid;
+	grid-template-columns: 240px 1fr;
+	min-height: 100vh;
+}
+.shop-side-nav {
+	background: #fff;
+	border-right: 1px solid #eef0f5;
+	padding: 18px 14px 16px;
+	display: flex; flex-direction: column; gap: 4px;
+	position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.shop-side-brand {
+	display: flex; align-items: center; gap: 10px;
+	padding: 0 6px 14px;
+	border-bottom: 1px solid #f2f4f8;
+	margin-bottom: 14px;
+}
+.shop-side-logo {
+	width: 36px; height: 36px;
+	background: linear-gradient(135deg, #1a73e8, #1557b0);
+	color: #fff; border-radius: 10px;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 1.1rem; flex-shrink: 0;
+}
+.shop-side-brand-name { font-weight: 800; font-size: 1.05rem; color: #1a1a2e; }
+.shop-side-profile {
+	display: flex; flex-direction: column; align-items: center; gap: 6px;
+	padding: 14px 8px 16px;
+	border-bottom: 1px solid #f2f4f8;
+	margin-bottom: 12px;
+}
+.shop-side-avatar {
+	width: 64px; height: 64px;
+	background: #f3f6fc;
+	border-radius: 50%; border: 3px solid #fff;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 1.8rem;
+	box-shadow: 0 2px 8px rgba(15,23,42,0.08);
+}
+.shop-side-profile-name { font-weight: 700; font-size: 0.92rem; color: #1a1a2e; text-align: center; }
+.shop-side-profile-role { font-size: 0.74rem; color: #8a93a7; text-transform: uppercase; letter-spacing: 0.05em; }
+.shop-side-menu-label {
+	font-size: 0.66rem; color: #b0b6c4;
+	text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+	padding: 4px 10px 6px;
+}
+.shop-side-item {
+	display: flex; align-items: center; gap: 12px;
+	padding: 10px 12px;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	color: #5f6473;
+	font-size: 0.9rem; font-weight: 600;
+	cursor: pointer; width: 100%; text-align: left;
+	transition: all 0.18s;
+}
+.shop-side-item:hover { background: #f3f6fc; color: #1a73e8; }
+.shop-side-item.active {
+	background: linear-gradient(135deg, #1a73e8, #1557b0);
+	color: #fff;
+	box-shadow: 0 4px 14px rgba(26,115,232,0.28);
+}
+.shop-side-item.active .ssi-icon { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18)); }
+.shop-side-item .ssi-icon { font-size: 1.1rem; line-height: 1; }
+.shop-side-item-cta { background: linear-gradient(135deg, #ef6c00, #e65100); color: #fff; }
+.shop-side-item-cta:hover { background: #d84315; color: #fff; }
+.shop-side-item-foot { font-weight: 500; color: #8a93a7; font-size: 0.85rem; }
+
+.shop-main-area { display: flex; flex-direction: column; min-width: 0; }
+.shop-topbar {
+	background: #fff;
+	border-bottom: 1px solid #eef0f5;
+	padding: 14px 24px;
+	display: flex; align-items: center; justify-content: space-between;
+	position: sticky; top: 0; z-index: 50;
+}
+.shop-topbar-title { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; }
+.shop-topbar-actions { display: flex; align-items: center; gap: 12px; }
+.shop-topbar-bell { font-size: 1.1rem; cursor: pointer; padding: 6px 10px; border-radius: 8px; transition: background 0.18s; }
+.shop-topbar-bell:hover { background: #f3f6fc; }
+.shop-topbar-user {
+	width: 38px; height: 38px;
+	background: #f3f6fc; border: 1px solid #e0e4ec;
+	border-radius: 50%; cursor: pointer;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 1rem;
+}
+.shop-topbar-user:hover { border-color: #1a73e8; }
+
+/* Hide the old top tab strip + old header inside the new layout */
+.shopowner-page .shop-header { display: none; }
+.shop-main-tabs { display: none; }
+
+@media (max-width: 880px) {
+	.shop-app-layout { grid-template-columns: 1fr; }
+	.shop-side-nav {
+		position: static; height: auto; overflow-x: auto; overflow-y: hidden;
+		flex-direction: row; flex-wrap: nowrap; padding: 10px;
+		border-right: none; border-bottom: 1px solid #eef0f5;
+	}
+	.shop-side-brand, .shop-side-profile, .shop-side-menu-label { display: none; }
+	.shop-side-item { flex-shrink: 0; padding: 8px 14px; }
+}
+
+/* Soft grey page bg gives white cards room to breathe */
 #shop-panel-orders,
 #shop-panel-appointments,
 #shop-panel-products,

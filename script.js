@@ -8649,6 +8649,13 @@ function switchShopTab(tab) {
       if (panel) panel.classList.toggle('hidden', t !== tab);
       if (btn)   btn.classList.toggle('active',   t === tab);
    });
+   // Topbar title mirrors the active tab — Cliniva-style breadcrumb
+   var titleEl = document.getElementById('shopTopbarTitle');
+   if (titleEl) {
+      var titleMap = { dashboard: 'Dashboard', orders: 'Orders', appointments: 'Appointments',
+                       doctors: 'Doctors', schedule: 'Schedule', products: 'My Stores' };
+      titleEl.textContent = titleMap[tab] || 'Dashboard';
+   }
    // Reset My Stores drilldown whenever owner leaves the products tab.
    if (tab !== 'products') _currentMyStoreId = null;
    if (tab === 'dashboard')    renderShopOverview();
@@ -9176,18 +9183,20 @@ async function renderShopOverview() {
                (p.timing  ? '<div>🕒 ' + p.timing  + '</div>' : '') +
                (p.phone   ? '<div>📞 ' + _phoneLink(p.phone) + '</div>' : '') +
             '</div>' +
-            // Cliniva-style KPI cards — 4 prominent stats at the top
+            // Cliniva-style KPI cards — 4 prominent stats with 7-day sparkline trends
             '<div class="shop-ov-kpis">' +
-               _kpiCard('purple', '📅', todayApts.length,                                   'Today\'s Bookings') +
-               _kpiCard('orange', '⏳', todayPending.length,                                'Pending Today') +
-               _kpiCard('green',  '✅', todayDone.length,                                   'Completed Today') +
-               _kpiCard('blue',   '💰', '₹' + monthRevenue.toLocaleString('en-IN'),         'Revenue (Month)') +
+               _kpiCard('purple', '📅', todayApts.length,                                   'Today\'s Bookings', _last7DayCounts(provApts, 'all')) +
+               _kpiCard('orange', '⏳', todayPending.length,                                'Pending Today',     _last7DayCounts(provApts, 'Confirmed')) +
+               _kpiCard('green',  '✅', todayDone.length,                                   'Completed Today',   _last7DayCounts(provApts, 'Completed')) +
+               _kpiCard('blue',   '💰', '₹' + monthRevenue.toLocaleString('en-IN'),         'Revenue (Month)',   _last7DayRevenue(provApts)) +
             '</div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
+                  _renderHospitalSurvey(provApts) +
                   _todayQueueWidget(provApts, todayYmd) +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
+                  _renderTotalAppointmentsCard(todayApts, todayPending, todayDone) +
                   _statRow('👨‍⚕️', docCount,         'Doctors') +
                   _statRow('📊',  thisWeek.length,  'This Week') +
                '</aside>' +
@@ -9198,16 +9207,189 @@ async function renderShopOverview() {
    container.innerHTML = html;
 }
 
-// Cliniva-style KPI card — pastel icon tile + big number + small label.
-// Reuses .shop-stat styling defined in style.css.
-function _kpiCard(color, icon, value, label) {
+// Cliniva-style KPI card — pastel icon tile + big number + label + sparkline.
+// `trend` is an array of numbers (e.g. last 7 days); rendered as a tiny SVG.
+function _kpiCard(color, icon, value, label, trend) {
+   var spark = (trend && trend.length > 1) ? _renderSparkline(trend, color) : '';
    return '<div class="shop-stat" style="cursor:default">' +
              '<div class="shop-stat-icon shop-stat-icon-' + color + '">' + icon + '</div>' +
              '<div class="shop-stat-body">' +
                 '<div class="shop-stat-num">' + value + '</div>' +
                 '<div class="shop-stat-label">' + label + '</div>' +
+                spark +
              '</div>' +
           '</div>';
+}
+
+// ── Cliniva Hospital Survey area chart — 30-day daily appointments ──
+function _renderHospitalSurvey(apts) {
+   var days = 30;
+   var labels = [];
+   var newSeries = new Array(days).fill(0);   // first-time patients (no prior appts before this date)
+   var oldSeries = new Array(days).fill(0);   // returning patients
+   var today = new Date(); today.setHours(0, 0, 0, 0);
+   for (var i = 0; i < days; i++) {
+      var d = new Date(today); d.setDate(today.getDate() - (days - 1 - i));
+      labels.push(d);
+   }
+   // Sort apts by date asc for "new vs returning" classification
+   var byCustFirst = {};
+   (apts || []).slice().sort(function(a, b) {
+      return new Date(a.date || 0) - new Date(b.date || 0);
+   }).forEach(function(a) {
+      if (a.status === 'Cancelled') return;
+      var d = new Date((a.date || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return;
+      var diff = Math.round((today - d) / 86400000);
+      if (diff < 0 || diff >= days) return;
+      var idx = days - 1 - diff;
+      var custKey = (a.user_email || a.patient_phone || a.patient_name || '').toLowerCase();
+      if (custKey && byCustFirst[custKey] === undefined) {
+         byCustFirst[custKey] = a.date;
+         newSeries[idx] += 1;
+      } else {
+         oldSeries[idx] += 1;
+      }
+   });
+
+   // SVG area chart
+   var w = 760, h = 220, padL = 32, padR = 14, padT = 18, padB = 28;
+   var plotW = w - padL - padR;
+   var plotH = h - padT - padB;
+   var maxVal = Math.max(1, Math.max.apply(null, newSeries.concat(oldSeries)));
+   // Round max up to nearest "nice" number
+   var step = maxVal <= 5 ? 1 : maxVal <= 10 ? 2 : maxVal <= 50 ? 10 : 20;
+   var ceil = Math.ceil(maxVal / step) * step;
+   var stepX = plotW / Math.max(1, days - 1);
+
+   function toPath(series) {
+      var pts = series.map(function(v, i) {
+         var x = padL + i * stepX;
+         var y = padT + plotH - (v / ceil) * plotH;
+         return x.toFixed(1) + ',' + y.toFixed(1);
+      });
+      return 'M' + pts.join(' L');
+   }
+   function toArea(series) {
+      var line = toPath(series);
+      var lastX = padL + (days - 1) * stepX;
+      return line + ' L' + lastX.toFixed(1) + ',' + (padT + plotH).toFixed(1) +
+                    ' L' + padL.toFixed(1)  + ',' + (padT + plotH).toFixed(1) + ' Z';
+   }
+
+   // Y axis grid lines + labels
+   var gridLines = '';
+   var gridSteps = 4;
+   for (var g = 0; g <= gridSteps; g++) {
+      var y = padT + (plotH / gridSteps) * g;
+      var label = Math.round(ceil - (ceil / gridSteps) * g);
+      gridLines += '<line x1="' + padL + '" x2="' + (w - padR) + '" y1="' + y + '" y2="' + y + '" stroke="#eef0f5" stroke-width="1"/>';
+      gridLines += '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="10" fill="#8a93a7">' + label + '</text>';
+   }
+   // X axis labels (every 5 days)
+   var xLabels = '';
+   for (var i = 0; i < days; i += 5) {
+      var lx = padL + i * stepX;
+      var lbl = labels[i].toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      xLabels += '<text x="' + lx + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#8a93a7">' + lbl + '</text>';
+   }
+
+   var svg =
+      '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">' +
+         '<defs>' +
+            '<linearGradient id="ngrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#1e88e5" stop-opacity="0.35"/><stop offset="100%" stop-color="#1e88e5" stop-opacity="0.02"/></linearGradient>' +
+            '<linearGradient id="ograd" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#ef6c00" stop-opacity="0.30"/><stop offset="100%" stop-color="#ef6c00" stop-opacity="0.02"/></linearGradient>' +
+         '</defs>' +
+         gridLines +
+         '<path d="' + toArea(oldSeries) + '" fill="url(#ograd)"/>' +
+         '<path d="' + toPath(oldSeries) + '" fill="none" stroke="#ef6c00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+         '<path d="' + toArea(newSeries) + '" fill="url(#ngrad)"/>' +
+         '<path d="' + toPath(newSeries) + '" fill="none" stroke="#1e88e5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+         xLabels +
+      '</svg>';
+
+   return '<div class="hospital-survey">' +
+             '<div class="hs-head">' +
+                '<div class="hs-title">Hospital Survey</div>' +
+                '<div class="hs-legend">' +
+                   '<span class="hs-leg-dot" style="background:#1e88e5"></span>New Patients' +
+                   '<span class="hs-leg-dot" style="background:#ef6c00;margin-left:14px"></span>Returning' +
+                '</div>' +
+             '</div>' +
+             '<div class="hs-chart">' + svg + '</div>' +
+          '</div>';
+}
+
+// Sidebar card: total today's appointments split into completed / upcoming
+function _renderTotalAppointmentsCard(todayApts, todayPending, todayDone) {
+   return '<div class="total-apts-card">' +
+             '<div class="tac-label">Total Appointments</div>' +
+             '<div class="tac-total">' + (todayApts.length || 0) + '</div>' +
+             '<div class="tac-split">' +
+                '<div class="tac-chip tac-done">' +
+                   '<div class="tac-chip-num">' + todayDone.length + '</div>' +
+                   '<div class="tac-chip-lbl">Completed</div>' +
+                '</div>' +
+                '<div class="tac-chip tac-up">' +
+                   '<div class="tac-chip-num">' + todayPending.length + '</div>' +
+                   '<div class="tac-chip-lbl">Upcoming</div>' +
+                '</div>' +
+             '</div>' +
+          '</div>';
+}
+
+// Last 7 days (oldest → today) appointment count, optionally filtered by status.
+// Returns array of 7 numbers — drives KPI sparklines.
+function _last7DayCounts(apts, status) {
+   var buckets = new Array(7).fill(0);
+   var now = new Date(); now.setHours(0, 0, 0, 0);
+   (apts || []).forEach(function(a) {
+      if (status !== 'all' && a.status !== status) return;
+      if (status === 'all' && a.status === 'Cancelled') return;
+      var d = new Date((a.date || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return;
+      var diff = Math.round((now - d) / 86400000);
+      if (diff >= 0 && diff < 7) buckets[6 - diff] += 1;
+   });
+   return buckets;
+}
+function _last7DayRevenue(apts) {
+   var buckets = new Array(7).fill(0);
+   var now = new Date(); now.setHours(0, 0, 0, 0);
+   (apts || []).forEach(function(a) {
+      if (a.status !== 'Completed') return;
+      var d = new Date((a.date || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return;
+      var diff = Math.round((now - d) / 86400000);
+      if (diff >= 0 && diff < 7) buckets[6 - diff] += Number(a.fee) || 0;
+   });
+   return buckets;
+}
+
+// Tiny inline-SVG line chart. Color matches the KPI's pastel theme.
+function _renderSparkline(values, color) {
+   var palette = {
+      purple: '#7e57c2', orange: '#ef6c00', green: '#2e7d32',
+      blue:   '#1e88e5', red:    '#c62828'
+   };
+   var stroke = palette[color] || '#1a73e8';
+   var fill   = stroke;
+   var w = 120, h = 28;
+   var max = Math.max.apply(null, values.concat([1]));
+   var min = Math.min.apply(null, values);
+   var range = max - min || 1;
+   var step = values.length > 1 ? w / (values.length - 1) : 0;
+   var pts = values.map(function(v, i) {
+      var x = i * step;
+      var y = h - 2 - ((v - min) / range) * (h - 6);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+   });
+   var line = pts.join(' ');
+   var area = 'M0,' + h + ' L' + line.split(' ').join(' L') + ' L' + w + ',' + h + ' Z';
+   return '<svg class="kpi-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" width="100%" height="28" xmlns="http://www.w3.org/2000/svg">' +
+             '<path d="' + area + '" fill="' + fill + '" opacity="0.12"/>' +
+             '<polyline points="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+          '</svg>';
 }
 
 function _statCard(icon, value, label) {

@@ -9264,13 +9264,20 @@ function _renderHospitalSurvey(apts) {
       gridLines += '<line x1="' + padL + '" x2="' + (w - padR) + '" y1="' + y + '" y2="' + y + '" stroke="#eef0f5" stroke-width="1"/>';
       gridLines += '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="10" fill="#8a93a7">' + label + '</text>';
    }
-   // X axis labels (every 5 days)
+   // X axis labels (every 5 days, but skip the one nearest "Today" to avoid overlap)
    var xLabels = '';
+   var todayIdx = days - 1;
    for (var i = 0; i < days; i += 5) {
+      if (todayIdx - i < 3) continue;          // too close to Today label → skip
       var lx = padL + i * stepX;
       var lbl = labels[i].toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
       xLabels += '<text x="' + lx + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#8a93a7">' + lbl + '</text>';
    }
+   // Explicit "Today" label + vertical marker at the rightmost data point
+   var todayX = padL + todayIdx * stepX;
+   xLabels +=
+      '<line x1="' + todayX + '" x2="' + todayX + '" y1="' + padT + '" y2="' + (padT + plotH) + '" stroke="#1a73e8" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/>' +
+      '<text x="' + todayX + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="#1a73e8" font-weight="700">Today</text>';
 
    var svg =
       '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" ' +

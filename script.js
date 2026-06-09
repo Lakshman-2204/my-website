@@ -6192,6 +6192,7 @@ async function checkShopOwnerLogin() {
    var aptTab    = document.getElementById('shop-tab-appointments');
    var docTab    = document.getElementById('shop-tab-doctors');
    var patTab    = document.getElementById('shop-tab-patients');
+   var admTab    = document.getElementById('shop-tab-admissions');
    var staffTab  = document.getElementById('shop-tab-staff');
    var schedTab  = document.getElementById('shop-tab-schedule');
    var prodTab   = document.getElementById('shop-tab-products');
@@ -6201,6 +6202,7 @@ async function checkShopOwnerLogin() {
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
    if (patTab)    patTab.classList.toggle('hidden',    !ownsHospital);
+   if (admTab)    admTab.classList.toggle('hidden',    !ownsHospital);
    if (staffTab)  staffTab.classList.toggle('hidden',  !ownsHospital);
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
    var walkinTab = document.getElementById('shop-tab-walkin');
@@ -8647,7 +8649,7 @@ async function deleteStoreProduct(idx) {
 }
 
 function switchShopTab(tab) {
-   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'staff', 'schedule', 'products'].forEach(function(t) {
+   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'admissions', 'staff', 'schedule', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
@@ -8656,8 +8658,8 @@ function switchShopTab(tab) {
    var titleEl = document.getElementById('shopTopbarTitle');
    if (titleEl) {
       var titleMap = { dashboard: 'Dashboard', orders: 'Orders', appointments: 'Appointments',
-                       doctors: 'Doctors', patients: 'Patients', staff: 'Staff',
-                       schedule: 'Schedule', products: 'My Stores' };
+                       doctors: 'Doctors', patients: 'Patients', admissions: 'Admissions',
+                       staff: 'Staff', schedule: 'Schedule', products: 'My Stores' };
       titleEl.textContent = titleMap[tab] || 'Dashboard';
    }
    if (tab !== 'products') _currentMyStoreId = null;
@@ -8666,6 +8668,7 @@ function switchShopTab(tab) {
    if (tab === 'appointments') { _shopAptsCache = null; renderShopAppointments('Confirmed'); }
    if (tab === 'doctors')      renderShopDoctors();
    if (tab === 'patients')     renderShopPatients();
+   if (tab === 'admissions')   renderShopAdmissions();
    if (tab === 'schedule')     renderShopSchedule();
 }
 
@@ -9686,6 +9689,180 @@ async function renderShopPatients() {
             '<tbody>' + rowHtml + '</tbody>' +
          '</table>' +
       '</div>';
+}
+
+// ── ADMISSIONS tab — inpatient (admitted) tracking ──
+// Shows 3 stat cards (Total occupied, Avg LOS, Pending discharges today),
+// then a table of admitted patients with discharge actions. Owner picks one
+// of their hospitals at the top if they run more than one.
+var _admHospitalChoice = null;
+
+async function renderShopAdmissions() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var host = document.getElementById('shopAdmissionsContent');
+   if (!host) return;
+   _liveSubscribe('shopAdmissions', 'admissions', renderShopAdmissions);
+
+   await loadAptProviders(true);
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   if (!mine.length) {
+      host.innerHTML = '<div class="profile-card"><div class="profile-card-body"><div class="shop-empty" style="grid-column:1/-1">No hospital linked to your account.</div></div></div>';
+      return;
+   }
+   var chosen = _admHospitalChoice && mine.find(function(p) { return p.id === _admHospitalChoice; });
+   if (!chosen) chosen = mine[0];
+   _admHospitalChoice = chosen.id;
+
+   var rows = await AppDB.getAdmissions(chosen.id);
+   var admitted = rows.filter(function(r) { return r.status === 'Admitted'; });
+   var todayYmd = _todayLocalYmd();
+
+   // Stats
+   var totalOccupied = admitted.length;
+   // Avg LOS for currently-admitted (days from admit_date to today)
+   var losDays = admitted.map(function(r) {
+      var d = new Date((r.admit_date || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return 0;
+      var today = new Date(todayYmd + 'T00:00:00');
+      return Math.max(0, Math.round((today - d) / 86400000));
+   });
+   var avgLos = losDays.length ? Math.round(losDays.reduce(function(s, n) { return s + n; }, 0) / losDays.length * 10) / 10 : 0;
+   var dueToday = admitted.filter(function(r) { return r.target_discharge === todayYmd; }).length;
+
+   var hospitalPicker = mine.length === 1 ? '' :
+      '<select class="admin-filter-select" onchange="_admPickHospital(this.value)" style="margin-bottom:14px">' +
+         mine.map(function(p) { return '<option value="' + p.id + '"' + (p.id === chosen.id ? ' selected' : '') + '>' + p.name + '</option>'; }).join('') +
+      '</select>';
+
+   var statCards =
+      '<div class="shop-ov-kpis" style="padding:0;margin-bottom:14px">' +
+         _kpiCard('blue',   '🛏️', totalOccupied,            'Occupied Beds') +
+         _kpiCard('orange', '🗓️', avgLos + ' days',         'Avg Length of Stay') +
+         _kpiCard('red',    '⚠️',  dueToday,                'Pending Discharges Today') +
+      '</div>';
+
+   var tableRows;
+   if (admitted.length === 0) {
+      tableRows = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#888">No admitted patients. Click <strong>+ Admit Patient</strong> to add one.</td></tr>';
+   } else {
+      tableRows = admitted.map(function(r) {
+         var d = new Date((r.admit_date || '') + 'T00:00:00');
+         var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
+         var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+         var targetLbl = '—', isDueToday = false;
+         if (r.target_discharge) {
+            isDueToday = r.target_discharge === todayYmd;
+            var td = new Date(r.target_discharge + 'T00:00:00');
+            targetLbl = isDueToday ? 'TODAY' : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+         }
+         var roundsCls = r.rounds_status === 'complete' ? 'shop-queue-paid' : '';
+         var roundsLbl = r.rounds_status === 'complete' ? '✓ Rounds done' : '⏳ Pending';
+         var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
+         var rid = r.id.replace(/'/g, "\\'");
+         var rowCls = isDueToday ? ' style="background:#fff8e1"' : '';
+         return '<tr' + rowCls + '>' +
+                   '<td><div class="apt-tbl-name">' + loc + '</div></td>' +
+                   '<td><div class="apt-tbl-name">' + (r.patient_name || '—') + '</div>' +
+                       (r.patient_ref ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
+                       (r.patient_phone ? '<div class="apt-tbl-sub">📞 ' + r.patient_phone + '</div>' : '') +
+                   '</td>' +
+                   '<td><span class="apt-status confirmed">🗓️ ' + losDays + ' day' + (losDays === 1 ? '' : 's') + '</span></td>' +
+                   '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
+                   '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
+                   '<td><span style="color:' + (r.rounds_status === 'complete' ? '#0a8a3a' : '#888') + ';font-size:0.85rem;font-weight:600">' + roundsLbl + '</span></td>' +
+                   '<td style="text-align:right">' +
+                      '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
+                      '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button>' +
+                   '</td>' +
+                '</tr>';
+      }).join('');
+   }
+
+   host.innerHTML =
+      hospitalPicker +
+      statCards +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+         '<h3 style="margin:0;color:#1a1a2e;font-size:1rem">Currently Admitted</h3>' +
+         '<button class="apt-view-btn" style="background:#1565c0;padding:8px 14px;font-size:0.85rem" onclick="openAdmissionModal()">+ Admit Patient</button>' +
+      '</div>' +
+      '<div class="apt-tbl-wrap"><table class="apt-tbl">' +
+         '<thead><tr>' +
+            '<th>Location / Bed</th>' +
+            '<th>Patient</th>' +
+            '<th>Length of Stay</th>' +
+            '<th>Admit Date</th>' +
+            '<th>Target Discharge</th>' +
+            '<th>Rounds</th>' +
+            '<th style="text-align:right">Actions</th>' +
+         '</tr></thead>' +
+         '<tbody>' + tableRows + '</tbody>' +
+      '</table></div>';
+}
+
+function _admPickHospital(id) { _admHospitalChoice = id; renderShopAdmissions(); }
+
+function openAdmissionModal(id) {
+   var modal = document.getElementById('admissionModal');
+   var titleEl = document.getElementById('admissionModalTitle');
+   var get = function(eid) { return document.getElementById(eid); };
+   if (id) {
+      AppDB.getAdmissions(_admHospitalChoice).then(function(rows) {
+         var r = (rows || []).find(function(x) { return x.id === id; });
+         if (!r) { alert('Admission not found'); return; }
+         titleEl.textContent = '✏️ Edit Admission';
+         get('adm-id').value = r.id;
+         get('adm-name').value         = r.patient_name || '';
+         get('adm-phone').value        = r.patient_phone || '';
+         get('adm-ref').value          = r.patient_ref || '';
+         get('adm-ward').value         = r.ward || '';
+         get('adm-room').value         = r.room_bed || '';
+         get('adm-admit-date').value   = r.admit_date || '';
+         get('adm-target-date').value  = r.target_discharge || '';
+         get('adm-notes').value        = r.notes || '';
+         modal.classList.remove('hidden');
+      });
+   } else {
+      titleEl.textContent = '🛏️ Admit Patient';
+      ['adm-id','adm-name','adm-phone','adm-ref','adm-ward','adm-room','adm-target-date','adm-notes'].forEach(function(e) {
+         get(e).value = '';
+      });
+      get('adm-admit-date').value = _todayLocalYmd();
+      modal.classList.remove('hidden');
+   }
+}
+function closeAdmissionModal() { document.getElementById('admissionModal').classList.add('hidden'); }
+
+async function saveAdmission() {
+   var get = function(id) { return (document.getElementById(id).value || '').trim(); };
+   var name = get('adm-name'), admitDate = get('adm-admit-date');
+   if (!name)      { alert('Patient name is required.'); return; }
+   if (!admitDate) { alert('Admit date is required.'); return; }
+   if (!_admHospitalChoice) { alert('Pick a hospital first.'); return; }
+   var id = get('adm-id') || ('adm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+   var ok = await AppDB.upsertAdmission({
+      id:               id,
+      provider_id:      _admHospitalChoice,
+      patient_name:     name,
+      patient_phone:    get('adm-phone'),
+      patient_ref:      get('adm-ref'),
+      ward:             get('adm-ward'),
+      room_bed:         get('adm-room'),
+      admit_date:       admitDate,
+      target_discharge: get('adm-target-date') || null,
+      notes:            get('adm-notes')
+   });
+   if (!ok) { alert('Failed to save admission.'); return; }
+   closeAdmissionModal();
+   renderShopAdmissions();
+}
+
+async function dischargeAdmission(id) {
+   if (!confirm('Mark this patient as Discharged? They\'ll move out of the Currently Admitted list.')) return;
+   var ok = await AppDB.patchAdmission(id, { status: 'Discharged' });
+   if (!ok) { alert('Failed to discharge.'); return; }
+   renderShopAdmissions();
 }
 
 // ── SCHEDULE (owner books on behalf of offline customers) ──

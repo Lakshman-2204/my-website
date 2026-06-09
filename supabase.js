@@ -225,6 +225,46 @@ window.AppDB = {
       return true;
    },
 
+   // ── ADMISSIONS (Phase 7) — inpatient tracking per hospital ──
+   async getAdmissions(providerId) {
+      const { data, error } = await _sb.from('admissions').select('*')
+         .eq('provider_id', providerId)
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getAdmissions:', error.message); return []; }
+      return data || [];
+   },
+   async upsertAdmission(a) {
+      const row = {
+         id:                a.id,
+         provider_id:       a.provider_id,
+         patient_name:      a.patient_name || '',
+         patient_phone:     a.patient_phone || '',
+         patient_ref:       a.patient_ref || '',
+         ward:              a.ward || '',
+         room_bed:          a.room_bed || '',
+         admit_date:        a.admit_date,
+         target_discharge:  a.target_discharge || null,
+         status:            a.status || 'Admitted',
+         rounds_status:     a.rounds_status || 'pending',
+         notes:             a.notes || '',
+         updated_at:        new Date().toISOString()
+      };
+      const { error } = await _sb.from('admissions').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertAdmission:', error.message); return false; }
+      return true;
+   },
+   async patchAdmission(id, patch) {
+      patch.updated_at = new Date().toISOString();
+      const { error } = await _sb.from('admissions').update(patch).eq('id', id);
+      if (error) { console.error('patchAdmission:', error.message); return false; }
+      return true;
+   },
+   async deleteAdmission(id) {
+      const { error } = await _sb.from('admissions').delete().eq('id', id);
+      if (error) { console.error('deleteAdmission:', error.message); return false; }
+      return true;
+   },
+
    // ── WALK-IN CUSTOMERS (Phase 4) ──────────────────────────
    // Strip everything that isn't a digit, then keep only the last 10. This
    // makes "+91 98765 43210", "9876543210", "(987) 654-3210", "91-9876543210"

@@ -9434,11 +9434,23 @@ function _todayQueueWidget(provApts, todayYmd) {
       }).join('');
    }
 
+   // Column header row — only shown when there's at least one queue entry.
+   // Grid columns match .shop-queue-row: token | slot | patient | symptom | doctor
+   var headerRow = top.length === 0 ? '' :
+      '<div class="shop-queue-row shop-queue-cols-head">' +
+         '<span class="shop-queue-col-lbl">#</span>' +
+         '<div class="shop-queue-col-lbl">Slot</div>' +
+         '<div class="shop-queue-col-lbl">Patient</div>' +
+         '<div class="shop-queue-col-lbl">Symptom</div>' +
+         '<div class="shop-queue-col-lbl">Doctor</div>' +
+      '</div>';
+
    return '<div class="shop-queue-card">' +
              '<div class="shop-queue-head">' +
                 '<span>🎟 Today\'s Queue</span>' +
                 (extra > 0 ? '<span class="shop-queue-more">+ ' + extra + ' more</span>' : '') +
              '</div>' +
+             headerRow +
              bodyHtml +
           '</div>';
 }
@@ -11712,6 +11724,14 @@ function switchProfileTab(tab) {
       if (pane) pane.classList.toggle('hidden', t !== tab);
       if (btn)  btn.classList.toggle('active', t === tab);
    });
+   // Topbar title mirrors the active sidebar item — Cliniva-style breadcrumb
+   var titleEl = document.getElementById('profileTopbarTitle');
+   if (titleEl) {
+      var titleMap = { info: 'Profile Info', contact: 'Contact Admin', addresses: 'Saved Addresses',
+                       orders: 'My Orders', appointments: 'My Appointments',
+                       wishlist: 'Wishlist', cards: 'Saved Cards' };
+      titleEl.textContent = titleMap[tab] || 'Profile';
+   }
    if (tab === 'contact')      renderContactAdmin();
    if (tab === 'addresses')    renderAddresses();
    if (tab === 'orders')       renderOrders();

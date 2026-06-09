@@ -34,18 +34,24 @@
                document.head.appendChild(s);
             }
 
-            // Rewrite the back button based on role.
+            // Rewrite the back button based on role. The back button is now a
+            // sidebar item (icon span + label span) — update the LABEL only.
             document.addEventListener('DOMContentLoaded', function() {
                var btn = document.getElementById('profile-back-btn');
                if (!btn) return;
+               var lblSpan = btn.querySelectorAll('span')[1];
                if (isAdminUser) {
-                  btn.textContent = '← Back to Admin';
+                  if (lblSpan) lblSpan.textContent = 'Back to Admin';
                   btn.onclick = function() { window.location = 'admin.html'; };
                } else if (isPureOwner) {
-                  btn.textContent = '← Back to Dashboard';
+                  if (lblSpan) lblSpan.textContent = 'Back to Dashboard';
                   btn.onclick = function() { window.location = 'shopowner.html'; };
                }
-               // Customers keep the default "← Back to Store" (set in HTML).
+               // Side profile name + role
+               var nameEl = document.getElementById('profileSideName');
+               if (nameEl) nameEl.textContent = u.name || 'My Profile';
+               var roleEl = document.getElementById('profileSideRole');
+               if (roleEl) roleEl.textContent = isAdminUser ? 'Admin' : (isPureOwner ? 'Business Partner' : 'Customer');
             });
          })();
       </script>
@@ -54,23 +60,35 @@
    </head>
    <body class="profile-page">
 
-      <!-- HEADER -->
-      <div class="profile-header">
-         <div class="profile-brand" onclick="window.location='home.html'">🛍️ <span class="brand-name">MyStore</span></div>
-         <button class="profile-back-btn" id="profile-back-btn" onclick="window.location='home.html'">← Back to Store</button>
-      </div>
-      <!-- ANNOUNCEMENT BAR (same as home — controlled from Admin → Settings) -->
+      <!-- ── Cliniva-style sidebar layout (same scaffolding as shopowner.html) ── -->
+      <div class="shop-app-layout">
+         <aside class="shop-side-nav">
+            <div class="shop-side-brand" onclick="window.location='home.html'" style="cursor:pointer">
+               <span class="shop-side-logo">🛍️</span>
+               <span class="shop-side-brand-name">MyStore</span>
+            </div>
+            <div class="shop-side-profile">
+               <div class="shop-side-avatar">👤</div>
+               <div class="shop-side-profile-name" id="profileSideName">My Profile</div>
+               <div class="shop-side-profile-role" id="profileSideRole"></div>
+            </div>
+            <div class="shop-side-menu-label">MAIN</div>
+            <button class="shop-side-item active" id="ptab-info-btn"         onclick="switchProfileTab('info')"><span class="ssi-icon">👤</span><span>Profile Info</span></button>
+            <button class="shop-side-item hidden" id="ptab-contact-btn"      onclick="switchProfileTab('contact')"><span class="ssi-icon">📞</span><span>Contact Admin</span></button>
+            <button class="shop-side-item"        id="ptab-addresses-btn"    onclick="switchProfileTab('addresses')"><span class="ssi-icon">📍</span><span>Addresses</span></button>
+            <button class="shop-side-item"        id="ptab-orders-btn"       onclick="switchProfileTab('orders')"><span class="ssi-icon">📦</span><span>My Orders</span></button>
+            <button class="shop-side-item"        id="ptab-appointments-btn" onclick="switchProfileTab('appointments')"><span class="ssi-icon">📅</span><span>Appointments</span></button>
+            <button class="shop-side-item"        id="ptab-wishlist-btn"     onclick="switchProfileTab('wishlist')"><span class="ssi-icon">❤️</span><span>Wishlist</span></button>
+            <button class="shop-side-item"        id="ptab-cards-btn"        onclick="switchProfileTab('cards')"><span class="ssi-icon">💳</span><span>Cards</span></button>
+            <div style="flex:1"></div>
+            <!-- Back button stays at the bottom — text rewritten by the inline script for owners/admins -->
+            <button class="shop-side-item shop-side-item-foot" id="profile-back-btn" onclick="window.location='home.html'"><span class="ssi-icon">←</span><span>Back to Store</span></button>
+         </aside>
 
-      <!-- TABS -->
-      <div class="profile-tabs">
-         <button class="profile-tab active" id="ptab-info-btn"      onclick="switchProfileTab('info')">👤 Profile Info</button>
-         <button class="profile-tab hidden" id="ptab-contact-btn"   onclick="switchProfileTab('contact')">📞 Contact Admin</button>
-         <button class="profile-tab"        id="ptab-addresses-btn" onclick="switchProfileTab('addresses')">📍 Addresses</button>
-         <button class="profile-tab"        id="ptab-orders-btn"    onclick="switchProfileTab('orders')">📦 My Orders</button>
-         <button class="profile-tab"        id="ptab-appointments-btn" onclick="switchProfileTab('appointments')">📅 Appointments</button>
-         <button class="profile-tab"        id="ptab-wishlist-btn"  onclick="switchProfileTab('wishlist')">❤️ Wishlist</button>
-         <button class="profile-tab"        id="ptab-cards-btn"     onclick="switchProfileTab('cards')">💳 Cards</button>
-      </div>
+         <div class="shop-main-area">
+            <header class="shop-topbar">
+               <div class="shop-topbar-title" id="profileTopbarTitle">Profile Info</div>
+            </header>
 
       <!-- PROFILE INFO TAB (all tabs start hidden — switchProfileTab reveals the right one) -->
       <div id="ptab-info" class="profile-content hidden">
@@ -304,6 +322,9 @@
             </div>
          </div>
       </div>
+
+         </div><!-- /.shop-main-area -->
+      </div><!-- /.shop-app-layout -->
 
       <!-- ADDRESS MODAL -->
       <div class="addr-modal-overlay hidden" id="addressModal" onclick="handleAddrOverlayClick(event)">

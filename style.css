@@ -1890,16 +1890,18 @@ body.guest .store-section-divider {
 .apt-mode-badge.mode-slot  { background: #e3f2fd; color: #1565c0; }
 .apt-mode-badge.mode-token { background: #fce4ec; color: #c2185b; }
 
-/* ── Shopowner Dashboard (overview tab) — Cliniva look ── */
+/* ── Shopowner Dashboard (overview tab) — Cliniva look ──
+   No border/shadow/bg on the outer card now that we removed the header
+   block — it just acts as a vertical stack wrapper. */
 .shop-ov-card {
-	background: #fff;
-	border: 1px solid #eef0f5;
-	border-radius: 16px;
-	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
-	margin: 18px 22px;
-	overflow: hidden;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	margin: 8px 22px 18px;
+	overflow: visible;
 	display: flex;
 	flex-direction: column;
+	gap: 18px;
 }
 .shop-ov-header {
 	display: flex;
@@ -1954,9 +1956,9 @@ body.guest .store-section-divider {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 	gap: 14px;
-	padding: 18px 24px 4px;
-	background: #fafbfd;
-	border-bottom: 1px solid #f2f4f8;
+	padding: 4px 0 0;
+	background: transparent;
+	border-bottom: none;
 }
 .shop-ov-kpis .shop-stat { border: 1px solid #eef0f5; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
 
@@ -2061,6 +2063,13 @@ body.guest .store-section-divider {
 }
 .shop-queue-row:last-child { border-bottom: none; }
 .shop-queue-row:hover      { background: #fafbff; }
+/* Column header row above the queue entries */
+.shop-queue-cols-head { background: #f7f9fc; }
+.shop-queue-cols-head:hover { background: #f7f9fc; }
+.shop-queue-col-lbl {
+	font-size: 0.7rem; font-weight: 700; color: #8a93a7;
+	text-transform: uppercase; letter-spacing: 0.04em;
+}
 .shop-queue-time   { font-weight: 700; color: #1a73e8; font-size: 0.85rem; }
 .shop-queue-name   { font-weight: 600; color: #1a1a2e; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shop-queue-reason { color: #555; font-size: 0.82rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -5559,6 +5568,30 @@ body.shopowner-page { background: #f5f7fb; }
 /* Hide the old top tab strip + old header inside the new layout */
 .shopowner-page .shop-header { display: none; }
 .shop-main-tabs { display: none; }
+
+/* Profile page reuses the same sidebar/topbar chassis — give it the same
+   soft grey background and ensure tab content has page padding */
+body.profile-page { background: #f5f7fb; }
+.profile-page .shop-main-area > .profile-content {
+	padding: 18px 22px;
+}
+.profile-page .profile-content { background: transparent; }
+.profile-page .profile-card {
+	background: #fff;
+	border: 1px solid #eef0f5;
+	border-radius: 14px;
+	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+	margin-bottom: 16px;
+	overflow: hidden;
+}
+.profile-page .profile-card-header {
+	background: #fff;
+	color: #1a1a2e;
+	border-bottom: 1px solid #f2f4f8;
+	font-weight: 700;
+	font-size: 1rem;
+	padding: 14px 18px;
+}
 
 @media (max-width: 880px) {
 	.shop-app-layout { grid-template-columns: 1fr; }

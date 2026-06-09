@@ -307,27 +307,37 @@ window.AppDB = {
       return map;
    },
 
-   // Used by the Admit modal lookup. Returns up to 10 distinct paid+completed
-   // out-patients for one provider whose name or phone matches the query.
-   // The newest visit per patient is returned (so the most recent contact
-   // info is what we pre-fill).
+   // Used by the Admit modal lookup. Scoped to ONE hospital — a patient at
+   // hospital A isn't relevant when admitting at hospital B. Returns up to
+   // 10 distinct paid+completed out-patients whose name or phone matches.
+   //
+   // Uses two parallel `ilike` queries instead of `or()` because the supabase-js
+   // OR filter has a known quirk with `%` wildcards that silently returns zero
+   // rows. Two queries + merge always works.
    async lookupOutpatientsForAdmit(providerId, query) {
       if (!providerId || !query || query.length < 2) return [];
+      const cols = 'apt_id, provider_id, patient_name, patient_phone, user_email, patient_address, patient_age, patient_sex, date, created_at, status, is_paid';
       const safe = query.replace(/[%_]/g, '\\$&');
       const pat = '%' + safe + '%';
-      const { data, error } = await _sb.from('appointments')
-         .select('apt_id, provider_id, patient_name, patient_phone, user_email, patient_address, patient_age, patient_sex, date, created_at, status, is_paid')
+      const base = () => _sb.from('appointments')
+         .select(cols)
          .eq('provider_id', providerId)
          .eq('status', 'Completed')
          .eq('is_paid', true)
-         .or('patient_name.ilike.' + pat + ',patient_phone.ilike.' + pat)
          .order('date', { ascending: false })
-         .limit(60);
-      if (error) { console.error('lookupOutpatientsForAdmit:', error.message); return []; }
-      // Dedupe by phone (most recent visit wins because ordered desc)
+         .limit(30);
+      const [n, p] = await Promise.all([
+         base().ilike('patient_name',  pat),
+         base().ilike('patient_phone', pat)
+      ]);
+      if (n.error) console.error('lookupOutpatientsForAdmit/name:',  n.error.message);
+      if (p.error) console.error('lookupOutpatientsForAdmit/phone:', p.error.message);
+      const all = (n.data || []).concat(p.data || []);
+      // Sort newest visit first, then dedupe by phone (or email/name fallback)
+      all.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       const seen = {};
-      const out = [];
-      (data || []).forEach(r => {
+      const out  = [];
+      all.forEach(r => {
          const key = (r.patient_phone || r.user_email || r.patient_name || '').toLowerCase().trim();
          if (!key || seen[key]) return;
          seen[key] = true;

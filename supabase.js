@@ -239,23 +239,32 @@ window.AppDB = {
          .eq('phone_normalized', norm)
          .maybeSingle();
       if (existing && existing.patient_id) return existing.patient_id;
-      // Mint a new one — find the highest seq for this provider, +1
+      // Mint a new one. Sequence is scoped to THIS MONTH at this hospital, so
+      // each month starts at 00001 and stays visually compact. Different months
+      // can repeat numbers — IDs stay unique because the month is part of the ID.
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(),     1).toISOString();
+      const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
       const { data: maxRow } = await _sb.from('hospital_patient_ids')
          .select('seq')
          .eq('provider_id', providerId)
+         .gte('created_at', monthStart)
+         .lt('created_at',  monthEnd)
          .order('seq', { ascending: false })
          .limit(1)
          .maybeSingle();
       const seq = (maxRow && maxRow.seq ? maxRow.seq : 0) + 1;
-      // Build a hospital prefix from the provider name (caller passes
-      // providerId; we fetch the name to compute initials).
+      // Build a hospital prefix from the provider name.
       const { data: prov } = await _sb.from('apt_providers')
          .select('name').eq('id', providerId).maybeSingle();
       const provName = prov && prov.name ? prov.name : 'HOSP';
       const initials = provName.split(/\s+/).filter(Boolean)
          .map(w => w[0].toUpperCase()).slice(0, 3).join('') || 'H';
-      const yy = String(new Date().getFullYear()).slice(2);
-      const patientId = initials + '-' + yy + '-' + String(seq).padStart(4, '0');
+      const yy = String(now.getFullYear()).slice(2);
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      // Format: INITIALS-YY-MM-SEQ. 5-digit pad supports 99,999 patients per
+      // month before extending. Plenty for any real hospital.
+      const patientId = initials + '-' + yy + '-' + mm + '-' + String(seq).padStart(5, '0');
       const { error } = await _sb.from('hospital_patient_ids').insert({
          provider_id: providerId,
          phone_normalized: norm,

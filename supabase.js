@@ -293,6 +293,20 @@ window.AppDB = {
       return data ? data.patient_id : null;
    },
 
+   // Bulk-fetch every patient_id row for a set of provider IDs. Used by the
+   // Out-patients list to attach the hospital ID column without N round trips.
+   // Returns a map keyed by `${provider_id}|${phone_normalized}` → patient_id.
+   async getHospitalPatientIdMap(providerIds) {
+      if (!providerIds || !providerIds.length) return {};
+      const { data, error } = await _sb.from('hospital_patient_ids')
+         .select('provider_id, phone_normalized, patient_id')
+         .in('provider_id', providerIds);
+      if (error) { console.error('getHospitalPatientIdMap:', error.message); return {}; }
+      const map = {};
+      (data || []).forEach(r => { map[r.provider_id + '|' + r.phone_normalized] = r.patient_id; });
+      return map;
+   },
+
    // ── ADMISSIONS (Phase 7) — inpatient tracking per hospital ──
    async getAdmissions(providerId) {
       const { data, error } = await _sb.from('admissions').select('*')

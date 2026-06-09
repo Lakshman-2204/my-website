@@ -9761,12 +9761,21 @@ async function _renderOutPatientsTable(user) {
    var range = _patientsRange;
    var filtered = range === 'all' ? all : _filterAptsByRange(all, range);
 
+   // Collect unique provider IDs touched by the filtered set, then bulk-fetch
+   // the hospital_patient_ids map (one query) for ID-column rendering.
+   var providerIds = Array.from(new Set(filtered.map(function(a) { return a.provider_id; }).filter(Boolean)));
+   var idMap = await AppDB.getHospitalPatientIdMap(providerIds);
+   var pickId = function(providerId, phone) {
+      var norm = (phone || '').replace(/\D/g, '').slice(-10);
+      return providerId && norm.length === 10 ? (idMap[providerId + '|' + norm] || '') : '';
+   };
+
    var groups = {};
    filtered.forEach(function(a) {
       var key = (a.patient_phone || a.user_email || a.patient_name || '').toLowerCase().trim();
       if (!key) return;
       if (!groups[key]) {
-         groups[key] = { name: a.patient_name || '—', phone: a.patient_phone || '', email: a.user_email || '', visits: 0, completed: 0, lastDate: '', totalFee: 0 };
+         groups[key] = { name: a.patient_name || '—', phone: a.patient_phone || '', email: a.user_email || '', visits: 0, completed: 0, lastDate: '', totalFee: 0, patientIds: {} };
       }
       var g = groups[key];
       g.visits += 1;
@@ -9776,6 +9785,10 @@ async function _renderOutPatientsTable(user) {
       if (a.patient_name && g.name === '—') g.name = a.patient_name;
       if (!g.phone && a.patient_phone) g.phone = a.patient_phone;
       if (!g.email && a.user_email)   g.email = a.user_email;
+      // Track patient IDs across all hospitals this patient has visited (same
+      // owner can run multiple hospitals — each issues its own ID).
+      var pid = pickId(a.provider_id, a.patient_phone);
+      if (pid) g.patientIds[pid] = true;
    });
    var rows = Object.values(groups)
       .filter(_patientsMatchesSearch)
@@ -9800,7 +9813,12 @@ async function _renderOutPatientsTable(user) {
 
    var rowHtml = rows.map(function(p) {
       var lastLbl = p.lastDate ? new Date(p.lastDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      var ids = Object.keys(p.patientIds || {});
+      var idCell = ids.length
+         ? ids.map(function(x) { return '<div class="apt-tbl-name" style="font-family:ui-monospace,monospace;font-size:0.78rem">' + x + '</div>'; }).join('')
+         : '<span style="color:#bbb">— not paid yet</span>';
       return '<tr>' +
+                '<td>' + idCell + '</td>' +
                 '<td><div class="apt-tbl-name">' + p.name + '</div>' +
                     (p.email ? '<div class="apt-tbl-sub">' + p.email + '</div>' : '') +
                 '</td>' +
@@ -9815,6 +9833,7 @@ async function _renderOutPatientsTable(user) {
       '<div class="apt-tbl-wrap" style="grid-column:1/-1">' +
          '<table class="apt-tbl">' +
             '<thead><tr>' +
+               '<th>Patient ID</th>' +
                '<th>Patient</th>' +
                '<th>Phone</th>' +
                '<th style="text-align:center">Visits</th>' +
@@ -13861,6 +13880,15 @@ async function printConsultationReceipt(aptId) {
    await loadAptProviders(true);
    var prov = _aptGetProvider(apt.provider_id) || {};
 
+   // Look up the patient's permanent hospital ID (issued on first paid visit).
+   // Receipts are only generated for paid bookings so this should always
+   // resolve, but stay defensive in case the patient was paid via a route
+   // that didn't mint an ID (e.g. legacy data before this feature).
+   var hospitalPatientId = '';
+   try {
+      hospitalPatientId = await AppDB.ensureHospitalPatientId(apt.provider_id, apt.patient_phone, apt.patient_name) || '';
+   } catch (e) { /* receipt still works without it */ }
+
    // Build bill identifiers in the standard hospital format:
    //   <prefix> + YYMMDD + 2 letters from apt_id + 4-digit serial (hash of apt_id)
    // The 2 letters from apt_id make the number distinct between hospitals/bookings;
@@ -14003,6 +14031,7 @@ async function printConsultationReceipt(aptId) {
 
          '<div class="info">' +
             '<div class="col">' +
+               '<div class="row"><div class="lbl">Patient ID</div><div class="sep">:</div><div style="font-family:ui-monospace,monospace;font-size:11px;font-weight:700">' + esc(hospitalPatientId || '—') + '</div></div>' +
                '<div class="row"><div class="lbl">Patient Name</div><div class="sep">:</div><div>' + esc(apt.patient_name || apt.user_email || '') + '</div></div>' +
                '<div class="row"><div class="lbl">Age/Sex</div><div class="sep">:</div><div>' + esc(apt.patient_age ? (apt.patient_age + 'Y(s)' + (apt.patient_sex ? '/' + apt.patient_sex : '')) : '—') + '</div></div>' +
                '<div class="row"><div class="lbl">Relative Name</div><div class="sep">:</div><div>—</div></div>' +

@@ -9786,9 +9786,15 @@ async function renderShopPatients() {
 }
 
 async function _renderOutPatientsTable(user) {
-   var all = await AppDB.getAppointmentsByOwner(user.email);
-   if (!all || !all.length) {
-      return '<div class="shop-empty" style="grid-column:1/-1">No out-patients yet. Once customers book, they\'ll appear here.</div>';
+   var allRaw = await AppDB.getAppointmentsByOwner(user.email);
+   // Out-patients = patients who PAID AND were CHECKED UP at least once.
+   // Bookings that were no-show, cancelled, or just confirmed-but-not-yet-seen
+   // are excluded — those aren't real out-patient visits.
+   var all = (allRaw || []).filter(function(a) {
+      return a.status === 'Completed' && a.is_paid;
+   });
+   if (!all.length) {
+      return '<div class="shop-empty" style="grid-column:1/-1">No out-patients yet. A patient appears here once they\'ve paid and completed a consultation.</div>';
    }
    // Date range filter — same buckets as the donut, default 'all'
    var range = _patientsRange;

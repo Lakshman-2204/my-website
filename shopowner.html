@@ -248,11 +248,11 @@
                </div>
                <div class="sp-field">
                   <label>Phone</label>
-                  <input type="tel" id="adm-phone" placeholder="98765 43210"/>
+                  <input type="tel" id="adm-phone" placeholder="98765 43210" onblur="_admLookupPatientId()"/>
                </div>
                <div class="sp-field">
-                  <label>Patient Ref / Chart No</label>
-                  <input type="text" id="adm-ref" placeholder="PT-1024"/>
+                  <label>Patient Ref / Chart No <small style="color:#888;font-weight:400">(auto-filled on phone blur)</small></label>
+                  <input type="text" id="adm-ref" placeholder="auto"/>
                </div>
                <div class="sp-field">
                   <label>Ward</label>

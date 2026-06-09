@@ -225,6 +225,65 @@ window.AppDB = {
       return true;
    },
 
+   // ── HOSPITAL PATIENT IDS (Phase 7.1) ──
+   // Returns the existing ID for this (provider, phone), or mints + persists
+   // a new one. Called only when the patient ACTUALLY PAYS (is_paid flipped)
+   // OR when admitting a brand-new walk-in. No-show bookings don't get an ID.
+   async ensureHospitalPatientId(providerId, phone, sampleName) {
+      const norm = (phone || '').replace(/\D/g, '').slice(-10);
+      if (!providerId || norm.length !== 10) return null;
+      // Look up existing
+      const { data: existing } = await _sb.from('hospital_patient_ids')
+         .select('patient_id')
+         .eq('provider_id', providerId)
+         .eq('phone_normalized', norm)
+         .maybeSingle();
+      if (existing && existing.patient_id) return existing.patient_id;
+      // Mint a new one — find the highest seq for this provider, +1
+      const { data: maxRow } = await _sb.from('hospital_patient_ids')
+         .select('seq')
+         .eq('provider_id', providerId)
+         .order('seq', { ascending: false })
+         .limit(1)
+         .maybeSingle();
+      const seq = (maxRow && maxRow.seq ? maxRow.seq : 0) + 1;
+      // Build a hospital prefix from the provider name (caller passes
+      // providerId; we fetch the name to compute initials).
+      const { data: prov } = await _sb.from('apt_providers')
+         .select('name').eq('id', providerId).maybeSingle();
+      const provName = prov && prov.name ? prov.name : 'HOSP';
+      const initials = provName.split(/\s+/).filter(Boolean)
+         .map(w => w[0].toUpperCase()).slice(0, 3).join('') || 'H';
+      const yy = String(new Date().getFullYear()).slice(2);
+      const patientId = initials + '-' + yy + '-' + String(seq).padStart(4, '0');
+      const { error } = await _sb.from('hospital_patient_ids').insert({
+         provider_id: providerId,
+         phone_normalized: norm,
+         patient_id: patientId,
+         seq: seq,
+         sample_name: sampleName || ''
+      });
+      if (error) {
+         // Race condition fallback: another tab inserted at the same time → re-read
+         const { data: race } = await _sb.from('hospital_patient_ids')
+            .select('patient_id').eq('provider_id', providerId).eq('phone_normalized', norm).maybeSingle();
+         return race ? race.patient_id : null;
+      }
+      return patientId;
+   },
+
+   // Read-only lookup — used by the Admit modal phone-blur pre-fill.
+   async getHospitalPatientId(providerId, phone) {
+      const norm = (phone || '').replace(/\D/g, '').slice(-10);
+      if (!providerId || norm.length !== 10) return null;
+      const { data } = await _sb.from('hospital_patient_ids')
+         .select('patient_id')
+         .eq('provider_id', providerId)
+         .eq('phone_normalized', norm)
+         .maybeSingle();
+      return data ? data.patient_id : null;
+   },
+
    // ── ADMISSIONS (Phase 7) — inpatient tracking per hospital ──
    async getAdmissions(providerId) {
       const { data, error } = await _sb.from('admissions').select('*')

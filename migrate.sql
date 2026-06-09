@@ -489,3 +489,21 @@ DO $$ BEGIN
    ALTER PUBLICATION supabase_realtime ADD TABLE public.admissions;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- 21. HOSPITAL_PATIENT_IDS — per-hospital permanent patient chart numbers.
+--     Created lazily: only when a patient ACTUALLY PAYS (is_paid=true on
+--     their appointment OR a fresh walk-in admission). Booking alone is
+--     not enough — no-shows shouldn't burn ID numbers. One row per
+--     (provider × phone), so the same patient at the same hospital reuses
+--     their ID across all future visits.
+CREATE TABLE IF NOT EXISTS public.hospital_patient_ids (
+   provider_id        text         NOT NULL,
+   phone_normalized   text         NOT NULL,        -- last 10 digits of phone
+   patient_id         text         NOT NULL,        -- e.g. 'DGH-26-0042'
+   seq                integer      NOT NULL,        -- numeric part of ID
+   sample_name        text         DEFAULT '',
+   created_at         timestamptz  DEFAULT now(),
+   PRIMARY KEY (provider_id, phone_normalized)
+);
+ALTER TABLE public.hospital_patient_ids DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS hpids_patient_id_idx ON public.hospital_patient_ids(patient_id);

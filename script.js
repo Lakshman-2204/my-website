@@ -9700,9 +9700,27 @@ function _todayQueueWidget(provApts, todayYmd) {
 //   In-patients: currently admitted patients from the admissions table.
 var _patientsMode = 'out';
 var _patientsRange = 'all';
+var _patientsSearch = '';
 
 function _setPatientsMode(m) { _patientsMode = m; renderShopPatients(); }
 function _setPatientsRange(r) { _patientsRange = r; renderShopPatients(); }
+// Debounced search so re-render doesn't fire on every keystroke. Preserves
+// focus by mutating the row container only, not the input.
+var _patientsSearchTimer = null;
+function _patientsSearchInput(val) {
+   clearTimeout(_patientsSearchTimer);
+   _patientsSearchTimer = setTimeout(function() {
+      _patientsSearch = (val || '').toLowerCase().trim();
+      renderShopPatients();
+   }, 200);
+}
+function _patientsMatchesSearch(p) {
+   if (!_patientsSearch) return true;
+   var q = _patientsSearch;
+   return ((p.name || '').toLowerCase().indexOf(q) !== -1) ||
+          ((p.phone || '').toLowerCase().indexOf(q) !== -1) ||
+          ((p.email || '').toLowerCase().indexOf(q) !== -1);
+}
 
 async function renderShopPatients() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
@@ -9722,6 +9740,15 @@ async function renderShopPatients() {
       body.innerHTML = header + await _renderInPatientsTable(user);
    } else {
       body.innerHTML = header + await _renderOutPatientsTable(user);
+   }
+   // Restore focus to the search box after re-render so the user can keep typing
+   if (_patientsSearch) {
+      var box = document.getElementById('patientsSearchBox');
+      if (box) {
+         box.focus();
+         var v = box.value;
+         box.setSelectionRange(v.length, v.length);
+      }
    }
 }
 
@@ -9750,21 +9777,25 @@ async function _renderOutPatientsTable(user) {
       if (!g.phone && a.patient_phone) g.phone = a.patient_phone;
       if (!g.email && a.user_email)   g.email = a.user_email;
    });
-   var rows = Object.values(groups).sort(function(a, b) {
-      return (b.lastDate || '').localeCompare(a.lastDate || '');
-   });
+   var rows = Object.values(groups)
+      .filter(_patientsMatchesSearch)
+      .sort(function(a, b) { return (b.lastDate || '').localeCompare(a.lastDate || ''); });
 
    var rangeOptions = [['all','All time'],['day','Today'],['week','This week'],['month','This month'],['year','This year']];
+   var searchVal = (_patientsSearch || '').replace(/"/g, '&quot;');
    var filterBar =
       '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-bottom:8px">' +
-         '<div style="font-size:0.85rem;color:#666"><strong>' + rows.length + '</strong> unique out-patient' + (rows.length === 1 ? '' : 's') + (range !== 'all' ? ' · ' + rangeOptions.find(function(r){return r[0]===range;})[1].toLowerCase() : ' on file') + '</div>' +
-         '<select class="admin-filter-select" onchange="_setPatientsRange(this.value)">' +
-            rangeOptions.map(function(r){ return '<option value="' + r[0] + '"' + (r[0] === range ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') +
-         '</select>' +
+         '<div style="font-size:0.85rem;color:#666"><strong>' + rows.length + '</strong> match' + (rows.length === 1 ? '' : 'es') + (_patientsSearch ? ' for "' + searchVal + '"' : (range !== 'all' ? ' · ' + rangeOptions.find(function(r){return r[0]===range;})[1].toLowerCase() : ' on file')) + '</div>' +
+         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+            '<input type="search" id="patientsSearchBox" class="apt-search-input" placeholder="🔍 Name / phone / email" value="' + searchVal + '" oninput="_patientsSearchInput(this.value)" style="min-width:240px"/>' +
+            '<select class="admin-filter-select" onchange="_setPatientsRange(this.value)">' +
+               rangeOptions.map(function(r){ return '<option value="' + r[0] + '"' + (r[0] === range ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') +
+            '</select>' +
+         '</div>' +
       '</div>';
 
    if (!rows.length) {
-      return filterBar + '<div class="shop-empty" style="grid-column:1/-1">No out-patients in this range.</div>';
+      return filterBar + '<div class="shop-empty" style="grid-column:1/-1">' + (_patientsSearch ? 'No out-patients match "' + searchVal + '".' : 'No out-patients in this range.') + '</div>';
    }
 
    var rowHtml = rows.map(function(p) {
@@ -9812,13 +9843,32 @@ async function _renderInPatientsTable(user) {
       var rows = await AppDB.getAdmissions(mine[i].id);
       (rows || []).forEach(function(r) { r._hospital = nameByProv[r.provider_id] || ''; all.push(r); });
    }
-   var admitted = all.filter(function(r) { return r.status === 'Admitted'; });
+   var admittedAll = all.filter(function(r) { return r.status === 'Admitted'; });
+   // Apply search across name / phone / patient_ref (no email on admissions)
+   var admitted = admittedAll.filter(function(r) {
+      if (!_patientsSearch) return true;
+      var q = _patientsSearch;
+      return ((r.patient_name  || '').toLowerCase().indexOf(q) !== -1) ||
+             ((r.patient_phone || '').toLowerCase().indexOf(q) !== -1) ||
+             ((r.patient_ref   || '').toLowerCase().indexOf(q) !== -1);
+   });
+
+   var searchVal = (_patientsSearch || '').replace(/"/g, '&quot;');
+   var searchBar =
+      '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-bottom:8px">' +
+         '<div style="font-size:0.85rem;color:#666"><strong>' + admitted.length + '</strong> match' + (admitted.length === 1 ? '' : 'es') + (_patientsSearch ? ' for "' + searchVal + '"' : ' currently admitted') + '</div>' +
+         '<input type="search" id="patientsSearchBox" class="apt-search-input" placeholder="🔍 Name / phone / ref" value="' + searchVal + '" oninput="_patientsSearchInput(this.value)" style="min-width:240px"/>' +
+      '</div>';
+
+   if (!admittedAll.length) {
+      return '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#888"><div style="font-size:2rem;margin-bottom:6px">🛏️</div>No in-patients currently admitted.<br><span style="font-size:0.85rem">Add a new admission via the <strong>Admissions</strong> tab.</span></div>';
+   }
    if (!admitted.length) {
-      return '<div class="grid-column:1/-1" style="grid-column:1/-1;text-align:center;padding:30px;color:#888"><div style="font-size:2rem;margin-bottom:6px">🛏️</div>No in-patients currently admitted.<br><span style="font-size:0.85rem">Add a new admission via the <strong>Admissions</strong> tab.</span></div>';
+      return searchBar + '<div class="shop-empty" style="grid-column:1/-1">No in-patients match "' + searchVal + '".</div>';
    }
    var todayYmd = _todayLocalYmd();
 
-   var headerLine = '<div style="grid-column:1/-1;font-size:0.85rem;color:#666;padding-bottom:8px"><strong>' + admitted.length + '</strong> currently admitted</div>';
+   var headerLine = searchBar;
 
    var rowHtml = admitted.map(function(r) {
       var d = new Date((r.admit_date || '') + 'T00:00:00');
@@ -9998,11 +10048,33 @@ function openAdmissionModal(id) {
       ['adm-id','adm-name','adm-phone','adm-ref','adm-ward','adm-room','adm-target-date','adm-notes'].forEach(function(e) {
          get(e).value = '';
       });
+      delete get('adm-ref').dataset.autofilled;
       get('adm-admit-date').value = _todayLocalYmd();
       modal.classList.remove('hidden');
    }
 }
 function closeAdmissionModal() { document.getElementById('admissionModal').classList.add('hidden'); }
+
+// Phone blur → look up the patient's permanent hospital ID and auto-fill
+// the Ref field. If they don't have one (no prior paid visit), the field
+// stays blank — saveAdmission() will mint a fresh ID on save (the admission
+// itself counts as a paid event).
+async function _admLookupPatientId() {
+   var phone = (document.getElementById('adm-phone').value || '').trim();
+   var refEl = document.getElementById('adm-ref');
+   if (!phone || !_admHospitalChoice) return;
+   // Don't overwrite a manually-entered ref
+   if (refEl.value && !refEl.dataset.autofilled) return;
+   try {
+      var pid = await AppDB.getHospitalPatientId(_admHospitalChoice, phone);
+      if (pid) {
+         refEl.value = pid;
+         refEl.dataset.autofilled = '1';
+         refEl.style.background = '#e8f5e9';
+         setTimeout(function() { refEl.style.background = ''; }, 1500);
+      }
+   } catch (e) { /* silent — owner can type manually */ }
+}
 
 async function saveAdmission() {
    var get = function(id) { return (document.getElementById(id).value || '').trim(); };
@@ -10010,13 +10082,25 @@ async function saveAdmission() {
    if (!name)      { alert('Patient name is required.'); return; }
    if (!admitDate) { alert('Admit date is required.'); return; }
    if (!_admHospitalChoice) { alert('Pick a hospital first.'); return; }
+   var phone = get('adm-phone');
+   var ref   = get('adm-ref');
+   // Admission counts as a paid event → ensure the patient has a permanent ID.
+   // If Ref is empty AND phone is valid, mint a new ID and stamp it onto the
+   // admission. If they already have an ID (from a prior paid OPD visit),
+   // the helper returns that — no duplicates.
+   if (!ref && phone) {
+      try {
+         var newId = await AppDB.ensureHospitalPatientId(_admHospitalChoice, phone, name);
+         if (newId) ref = newId;
+      } catch (e) { console.error('ensureHospitalPatientId failed:', e); }
+   }
    var id = get('adm-id') || ('adm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
    var ok = await AppDB.upsertAdmission({
       id:               id,
       provider_id:      _admHospitalChoice,
       patient_name:     name,
-      patient_phone:    get('adm-phone'),
-      patient_ref:      get('adm-ref'),
+      patient_phone:    phone,
+      patient_ref:      ref,
       ward:             get('adm-ward'),
       room_bed:         get('adm-room'),
       admit_date:       admitDate,
@@ -10412,6 +10496,11 @@ async function shopSetAptStatus(aptId, status) {
    }
    var ok = await AppDB.updateAppointmentStatus(aptId, status, extra);
    if (!ok) { alert('Failed to update.'); return; }
+   // Status was Completed → patient definitely paid → ensure their hospital ID exists.
+   if (status === 'Completed' && apt) {
+      try { await AppDB.ensureHospitalPatientId(apt.provider_id, apt.patient_phone, apt.patient_name); }
+      catch (e) { console.error('ensureHospitalPatientId failed:', e); }
+   }
    _shopAptsCache = null;
    renderShopAppointments(window._shopAptCurrentFilter);
 }
@@ -10980,6 +11069,10 @@ async function shopMarkPaid(aptId) {
    if (!confirm('Mark fee of ₹' + (apt.fee || 0) + ' as paid? The patient will be able to print a receipt.')) return;
    var ok = await AppDB.updateAppointmentStatus(aptId, apt.status || 'Confirmed', { is_paid: true });
    if (!ok) { alert('Failed to update.'); return; }
+   // Payment is the trigger for minting the permanent hospital patient ID.
+   // No-show bookings don't burn an ID; only paid patients get one.
+   try { await AppDB.ensureHospitalPatientId(apt.provider_id, apt.patient_phone, apt.patient_name); }
+   catch (e) { console.error('ensureHospitalPatientId failed:', e); }
    _shopAptsCache = null;
    renderShopAppointments(window._shopAptCurrentFilter);
 }

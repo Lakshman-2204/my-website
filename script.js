@@ -1626,6 +1626,18 @@ function _storeProvidersByCat(catKey) {
 
 function _aptGetProvider(id)        { return (_aptProvidersCache || []).find(function(p) { return p.id === id; }); }
 function _aptProvidersByCat(catKey) { return (_aptProvidersCache || []).filter(function(p) { return p.category === catKey; }); }
+// Live doctor-name lookup. The appointment's stored `doctor_name` is a
+// snapshot from booking time — if the owner later renames or removes that
+// doctor from the Doctors tab, the snapshot becomes stale. This helper
+// resolves the CURRENT name (or empty string if the doctor no longer exists).
+function _doctorNameFor(apt) {
+   if (!apt) return '';
+   var prov = _aptGetProvider(apt.provider_id);
+   if (!prov) return apt.doctor_name || '';     // providers cache not loaded yet
+   var doc = (prov.doctors || []).find(function(d) { return d.id === apt.doctor_id; });
+   return doc ? doc.name : '';                  // empty → doctor deleted
+}
+
 function _aptGetDoctor(provider, doctorId) {
    if (!provider || !provider.doctors) return null;
    return provider.doctors.find(function(d) { return d.id === doctorId; });
@@ -8913,6 +8925,11 @@ async function renderShopAppointments(filterStatus) {
       _shopAptsCache = null;
       renderShopAppointments(window._shopAptCurrentFilter);
    });
+   // Also re-render when the owner renames or removes a doctor (in the
+   // Doctors tab), so the doctor column + filter pick up the new name.
+   _liveSubscribe('shopAptsProvs', 'apt_providers', function() {
+      renderShopAppointments(window._shopAptCurrentFilter);
+   });
 
    // Sync the status dropdown with the current filter (was a tab-pill row before).
    var statusSel = document.getElementById('shopAptStatusFilter');
@@ -8926,11 +8943,22 @@ async function renderShopAppointments(filterStatus) {
    }
    var all = _shopAptsCache || [];
 
-   // Doctor filter — render as tabs (dynamically populated from existing appointments).
-   // Preserves selection across re-renders via window._shopAptDoctorFilter.
+   // Make sure provider cache is fresh — doctor names are now resolved
+   // LIVE from each provider's doctors[] (renames in the Doctors tab
+   // propagate everywhere; deleted doctors disappear from filters).
+   await loadAptProviders(true);
+
+   // Doctor filter — tabs are built from the CURRENT doctors in the owner's
+   // providers, not from stale doctor_name snapshots on past appointments.
    var doctorFilter = window._shopAptDoctorFilter || '';
    var doctorsTabsEl = document.getElementById('shopAptDoctorTabs');
-   var uniqueDoctors = Array.from(new Set(all.map(function(a) { return a.doctor_name; }).filter(Boolean))).sort();
+   var aptProviderIds = new Set(all.map(function(a) { return a.provider_id; }).filter(Boolean));
+   var currentDoctorSet = {};
+   (_aptProvidersCache || []).forEach(function(p) {
+      if (!aptProviderIds.has(p.id)) return;
+      (p.doctors || []).forEach(function(d) { if (d.name) currentDoctorSet[d.name] = true; });
+   });
+   var uniqueDoctors = Object.keys(currentDoctorSet).sort();
    if (doctorsTabsEl) {
       if (uniqueDoctors.length === 0) {
          doctorsTabsEl.style.display = 'none';
@@ -8954,7 +8982,8 @@ async function renderShopAppointments(filterStatus) {
    var searchEl  = document.getElementById('shopAptSearch');
    var searchVal = (searchEl && searchEl.value || '').trim().toLowerCase();
    var dateFiltered = all.filter(function(a) {
-      if (doctorFilter && a.doctor_name !== doctorFilter) return false;
+      // Filter by LIVE doctor name — picks up renames in the Doctors tab
+      if (doctorFilter && _doctorNameFor(a) !== doctorFilter) return false;
       if (!_isDateInRange(a.date, df.range, df)) return false;
       if (searchVal) {
          var hay = ((a.patient_name || '') + ' ' + (a.user_email || '') + ' ' + (a.patient_phone || '') + ' ' + (a.apt_id || '')).toLowerCase();
@@ -9106,11 +9135,15 @@ async function renderShopAppointments(filterStatus) {
          ? '<span class="apt-token-badge" style="background:' + _tokenBadgeColor(a) + ';color:#fff">' + _tokenLabel(a) + '</span>'
          : '<span style="color:#bbb">—</span>';
       var slotCell  = a.slot ? _formatSlot12(a.slot) : '<span style="color:#888;font-size:0.72rem">🎟 Token mode</span>';
+      var docCurrent = _doctorNameFor(a);
+      var docCell = docCurrent
+         ? docCurrent
+         : (a.doctor_name ? '<span style="color:#888;text-decoration:line-through" title="Doctor no longer in directory">' + a.doctor_name + '</span>' : '—');
       return '<tr>' +
                 '<td style="text-align:center">' + tokenCell + '</td>' +
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div>' +
                     '<div class="apt-tbl-slot">' + slotCell + '</div></td>' +
-                '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div>' +
+                '<td><div class="apt-tbl-name">' + docCell + '</div>' +
                     '<div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.patient_name || a.user_email || '') + '</div>' +
                     (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + '</td>' +
@@ -9668,7 +9701,7 @@ function _todayQueueWidget(provApts, todayYmd) {
                    '<div class="shop-queue-time">' + slot + '</div>' +
                    '<div class="shop-queue-name">' + (a.patient_name || '—') + paidHtml + '</div>' +
                    reasonHtml +
-                   '<div class="shop-queue-doc">' + (a.doctor_name || '') + '</div>' +
+                   '<div class="shop-queue-doc">' + (_doctorNameFor(a) || '') + '</div>' +
                 '</div>';
       }).join('');
    }

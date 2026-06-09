@@ -9176,23 +9176,38 @@ async function renderShopOverview() {
                (p.timing  ? '<div>🕒 ' + p.timing  + '</div>' : '') +
                (p.phone   ? '<div>📞 ' + _phoneLink(p.phone) + '</div>' : '') +
             '</div>' +
+            // Cliniva-style KPI cards — 4 prominent stats at the top
+            '<div class="shop-ov-kpis">' +
+               _kpiCard('purple', '📅', todayApts.length,                                   'Today\'s Bookings') +
+               _kpiCard('orange', '⏳', todayPending.length,                                'Pending Today') +
+               _kpiCard('green',  '✅', todayDone.length,                                   'Completed Today') +
+               _kpiCard('blue',   '💰', '₹' + monthRevenue.toLocaleString('en-IN'),         'Revenue (Month)') +
+            '</div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
                   _todayQueueWidget(provApts, todayYmd) +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
-                  _statRow('👨‍⚕️', docCount,                'Doctors') +
-                  _statRow('📅',  todayApts.length,        'Today\'s Bookings') +
-                  _statRow('⏳',  todayPending.length,     'Pending Today') +
-                  _statRow('✅',  todayDone.length,        'Completed Today') +
-                  _statRow('📊',  thisWeek.length,         'This Week') +
-                  _statRow('💰',  '₹' + monthRevenue.toLocaleString('en-IN'), 'Revenue (Month)') +
+                  _statRow('👨‍⚕️', docCount,         'Doctors') +
+                  _statRow('📊',  thisWeek.length,  'This Week') +
                '</aside>' +
             '</div>' +
          '</div>';
    });
 
    container.innerHTML = html;
+}
+
+// Cliniva-style KPI card — pastel icon tile + big number + small label.
+// Reuses .shop-stat styling defined in style.css.
+function _kpiCard(color, icon, value, label) {
+   return '<div class="shop-stat" style="cursor:default">' +
+             '<div class="shop-stat-icon shop-stat-icon-' + color + '">' + icon + '</div>' +
+             '<div class="shop-stat-body">' +
+                '<div class="shop-stat-num">' + value + '</div>' +
+                '<div class="shop-stat-label">' + label + '</div>' +
+             '</div>' +
+          '</div>';
 }
 
 function _statCard(icon, value, label) {

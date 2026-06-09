@@ -9660,23 +9660,48 @@ function _todayQueueWidget(provApts, todayYmd) {
           '</div>';
 }
 
-// ── PATIENTS tab — directory of unique patients who've booked here ──
-// Deduplicates by patient_phone (fall back to user_email + name). Sortable
-// by name, by last visit, by total visits. All numbers come from the
-// hospital's own appointment history — no extra fetches needed.
+// ── PATIENTS tab — two sub-views toggled via pill bar at the top ──
+//   Out-patients (default): unique customers from appointments, with visit
+//                           counts + total paid. Optional last-visit filter.
+//   In-patients: currently admitted patients from the admissions table.
+var _patientsMode = 'out';
+var _patientsRange = 'all';
+
+function _setPatientsMode(m) { _patientsMode = m; renderShopPatients(); }
+function _setPatientsRange(r) { _patientsRange = r; renderShopPatients(); }
+
 async function renderShopPatients() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
    var body = document.getElementById('shopPatientsBody');
    if (!body) return;
-   _liveSubscribe('shopPatients', 'appointments', renderShopPatients);
+   _liveSubscribe('shopPatients',     'appointments', renderShopPatients);
+   _liveSubscribe('shopPatientsAdm',  'admissions',   renderShopPatients);
 
+   var mode = _patientsMode;
+   var modeToggle =
+      '<div class="donut-range" style="grid-column:1/-1;max-width:300px;margin-bottom:12px">' +
+         '<button class="donut-range-btn' + (mode === 'out' ? ' active' : '') + '" onclick="_setPatientsMode(\'out\')">🚶 Out-patients</button>' +
+         '<button class="donut-range-btn' + (mode === 'in'  ? ' active' : '') + '" onclick="_setPatientsMode(\'in\')">🛏️ In-patients</button>' +
+      '</div>';
+
+   if (mode === 'in') {
+      body.innerHTML = modeToggle + await _renderInPatientsTable(user);
+   } else {
+      body.innerHTML = modeToggle + await _renderOutPatientsTable(user);
+   }
+}
+
+async function _renderOutPatientsTable(user) {
    var all = await AppDB.getAppointmentsByOwner(user.email);
    if (!all || !all.length) {
-      body.innerHTML = '<div class="shop-empty" style="grid-column:1/-1">No patients yet. Once customers book, they\'ll appear here.</div>';
-      return;
+      return '<div class="shop-empty" style="grid-column:1/-1">No out-patients yet. Once customers book, they\'ll appear here.</div>';
    }
+   // Date range filter — same buckets as the donut, default 'all'
+   var range = _patientsRange;
+   var filtered = range === 'all' ? all : _filterAptsByRange(all, range);
+
    var groups = {};
-   all.forEach(function(a) {
+   filtered.forEach(function(a) {
       var key = (a.patient_phone || a.user_email || a.patient_name || '').toLowerCase().trim();
       if (!key) return;
       if (!groups[key]) {
@@ -9695,6 +9720,19 @@ async function renderShopPatients() {
       return (b.lastDate || '').localeCompare(a.lastDate || '');
    });
 
+   var rangeOptions = [['all','All time'],['day','Today'],['week','This week'],['month','This month'],['year','This year']];
+   var filterBar =
+      '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-bottom:8px">' +
+         '<div style="font-size:0.85rem;color:#666"><strong>' + rows.length + '</strong> unique out-patient' + (rows.length === 1 ? '' : 's') + (range !== 'all' ? ' · ' + rangeOptions.find(function(r){return r[0]===range;})[1].toLowerCase() : ' on file') + '</div>' +
+         '<select class="admin-filter-select" onchange="_setPatientsRange(this.value)">' +
+            rangeOptions.map(function(r){ return '<option value="' + r[0] + '"' + (r[0] === range ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') +
+         '</select>' +
+      '</div>';
+
+   if (!rows.length) {
+      return filterBar + '<div class="shop-empty" style="grid-column:1/-1">No out-patients in this range.</div>';
+   }
+
    var rowHtml = rows.map(function(p) {
       var lastLbl = p.lastDate ? new Date(p.lastDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
       return '<tr>' +
@@ -9708,8 +9746,7 @@ async function renderShopPatients() {
              '</tr>';
    }).join('');
 
-   body.innerHTML =
-      '<div style="grid-column:1/-1;font-size:0.85rem;color:#666;padding-bottom:8px"><strong>' + rows.length + '</strong> unique patient' + (rows.length === 1 ? '' : 's') + ' on file</div>' +
+   return filterBar +
       '<div class="apt-tbl-wrap" style="grid-column:1/-1">' +
          '<table class="apt-tbl">' +
             '<thead><tr>' +
@@ -9718,6 +9755,72 @@ async function renderShopPatients() {
                '<th style="text-align:center">Visits</th>' +
                '<th>Last Visit</th>' +
                '<th style="text-align:right">Total Paid</th>' +
+            '</tr></thead>' +
+            '<tbody>' + rowHtml + '</tbody>' +
+         '</table>' +
+      '</div>';
+}
+
+async function _renderInPatientsTable(user) {
+   // Aggregate admissions across all owner's hospitals
+   await loadAptProviders(true);
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   if (!mine.length) {
+      return '<div class="shop-empty" style="grid-column:1/-1">No hospital linked to your account.</div>';
+   }
+   var nameByProv = {};
+   mine.forEach(function(p) { nameByProv[p.id] = p.name; });
+
+   var all = [];
+   for (var i = 0; i < mine.length; i++) {
+      var rows = await AppDB.getAdmissions(mine[i].id);
+      (rows || []).forEach(function(r) { r._hospital = nameByProv[r.provider_id] || ''; all.push(r); });
+   }
+   var admitted = all.filter(function(r) { return r.status === 'Admitted'; });
+   if (!admitted.length) {
+      return '<div class="grid-column:1/-1" style="grid-column:1/-1;text-align:center;padding:30px;color:#888"><div style="font-size:2rem;margin-bottom:6px">🛏️</div>No in-patients currently admitted.<br><span style="font-size:0.85rem">Add a new admission via the <strong>Admissions</strong> tab.</span></div>';
+   }
+   var todayYmd = _todayLocalYmd();
+
+   var headerLine = '<div style="grid-column:1/-1;font-size:0.85rem;color:#666;padding-bottom:8px"><strong>' + admitted.length + '</strong> currently admitted</div>';
+
+   var rowHtml = admitted.map(function(r) {
+      var d = new Date((r.admit_date || '') + 'T00:00:00');
+      var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
+      var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      var targetLbl = '—', isDueToday = false;
+      if (r.target_discharge) {
+         isDueToday = r.target_discharge === todayYmd;
+         var td = new Date(r.target_discharge + 'T00:00:00');
+         targetLbl = isDueToday ? 'TODAY' : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+      var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
+      return '<tr' + (isDueToday ? ' style="background:#fff8e1"' : '') + '>' +
+                '<td><div class="apt-tbl-name">' + (r.patient_name || '—') + '</div>' +
+                    (r.patient_ref ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
+                '</td>' +
+                '<td>' + (r.patient_phone ? '<a href="tel:' + String(r.patient_phone).replace(/[^0-9+]/g, '') + '" style="color:#1a73e8;font-weight:600">' + r.patient_phone + '</a>' : '<span style="color:#bbb">—</span>') + '</td>' +
+                '<td><div class="apt-tbl-name">' + loc + '</div>' +
+                    (mine.length > 1 ? '<div class="apt-tbl-sub">' + r._hospital + '</div>' : '') +
+                '</td>' +
+                '<td><span class="apt-status confirmed">🗓️ ' + losDays + ' day' + (losDays === 1 ? '' : 's') + '</span></td>' +
+                '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
+                '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
+             '</tr>';
+   }).join('');
+
+   return headerLine +
+      '<div class="apt-tbl-wrap" style="grid-column:1/-1">' +
+         '<table class="apt-tbl">' +
+            '<thead><tr>' +
+               '<th>Patient</th>' +
+               '<th>Phone</th>' +
+               '<th>Location / Bed</th>' +
+               '<th>Length of Stay</th>' +
+               '<th>Admit Date</th>' +
+               '<th>Target Discharge</th>' +
             '</tr></thead>' +
             '<tbody>' + rowHtml + '</tbody>' +
          '</table>' +

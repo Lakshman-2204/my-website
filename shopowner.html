@@ -234,25 +234,39 @@
 
    <!-- ADMISSIONS MODAL — admit a new patient OR edit an existing admission -->
    <div class="sp-modal-overlay hidden" id="admissionModal" onclick="if(event.target===this)closeAdmissionModal()">
-      <div class="sp-modal" style="max-width:560px">
+      <div class="sp-modal" style="max-width:820px">
          <div class="sp-modal-header" style="background:#1565c0">
             <h3 id="admissionModalTitle">🛏️ Admit Patient</h3>
             <button onclick="closeAdmissionModal()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 8px">✕</button>
          </div>
          <div class="sp-modal-body">
             <input type="hidden" id="adm-id"/>
+
+            <!-- LOOKUP: pull data from a previous paid+completed out-patient visit -->
+            <div class="sp-field" style="margin-bottom:14px;position:relative">
+               <label>🔍 Look up existing patient <small style="color:#888;font-weight:400">(name or phone — auto-fills basics)</small></label>
+               <input type="text" id="adm-lookup" placeholder="Start typing patient name or phone…" autocomplete="off" oninput="_admLookupTypeahead()"/>
+               <div id="adm-lookup-results" class="sp-catalog-results hidden" style="position:absolute;z-index:30;background:#fff;left:0;right:0;border:1px solid #ddd;border-radius:6px;max-height:240px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.08)"></div>
+            </div>
+
+            <!-- ADMISSION DETAILS — clinical context for this admission -->
+            <h4 class="adm-section-head" style="background:#fee2e2;color:#b91c1c">Admission Details</h4>
             <div class="profile-card-body" style="padding:0">
                <div class="sp-field">
-                  <label>Patient Name *</label>
-                  <input type="text" id="adm-name" placeholder="e.g. Ramesh Kumar"/>
+                  <label>Doctor's Name</label>
+                  <select id="adm-doctor"><option value="">— Select doctor —</option></select>
                </div>
                <div class="sp-field">
-                  <label>Phone</label>
-                  <input type="tel" id="adm-phone" placeholder="98765 43210" onblur="_admLookupPatientId()"/>
+                  <label>Admit Date *</label>
+                  <input type="date" id="adm-admit-date"/>
                </div>
                <div class="sp-field">
-                  <label>Patient Ref / Chart No <small style="color:#888;font-weight:400">(auto-filled on phone blur)</small></label>
-                  <input type="text" id="adm-ref" placeholder="auto"/>
+                  <label>Planned Procedure</label>
+                  <input type="text" id="adm-procedure" placeholder="e.g. Appendectomy"/>
+               </div>
+               <div class="sp-field">
+                  <label>Target Discharge</label>
+                  <input type="date" id="adm-target-date"/>
                </div>
                <div class="sp-field">
                   <label>Ward</label>
@@ -262,18 +276,96 @@
                   <label>Room / Bed</label>
                   <input type="text" id="adm-room" placeholder="Rm 104"/>
                </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Patient Ref / Chart No <small style="color:#888;font-weight:400">(auto-filled on phone blur)</small></label>
+                  <input type="text" id="adm-ref" placeholder="auto"/>
+               </div>
+            </div>
+
+            <!-- PATIENT INFORMATION — demographics + contact -->
+            <h4 class="adm-section-head" style="background:#fee2e2;color:#b91c1c;margin-top:16px">Patient Information</h4>
+            <div class="profile-card-body" style="padding:0">
                <div class="sp-field">
-                  <label>Admit Date *</label>
-                  <input type="date" id="adm-admit-date"/>
+                  <label>Patient Name *</label>
+                  <input type="text" id="adm-name" placeholder="e.g. Ramesh Kumar"/>
                </div>
                <div class="sp-field">
-                  <label>Target Discharge</label>
-                  <input type="date" id="adm-target-date"/>
+                  <label>Phone Number</label>
+                  <input type="tel" id="adm-phone" placeholder="98765 43210" onblur="_admLookupPatientId()"/>
+               </div>
+               <div class="sp-field">
+                  <label>Email ID</label>
+                  <input type="email" id="adm-email" placeholder="example@example.com"/>
+               </div>
+               <div class="sp-field">
+                  <label>Date of Birth</label>
+                  <input type="date" id="adm-dob"/>
+               </div>
+               <div class="sp-field">
+                  <label>Gender</label>
+                  <select id="adm-gender">
+                     <option value="">—</option>
+                     <option value="Male">Male</option>
+                     <option value="Female">Female</option>
+                     <option value="Other">Other</option>
+                  </select>
+               </div>
+               <div class="sp-field">
+                  <label>Marital Status</label>
+                  <select id="adm-marital">
+                     <option value="">—</option>
+                     <option value="Single">Single</option>
+                     <option value="Married">Married</option>
+                     <option value="Divorced">Divorced</option>
+                     <option value="Widowed">Widowed</option>
+                  </select>
+               </div>
+               <div class="sp-field">
+                  <label>Employment Status</label>
+                  <select id="adm-employment">
+                     <option value="">—</option>
+                     <option value="Employed">Employed</option>
+                     <option value="Self-employed">Self-employed</option>
+                     <option value="Unemployed">Unemployed</option>
+                     <option value="Student">Student</option>
+                     <option value="Retired">Retired</option>
+                  </select>
                </div>
                <div class="sp-field" style="grid-column:1/-1">
-                  <label>Notes</label>
-                  <textarea id="adm-notes" rows="2" placeholder="Condition / instructions"></textarea>
+                  <label>Address</label>
+                  <input type="text" id="adm-address" placeholder="House / Street"/>
                </div>
+               <div class="sp-field">
+                  <label>City</label>
+                  <input type="text" id="adm-city" placeholder="Machilipatnam"/>
+               </div>
+               <div class="sp-field">
+                  <label>Postal / Zip Code</label>
+                  <input type="text" id="adm-postal" placeholder="521001"/>
+               </div>
+            </div>
+
+            <!-- GUARDIAN / EMERGENCY CONTACT -->
+            <h4 class="adm-section-head" style="background:#fee2e2;color:#b91c1c;margin-top:16px">Guardian / Emergency Contact</h4>
+            <div class="profile-card-body" style="padding:0">
+               <div class="sp-field">
+                  <label>Parent / Guardian Name</label>
+                  <input type="text" id="adm-guardian-name" placeholder="e.g. Suresh Kumar"/>
+               </div>
+               <div class="sp-field">
+                  <label>Relation to Patient</label>
+                  <input type="text" id="adm-guardian-relation" placeholder="Father / Spouse / Son"/>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Guardian Phone Number</label>
+                  <input type="tel" id="adm-guardian-phone" placeholder="98765 43210"/>
+               </div>
+            </div>
+
+            <!-- NOTES -->
+            <h4 class="adm-section-head" style="background:#fee2e2;color:#b91c1c;margin-top:16px">Notes</h4>
+            <div class="sp-field" style="margin:0">
+               <textarea id="adm-notes" rows="2" placeholder="Condition / instructions / known allergies"></textarea>
             </div>
          </div>
          <div class="sp-modal-footer">

@@ -307,6 +307,35 @@ window.AppDB = {
       return map;
    },
 
+   // Used by the Admit modal lookup. Returns up to 10 distinct paid+completed
+   // out-patients for one provider whose name or phone matches the query.
+   // The newest visit per patient is returned (so the most recent contact
+   // info is what we pre-fill).
+   async lookupOutpatientsForAdmit(providerId, query) {
+      if (!providerId || !query || query.length < 2) return [];
+      const safe = query.replace(/[%_]/g, '\\$&');
+      const pat = '%' + safe + '%';
+      const { data, error } = await _sb.from('appointments')
+         .select('apt_id, provider_id, patient_name, patient_phone, user_email, patient_address, patient_age, patient_sex, date, created_at, status, is_paid')
+         .eq('provider_id', providerId)
+         .eq('status', 'Completed')
+         .eq('is_paid', true)
+         .or('patient_name.ilike.' + pat + ',patient_phone.ilike.' + pat)
+         .order('date', { ascending: false })
+         .limit(60);
+      if (error) { console.error('lookupOutpatientsForAdmit:', error.message); return []; }
+      // Dedupe by phone (most recent visit wins because ordered desc)
+      const seen = {};
+      const out = [];
+      (data || []).forEach(r => {
+         const key = (r.patient_phone || r.user_email || r.patient_name || '').toLowerCase().trim();
+         if (!key || seen[key]) return;
+         seen[key] = true;
+         out.push(r);
+      });
+      return out.slice(0, 10);
+   },
+
    // ── ADMISSIONS (Phase 7) — inpatient tracking per hospital ──
    async getAdmissions(providerId) {
       const { data, error } = await _sb.from('admissions').select('*')
@@ -317,19 +346,33 @@ window.AppDB = {
    },
    async upsertAdmission(a) {
       const row = {
-         id:                a.id,
-         provider_id:       a.provider_id,
-         patient_name:      a.patient_name || '',
-         patient_phone:     a.patient_phone || '',
-         patient_ref:       a.patient_ref || '',
-         ward:              a.ward || '',
-         room_bed:          a.room_bed || '',
-         admit_date:        a.admit_date,
-         target_discharge:  a.target_discharge || null,
-         status:            a.status || 'Admitted',
-         rounds_status:     a.rounds_status || 'pending',
-         notes:             a.notes || '',
-         updated_at:        new Date().toISOString()
+         id:                 a.id,
+         provider_id:        a.provider_id,
+         patient_name:       a.patient_name || '',
+         patient_phone:      a.patient_phone || '',
+         patient_ref:        a.patient_ref || '',
+         ward:               a.ward || '',
+         room_bed:           a.room_bed || '',
+         admit_date:         a.admit_date,
+         target_discharge:   a.target_discharge || null,
+         status:             a.status || 'Admitted',
+         rounds_status:      a.rounds_status || 'pending',
+         notes:              a.notes || '',
+         // Phase 7.2 extended fields (in-patient only)
+         doctor_name:        a.doctor_name || '',
+         planned_procedure:  a.planned_procedure || '',
+         patient_email:      a.patient_email || '',
+         dob:                a.dob || null,
+         gender:             a.gender || '',
+         marital_status:     a.marital_status || '',
+         employment_status:  a.employment_status || '',
+         guardian_name:      a.guardian_name || '',
+         guardian_relation:  a.guardian_relation || '',
+         guardian_phone:     a.guardian_phone || '',
+         address:            a.address || '',
+         city:               a.city || '',
+         postal_code:        a.postal_code || '',
+         updated_at:         new Date().toISOString()
       };
       const { error } = await _sb.from('admissions').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertAdmission:', error.message); return false; }

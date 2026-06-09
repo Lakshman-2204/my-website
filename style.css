@@ -2011,6 +2011,17 @@ body.guest .store-section-divider {
 .total-apts-card .tac-done { background: #dfeeff; color: #1565c0; }
 .total-apts-card .tac-up   { background: #ffeed3; color: #e65100; }
 
+/* Admission modal — section headings (mirror the reference admission form) */
+.adm-section-head {
+	margin: 0 0 8px;
+	padding: 6px 12px;
+	border-radius: 8px;
+	font-size: 0.82rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
 /* Appointments Status donut — sidebar card */
 .status-donut-card {
 	background: #fff;

@@ -10081,16 +10081,31 @@ async function renderShopAdmissions() {
 
 function _admPickHospital(id) { _admHospitalChoice = id; renderShopAdmissions(); }
 
+// All editable form-field IDs in the Admit modal. Used by open/reset.
+var _ADM_FIELDS = [
+   'adm-id','adm-name','adm-phone','adm-ref','adm-ward','adm-room',
+   'adm-admit-date','adm-target-date','adm-notes',
+   // Extended (Phase 7.2)
+   'adm-doctor','adm-procedure','adm-email','adm-dob','adm-gender',
+   'adm-marital','adm-employment','adm-address','adm-city','adm-postal',
+   'adm-guardian-name','adm-guardian-relation','adm-guardian-phone',
+   'adm-lookup'
+];
+
 function openAdmissionModal(id) {
    var modal = document.getElementById('admissionModal');
    var titleEl = document.getElementById('admissionModalTitle');
    var get = function(eid) { return document.getElementById(eid); };
+
+   // Populate the Doctor dropdown from this hospital's doctors (live names)
+   _admPopulateDoctorSelect();
+
    if (id) {
       AppDB.getAdmissions(_admHospitalChoice).then(function(rows) {
          var r = (rows || []).find(function(x) { return x.id === id; });
          if (!r) { alert('Admission not found'); return; }
          titleEl.textContent = '✏️ Edit Admission';
-         get('adm-id').value = r.id;
+         get('adm-id').value           = r.id;
          get('adm-name').value         = r.patient_name || '';
          get('adm-phone').value        = r.patient_phone || '';
          get('adm-ref').value          = r.patient_ref || '';
@@ -10099,17 +10114,104 @@ function openAdmissionModal(id) {
          get('adm-admit-date').value   = r.admit_date || '';
          get('adm-target-date').value  = r.target_discharge || '';
          get('adm-notes').value        = r.notes || '';
+         get('adm-doctor').value       = r.doctor_name || '';
+         get('adm-procedure').value    = r.planned_procedure || '';
+         get('adm-email').value        = r.patient_email || '';
+         get('adm-dob').value          = r.dob || '';
+         get('adm-gender').value       = r.gender || '';
+         get('adm-marital').value      = r.marital_status || '';
+         get('adm-employment').value   = r.employment_status || '';
+         get('adm-address').value      = r.address || '';
+         get('adm-city').value         = r.city || '';
+         get('adm-postal').value       = r.postal_code || '';
+         get('adm-guardian-name').value     = r.guardian_name || '';
+         get('adm-guardian-relation').value = r.guardian_relation || '';
+         get('adm-guardian-phone').value    = r.guardian_phone || '';
          modal.classList.remove('hidden');
       });
    } else {
       titleEl.textContent = '🛏️ Admit Patient';
-      ['adm-id','adm-name','adm-phone','adm-ref','adm-ward','adm-room','adm-target-date','adm-notes'].forEach(function(e) {
-         get(e).value = '';
-      });
+      _ADM_FIELDS.forEach(function(e) { var el = get(e); if (el) el.value = ''; });
       delete get('adm-ref').dataset.autofilled;
       get('adm-admit-date').value = _todayLocalYmd();
       modal.classList.remove('hidden');
    }
+}
+
+// Populate the Doctor's Name dropdown from the currently-selected hospital's
+// live doctors list (so renames / removals propagate automatically).
+function _admPopulateDoctorSelect() {
+   var sel = document.getElementById('adm-doctor');
+   if (!sel) return;
+   var current = sel.value;
+   var prov = (_aptProvidersCache || []).find(function(p) { return p.id === _admHospitalChoice; });
+   var docs = prov ? (prov.doctors || []) : [];
+   sel.innerHTML = '<option value="">— Select doctor —</option>' +
+      docs.map(function(d) {
+         return '<option value="' + d.name + '"' + (d.name === current ? ' selected' : '') + '>' +
+                   d.name + (d.speciality ? ' (' + d.speciality + ')' : '') +
+                '</option>';
+      }).join('');
+}
+
+// Typeahead: searches paid+completed out-patients by name/phone for the
+// currently-selected hospital. Click a result → pre-fill the form.
+var _admLookupTimer = null;
+function _admLookupTypeahead() {
+   clearTimeout(_admLookupTimer);
+   _admLookupTimer = setTimeout(_admLookupRun, 220);
+}
+async function _admLookupRun() {
+   var q = (document.getElementById('adm-lookup').value || '').trim();
+   var box = document.getElementById('adm-lookup-results');
+   if (!box) return;
+   if (q.length < 2 || !_admHospitalChoice) {
+      box.classList.add('hidden'); box.innerHTML = '';
+      return;
+   }
+   var hits = await AppDB.lookupOutpatientsForAdmit(_admHospitalChoice, q);
+   if (!hits.length) {
+      box.innerHTML = '<div style="padding:10px;text-align:center;color:#888;font-size:0.85rem">No paid out-patient found for "' + q + '".</div>';
+      box.classList.remove('hidden');
+      return;
+   }
+   box.innerHTML = hits.map(function(h, i) {
+      var dt = h.date ? new Date(h.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+      return '<div class="sp-catalog-result" onclick="_admPickLookup(' + i + ')" style="cursor:pointer;padding:8px 12px;border-bottom:1px solid #f0f2f6">' +
+                '<div class="sp-catalog-result-info">' +
+                   '<div class="sp-catalog-result-name">' + (h.patient_name || '—') + '</div>' +
+                   '<div class="sp-catalog-result-meta">📞 ' + (h.patient_phone || '—') +
+                      (h.user_email ? ' · ✉ ' + h.user_email : '') +
+                      (dt ? ' · last visit ' + dt : '') +
+                   '</div>' +
+                '</div>' +
+             '</div>';
+   }).join('');
+   window._admLookupHits = hits;
+   box.classList.remove('hidden');
+}
+function _admPickLookup(idx) {
+   var h = (window._admLookupHits || [])[idx];
+   if (!h) return;
+   var get = function(id) { return document.getElementById(id); };
+   if (h.patient_name)    get('adm-name').value    = h.patient_name;
+   if (h.patient_phone)   get('adm-phone').value   = h.patient_phone;
+   if (h.user_email)      get('adm-email').value   = h.user_email;
+   if (h.patient_address) get('adm-address').value = h.patient_address;
+   if (h.patient_sex)     get('adm-gender').value  = h.patient_sex;
+   // Approximate DOB from patient_age if no DOB on file (year-precision only)
+   if (h.patient_age && !get('adm-dob').value) {
+      var thisYear = new Date().getFullYear();
+      var approxDob = (thisYear - Number(h.patient_age)) + '-01-01';
+      get('adm-dob').value = approxDob;
+   }
+   // Trigger the patient-id lookup since phone may have changed
+   _admLookupPatientId();
+   // Close + highlight to confirm
+   document.getElementById('adm-lookup-results').classList.add('hidden');
+   document.getElementById('adm-lookup').value = h.patient_name + ' · ' + (h.patient_phone || '');
+   document.getElementById('adm-lookup').style.background = '#e8f5e9';
+   setTimeout(function() { document.getElementById('adm-lookup').style.background = ''; }, 1200);
 }
 function closeAdmissionModal() { document.getElementById('admissionModal').classList.add('hidden'); }
 
@@ -10154,16 +10256,29 @@ async function saveAdmission() {
    }
    var id = get('adm-id') || ('adm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
    var ok = await AppDB.upsertAdmission({
-      id:               id,
-      provider_id:      _admHospitalChoice,
-      patient_name:     name,
-      patient_phone:    phone,
-      patient_ref:      ref,
-      ward:             get('adm-ward'),
-      room_bed:         get('adm-room'),
-      admit_date:       admitDate,
-      target_discharge: get('adm-target-date') || null,
-      notes:            get('adm-notes')
+      id:                 id,
+      provider_id:        _admHospitalChoice,
+      patient_name:       name,
+      patient_phone:      phone,
+      patient_ref:        ref,
+      ward:               get('adm-ward'),
+      room_bed:           get('adm-room'),
+      admit_date:         admitDate,
+      target_discharge:   get('adm-target-date') || null,
+      notes:              get('adm-notes'),
+      doctor_name:        get('adm-doctor'),
+      planned_procedure:  get('adm-procedure'),
+      patient_email:      get('adm-email'),
+      dob:                get('adm-dob') || null,
+      gender:             get('adm-gender'),
+      marital_status:     get('adm-marital'),
+      employment_status:  get('adm-employment'),
+      address:            get('adm-address'),
+      city:               get('adm-city'),
+      postal_code:        get('adm-postal'),
+      guardian_name:      get('adm-guardian-name'),
+      guardian_relation:  get('adm-guardian-relation'),
+      guardian_phone:     get('adm-guardian-phone')
    });
    if (!ok) { alert('Failed to save admission.'); return; }
    closeAdmissionModal();

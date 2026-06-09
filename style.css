@@ -4866,17 +4866,9 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 .profile-tab.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
 
 .profile-content {
-	max-width: 680px;
-	margin: 28px auto;
-	padding: 0 20px 60px;
-}
-
-/* Tabs with rich filter bars + wide rows get more room than the default 680px */
-#ptab-appointments,
-#ptab-orders,
-#ptab-addresses,
-#ptab-wishlist {
 	max-width: 1200px;
+	margin: 0 auto;
+	padding: 0 20px 60px;
 }
 
 .profile-card {
@@ -4901,9 +4893,19 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 
 .profile-card-body {
 	padding: 20px;
-	display: flex;
-	flex-direction: column;
-	gap: 14px;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px 18px;
+}
+/* Fields that contain a textarea (e.g. Address) span both columns */
+.profile-card-body .profile-field:has(textarea) { grid-column: 1 / -1; }
+/* Buttons + status messages also span both columns */
+.profile-card-body > button,
+.profile-card-body > p { grid-column: 1 / -1; }
+.profile-card-body > .profile-save-btn { width: max-content; }
+/* Mobile: collapse back to a single column */
+@media (max-width: 720px) {
+	.profile-card-body { grid-template-columns: 1fr; }
 }
 
 /* Contact Admin tab — vertical list of contact methods */

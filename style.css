@@ -1975,7 +1975,23 @@ body.guest .store-section-divider {
 .hospital-survey .hs-title { font-weight: 700; color: #1a1a2e; font-size: 1rem; }
 .hospital-survey .hs-legend { font-size: 0.78rem; color: #5f6473; display: flex; align-items: center; }
 .hospital-survey .hs-leg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
-.hospital-survey .hs-chart   { overflow: hidden; }
+.hospital-survey .hs-chart   { overflow: hidden; position: relative; }
+.hospital-survey svg         { cursor: crosshair; display: block; }
+.hospital-survey .hs-tooltip {
+	position: absolute; top: 8px;
+	background: #1a1a2e; color: #fff;
+	padding: 8px 12px; border-radius: 8px;
+	font-size: 0.78rem; line-height: 1.4;
+	pointer-events: none;
+	box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+	white-space: nowrap;
+	z-index: 5;
+}
+.hospital-survey .hs-tip-date { font-weight: 700; margin-bottom: 4px; font-size: 0.82rem; }
+.hospital-survey .hs-tip-row  { display: flex; align-items: center; gap: 6px; }
+.hospital-survey .hs-tip-row span {
+	width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}
 
 /* Total Appointments side card */
 .total-apts-card {

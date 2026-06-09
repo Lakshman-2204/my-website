@@ -9273,7 +9273,8 @@ function _renderHospitalSurvey(apts) {
    }
 
    var svg =
-      '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">' +
+      '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" ' +
+            'onmousemove="_hospitalSurveyHover(event)" onmouseleave="_hospitalSurveyHide(event)">' +
          '<defs>' +
             '<linearGradient id="ngrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#1e88e5" stop-opacity="0.35"/><stop offset="100%" stop-color="#1e88e5" stop-opacity="0.02"/></linearGradient>' +
             '<linearGradient id="ograd" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#ef6c00" stop-opacity="0.30"/><stop offset="100%" stop-color="#ef6c00" stop-opacity="0.02"/></linearGradient>' +
@@ -9283,10 +9284,24 @@ function _renderHospitalSurvey(apts) {
          '<path d="' + toPath(oldSeries) + '" fill="none" stroke="#ef6c00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
          '<path d="' + toArea(newSeries) + '" fill="url(#ngrad)"/>' +
          '<path d="' + toPath(newSeries) + '" fill="none" stroke="#1e88e5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+         // Crosshair + markers (toggled by hover handler)
+         '<line class="hs-crosshair" x1="0" x2="0" y1="' + padT + '" y2="' + (padT+plotH) + '" stroke="#90a4ae" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>' +
+         '<circle class="hs-marker hs-marker-new" cx="0" cy="0" r="4" fill="#1e88e5" stroke="#fff" stroke-width="2" opacity="0"/>' +
+         '<circle class="hs-marker hs-marker-old" cx="0" cy="0" r="4" fill="#ef6c00" stroke="#fff" stroke-width="2" opacity="0"/>' +
          xLabels +
       '</svg>';
 
-   return '<div class="hospital-survey">' +
+   // Serialize the data the hover handler needs (kept tiny — just numbers).
+   var daysIso = labels.map(function(d) { return d.toISOString().slice(0, 10); });
+   var dataAttrs =
+      ' data-days="' + daysIso.join(',') + '"' +
+      ' data-new="' + newSeries.join(',') + '"' +
+      ' data-old="' + oldSeries.join(',') + '"' +
+      ' data-ceil="' + ceil + '"' +
+      ' data-vw="' + w + '" data-vh="' + h + '"' +
+      ' data-padl="' + padL + '" data-padr="' + padR + '" data-padt="' + padT + '" data-padb="' + padB + '"';
+
+   return '<div class="hospital-survey"' + dataAttrs + '>' +
              '<div class="hs-head">' +
                 '<div class="hs-title">Hospital Survey</div>' +
                 '<div class="hs-legend">' +
@@ -9294,8 +9309,77 @@ function _renderHospitalSurvey(apts) {
                    '<span class="hs-leg-dot" style="background:#ef6c00;margin-left:14px"></span>Follow-up' +
                 '</div>' +
              '</div>' +
-             '<div class="hs-chart">' + svg + '</div>' +
+             '<div class="hs-chart">' + svg +
+                '<div class="hs-tooltip hidden"></div>' +
+             '</div>' +
           '</div>';
+}
+
+// Hover handler: snaps to the nearest day, moves the crosshair + dots, shows
+// a small tooltip with the date and both series' values.
+function _hospitalSurveyHover(e) {
+   var svg = e.currentTarget;
+   var container = svg.closest('.hospital-survey');
+   if (!container) return;
+   var d = container.dataset;
+   var days = d.days.split(',');
+   var n    = d.new.split(',').map(Number);
+   var o    = d.old.split(',').map(Number);
+   var vw = +d.vw, vh = +d.vh, padL = +d.padl, padR = +d.padr, padT = +d.padt, padB = +d.padb;
+   var ceil = +d.ceil;
+   var plotW = vw - padL - padR;
+   var plotH = vh - padT - padB;
+
+   // SVG point → viewBox coordinates
+   var rect = svg.getBoundingClientRect();
+   var vx = ((e.clientX - rect.left) / rect.width)  * vw;
+   if (vx < padL || vx > vw - padR) { _hospitalSurveyHide(e); return; }
+
+   var step = plotW / Math.max(1, days.length - 1);
+   var idx = Math.min(days.length - 1, Math.max(0, Math.round((vx - padL) / step)));
+   var snapVx = padL + idx * step;
+
+   // Move crosshair + markers
+   var line = svg.querySelector('.hs-crosshair');
+   var mNew = svg.querySelector('.hs-marker-new');
+   var mOld = svg.querySelector('.hs-marker-old');
+   if (line) { line.setAttribute('x1', snapVx); line.setAttribute('x2', snapVx); line.setAttribute('opacity', '1'); }
+   if (mNew) {
+      var yN = padT + plotH - (n[idx] / ceil) * plotH;
+      mNew.setAttribute('cx', snapVx); mNew.setAttribute('cy', yN); mNew.setAttribute('opacity', '1');
+   }
+   if (mOld) {
+      var yO = padT + plotH - (o[idx] / ceil) * plotH;
+      mOld.setAttribute('cx', snapVx); mOld.setAttribute('cy', yO); mOld.setAttribute('opacity', '1');
+   }
+
+   // Position + populate the HTML tooltip
+   var tip = container.querySelector('.hs-tooltip');
+   if (tip) {
+      var dt = new Date(days[idx] + 'T00:00:00');
+      var label = dt.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' });
+      tip.innerHTML = '<div class="hs-tip-date">' + label + '</div>' +
+                      '<div class="hs-tip-row"><span style="background:#1e88e5"></span>New patients: <strong>' + n[idx] + '</strong></div>' +
+                      '<div class="hs-tip-row"><span style="background:#ef6c00"></span>Follow-ups: <strong>' + o[idx] + '</strong></div>';
+      // Convert snapped viewBox x back to chart-container pixels
+      var px = (snapVx / vw) * rect.width;
+      var chart = container.querySelector('.hs-chart');
+      var maxLeft = chart.clientWidth - 140;     // tooltip width-ish
+      var left = Math.max(8, Math.min(maxLeft, px + 12));
+      tip.style.left = left + 'px';
+      tip.classList.remove('hidden');
+   }
+}
+function _hospitalSurveyHide(e) {
+   var svg = e && e.currentTarget;
+   var container = svg ? svg.closest('.hospital-survey') : document.querySelector('.hospital-survey');
+   if (!container) return;
+   var line = container.querySelector('.hs-crosshair');
+   var mNew = container.querySelector('.hs-marker-new');
+   var mOld = container.querySelector('.hs-marker-old');
+   [line, mNew, mOld].forEach(function(el) { if (el) el.setAttribute('opacity', '0'); });
+   var tip = container.querySelector('.hs-tooltip');
+   if (tip) tip.classList.add('hidden');
 }
 
 // Sidebar card: total today's appointments split into completed / upcoming

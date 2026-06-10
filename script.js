@@ -3235,6 +3235,7 @@ async function renderAdminAdmissions() {
       var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((today - d) / 86400000));
       var statusCls = r.status === 'Admitted' ? 'confirmed' : 'completed';
       var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
+      var aid = r.id.replace(/'/g, "\\'");
       return '<tr>' +
                 '<td><div class="apt-tbl-name">' + (prov.name || '—') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (r.patient_name || '—') + '</div>' +
@@ -3247,14 +3248,20 @@ async function renderAdminAdmissions() {
                 '<td><div class="apt-tbl-name">' + dischargeLbl + '</div></td>' +
                 '<td><span class="apt-status ' + statusCls + '">' + r.status + '</span></td>' +
                 '<td><span style="color:' + (r.rounds_status === 'complete' ? '#0a8a3a' : '#888') + ';font-weight:600;font-size:0.85rem">' + (r.rounds_status === 'complete' ? '✓ Done' : '⏳ Pending') + '</span></td>' +
+                '<td style="text-align:center">' +
+                   '<button class="apt-view-btn" style="background:#c62828" title="Permanently delete this admission record" onclick="adminDeleteAdmission(\'' + aid + '\')">🗑 Delete</button>' +
+                '</td>' +
              '</tr>';
    }).join('');
 
+   window._adminAdmFiltered = filtered;   // used by deleteAllShownAdmissions
+
    container.innerHTML =
-      '<div style="display:flex;gap:1.2rem;padding:0.6rem 0 1rem;font-size:0.88rem;color:#444">' +
+      '<div style="display:flex;gap:1.2rem;padding:0.6rem 0 1rem;font-size:0.88rem;color:#444;align-items:center">' +
          '<div><strong>' + filtered.length + '</strong> total</div>' +
          '<div>🛏️ <strong>' + admitted + '</strong> admitted</div>' +
          '<div>🏁 <strong>' + discharged + '</strong> discharged</div>' +
+         '<div style="margin-left:auto"><button class="apt-view-btn" style="background:#c62828" onclick="deleteAllShownAdmissions()">🗑 Delete All Shown</button></div>' +
       '</div>' +
       '<div class="apt-tbl-wrap"><table class="apt-tbl">' +
          '<thead><tr>' +
@@ -3266,9 +3273,37 @@ async function renderAdminAdmissions() {
             '<th>Target Discharge</th>' +
             '<th>Status</th>' +
             '<th>Rounds</th>' +
+            '<th style="text-align:center">Actions</th>' +
          '</tr></thead>' +
          '<tbody>' + rowHtml + '</tbody>' +
       '</table></div>';
+}
+
+// Single-row delete from the admin admissions table — uses the existing
+// AppDB.deleteAdmission helper (already broadcasts via realtime).
+async function adminDeleteAdmission(id) {
+   if (!confirm('Permanently delete this admission record?\n\nThis cannot be undone. The hospital owner will see it disappear from their Admissions tab too.')) return;
+   var ok = await AppDB.deleteAdmission(id);
+   if (!ok) { alert('Failed to delete admission.'); return; }
+   renderAdminAdmissions();
+}
+
+// Bulk delete — every admission currently visible after filters. Same
+// type-to-confirm pattern as deleteAllShownAppointments / deleteAllShownOrders.
+async function deleteAllShownAdmissions() {
+   var matching = (window._adminAdmFiltered || []);
+   if (!matching.length) { alert('Nothing to delete with the current filters.'); return; }
+   var phrase = 'DELETE';
+   var typed = prompt(
+      '⚠️ This will permanently delete ' + matching.length + ' admission record' +
+      (matching.length === 1 ? '' : 's') + ' currently shown by your filters.\n\n' +
+      'Type ' + phrase + ' (in caps) to confirm:'
+   );
+   if (typed !== phrase) { if (typed != null) alert('Cancelled — phrase did not match.'); return; }
+   for (var i = 0; i < matching.length; i++) {
+      try { await AppDB.deleteAdmission(matching[i].id); } catch (e) { /* keep going */ }
+   }
+   renderAdminAdmissions();
 }
 
 // ── ADMIN: Categories CRUD ──

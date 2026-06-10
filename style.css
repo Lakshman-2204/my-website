@@ -5717,6 +5717,25 @@ body.profile-page { background: #f5f7fb; }
 	padding: 14px 18px;
 }
 
+/* Customer-side filter bars (My Orders / My Appointments) — keep them
+   compact so they don't push the table below the fold. */
+.profile-page .admin-filter-bar {
+	gap: 6px !important;
+	padding: 0 0 8px !important;
+}
+.profile-page .admin-filter-select,
+.profile-page .apt-search-input {
+	min-width: 0 !important;
+	padding: 6px 10px !important;
+	font-size: 0.82rem !important;
+	border-radius: 8px !important;
+	flex: 0 1 auto;
+}
+.profile-page .apt-search-input { min-width: 180px !important; }
+/* Bound the dropdowns so big content doesn't make them stretch full-width */
+.profile-page .admin-filter-bar > select.admin-filter-select { max-width: 170px; }
+.profile-page .admin-filter-bar > input[type="date"].admin-filter-select { max-width: 140px; }
+
 @media (max-width: 880px) {
 	.shop-app-layout { grid-template-columns: 1fr; }
 	.shop-side-nav {

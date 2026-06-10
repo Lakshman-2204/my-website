@@ -8827,13 +8827,17 @@ function switchShopTab(tab) {
       var b = document.getElementById('shop-tab-' + sid);
       if (b) b.classList.toggle('active', tab === 'patients' && (sid === 'patients-' + patientsSub));
    });
-   // Auto-expand the Patients group when one of its children is active
-   if (tab === 'patients') {
-      var parent = document.getElementById('shop-tab-patients');
-      if (parent) {
-         parent.classList.add('open');
-         var chev = parent.querySelector('.ssi-chev');
+   // Patients sidebar group auto-expands when a sub-item is active; collapses
+   // when the user navigates to any other top-level tab.
+   var patientsParent = document.getElementById('shop-tab-patients');
+   if (patientsParent) {
+      var chev = patientsParent.querySelector('.ssi-chev');
+      if (tab === 'patients') {
+         patientsParent.classList.add('open');
          if (chev) chev.textContent = '−';
+      } else {
+         patientsParent.classList.remove('open');
+         if (chev) chev.textContent = '+';
       }
    }
    var titleEl = document.getElementById('shopTopbarTitle');

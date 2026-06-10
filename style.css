@@ -5588,7 +5588,7 @@ body.shopowner-page { background: #f5f7fb; }
 	display: flex; align-items: center; justify-content: center;
 	font-size: 1.1rem; flex-shrink: 0;
 }
-.shop-side-brand-name { font-weight: 800; font-size: 1.05rem; color: #1a1a2e; }
+.shop-side-brand-name { font-weight: 800; font-size: 0.95rem; color: #1a1a2e; }
 .shop-side-profile {
 	display: flex; flex-direction: column; align-items: center; gap: 6px;
 	padding: 14px 8px 16px;
@@ -5596,31 +5596,32 @@ body.shopowner-page { background: #f5f7fb; }
 	margin-bottom: 12px;
 }
 .shop-side-avatar {
-	width: 64px; height: 64px;
+	width: 52px; height: 52px;
 	background: #f3f6fc;
-	border-radius: 50%; border: 3px solid #fff;
+	border-radius: 50%; border: 2px solid #fff;
 	display: flex; align-items: center; justify-content: center;
-	font-size: 1.8rem;
+	font-size: 1.5rem;
 	box-shadow: 0 2px 8px rgba(15,23,42,0.08);
 }
-.shop-side-profile-name { font-weight: 700; font-size: 0.92rem; color: #1a1a2e; text-align: center; }
-.shop-side-profile-role { font-size: 0.74rem; color: #8a93a7; text-transform: uppercase; letter-spacing: 0.05em; }
+.shop-side-profile-name { font-weight: 700; font-size: 0.85rem; color: #1a1a2e; text-align: center; }
+.shop-side-profile-role { font-size: 0.68rem; color: #8a93a7; text-transform: uppercase; letter-spacing: 0.05em; }
 .shop-side-menu-label {
-	font-size: 0.66rem; color: #b0b6c4;
+	font-size: 0.6rem; color: #b0b6c4;
 	text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
 	padding: 4px 10px 6px;
 }
 .shop-side-item {
-	display: flex; align-items: center; gap: 12px;
-	padding: 10px 12px;
+	display: flex; align-items: center; gap: 10px;
+	padding: 8px 12px;
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: 10px;
 	color: #5f6473;
-	font-size: 0.9rem; font-weight: 600;
+	font-size: 0.82rem; font-weight: 600;
 	cursor: pointer; width: 100%; text-align: left;
 	transition: all 0.18s;
 }
+.shop-side-item .ssi-icon { font-size: 0.95rem; }
 .shop-side-item:hover { background: #f3f6fc; color: #1a73e8; }
 .shop-side-item.active {
 	background: linear-gradient(135deg, #1a73e8, #1557b0);
@@ -5631,7 +5632,7 @@ body.shopowner-page { background: #f5f7fb; }
 .shop-side-item .ssi-icon { font-size: 1.1rem; line-height: 1; }
 .shop-side-item-cta { background: linear-gradient(135deg, #ef6c00, #e65100); color: #fff; }
 .shop-side-item-cta:hover { background: #d84315; color: #fff; }
-.shop-side-item-foot { font-weight: 500; color: #8a93a7; font-size: 0.85rem; }
+.shop-side-item-foot { font-weight: 500; color: #8a93a7; font-size: 0.78rem; }
 
 /* Expandable sidebar group (e.g. Patients → In-patients / Out-patients).
    The chevron text (+/−) is updated by JS — see switchShopTab + _toggleSideGroup. */
@@ -5649,17 +5650,17 @@ body.shopowner-page { background: #f5f7fb; }
 }
 .shop-side-item-parent.open + .shop-side-children { display: block; }
 .shop-side-subitem {
-	display: flex; align-items: center; gap: 10px;
-	padding: 8px 12px;
+	display: flex; align-items: center; gap: 9px;
+	padding: 6px 10px;
 	background: transparent;
 	border: 1px solid transparent;
-	border-radius: 10px;
+	border-radius: 8px;
 	color: #5f6473;
-	font-size: 0.84rem; font-weight: 500;
+	font-size: 0.76rem; font-weight: 500;
 	cursor: pointer; width: 100%; text-align: left;
 	transition: all 0.18s;
 }
-.shop-side-subitem .ssi-icon { font-size: 0.95rem; line-height: 1; }
+.shop-side-subitem .ssi-icon { font-size: 0.85rem; line-height: 1; }
 .shop-side-subitem:hover { background: #f3f6fc; color: #1a73e8; }
 .shop-side-subitem.active {
 	background: linear-gradient(135deg, #1a73e8, #1557b0);

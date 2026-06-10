@@ -10209,20 +10209,27 @@ async function renderShopAdmissions() {
                    '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" ' +
                           'title="Click to toggle — doctor uses this for morning rounds checklist" ' +
                           'onclick="toggleAdmissionRounds(\'' + rid + '\')">' + roundsLbl + '</span></td>' +
-                   '<td style="text-align:right">' +
+                   '<td style="text-align:right;white-space:nowrap">' +
                       '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
-                      '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button>' +
+                      '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button> ' +
+                      '<button class="apt-view-btn" style="background:#c62828" title="Permanently delete this admission record" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
                    '</td>' +
                 '</tr>';
       }).join('');
    }
 
+   // Stash the currently-displayed admissions so bulk delete can target them
+   window._shopAdmFiltered = admitted;
+
    host.innerHTML =
       hospitalPicker +
       statCards +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">' +
          '<h3 style="margin:0;color:#1a1a2e;font-size:1rem">Currently Admitted</h3>' +
-         '<button class="apt-view-btn" style="background:#1565c0;padding:8px 14px;font-size:0.85rem" onclick="openAdmissionModal()">+ Admit Patient</button>' +
+         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            (admitted.length ? '<button class="apt-view-btn" style="background:#c62828;padding:8px 14px;font-size:0.85rem" onclick="shopDeleteAllAdmissions()">🗑 Delete All Shown</button>' : '') +
+            '<button class="apt-view-btn" style="background:#1565c0;padding:8px 14px;font-size:0.85rem" onclick="openAdmissionModal()">+ Admit Patient</button>' +
+         '</div>' +
       '</div>' +
       '<div class="apt-tbl-wrap"><table class="apt-tbl">' +
          '<thead><tr>' +
@@ -10470,6 +10477,34 @@ async function dischargeAdmission(id) {
    if (!confirm('Mark this patient as Discharged? They\'ll move out of the Currently Admitted list.')) return;
    var ok = await AppDB.patchAdmission(id, { status: 'Discharged' });
    if (!ok) { alert('Failed to discharge.'); return; }
+   renderShopAdmissions();
+}
+
+// Hard-delete a single admission record from the owner's tab. Unlike
+// Discharge (which preserves history with status='Discharged'), this is
+// permanent — used to clean up test entries or corrected admissions.
+async function shopDeleteAdmission(id) {
+   if (!confirm('Permanently delete this admission record?\n\nThis cannot be undone. Use Discharge instead if you just want to mark the patient as released (their history is kept).')) return;
+   var ok = await AppDB.deleteAdmission(id);
+   if (!ok) { alert('Failed to delete admission.'); return; }
+   renderShopAdmissions();
+}
+
+// Bulk delete every admission currently shown. Type-to-confirm to avoid
+// accidental wipes of the active inpatient list.
+async function shopDeleteAllAdmissions() {
+   var matching = (window._shopAdmFiltered || []);
+   if (!matching.length) { alert('Nothing to delete.'); return; }
+   var phrase = 'DELETE';
+   var typed = prompt(
+      '⚠️ This will permanently delete ' + matching.length + ' admission record' +
+      (matching.length === 1 ? '' : 's') + ' currently shown.\n\n' +
+      'Type ' + phrase + ' (in caps) to confirm:'
+   );
+   if (typed !== phrase) { if (typed != null) alert('Cancelled — phrase did not match.'); return; }
+   for (var i = 0; i < matching.length; i++) {
+      try { await AppDB.deleteAdmission(matching[i].id); } catch (e) { /* keep going */ }
+   }
    renderShopAdmissions();
 }
 

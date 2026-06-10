@@ -10035,8 +10035,8 @@ async function renderShopAdmissions() {
             var td = new Date(r.target_discharge + 'T00:00:00');
             targetLbl = isDueToday ? 'TODAY' : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
          }
-         var roundsCls = r.rounds_status === 'complete' ? 'shop-queue-paid' : '';
-         var roundsLbl = r.rounds_status === 'complete' ? '✓ Rounds done' : '⏳ Pending';
+         var roundsDone = r.rounds_status === 'complete';
+         var roundsLbl  = roundsDone ? '✓ Done' : '⏳ Pending';
          var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
          var rid = r.id.replace(/'/g, "\\'");
          var rowCls = isDueToday ? ' style="background:#fff8e1"' : '';
@@ -10049,7 +10049,9 @@ async function renderShopAdmissions() {
                    '<td><span class="apt-status confirmed">🗓️ ' + losDays + ' day' + (losDays === 1 ? '' : 's') + '</span></td>' +
                    '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
                    '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
-                   '<td><span style="color:' + (r.rounds_status === 'complete' ? '#0a8a3a' : '#888') + ';font-size:0.85rem;font-weight:600">' + roundsLbl + '</span></td>' +
+                   '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" ' +
+                          'title="Click to toggle — doctor uses this for morning rounds checklist" ' +
+                          'onclick="toggleAdmissionRounds(\'' + rid + '\')">' + roundsLbl + '</span></td>' +
                    '<td style="text-align:right">' +
                       '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
                       '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button>' +
@@ -10290,6 +10292,19 @@ async function saveAdmission() {
    });
    if (!ok) { alert('Failed to save admission.'); return; }
    closeAdmissionModal();
+   renderShopAdmissions();
+}
+
+// Click the Rounds pill → flip pending ⟷ complete. No confirm dialog —
+// rounds is a fast morning action and clicks must be friction-free. The
+// realtime subscription on `admissions` re-renders this row + the dashboard
+// KPI counts within ~300ms.
+async function toggleAdmissionRounds(id) {
+   var rows = await AppDB.getAdmissions(_admHospitalChoice);
+   var r = (rows || []).find(function(x) { return x.id === id; });
+   if (!r) return;
+   var next = r.rounds_status === 'complete' ? 'pending' : 'complete';
+   await AppDB.patchAdmission(id, { rounds_status: next });
    renderShopAdmissions();
 }
 

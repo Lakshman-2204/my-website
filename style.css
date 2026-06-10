@@ -2011,6 +2011,23 @@ body.guest .store-section-divider {
 .total-apts-card .tac-done { background: #dfeeff; color: #1565c0; }
 .total-apts-card .tac-up   { background: #ffeed3; color: #e65100; }
 
+/* Admissions table — Rounds pill, click to toggle */
+.adm-rounds-pill {
+	display: inline-block;
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-size: 0.75rem;
+	font-weight: 700;
+	cursor: pointer;
+	user-select: none;
+	transition: transform 0.12s, box-shadow 0.12s;
+	border: 1px solid transparent;
+}
+.adm-rounds-pill:hover  { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(15,23,42,0.10); }
+.adm-rounds-pill:active { transform: translateY(0); }
+.adm-rounds-pill.pending { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
+.adm-rounds-pill.done    { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; }
+
 /* Admission modal — section headings (mirror the reference admission form) */
 .adm-section-head {
 	margin: 0 0 8px;

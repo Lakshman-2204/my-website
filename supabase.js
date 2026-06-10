@@ -267,6 +267,19 @@ window.AppDB = {
       if (error) { console.error('getPatientPrescriptionHistory:', error.message); return []; }
       return data || [];
    },
+   // Look up the prescription linked to one appointment, if it exists.
+   // Used by the prescription modal so re-opening an already-written Rx
+   // pre-fills the form for editing instead of starting blank.
+   async getPrescriptionForAppointment(aptId) {
+      if (!aptId) return null;
+      const { data, error } = await _sb.from('prescriptions').select('*')
+         .eq('appointment_id', aptId)
+         .order('created_at', { ascending: false })
+         .limit(1)
+         .maybeSingle();
+      if (error) { console.error('getPrescriptionForAppointment:', error.message); return null; }
+      return data;
+   },
    async getPrescriptionById(id) {
       const { data, error } = await _sb.from('prescriptions').select('*').eq('id', id).maybeSingle();
       if (error) { console.error('getPrescriptionById:', error.message); return null; }

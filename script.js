@@ -10215,9 +10215,33 @@ async function openPrescriptionModal(aptId) {
       }
    });
 
-   // Reset medicine list — start with one empty row
+   // Reset medicine list
    _rxMedRows = [];
-   _rxAddMed();
+
+   // If a prescription already exists for this appointment, load it for
+   // editing rather than starting from a blank slate. Title flips to
+   // "Edit Prescription" so the doctor sees they're updating, not creating.
+   var existing = await AppDB.getPrescriptionForAppointment(apt.apt_id);
+   if (existing) {
+      document.getElementById('prescriptionModalTitle').textContent = '✏️ Edit Prescription';
+      get('rx-id').value          = existing.id;
+      get('rx-weight').value      = existing.weight_kg    != null ? existing.weight_kg    : '';
+      get('rx-bp-sys').value      = existing.bp_systolic  != null ? existing.bp_systolic  : '';
+      get('rx-bp-dia').value      = existing.bp_diastolic != null ? existing.bp_diastolic : '';
+      get('rx-pulse').value       = existing.pulse_bpm    != null ? existing.pulse_bpm    : '';
+      get('rx-temp').value        = existing.temp_f       != null ? existing.temp_f       : '';
+      get('rx-spo2').value        = existing.spo2         != null ? existing.spo2         : '';
+      get('rx-diagnosis').value   = existing.diagnosis || '';
+      get('rx-advice').value      = existing.advice || '';
+      get('rx-followup').value    = existing.follow_up_date || '';
+      _rxMedRows = Array.isArray(existing.medicines) ? existing.medicines.map(function(m) {
+         return { name: m.name || '', type: m.type || 'Tablet', dosage: m.dosage || '', duration: m.duration || '', notes: m.notes || '' };
+      }) : [];
+   } else {
+      document.getElementById('prescriptionModalTitle').textContent = '📝 Write Prescription';
+   }
+   if (!_rxMedRows.length) _rxAddMed();
+   else                    _rxRenderMeds();
 
    document.getElementById('prescriptionModal').classList.remove('hidden');
 }

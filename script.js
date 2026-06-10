@@ -10161,8 +10161,11 @@ async function openPrescriptionModal(aptId) {
    // Pre-fill Follow-up date using the provider's free_followup_days policy —
    // same window we already advertise on the consultation receipt. The doctor
    // can still adjust if this particular patient needs a sooner / later visit.
+   // EXCEPTION: skip the auto-fill when this appointment IS itself a free
+   // follow-up — we don't want to silently promise another free visit on top
+   // of one. The doctor can still pick a date manually if needed.
    var fuDays = Number(prov.free_followup_days || 0);
-   if (fuDays > 0) {
+   if (fuDays > 0 && !apt.is_followup) {
       var d = new Date();
       d.setDate(d.getDate() + fuDays);
       get('rx-followup').value =
@@ -14573,9 +14576,12 @@ async function printConsultationReceipt(aptId) {
       return dd + '-' + mm + '-' + yy;
    };
    // Free follow-up window comes from the provider's policy. 0 means no policy
-   // and the receipt won't print the follow-up line at all.
+   // and the receipt won't print the follow-up line at all. EXCEPTION: this
+   // appointment IS itself a follow-up (is_followup=true) — we don't print
+   // a new free-follow-up window on top of one, or the patient could chain
+   // free visits indefinitely (and disputes get awkward).
    var followUpDays = Number(prov.free_followup_days || 0);
-   var followUpEnd  = followUpDays > 0
+   var followUpEnd  = (followUpDays > 0 && !apt.is_followup)
       ? new Date(createDt.getTime() + followUpDays * 24 * 60 * 60 * 1000)
       : null;
 

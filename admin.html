@@ -505,6 +505,7 @@
             <button class="admin-tab active" id="apt-subtab-categories-btn"  onclick="switchAptAdminSub('categories')">🗂 Categories</button>
             <button class="admin-tab"        id="apt-subtab-providers-btn"   onclick="switchAptAdminSub('providers')">🏪 Providers &amp; Staff</button>
             <button class="admin-tab"        id="apt-subtab-bookings-btn"    onclick="switchAptAdminSub('bookings')">📅 All Bookings</button>
+            <button class="admin-tab"        id="apt-subtab-admissions-btn"  onclick="switchAptAdminSub('admissions')">🛏️ All Admissions</button>
          </div>
 
          <!-- Providers sub-panel -->
@@ -566,6 +567,31 @@
                <button class="apt-view-btn" style="background:#c62828" onclick="deleteAllShownAppointments()">🗑 Delete All Shown</button>
             </div>
             <div class="admin-content" id="aptAllBookingsContent">
+               <p style="color:#999;text-align:center;padding:40px">Loading…</p>
+            </div>
+         </div>
+
+         <!-- All Admissions — admin-wide read-only view across every hospital -->
+         <div id="apt-sub-admissions" class="hidden">
+            <div class="admin-filter-bar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <input type="search" id="adminAdmSearch"          class="apt-search-input"    placeholder="🔍 Patient / phone / ref" oninput="renderAdminAdmissions()"/>
+                  <select id="adminAdmProviderFilter" class="admin-filter-select" onchange="renderAdminAdmissions()"><option value="">🏥 All hospitals</option></select>
+                  <select id="adminAdmStatusFilter"   class="admin-filter-select" onchange="renderAdminAdmissions()">
+                     <option value="">All Statuses</option>
+                     <option value="Admitted">🛏️ Admitted</option>
+                     <option value="Discharged">🏁 Discharged</option>
+                  </select>
+                  <select id="adminAdmDateFilter"     class="admin-filter-select" onchange="renderAdminAdmissions()">
+                     <option value="all">📅 All time</option>
+                     <option value="today">Today</option>
+                     <option value="week">This Week</option>
+                     <option value="month">This Month</option>
+                     <option value="year">This Year</option>
+                  </select>
+               </div>
+            </div>
+            <div class="admin-content" id="adminAdmissionsContent">
                <p style="color:#999;text-align:center;padding:40px">Loading…</p>
             </div>
          </div>

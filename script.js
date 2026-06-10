@@ -3146,7 +3146,7 @@ async function _aptRerenderActiveList() {
 
 // ── ADMIN: Appointment sub-tab + bookings view ──
 function switchAptAdminSub(sub) {
-   ['providers', 'bookings', 'categories'].forEach(function(s) {
+   ['providers', 'bookings', 'categories', 'admissions'].forEach(function(s) {
       var panel = document.getElementById('apt-sub-' + s);
       var btn   = document.getElementById('apt-subtab-' + s + '-btn');
       if (panel) panel.classList.toggle('hidden', s !== sub);
@@ -3155,6 +3155,120 @@ function switchAptAdminSub(sub) {
    if (sub === 'bookings')   renderAllAppointments();
    if (sub === 'providers')  renderAptAdmin();
    if (sub === 'categories') renderAptCategoriesAdmin();
+   if (sub === 'admissions') renderAdminAdmissions();
+}
+
+// ── ADMIN: All Admissions — read-only oversight view across every hospital ──
+async function renderAdminAdmissions() {
+   var container = document.getElementById('adminAdmissionsContent');
+   if (!container) return;
+   _liveSubscribe('adminAdmissions', 'admissions', renderAdminAdmissions);
+   container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
+
+   await loadAptProviders(true);
+   var rows = await AppDB.getAllAdmissions();
+
+   // Populate provider filter from currently-existing hospitals
+   var provSel = document.getElementById('adminAdmProviderFilter');
+   if (provSel) {
+      var current = provSel.value;
+      var provs = (_aptProvidersCache || []).filter(function(p) {
+         return rows.some(function(r) { return r.provider_id === p.id; });
+      });
+      provSel.innerHTML = '<option value="">🏥 All hospitals</option>' +
+         provs.map(function(p) {
+            return '<option value="' + p.id + '"' + (p.id === current ? ' selected' : '') + '>' + p.name + '</option>';
+         }).join('');
+   }
+
+   // Apply filters
+   var search   = ((document.getElementById('adminAdmSearch')         || {}).value || '').toLowerCase().trim();
+   var statusF  =  (document.getElementById('adminAdmStatusFilter')   || {}).value || '';
+   var provF    =  (document.getElementById('adminAdmProviderFilter') || {}).value || '';
+   var dateF    =  (document.getElementById('adminAdmDateFilter')     || {}).value || 'all';
+   var today    = new Date(); today.setHours(0, 0, 0, 0);
+   var todayYmd = _todayLocalYmd();
+   var weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay()); weekStart.setHours(0,0,0,0);
+   var monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+   var yearStart  = new Date(today.getFullYear(), 0, 1);
+
+   var filtered = rows.filter(function(r) {
+      if (statusF && r.status !== statusF) return false;
+      if (provF && r.provider_id !== provF) return false;
+      if (search) {
+         var hay = ((r.patient_name || '') + ' ' + (r.patient_phone || '') + ' ' + (r.patient_ref || '')).toLowerCase();
+         if (hay.indexOf(search) === -1) return false;
+      }
+      if (dateF !== 'all') {
+         var d = new Date((r.admit_date || '') + 'T00:00:00');
+         if (isNaN(d.getTime())) return false;
+         if (dateF === 'today' && r.admit_date !== todayYmd) return false;
+         if (dateF === 'week'  && d < weekStart) return false;
+         if (dateF === 'month' && d < monthStart) return false;
+         if (dateF === 'year'  && d < yearStart) return false;
+      }
+      return true;
+   });
+
+   if (!filtered.length) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:60px">No admissions match the current filters.</p>';
+      return;
+   }
+
+   // Build provider lookup so we can show hospital name per row
+   var provById = {};
+   (_aptProvidersCache || []).forEach(function(p) { provById[p.id] = p; });
+
+   // Totals strip
+   var admitted  = filtered.filter(function(r) { return r.status === 'Admitted';  }).length;
+   var discharged = filtered.filter(function(r) { return r.status === 'Discharged'; }).length;
+
+   var rowHtml = filtered.map(function(r) {
+      var prov = provById[r.provider_id] || {};
+      var d = new Date((r.admit_date || '') + 'T00:00:00');
+      var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      var dischargeLbl = '—';
+      if (r.target_discharge) {
+         var td = new Date(r.target_discharge + 'T00:00:00');
+         dischargeLbl = isNaN(td.getTime()) ? r.target_discharge : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+      var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((today - d) / 86400000));
+      var statusCls = r.status === 'Admitted' ? 'confirmed' : 'completed';
+      var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
+      return '<tr>' +
+                '<td><div class="apt-tbl-name">' + (prov.name || '—') + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + (r.patient_name || '—') + '</div>' +
+                    (r.patient_ref ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
+                    (r.patient_phone ? '<div class="apt-tbl-sub">📞 ' + r.patient_phone + '</div>' : '') +
+                '</td>' +
+                '<td><div class="apt-tbl-name">' + loc + '</div></td>' +
+                '<td><span class="apt-status ' + (r.status === 'Admitted' ? 'confirmed' : 'packed') + '">🗓️ ' + losDays + ' day' + (losDays === 1 ? '' : 's') + '</span></td>' +
+                '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
+                '<td><div class="apt-tbl-name">' + dischargeLbl + '</div></td>' +
+                '<td><span class="apt-status ' + statusCls + '">' + r.status + '</span></td>' +
+                '<td><span style="color:' + (r.rounds_status === 'complete' ? '#0a8a3a' : '#888') + ';font-weight:600;font-size:0.85rem">' + (r.rounds_status === 'complete' ? '✓ Done' : '⏳ Pending') + '</span></td>' +
+             '</tr>';
+   }).join('');
+
+   container.innerHTML =
+      '<div style="display:flex;gap:1.2rem;padding:0.6rem 0 1rem;font-size:0.88rem;color:#444">' +
+         '<div><strong>' + filtered.length + '</strong> total</div>' +
+         '<div>🛏️ <strong>' + admitted + '</strong> admitted</div>' +
+         '<div>🏁 <strong>' + discharged + '</strong> discharged</div>' +
+      '</div>' +
+      '<div class="apt-tbl-wrap"><table class="apt-tbl">' +
+         '<thead><tr>' +
+            '<th>Hospital</th>' +
+            '<th>Patient</th>' +
+            '<th>Location / Bed</th>' +
+            '<th>Length of Stay</th>' +
+            '<th>Admit Date</th>' +
+            '<th>Target Discharge</th>' +
+            '<th>Status</th>' +
+            '<th>Rounds</th>' +
+         '</tr></thead>' +
+         '<tbody>' + rowHtml + '</tbody>' +
+      '</table></div>';
 }
 
 // ── ADMIN: Categories CRUD ──

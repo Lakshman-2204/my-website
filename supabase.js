@@ -379,6 +379,15 @@ window.AppDB = {
       if (error) { console.error('getAdmissions:', error.message); return []; }
       return data || [];
    },
+
+   // Admin-wide: every admission across every hospital. Used by the
+   // admin panel's "All Admissions" sub-tab for oversight.
+   async getAllAdmissions() {
+      const { data, error } = await _sb.from('admissions').select('*')
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getAllAdmissions:', error.message); return []; }
+      return data || [];
+   },
    async upsertAdmission(a) {
       const row = {
          id:                 a.id,

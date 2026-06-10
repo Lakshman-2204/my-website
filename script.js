@@ -9014,11 +9014,14 @@ function _isDateInRange(dateStr, range, opts) {
    var ymd = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 
    if (range === 'custom') {
-      if (!opts.customDate) return true;     // no date chosen yet
+      // User picked "Specific date" but hasn't typed one yet — hide everything
+      // instead of silently showing all rows (which made the filter feel broken).
+      if (!opts.customDate) return false;
       return ymd === opts.customDate;
    }
    if (range === 'range') {
-      if (!opts.rangeFrom && !opts.rangeTo) return true;
+      // Same here — selecting "Custom range" without bounds shouldn't show all.
+      if (!opts.rangeFrom && !opts.rangeTo) return false;
       if (opts.rangeFrom && ymd < opts.rangeFrom) return false;
       if (opts.rangeTo   && ymd > opts.rangeTo)   return false;
       return true;

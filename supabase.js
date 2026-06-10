@@ -225,6 +225,64 @@ window.AppDB = {
       return true;
    },
 
+   // ── PRESCRIPTIONS (Phase 8.1 EMR) ──
+   async insertPrescription(p) {
+      const norm = (p.patient_phone || '').replace(/\D/g, '').slice(-10);
+      const row = {
+         id:                 p.id,
+         provider_id:        p.provider_id,
+         doctor_id:          p.doctor_id || '',
+         doctor_name:        p.doctor_name || '',
+         doctor_speciality:  p.doctor_speciality || '',
+         appointment_id:     p.appointment_id || null,
+         patient_phone:      p.patient_phone || '',
+         patient_phone_norm: norm,
+         patient_name:       p.patient_name || '',
+         patient_age:        p.patient_age != null ? Number(p.patient_age) : null,
+         patient_sex:        p.patient_sex || '',
+         weight_kg:          p.weight_kg != null ? Number(p.weight_kg) : null,
+         bp_systolic:        p.bp_systolic != null ? Number(p.bp_systolic) : null,
+         bp_diastolic:       p.bp_diastolic != null ? Number(p.bp_diastolic) : null,
+         pulse_bpm:          p.pulse_bpm != null ? Number(p.pulse_bpm) : null,
+         temp_f:             p.temp_f != null ? Number(p.temp_f) : null,
+         spo2:               p.spo2 != null ? Number(p.spo2) : null,
+         diagnosis:          p.diagnosis || '',
+         medicines:          p.medicines || [],
+         advice:             p.advice || '',
+         follow_up_date:     p.follow_up_date || null,
+         updated_at:         new Date().toISOString()
+      };
+      const { error } = await _sb.from('prescriptions').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('insertPrescription:', error.message); return false; }
+      return true;
+   },
+   // Patient history at one hospital, newest first. Keyed by normalized phone.
+   async getPatientPrescriptionHistory(providerId, phone) {
+      const norm = (phone || '').replace(/\D/g, '').slice(-10);
+      if (!providerId || norm.length !== 10) return [];
+      const { data, error } = await _sb.from('prescriptions').select('*')
+         .eq('provider_id', providerId)
+         .eq('patient_phone_norm', norm)
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getPatientPrescriptionHistory:', error.message); return []; }
+      return data || [];
+   },
+   async getPrescriptionById(id) {
+      const { data, error } = await _sb.from('prescriptions').select('*').eq('id', id).maybeSingle();
+      if (error) { console.error('getPrescriptionById:', error.message); return null; }
+      return data;
+   },
+   // Customer-side: all prescriptions across hospitals for a customer's phone.
+   async getMyPrescriptions(phone) {
+      const norm = (phone || '').replace(/\D/g, '').slice(-10);
+      if (norm.length !== 10) return [];
+      const { data, error } = await _sb.from('prescriptions').select('*')
+         .eq('patient_phone_norm', norm)
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getMyPrescriptions:', error.message); return []; }
+      return data || [];
+   },
+
    // ── HOSPITAL PATIENT IDS (Phase 7.1) ──
    // Returns the existing ID for this (provider, phone, NAME), or mints +
    // persists a new one. Called only when the patient ACTUALLY PAYS

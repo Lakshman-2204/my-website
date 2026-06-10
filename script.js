@@ -9254,7 +9254,10 @@ async function renderShopAppointments(filterStatus) {
          var undoBtn = (status === 'No-show')
             ? '<button class="apt-act-btn" style="background:#1565c0;color:#fff" title="Patient arrived late — move back to Confirmed" onclick="undoNoShow(\'' + aid + '\')">↩ Undo No-show</button>'
             : '';
-         actions = (paidBtn + receiptBtn + undoBtn) || '<span style="color:#bbb">—</span>';
+         var rxBtn = (status === 'Completed')
+            ? '<button class="apt-act-btn" style="background:#0a8a3a;color:#fff" title="Write or view prescription" onclick="openPrescriptionModal(\'' + aid + '\')">📝 Rx</button>'
+            : '';
+         actions = (paidBtn + receiptBtn + rxBtn + undoBtn) || '<span style="color:#bbb">—</span>';
       } else {
          var slotPassed = _slotPassed(a);
          var completeBtn = slotPassed
@@ -9273,11 +9276,12 @@ async function renderShopAppointments(filterStatus) {
          }
          var cancelBtn     = '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>';
          var rescheduleBtn = '<button class="apt-act-btn" style="background:#00897b;color:#fff" title="Move to a different date/slot (no refund)" onclick="openRescheduleModal(\'' + aid + '\')">🔄 Reschedule</button>';
-         // Stack actions: row 1 = Mark Paid + Receipt + Reschedule, row 2 = Complete + No-show + Cancel
+         var prescriptionBtn = '<button class="apt-act-btn" style="background:#0a8a3a;color:#fff" title="Write prescription (vitals + diagnosis + medicines)" onclick="openPrescriptionModal(\'' + aid + '\')">📝 Prescription</button>';
+         // Stack actions: row 1 = Mark Paid + Receipt + Reschedule, row 2 = Prescription + Complete + No-show + Cancel
          actions =
             '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">' +
                '<div style="display:flex;gap:4px;flex-wrap:wrap">' + paidBtn + receiptBtn + rescheduleBtn + '</div>' +
-               '<div style="display:flex;gap:4px;flex-wrap:wrap">' + completeBtn + noshowBtn + cancelBtn + '</div>' +
+               '<div style="display:flex;gap:4px;flex-wrap:wrap">' + prescriptionBtn + completeBtn + noshowBtn + cancelBtn + '</div>' +
             '</div>';
       }
       var tokenCell = a.token
@@ -10124,6 +10128,247 @@ async function _renderInPatientsTable(user) {
             '<tbody>' + rowHtml + '</tbody>' +
          '</table>' +
       '</div>';
+}
+
+// ── PRESCRIPTION pad (Phase 8.1 EMR) ──
+// Opens the prescription modal for an appointment. Auto-fills patient
+// identity, loads past visit history for context, gives the doctor a
+// vitals row + diagnosis + medicine list to type into.
+var _rxAppt = null;   // appointment we're prescribing for (or null for walk-in)
+
+async function openPrescriptionModal(aptId) {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var apt = (_shopAptsCache || []).find(function(a) { return a.apt_id === aptId; });
+   if (!apt) {
+      var all = await AppDB.getAllAppointments();
+      apt = (all || []).find(function(a) { return a.apt_id === aptId; });
+   }
+   if (!apt) { alert('Appointment not found.'); return; }
+   _rxAppt = apt;
+
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(apt.provider_id) || {};
+   var doctor = (prov.doctors || []).find(function(d) { return d.id === apt.doctor_id; }) || {};
+
+   // Reset modal fields
+   var get = function(id) { return document.getElementById(id); };
+   get('rx-id').value = '';
+   get('rx-appt-id').value = apt.apt_id || '';
+   ['rx-weight','rx-bp-sys','rx-bp-dia','rx-pulse','rx-temp','rx-spo2','rx-diagnosis','rx-advice','rx-followup'].forEach(function(f) {
+      var el = get(f); if (el) el.value = '';
+   });
+
+   // Patient identity strip
+   var strip = get('rx-patient-strip');
+   if (strip) {
+      var ageSex = (apt.patient_age ? apt.patient_age + 'Y' : '') + (apt.patient_sex ? ' ' + apt.patient_sex[0] : '');
+      strip.innerHTML =
+         '<div><strong style="color:#1a1a2e">' + (apt.patient_name || '—') + '</strong>' + (ageSex ? ' · ' + ageSex : '') + '</div>' +
+         (apt.patient_phone ? '<div>📞 ' + apt.patient_phone + '</div>' : '') +
+         '<div>🩺 ' + (doctor.name || apt.doctor_name || '—') + (doctor.speciality ? ' · ' + doctor.speciality : '') + '</div>' +
+         '<div>📅 Today</div>';
+   }
+
+   // Past history
+   get('rx-history-body').innerHTML = '<div style="color:#888;font-style:italic;padding:8px 0">Loading…</div>';
+   get('rx-history-count').textContent = '';
+   AppDB.getPatientPrescriptionHistory(apt.provider_id, apt.patient_phone).then(function(rows) {
+      var countEl = get('rx-history-count');
+      var bodyEl  = get('rx-history-body');
+      if (!rows || !rows.length) {
+         if (countEl) countEl.textContent = '(no past visits)';
+         if (bodyEl)  bodyEl.innerHTML = '<div style="color:#888;font-style:italic">This is the patient\'s first prescription at this hospital.</div>';
+         return;
+      }
+      if (countEl) countEl.textContent = '(' + rows.length + ' past visit' + (rows.length === 1 ? '' : 's') + ')';
+      if (bodyEl) {
+         bodyEl.innerHTML = rows.slice(0, 10).map(function(r) {
+            var d = new Date(r.created_at);
+            var when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            var meds = (r.medicines || []).map(function(m) { return m.name; }).filter(Boolean).join(', ');
+            return '<div style="padding:8px 0;border-bottom:1px dashed #eef0f5">' +
+                      '<strong>' + when + '</strong> · ' + (r.doctor_name || '—') +
+                      (r.diagnosis ? '<br/><span style="color:#5f6473">Dx:</span> ' + r.diagnosis : '') +
+                      (meds ? '<br/><span style="color:#5f6473">Rx:</span> ' + meds : '') +
+                   '</div>';
+         }).join('');
+      }
+   });
+
+   // Reset medicine list — start with one empty row
+   _rxMedRows = [];
+   _rxAddMed();
+
+   document.getElementById('prescriptionModal').classList.remove('hidden');
+}
+function closePrescriptionModal() {
+   document.getElementById('prescriptionModal').classList.add('hidden');
+   _rxAppt = null;
+}
+
+// Medicines list — dynamic add/remove rows
+var _rxMedRows = [];
+function _rxAddMed(med) {
+   _rxMedRows.push(med || { name: '', type: 'Tablet', dosage: '', duration: '', notes: '' });
+   _rxRenderMeds();
+}
+function _rxRemoveMed(i) { _rxMedRows.splice(i, 1); _rxRenderMeds(); }
+function _rxEditMed(i, field, val) { if (_rxMedRows[i]) _rxMedRows[i][field] = val; }
+function _rxRenderMeds() {
+   var host = document.getElementById('rx-meds-list');
+   if (!host) return;
+   if (!_rxMedRows.length) {
+      host.innerHTML = '<div style="color:#888;padding:10px;text-align:center;background:#fafbfc;border-radius:6px">No medicines added. Click <strong>+ Add</strong>.</div>';
+      return;
+   }
+   host.innerHTML = _rxMedRows.map(function(m, i) {
+      return '<div style="display:grid;grid-template-columns:90px 2fr 1fr 1fr auto;gap:8px;margin-bottom:6px;align-items:center">' +
+                '<select onchange="_rxEditMed(' + i + ',\'type\',this.value)" style="padding:7px;border:1px solid #ccc;border-radius:6px">' +
+                   ['Tablet','Capsule','Syrup','Injection','Drops','Cream','Other'].map(function(t) {
+                      return '<option value="' + t + '"' + (m.type === t ? ' selected' : '') + '>' + t + '</option>';
+                   }).join('') +
+                '</select>' +
+                '<input type="text" placeholder="Name (e.g. Cetirizine 10mg)" value="' + (m.name || '').replace(/"/g,'&quot;') + '" oninput="_rxEditMed(' + i + ',\'name\',this.value)" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px"/>' +
+                '<input type="text" placeholder="Dosage (1-0-1)" value="' + (m.dosage || '').replace(/"/g,'&quot;') + '" oninput="_rxEditMed(' + i + ',\'dosage\',this.value)" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px"/>' +
+                '<input type="text" placeholder="Duration (5 days)" value="' + (m.duration || '').replace(/"/g,'&quot;') + '" oninput="_rxEditMed(' + i + ',\'duration\',this.value)" style="padding:7px 10px;border:1px solid #ccc;border-radius:6px"/>' +
+                '<button type="button" onclick="_rxRemoveMed(' + i + ')" style="background:#c62828;color:#fff;border:none;border-radius:6px;padding:7px 10px;cursor:pointer;font-weight:700">🗑</button>' +
+             '</div>';
+   }).join('');
+}
+
+async function savePrescription(printAfter) {
+   if (!_rxAppt) { alert('No appointment context.'); return; }
+   var get = function(id) { return document.getElementById(id); };
+   var meds = _rxMedRows.filter(function(m) { return (m.name || '').trim(); });
+   if (!meds.length && !get('rx-diagnosis').value.trim()) {
+      alert('Add at least a diagnosis or one medicine before saving.');
+      return;
+   }
+   var id = get('rx-id').value || ('rx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+   var p = {
+      id:                 id,
+      provider_id:        _rxAppt.provider_id,
+      doctor_id:          _rxAppt.doctor_id || '',
+      doctor_name:        _rxAppt.doctor_name || '',
+      doctor_speciality:  _rxAppt.speciality || '',
+      appointment_id:     _rxAppt.apt_id || null,
+      patient_phone:      _rxAppt.patient_phone || '',
+      patient_name:       _rxAppt.patient_name || '',
+      patient_age:        _rxAppt.patient_age || null,
+      patient_sex:        _rxAppt.patient_sex || '',
+      weight_kg:          get('rx-weight').value || null,
+      bp_systolic:        get('rx-bp-sys').value || null,
+      bp_diastolic:       get('rx-bp-dia').value || null,
+      pulse_bpm:          get('rx-pulse').value || null,
+      temp_f:             get('rx-temp').value || null,
+      spo2:               get('rx-spo2').value || null,
+      diagnosis:          get('rx-diagnosis').value.trim(),
+      medicines:          meds,
+      advice:             get('rx-advice').value.trim(),
+      follow_up_date:     get('rx-followup').value || null
+   };
+   var ok = await AppDB.insertPrescription(p);
+   if (!ok) { alert('Failed to save prescription.'); return; }
+   if (printAfter) {
+      printPrescription(id);
+   }
+   closePrescriptionModal();
+   if (typeof renderShopAppointments === 'function') renderShopAppointments(window._shopAptCurrentFilter);
+   alert('✅ Prescription saved.');
+}
+
+// Printable prescription template (opens in a new window). Doctor can print
+// or "Save as PDF" via the OS print dialog. Footer has a WhatsApp share link.
+async function printPrescription(id) {
+   var p = await AppDB.getPrescriptionById(id);
+   if (!p) { alert('Prescription not found.'); return; }
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(p.provider_id) || {};
+   var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
+   var dt = new Date(p.created_at);
+   var when = isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) + ' ' + dt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+   var vitals = [];
+   if (p.weight_kg)   vitals.push('Weight: <b>' + p.weight_kg + ' kg</b>');
+   if (p.bp_systolic) vitals.push('BP: <b>' + p.bp_systolic + '/' + (p.bp_diastolic || '—') + ' mmHg</b>');
+   if (p.pulse_bpm)   vitals.push('Pulse: <b>' + p.pulse_bpm + ' bpm</b>');
+   if (p.temp_f)      vitals.push('Temp: <b>' + p.temp_f + ' °F</b>');
+   if (p.spo2)        vitals.push('SpO2: <b>' + p.spo2 + '%</b>');
+   var medsHtml = (p.medicines || []).map(function(m, i) {
+      return '<tr>' +
+                '<td>' + (i+1) + '</td>' +
+                '<td><b>' + esc(m.name) + '</b>' + (m.type ? ' <span style="color:#666;font-size:11px">(' + esc(m.type) + ')</span>' : '') + '</td>' +
+                '<td>' + esc(m.dosage || '—') + '</td>' +
+                '<td>' + esc(m.duration || '—') + '</td>' +
+             '</tr>';
+   }).join('');
+   var followUp = p.follow_up_date ? new Date(p.follow_up_date + 'T00:00:00').toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '';
+   var waText = encodeURIComponent(
+      'Hi ' + (p.patient_name || '') + ', here is your prescription from ' + (prov.name || 'the hospital') +
+      ' dated ' + when + '.\n\nDiagnosis: ' + (p.diagnosis || '—') +
+      '\n\nMedicines:\n' + (p.medicines || []).map(function(m, i) {
+         return (i+1) + '. ' + (m.name || '') + (m.dosage ? ' — ' + m.dosage : '') + (m.duration ? ' (' + m.duration + ')' : '');
+      }).join('\n') +
+      (p.advice ? '\n\nAdvice: ' + p.advice : '') +
+      (followUp ? '\n\nFollow-up: ' + followUp : '')
+   );
+   var waPhone = (p.patient_phone || '').replace(/\D/g, '');
+   var waLink = waPhone ? 'https://wa.me/' + (waPhone.length === 10 ? '91' + waPhone : waPhone) + '?text=' + waText : '';
+
+   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Prescription · ' + esc(p.patient_name) + '</title>' +
+      '<style>' +
+         'body{font-family:ui-sans-serif,system-ui,sans-serif;color:#111;padding:24px;max-width:800px;margin:0 auto}' +
+         '.head{border-bottom:2px solid #0a8a3a;padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px}' +
+         '.head h1{margin:0 0 4px;font-size:22px;color:#0a8a3a}' +
+         '.head .sub{font-size:12px;color:#555}' +
+         '.rx-mark{font-size:48px;font-weight:900;color:#0a8a3a;line-height:1}' +
+         '.info{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f7f9fc;padding:12px;border-radius:8px;margin-bottom:14px;font-size:13px}' +
+         '.info b{color:#1a1a2e}' +
+         '.section{margin:14px 0}' +
+         '.section h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:0.05em;color:#0a8a3a;border-bottom:1px solid #eef0f5;padding-bottom:4px}' +
+         '.vitals{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px}' +
+         'table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}' +
+         'table th,table td{border:1px solid #d6dce8;padding:8px 10px;text-align:left}' +
+         'table th{background:#e8f5e9;color:#0a8a3a;font-size:11px;text-transform:uppercase;letter-spacing:0.04em}' +
+         '.footer{margin-top:30px;padding-top:14px;border-top:1px solid #d6dce8;font-size:11px;color:#666;display:flex;justify-content:space-between}' +
+         '.signature{margin-top:60px;text-align:right;font-size:12px}' +
+         '.signature .name{font-weight:700;color:#1a1a2e;font-size:14px}' +
+         '.toolbar{text-align:right;margin-bottom:14px}' +
+         '.toolbar button{margin-left:6px;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px}' +
+         '.toolbar .btn-print{background:#1a73e8;color:#fff}' +
+         '.toolbar .btn-wa{background:#25d366;color:#fff;text-decoration:none;display:inline-block}' +
+         '@media print{.toolbar{display:none}.no-print{display:none}}' +
+      '</style></head><body>' +
+      '<div class="toolbar no-print">' +
+         (waLink ? '<a class="btn-wa" href="' + waLink + '" target="_blank" rel="noopener">📲 Share on WhatsApp</a>' : '') +
+         '<button class="btn-print" onclick="window.print()">🖨 Print / Save PDF</button>' +
+      '</div>' +
+      '<div class="head">' +
+         '<div>' +
+            '<h1>' + esc(prov.name || 'Clinic') + '</h1>' +
+            '<div class="sub">' + esc(prov.address || '') + '</div>' +
+            (prov.phone ? '<div class="sub">📞 ' + esc(prov.phone) + '</div>' : '') +
+         '</div>' +
+         '<div class="rx-mark">℞</div>' +
+      '</div>' +
+      '<div class="info">' +
+         '<div><b>Patient:</b> ' + esc(p.patient_name || '—') + (p.patient_age ? ' (' + p.patient_age + 'Y' + (p.patient_sex ? '/' + p.patient_sex[0] : '') + ')' : '') + '</div>' +
+         '<div><b>Date:</b> ' + esc(when) + '</div>' +
+         (p.patient_phone ? '<div><b>Phone:</b> ' + esc(p.patient_phone) + '</div>' : '<div></div>') +
+         '<div><b>Doctor:</b> ' + esc(p.doctor_name || '—') + (p.doctor_speciality ? ' · ' + esc(p.doctor_speciality) : '') + '</div>' +
+      '</div>' +
+      (vitals.length ? '<div class="section"><h3>Vitals</h3><div class="vitals">' + vitals.join(' · ') + '</div></div>' : '') +
+      (p.diagnosis ? '<div class="section"><h3>Diagnosis</h3><div>' + esc(p.diagnosis) + '</div></div>' : '') +
+      ((p.medicines || []).length ? '<div class="section"><h3>℞ Medicines</h3><table>' +
+         '<thead><tr><th>#</th><th>Medicine</th><th>Dosage</th><th>Duration</th></tr></thead>' +
+         '<tbody>' + medsHtml + '</tbody>' +
+      '</table></div>' : '') +
+      (p.advice ? '<div class="section"><h3>Advice</h3><div>' + esc(p.advice) + '</div></div>' : '') +
+      (followUp ? '<div class="section"><h3>Follow-up</h3><div>' + esc(followUp) + '</div></div>' : '') +
+      '<div class="signature"><div>______________________</div><div class="name">' + esc(p.doctor_name || '') + '</div><div style="color:#666">' + esc(p.doctor_speciality || '') + '</div></div>' +
+      '<div class="footer"><div>Generated by ' + esc(prov.name || 'MyStore') + '</div><div>This is a computer-generated prescription.</div></div>' +
+      '</body></html>';
+   var w = window.open('', 'rx-' + id, 'width=820,height=900');
+   w.document.write(html); w.document.close();
 }
 
 // ── ADMISSIONS tab — inpatient (admitted) tracking ──
@@ -13236,12 +13481,22 @@ async function renderMyAppointments() {
    if (!list.innerHTML.trim()) list.innerHTML = '<p class="prof-empty">Loading…</p>';
    // Make sure providers are loaded fresh so free_followup_days / phone / etc.
    // are current — needed for the follow-up button + hospital phone column.
+   _liveSubscribe('myRx', 'prescriptions', renderMyAppointments);
    await loadAptProviders(true);
    var all = await AppDB.getAppointments(user.email);
    if (!all.length) {
       list.innerHTML = '<p class="prof-empty">No appointments booked yet.</p>';
       return;
    }
+   // Bulk-fetch this customer's prescriptions (one query), key by appointment_id
+   // so we can show a "View Rx" link only on rows that have one.
+   window._myRxByApt = {};
+   try {
+      var myRx = await AppDB.getMyPrescriptions(user.phone);
+      (myRx || []).forEach(function(r) {
+         if (r.appointment_id) window._myRxByApt[r.appointment_id] = r.id;
+      });
+   } catch (e) { /* prescriptions are optional — UI still works */ }
 
    // Read current selections BEFORE we rebuild the dropdowns.
    var catF    = (document.getElementById('myAptCategoryFilter') || {}).value || '';
@@ -13403,6 +13658,12 @@ async function renderMyAppointments() {
          ? rescheduleBtn + '<button class="apt-act-btn apt-act-cancel" onclick="cancelMyAppointment(\'' + aid + '\')">✕ Cancel</button>'
          : (followupBtn || '<span style="color:#bbb">—</span>');
       if (isCancellable && followupBtn) actions += followupBtn;  // unlikely both; defensive
+      // Show "View Prescription" link when the doctor has written one for this appointment
+      var rxId = (window._myRxByApt || {})[a.apt_id];
+      if (rxId) {
+         var rxBtn = '<button class="apt-act-btn" style="background:#0a8a3a;color:#fff" title="View / print prescription" onclick="printPrescription(\'' + rxId + '\')">📝 View Rx</button>';
+         actions = (actions && actions.indexOf('—') === -1 ? actions : '') + rxBtn;
+      }
       var meta = APT_CAT_META[a.category] || {};
       var hospitalPhoneLine = prov.phone ? '<div class="apt-tbl-sub" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(prov.phone) + '</div>' : '';
       var tokenCell = a.token

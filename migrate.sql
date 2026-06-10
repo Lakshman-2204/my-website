@@ -541,3 +541,44 @@ UPDATE public.hospital_patient_ids
 ALTER TABLE public.hospital_patient_ids DROP CONSTRAINT IF EXISTS hospital_patient_ids_pkey;
 ALTER TABLE public.hospital_patient_ids
    ADD PRIMARY KEY (provider_id, phone_normalized, name_normalized);
+
+-- 24. PRESCRIPTIONS — doctor's clinical notes + medicine list for one
+--     consultation. Linked to an appointment when written from the queue,
+--     or stand-alone for walk-in consultations. Vitals + diagnosis + meds
+--     are denormalized; patient identity is keyed by phone for history.
+CREATE TABLE IF NOT EXISTS public.prescriptions (
+   id                text         PRIMARY KEY,
+   provider_id       text         NOT NULL,    -- FK apt_providers.id
+   doctor_id         text         DEFAULT '',
+   doctor_name       text         DEFAULT '',  -- snapshot at write-time
+   doctor_speciality text         DEFAULT '',
+   appointment_id    text         DEFAULT NULL, -- FK appointments.apt_id when linked
+   patient_phone     text         DEFAULT '',
+   patient_phone_norm text        DEFAULT '',  -- last-10 digits for history lookup
+   patient_name      text         DEFAULT '',
+   patient_age       integer,
+   patient_sex       text         DEFAULT '',
+   -- Vitals
+   weight_kg         numeric,
+   bp_systolic       integer,
+   bp_diastolic      integer,
+   pulse_bpm         integer,
+   temp_f            numeric,
+   spo2              integer,
+   -- Clinical
+   diagnosis         text         DEFAULT '',
+   medicines         jsonb        DEFAULT '[]'::jsonb,  -- [{name, type, dosage, duration, notes}]
+   advice            text         DEFAULT '',           -- general lifestyle / instructions
+   follow_up_date    date,
+   created_at        timestamptz  DEFAULT now(),
+   updated_at        timestamptz  DEFAULT now()
+);
+ALTER TABLE public.prescriptions DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS prescriptions_provider_idx ON public.prescriptions(provider_id);
+CREATE INDEX IF NOT EXISTS prescriptions_phone_idx    ON public.prescriptions(patient_phone_norm);
+CREATE INDEX IF NOT EXISTS prescriptions_appt_idx     ON public.prescriptions(appointment_id);
+
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.prescriptions;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

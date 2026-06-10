@@ -8854,7 +8854,19 @@ function switchShopTab(tab) {
    if (tab !== 'products') _currentMyStoreId = null;
    if (tab === 'dashboard')    renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
-   if (tab === 'appointments') { _shopAptsCache = null; renderShopAppointments('Confirmed'); }
+   if (tab === 'appointments') {
+      _shopAptsCache = null;
+      // Reset the date filter to "Today" each time the owner re-enters the
+      // Appointments tab — otherwise an earlier "This month" / "This week"
+      // selection persists and the owner forgets why their queue looks empty.
+      var dateSel = document.getElementById('shopAptDateFilter');
+      if (dateSel) dateSel.value = 'today';
+      ['shopAptCustomDate','shopAptRangeFrom','shopAptRangeTo'].forEach(function(id) {
+         var el = document.getElementById(id);
+         if (el) { el.value = ''; el.style.display = 'none'; }
+      });
+      renderShopAppointments('Confirmed');
+   }
    if (tab === 'doctors')      renderShopDoctors();
    if (tab === 'patients')     { _patientsMode = patientsSub || _patientsMode || 'out'; renderShopPatients(); }
    if (tab === 'admissions')   renderShopAdmissions();

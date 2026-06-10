@@ -322,11 +322,8 @@ window.AppDB = {
       const all = await this.getAppointmentsByOwner(ownerEmail);
       const here = (all || []).filter(r => r.provider_id === providerId);
       const paid = here.filter(r => r.status === 'Completed' && (r.is_paid === true || r.is_paid === 'true' || r.is_paid === 1));
-      // Diagnostic so we can spot data mismatches at a glance.
-      console.log('[admit-lookup] hospital choice provider_id =', providerId);
-      console.log('[admit-lookup] total owner apts =', (all || []).length,
-                  '· at this hospital =', here.length,
-                  '· paid+completed =', paid.length);
+      // Keep the mismatch warning — it's a real data-integrity signal worth
+      // surfacing if it ever fires (hospital recreated, stale provider_id, etc.)
       if (here.length === 0 && (all || []).length > 0) {
          const distinctIds = Array.from(new Set((all || []).map(a => a.provider_id)));
          console.warn('[admit-lookup] ⚠ provider_id mismatch — owner has apts on:', distinctIds,
@@ -340,12 +337,16 @@ window.AppDB = {
                 phone.indexOf(q) !== -1 ||
                 email.indexOf(q) !== -1;
       });
-      console.log('[admit-lookup] matching "' + q + '" =', matches.length);
+      // Dedup key = phone + name (lowercased). Same phone shared by a family
+      // (e.g. spouse + kids) is normal in India — different names under the
+      // same number must stay as separate entries, not collapse into one.
       const seen = {};
       const out  = [];
       matches.forEach(r => {
-         const key = (r.patient_phone || r.user_email || r.patient_name || '').toLowerCase().trim();
-         if (!key || seen[key]) return;
+         const phone = (r.patient_phone || r.user_email || '').toLowerCase().trim();
+         const name  = (r.patient_name  || '').toLowerCase().trim();
+         const key   = phone + '|' + name;
+         if (key === '|' || seen[key]) return;
          seen[key] = true;
          out.push(r);
       });

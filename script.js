@@ -10133,6 +10133,10 @@ function openAdmissionModal(id) {
       titleEl.textContent = '🛏️ Admit Patient';
       _ADM_FIELDS.forEach(function(e) { var el = get(e); if (el) el.value = ''; });
       delete get('adm-ref').dataset.autofilled;
+      // Stale typeahead results from the previous open — wipe + hide the panel
+      var lookupResults = get('adm-lookup-results');
+      if (lookupResults) { lookupResults.innerHTML = ''; lookupResults.classList.add('hidden'); }
+      window._admLookupHits = [];
       get('adm-admit-date').value = _todayLocalYmd();
       modal.classList.remove('hidden');
    }
@@ -10170,7 +10174,6 @@ async function _admLookupRun() {
       return;
    }
    var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
-   console.log('[admit-lookup] _admHospitalChoice =', _admHospitalChoice, '· owner =', user.email);
    // Scoped to the CURRENT hospital only — a patient at hospital A is
    // not relevant when admitting them at hospital B. Internally we use the
    // same fetch path as Out-patients so anything visible there is reachable.

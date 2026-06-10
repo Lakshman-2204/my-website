@@ -10158,6 +10158,19 @@ async function openPrescriptionModal(aptId) {
       var el = get(f); if (el) el.value = '';
    });
 
+   // Pre-fill Follow-up date using the provider's free_followup_days policy —
+   // same window we already advertise on the consultation receipt. The doctor
+   // can still adjust if this particular patient needs a sooner / later visit.
+   var fuDays = Number(prov.free_followup_days || 0);
+   if (fuDays > 0) {
+      var d = new Date();
+      d.setDate(d.getDate() + fuDays);
+      get('rx-followup').value =
+         d.getFullYear() + '-' +
+         String(d.getMonth() + 1).padStart(2, '0') + '-' +
+         String(d.getDate()).padStart(2, '0');
+   }
+
    // Patient identity strip
    var strip = get('rx-patient-strip');
    if (strip) {

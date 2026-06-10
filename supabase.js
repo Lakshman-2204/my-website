@@ -315,15 +315,22 @@ window.AppDB = {
    async lookupOutpatientsForAdmit(providerId, query) {
       if (!providerId || !query || query.length < 2) return [];
       const q = query.toLowerCase().trim();
+      const cols = 'apt_id, provider_id, patient_name, patient_phone, user_email, patient_address, patient_age, patient_sex, date, created_at, status, is_paid';
+      // Fetch ALL appointments for this hospital (no status/is_paid filter in
+      // the SQL — we filter in JS so the search just works regardless of how
+      // those columns are stored). 300 = ~1 year of mid-volume clinic.
       const { data, error } = await _sb.from('appointments')
-         .select('apt_id, provider_id, patient_name, patient_phone, user_email, patient_address, patient_age, patient_sex, date, created_at, status, is_paid')
+         .select(cols)
          .eq('provider_id', providerId)
-         .eq('status', 'Completed')
-         .eq('is_paid', true)
          .order('date', { ascending: false })
-         .limit(300);
+         .limit(500);
       if (error) { console.error('lookupOutpatientsForAdmit:', error.message); return []; }
-      const matches = (data || []).filter(r => {
+      console.log('[admit lookup] fetched', (data || []).length, 'apts for provider', providerId);
+      // First filter: paid + completed (the out-patient definition)
+      let paid = (data || []).filter(r => r.status === 'Completed' && (r.is_paid === true || r.is_paid === 'true' || r.is_paid === 1));
+      console.log('[admit lookup]   of those, paid+completed =', paid.length);
+      // Then apply the text query
+      const matches = paid.filter(r => {
          const name  = (r.patient_name  || '').toLowerCase();
          const phone = (r.patient_phone || '').toLowerCase();
          const email = (r.user_email    || '').toLowerCase();
@@ -331,6 +338,7 @@ window.AppDB = {
                 phone.indexOf(q) !== -1 ||
                 email.indexOf(q) !== -1;
       });
+      console.log('[admit lookup]   matching "' + q + '" =', matches.length);
       // Dedupe by phone (or email/name fallback), newest visit wins
       const seen = {};
       const out  = [];

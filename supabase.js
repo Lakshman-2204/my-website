@@ -312,27 +312,26 @@ window.AppDB = {
    // 10 distinct paid+completed out-patients whose name / phone / email
    // matches the query. Filtering happens in JS so the search just works,
    // no ilike / or-filter quirks.
-   // STRICTLY scoped to the current hospital. Logs what it queried so we
-   // can diagnose mismatches between out-patient view and lookup results.
-   async lookupOutpatientsForAdmit(providerId, query) {
-      if (!providerId || !query || query.length < 2) return [];
+   // Uses the EXACT same data path as the Out-patients view
+   // (getAppointmentsByOwner). After fetching, narrows to the current
+   // hospital in JS. This guarantees anything visible in Out-patients is
+   // reachable here. Logs make any provider_id mismatch loud.
+   async lookupOutpatientsForAdmit(providerId, ownerEmail, query) {
+      if (!providerId || !ownerEmail || !query || query.length < 2) return [];
       const q = query.toLowerCase().trim();
-      const cols = 'apt_id, provider_id, patient_name, patient_phone, user_email, patient_address, patient_age, patient_sex, date, created_at, status, is_paid';
-      const { data, error } = await _sb.from('appointments')
-         .select(cols)
-         .eq('provider_id', providerId)
-         .order('date', { ascending: false })
-         .limit(500);
-      if (error) { console.error('lookupOutpatientsForAdmit:', error.message); return []; }
-      console.log('[admit-lookup] provider_id =', providerId);
-      console.log('[admit-lookup]   total apts at this hospital =', (data || []).length);
-      if ((data || []).length === 0) {
-         console.warn('[admit-lookup] ⚠ ZERO appointments for this provider_id. ' +
-                      'The Admit modal\'s hospital choice does not match the appointments\' provider_id. ' +
-                      'Check apt_providers.id values vs appointments.provider_id values.');
+      const all = await this.getAppointmentsByOwner(ownerEmail);
+      const here = (all || []).filter(r => r.provider_id === providerId);
+      const paid = here.filter(r => r.status === 'Completed' && (r.is_paid === true || r.is_paid === 'true' || r.is_paid === 1));
+      // Diagnostic so we can spot data mismatches at a glance.
+      console.log('[admit-lookup] hospital choice provider_id =', providerId);
+      console.log('[admit-lookup] total owner apts =', (all || []).length,
+                  '· at this hospital =', here.length,
+                  '· paid+completed =', paid.length);
+      if (here.length === 0 && (all || []).length > 0) {
+         const distinctIds = Array.from(new Set((all || []).map(a => a.provider_id)));
+         console.warn('[admit-lookup] ⚠ provider_id mismatch — owner has apts on:', distinctIds,
+                      '· but Admit modal is set to:', providerId);
       }
-      const paid = (data || []).filter(r => r.status === 'Completed' && (r.is_paid === true || r.is_paid === 'true' || r.is_paid === 1));
-      console.log('[admit-lookup]   paid+completed =', paid.length);
       const matches = paid.filter(r => {
          const name  = (r.patient_name  || '').toLowerCase();
          const phone = (r.patient_phone || '').toLowerCase();
@@ -341,7 +340,7 @@ window.AppDB = {
                 phone.indexOf(q) !== -1 ||
                 email.indexOf(q) !== -1;
       });
-      console.log('[admit-lookup]   matching "' + q + '" =', matches.length);
+      console.log('[admit-lookup] matching "' + q + '" =', matches.length);
       const seen = {};
       const out  = [];
       matches.forEach(r => {

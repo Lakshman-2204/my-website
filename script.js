@@ -10169,10 +10169,12 @@ async function _admLookupRun() {
       box.classList.add('hidden'); box.innerHTML = '';
       return;
    }
-   console.log('[admit-lookup] _admHospitalChoice =', _admHospitalChoice);
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   console.log('[admit-lookup] _admHospitalChoice =', _admHospitalChoice, '· owner =', user.email);
    // Scoped to the CURRENT hospital only — a patient at hospital A is
-   // not relevant when admitting them at hospital B.
-   var hits = await AppDB.lookupOutpatientsForAdmit(_admHospitalChoice, q);
+   // not relevant when admitting them at hospital B. Internally we use the
+   // same fetch path as Out-patients so anything visible there is reachable.
+   var hits = await AppDB.lookupOutpatientsForAdmit(_admHospitalChoice, user.email, q);
    if (!hits.length) {
       box.innerHTML = '<div style="padding:10px;text-align:center;color:#888;font-size:0.85rem">No paid out-patient found at this hospital for "' + q + '".</div>';
       box.classList.remove('hidden');

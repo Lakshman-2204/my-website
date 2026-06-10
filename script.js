@@ -9811,8 +9811,13 @@ async function _renderOutPatientsTable(user) {
 
    var groups = {};
    filtered.forEach(function(a) {
-      var key = (a.patient_phone || a.user_email || a.patient_name || '').toLowerCase().trim();
-      if (!key) return;
+      // Dedup key = phone + name (lowercased). Same phone shared by family
+      // members (common in India) must keep them as separate rows; only
+      // the SAME person (same phone + same name) collapses across visits.
+      var phoneKey = (a.patient_phone || a.user_email || '').toLowerCase().trim();
+      var nameKey  = (a.patient_name  || '').toLowerCase().trim();
+      var key = phoneKey + '|' + nameKey;
+      if (key === '|') return;
       if (!groups[key]) {
          groups[key] = { name: a.patient_name || '—', phone: a.patient_phone || '', email: a.user_email || '', visits: 0, completed: 0, lastDate: '', totalFee: 0, patientIds: {} };
       }

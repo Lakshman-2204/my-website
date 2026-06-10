@@ -13525,22 +13525,12 @@ async function renderMyAppointments() {
    if (!list.innerHTML.trim()) list.innerHTML = '<p class="prof-empty">Loading…</p>';
    // Make sure providers are loaded fresh so free_followup_days / phone / etc.
    // are current — needed for the follow-up button + hospital phone column.
-   _liveSubscribe('myRx', 'prescriptions', renderMyAppointments);
    await loadAptProviders(true);
    var all = await AppDB.getAppointments(user.email);
    if (!all.length) {
       list.innerHTML = '<p class="prof-empty">No appointments booked yet.</p>';
       return;
    }
-   // Bulk-fetch this customer's prescriptions (one query), key by appointment_id
-   // so we can show a "View Rx" link only on rows that have one.
-   window._myRxByApt = {};
-   try {
-      var myRx = await AppDB.getMyPrescriptions(user.phone);
-      (myRx || []).forEach(function(r) {
-         if (r.appointment_id) window._myRxByApt[r.appointment_id] = r.id;
-      });
-   } catch (e) { /* prescriptions are optional — UI still works */ }
 
    // Read current selections BEFORE we rebuild the dropdowns.
    var catF    = (document.getElementById('myAptCategoryFilter') || {}).value || '';
@@ -13702,12 +13692,6 @@ async function renderMyAppointments() {
          ? rescheduleBtn + '<button class="apt-act-btn apt-act-cancel" onclick="cancelMyAppointment(\'' + aid + '\')">✕ Cancel</button>'
          : (followupBtn || '<span style="color:#bbb">—</span>');
       if (isCancellable && followupBtn) actions += followupBtn;  // unlikely both; defensive
-      // Show "View Prescription" link when the doctor has written one for this appointment
-      var rxId = (window._myRxByApt || {})[a.apt_id];
-      if (rxId) {
-         var rxBtn = '<button class="apt-act-btn" style="background:#0a8a3a;color:#fff" title="View / print prescription" onclick="printPrescription(\'' + rxId + '\')">📝 View Rx</button>';
-         actions = (actions && actions.indexOf('—') === -1 ? actions : '') + rxBtn;
-      }
       var meta = APT_CAT_META[a.category] || {};
       var hospitalPhoneLine = prov.phone ? '<div class="apt-tbl-sub" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(prov.phone) + '</div>' : '';
       var tokenCell = a.token

@@ -10169,8 +10169,9 @@ async function _admLookupRun() {
       box.classList.add('hidden'); box.innerHTML = '';
       return;
    }
-   // Scoped to the CURRENT hospital only — a patient's record at one
-   // hospital is not relevant when admitting them somewhere else.
+   console.log('[admit-lookup] _admHospitalChoice =', _admHospitalChoice);
+   // Scoped to the CURRENT hospital only — a patient at hospital A is
+   // not relevant when admitting them at hospital B.
    var hits = await AppDB.lookupOutpatientsForAdmit(_admHospitalChoice, q);
    if (!hits.length) {
       box.innerHTML = '<div style="padding:10px;text-align:center;color:#888;font-size:0.85rem">No paid out-patient found at this hospital for "' + q + '".</div>';

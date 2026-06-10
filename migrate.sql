@@ -507,3 +507,37 @@ CREATE TABLE IF NOT EXISTS public.hospital_patient_ids (
 );
 ALTER TABLE public.hospital_patient_ids DISABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS hpids_patient_id_idx ON public.hospital_patient_ids(patient_id);
+
+-- 22. ADMISSIONS — extended fields (Phase 7.2). These are IN-PATIENT
+--     fields only — out-patients (appointments table) are untouched.
+--     Mirror the standard hospital admission form: clinical context
+--     (doctor, planned procedure), demographics (DOB, gender, marital,
+--     employment), contact (email, address, city, postal), and emergency
+--     contact (guardian).
+ALTER TABLE public.admissions
+   ADD COLUMN IF NOT EXISTS doctor_name        text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS planned_procedure  text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS patient_email      text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS dob                date,
+   ADD COLUMN IF NOT EXISTS gender             text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS marital_status     text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS employment_status  text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS guardian_name      text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS guardian_relation  text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS guardian_phone     text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS address            text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS city               text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS postal_code        text DEFAULT '';
+
+-- 23. HOSPITAL_PATIENT_IDS — make IDs unique per (provider, phone, NAME)
+--     so a family sharing one phone number gets distinct IDs per person.
+ALTER TABLE public.hospital_patient_ids
+   ADD COLUMN IF NOT EXISTS name_normalized text DEFAULT '';
+-- Backfill from sample_name on existing rows (lowercased, collapsed-whitespace)
+UPDATE public.hospital_patient_ids
+   SET name_normalized = lower(regexp_replace(coalesce(sample_name, ''), '\s+', ' ', 'g'))
+   WHERE name_normalized IS NULL OR name_normalized = '';
+-- Swap PK to include the name. Safe re-run: drops old PK if it exists.
+ALTER TABLE public.hospital_patient_ids DROP CONSTRAINT IF EXISTS hospital_patient_ids_pkey;
+ALTER TABLE public.hospital_patient_ids
+   ADD PRIMARY KEY (provider_id, phone_normalized, name_normalized);

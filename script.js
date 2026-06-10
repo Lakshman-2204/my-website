@@ -9804,9 +9804,12 @@ async function _renderOutPatientsTable(user) {
    // the hospital_patient_ids map (one query) for ID-column rendering.
    var providerIds = Array.from(new Set(filtered.map(function(a) { return a.provider_id; }).filter(Boolean)));
    var idMap = await AppDB.getHospitalPatientIdMap(providerIds);
-   var pickId = function(providerId, phone) {
+   var _normName = function(s) { return (s || '').toLowerCase().trim().replace(/\s+/g, ' '); };
+   var pickId = function(providerId, phone, name) {
       var norm = (phone || '').replace(/\D/g, '').slice(-10);
-      return providerId && norm.length === 10 ? (idMap[providerId + '|' + norm] || '') : '';
+      var nameNorm = _normName(name);
+      if (!providerId || norm.length !== 10 || !nameNorm) return '';
+      return idMap[providerId + '|' + norm + '|' + nameNorm] || '';
    };
 
    var groups = {};
@@ -9831,7 +9834,7 @@ async function _renderOutPatientsTable(user) {
       if (!g.email && a.user_email)   g.email = a.user_email;
       // Track patient IDs across all hospitals this patient has visited (same
       // owner can run multiple hospitals — each issues its own ID).
-      var pid = pickId(a.provider_id, a.patient_phone);
+      var pid = pickId(a.provider_id, a.patient_phone, a.patient_name);
       if (pid) g.patientIds[pid] = true;
    });
    var rows = Object.values(groups)
@@ -10230,18 +10233,19 @@ function _admPickLookup(idx) {
 }
 function closeAdmissionModal() { document.getElementById('admissionModal').classList.add('hidden'); }
 
-// Phone blur → look up the patient's permanent hospital ID and auto-fill
-// the Ref field. If they don't have one (no prior paid visit), the field
-// stays blank — saveAdmission() will mint a fresh ID on save (the admission
-// itself counts as a paid event).
+// Phone OR name blur → look up the patient's permanent hospital ID by
+// (phone, name) and auto-fill the Ref field. Both fields must be filled
+// for the lookup to be meaningful (IDs are keyed per person now, not per
+// phone, so a family sharing a phone gets distinct IDs).
 async function _admLookupPatientId() {
    var phone = (document.getElementById('adm-phone').value || '').trim();
+   var name  = (document.getElementById('adm-name').value  || '').trim();
    var refEl = document.getElementById('adm-ref');
-   if (!phone || !_admHospitalChoice) return;
+   if (!phone || !name || !_admHospitalChoice) return;
    // Don't overwrite a manually-entered ref
    if (refEl.value && !refEl.dataset.autofilled) return;
    try {
-      var pid = await AppDB.getHospitalPatientId(_admHospitalChoice, phone);
+      var pid = await AppDB.getHospitalPatientId(_admHospitalChoice, phone, name);
       if (pid) {
          refEl.value = pid;
          refEl.dataset.autofilled = '1';

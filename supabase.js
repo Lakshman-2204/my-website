@@ -226,17 +226,25 @@ window.AppDB = {
    },
 
    // ── HOSPITAL PATIENT IDS (Phase 7.1) ──
-   // Returns the existing ID for this (provider, phone), or mints + persists
-   // a new one. Called only when the patient ACTUALLY PAYS (is_paid flipped)
-   // OR when admitting a brand-new walk-in. No-show bookings don't get an ID.
+   // Returns the existing ID for this (provider, phone, NAME), or mints +
+   // persists a new one. Called only when the patient ACTUALLY PAYS
+   // (is_paid flipped) OR when admitting a brand-new walk-in. No-show
+   // bookings don't get an ID. Same phone + same name = same ID forever
+   // (return visits reuse it). Different name on same phone = different ID
+   // (family sharing a phone gets distinct IDs).
+   _normalizeName(name) {
+      return (name || '').toLowerCase().trim().replace(/\s+/g, ' ');
+   },
    async ensureHospitalPatientId(providerId, phone, sampleName) {
       const norm = (phone || '').replace(/\D/g, '').slice(-10);
-      if (!providerId || norm.length !== 10) return null;
+      const nameNorm = this._normalizeName(sampleName);
+      if (!providerId || norm.length !== 10 || !nameNorm) return null;
       // Look up existing
       const { data: existing } = await _sb.from('hospital_patient_ids')
          .select('patient_id')
          .eq('provider_id', providerId)
          .eq('phone_normalized', norm)
+         .eq('name_normalized', nameNorm)
          .maybeSingle();
       if (existing && existing.patient_id) return existing.patient_id;
       // Mint a new one. Sequence is scoped to THIS MONTH at this hospital, so
@@ -268,6 +276,7 @@ window.AppDB = {
       const { error } = await _sb.from('hospital_patient_ids').insert({
          provider_id: providerId,
          phone_normalized: norm,
+         name_normalized: nameNorm,
          patient_id: patientId,
          seq: seq,
          sample_name: sampleName || ''
@@ -275,35 +284,44 @@ window.AppDB = {
       if (error) {
          // Race condition fallback: another tab inserted at the same time → re-read
          const { data: race } = await _sb.from('hospital_patient_ids')
-            .select('patient_id').eq('provider_id', providerId).eq('phone_normalized', norm).maybeSingle();
+            .select('patient_id')
+            .eq('provider_id', providerId)
+            .eq('phone_normalized', norm)
+            .eq('name_normalized', nameNorm)
+            .maybeSingle();
          return race ? race.patient_id : null;
       }
       return patientId;
    },
 
-   // Read-only lookup — used by the Admit modal phone-blur pre-fill.
-   async getHospitalPatientId(providerId, phone) {
+   // Read-only lookup — used by the Admit modal blur pre-fill. Requires
+   // BOTH phone and name now (since IDs are keyed per person, not per phone).
+   async getHospitalPatientId(providerId, phone, name) {
       const norm = (phone || '').replace(/\D/g, '').slice(-10);
-      if (!providerId || norm.length !== 10) return null;
+      const nameNorm = this._normalizeName(name);
+      if (!providerId || norm.length !== 10 || !nameNorm) return null;
       const { data } = await _sb.from('hospital_patient_ids')
          .select('patient_id')
          .eq('provider_id', providerId)
          .eq('phone_normalized', norm)
+         .eq('name_normalized', nameNorm)
          .maybeSingle();
       return data ? data.patient_id : null;
    },
 
    // Bulk-fetch every patient_id row for a set of provider IDs. Used by the
    // Out-patients list to attach the hospital ID column without N round trips.
-   // Returns a map keyed by `${provider_id}|${phone_normalized}` → patient_id.
+   // Returns a map keyed by `${provider_id}|${phone_normalized}|${name_normalized}`.
    async getHospitalPatientIdMap(providerIds) {
       if (!providerIds || !providerIds.length) return {};
       const { data, error } = await _sb.from('hospital_patient_ids')
-         .select('provider_id, phone_normalized, patient_id')
+         .select('provider_id, phone_normalized, name_normalized, patient_id')
          .in('provider_id', providerIds);
       if (error) { console.error('getHospitalPatientIdMap:', error.message); return {}; }
       const map = {};
-      (data || []).forEach(r => { map[r.provider_id + '|' + r.phone_normalized] = r.patient_id; });
+      (data || []).forEach(r => {
+         map[r.provider_id + '|' + r.phone_normalized + '|' + (r.name_normalized || '')] = r.patient_id;
+      });
       return map;
    },
 

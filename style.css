@@ -4968,6 +4968,18 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 14px 18px;
 }
+/* Only the Profile Info / Change Password / My Store cards should use the
+   2-column form grid. The list-style tabs (Orders, Appointments, Addresses,
+   Wishlist, Cards, Contact Admin) need full-width children — filter bar on
+   top, table below. */
+#ptab-orders > .profile-card > .profile-card-body,
+#ptab-appointments > .profile-card > .profile-card-body,
+#ptab-addresses > .profile-card > .profile-card-body,
+#ptab-wishlist > .profile-card > .profile-card-body,
+#ptab-cards > .profile-card > .profile-card-body,
+#ptab-contact > .profile-card > .profile-card-body {
+	display: block;
+}
 /* Fields that contain a textarea (e.g. Address) span both columns */
 .profile-card-body .profile-field:has(textarea) { grid-column: 1 / -1; }
 /* Buttons + status messages also span both columns */

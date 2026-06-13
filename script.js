@@ -10030,13 +10030,29 @@ async function _renderOutPatientsTable(user) {
       return filterBar + '<div class="shop-empty" style="grid-column:1/-1">' + (_patientsSearch ? 'No out-patients match "' + searchVal + '".' : 'No out-patients in this range.') + '</div>';
    }
 
-   var rowHtml = rows.map(function(p) {
+   // Pick the first provider_id we saw for this patient — used to scope
+   // the history timeline lookup. (Reuses same logic as ID minting.)
+   var firstProviderByKey = {};
+   filtered.forEach(function(a) {
+      var phoneKey = (a.patient_phone || a.user_email || '').toLowerCase().trim();
+      var nameKey  = (a.patient_name  || '').toLowerCase().trim();
+      var key = phoneKey + '|' + nameKey;
+      if (!firstProviderByKey[key]) firstProviderByKey[key] = a.provider_id;
+   });
+
+   var rowHtml = rows.map(function(p, idx) {
       var lastLbl = p.lastDate ? new Date(p.lastDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
       var ids = Object.keys(p.patientIds || {});
       var idCell = ids.length
          ? ids.map(function(x) { return '<div class="apt-tbl-name" style="font-family:ui-monospace,monospace;font-size:0.78rem">' + x + '</div>'; }).join('')
          : '<span style="color:#bbb">— not paid yet</span>';
-      return '<tr>' +
+      var key = ((p.phone || p.email || '').toLowerCase().trim()) + '|' + ((p.name || '').toLowerCase().trim());
+      var provId = firstProviderByKey[key] || '';
+      var pidJs  = provId.replace(/'/g, "\\'");
+      var nameJs = (p.name || '').replace(/'/g, "\\'");
+      var phoneJs = (p.phone || '').replace(/'/g, "\\'");
+      return '<tr class="op-row" data-key="' + idx + '">' +
+                '<td style="width:32px;text-align:center"><span class="op-expand" onclick="_togglePatientHistory(\'op' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')" style="cursor:pointer;font-size:1.1rem;color:#1a73e8;user-select:none">▸</span></td>' +
                 '<td>' + idCell + '</td>' +
                 '<td><div class="apt-tbl-name">' + p.name + '</div>' +
                     (p.email ? '<div class="apt-tbl-sub">' + p.email + '</div>' : '') +
@@ -10045,6 +10061,10 @@ async function _renderOutPatientsTable(user) {
                 '<td style="text-align:center"><div class="apt-tbl-fee">' + p.visits + '</div><div class="apt-tbl-sub">' + p.completed + ' completed</div></td>' +
                 '<td><div class="apt-tbl-name">' + lastLbl + '</div></td>' +
                 '<td style="text-align:right"><div class="apt-tbl-fee">₹' + p.totalFee.toLocaleString('en-IN') + '</div></td>' +
+             '</tr>' +
+             '<tr class="op-history hidden" id="op-history-op' + idx + '">' +
+                '<td></td>' +
+                '<td colspan="6"><div class="patient-history-body">Loading…</div></td>' +
              '</tr>';
    }).join('');
 
@@ -10052,6 +10072,7 @@ async function _renderOutPatientsTable(user) {
       '<div class="apt-tbl-wrap" style="grid-column:1/-1">' +
          '<table class="apt-tbl">' +
             '<thead><tr>' +
+               '<th style="width:32px"></th>' +
                '<th>Patient ID</th>' +
                '<th>Patient</th>' +
                '<th>Phone</th>' +
@@ -10062,6 +10083,119 @@ async function _renderOutPatientsTable(user) {
             '<tbody>' + rowHtml + '</tbody>' +
          '</table>' +
       '</div>';
+}
+
+// ── Patient history timeline (inline, expandable in Out-patients) ──
+async function _togglePatientHistory(rowKey, providerId, phone, name) {
+   var row = document.getElementById('op-history-' + rowKey);
+   if (!row) return;
+   var arrow = row.previousElementSibling && row.previousElementSibling.querySelector('.op-expand');
+   if (row.classList.contains('hidden')) {
+      row.classList.remove('hidden');
+      if (arrow) arrow.textContent = '▾';
+      await _renderPatientHistoryPanel(rowKey, providerId, phone, name);
+   } else {
+      row.classList.add('hidden');
+      if (arrow) arrow.textContent = '▸';
+   }
+}
+
+async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
+   var host = document.querySelector('#op-history-' + rowKey + ' .patient-history-body');
+   if (!host) return;
+   host.innerHTML = '<div style="color:#888;padding:8px">Loading…</div>';
+   // Live updates: any new note for this patient re-renders the panel
+   _liveSubscribe('phist_' + rowKey, 'patient_notes', function() {
+      _renderPatientHistoryPanel(rowKey, providerId, phone, name);
+   });
+
+   var [rxRows, notes] = await Promise.all([
+      AppDB.getPatientPrescriptionHistory(providerId, phone, name),
+      AppDB.getPatientNotes(providerId, phone, name)
+   ]);
+
+   var visitsHtml;
+   if (!rxRows.length) {
+      visitsHtml = '<div style="color:#888;font-style:italic;padding:6px 0">No past prescriptions on file at this hospital.</div>';
+   } else {
+      visitsHtml = rxRows.map(function(r) {
+         var d = new Date(r.created_at);
+         var when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+         var meds = (r.medicines || []).map(function(m) {
+            return '<li><b>' + (m.name || '—') + '</b>' + (m.type ? ' <span style="color:#666">(' + m.type + ')</span>' : '') +
+                   (m.dosage ? ' · ' + m.dosage : '') +
+                   (m.duration ? ' · ' + m.duration : '') + '</li>';
+         }).join('');
+         var vitals = [];
+         if (r.weight_kg)   vitals.push('Wt ' + r.weight_kg + 'kg');
+         if (r.bp_systolic) vitals.push('BP ' + r.bp_systolic + '/' + (r.bp_diastolic || '—'));
+         if (r.pulse_bpm)   vitals.push('Pulse ' + r.pulse_bpm);
+         if (r.temp_f)      vitals.push('Temp ' + r.temp_f + '°F');
+         if (r.spo2)        vitals.push('SpO2 ' + r.spo2 + '%');
+         return '<div class="ph-visit">' +
+                   '<div class="ph-visit-head">' +
+                      '<span class="ph-visit-date">' + when + '</span> · ' +
+                      '<span class="ph-visit-doc">' + (r.doctor_name || '—') + '</span>' +
+                      (vitals.length ? '<span class="ph-visit-vitals">' + vitals.join(' · ') + '</span>' : '') +
+                   '</div>' +
+                   (r.diagnosis ? '<div class="ph-visit-dx"><strong>Dx:</strong> ' + r.diagnosis + '</div>' : '') +
+                   (meds ? '<ul class="ph-visit-meds">' + meds + '</ul>' : '') +
+                   (r.advice ? '<div class="ph-visit-advice"><strong>Advice:</strong> ' + r.advice + '</div>' : '') +
+                '</div>';
+      }).join('');
+   }
+
+   var notesHtml;
+   if (!notes.length) {
+      notesHtml = '<div style="color:#888;font-style:italic;padding:6px 0">No notes yet — first entry will appear here.</div>';
+   } else {
+      notesHtml = notes.map(function(n) {
+         var d = new Date(n.created_at);
+         var when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+         return '<div class="ph-note">' +
+                   '<div class="ph-note-head"><strong>' + (n.author_name || n.author_email || 'Staff') + '</strong> · <span class="ph-note-when">' + when + '</span></div>' +
+                   '<div class="ph-note-body">' + String(n.note).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}).replace(/\n/g, '<br/>') + '</div>' +
+                '</div>';
+      }).join('');
+   }
+
+   var providerJs = providerId.replace(/'/g, "\\'");
+   var phoneJs    = (phone || '').replace(/'/g, "\\'");
+   var nameJs     = (name  || '').replace(/'/g, "\\'");
+   host.innerHTML =
+      '<div class="patient-history">' +
+         '<div class="ph-section">' +
+            '<h4>📋 Past Visits</h4>' +
+            visitsHtml +
+         '</div>' +
+         '<div class="ph-section">' +
+            '<h4>📝 Notes</h4>' +
+            notesHtml +
+            '<div class="ph-add-note">' +
+               '<textarea id="ph-newnote-' + rowKey + '" placeholder="Add a note (e.g. allergy to penicillin · pre-booked tomorrow · referred to specialist)" rows="2"></textarea>' +
+               '<button onclick="_addPatientNote(\'' + rowKey + '\',\'' + providerJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">➕ Add Note</button>' +
+            '</div>' +
+         '</div>' +
+      '</div>';
+}
+
+async function _addPatientNote(rowKey, providerId, phone, name) {
+   var ta = document.getElementById('ph-newnote-' + rowKey);
+   if (!ta) return;
+   var text = (ta.value || '').trim();
+   if (!text) { alert('Type a note first.'); return; }
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var ok = await AppDB.addPatientNote({
+      provider_id: providerId,
+      patient_phone: phone,
+      patient_name: name,
+      author_email: user.email || '',
+      author_name:  user.name || '',
+      note: text
+   });
+   if (!ok) { alert('Failed to save note.'); return; }
+   ta.value = '';
+   _renderPatientHistoryPanel(rowKey, providerId, phone, name);
 }
 
 async function _renderInPatientsTable(user) {
@@ -10108,7 +10242,7 @@ async function _renderInPatientsTable(user) {
 
    var headerLine = searchBar;
 
-   var rowHtml = admitted.map(function(r) {
+   var rowHtml = admitted.map(function(r, idx) {
       var d = new Date((r.admit_date || '') + 'T00:00:00');
       var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
       var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -10119,7 +10253,11 @@ async function _renderInPatientsTable(user) {
          targetLbl = isDueToday ? 'TODAY' : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       }
       var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
-      return '<tr' + (isDueToday ? ' style="background:#fff8e1"' : '') + '>' +
+      var pidJs   = (r.provider_id || '').replace(/'/g, "\\'");
+      var phoneJs = (r.patient_phone || '').replace(/'/g, "\\'");
+      var nameJs  = (r.patient_name || '').replace(/'/g, "\\'");
+      return '<tr class="ip-row"' + (isDueToday ? ' style="background:#fff8e1"' : '') + '>' +
+                '<td style="width:32px;text-align:center"><span class="op-expand" onclick="_togglePatientHistory(\'ip' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')" style="cursor:pointer;font-size:1.1rem;color:#1a73e8;user-select:none">▸</span></td>' +
                 '<td><div class="apt-tbl-name">' + (r.patient_name || '—') + '</div>' +
                     (r.patient_ref ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
                 '</td>' +
@@ -10130,6 +10268,10 @@ async function _renderInPatientsTable(user) {
                 '<td><span class="apt-status confirmed">🗓️ ' + losDays + ' day' + (losDays === 1 ? '' : 's') + '</span></td>' +
                 '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
                 '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
+             '</tr>' +
+             '<tr class="op-history hidden" id="op-history-ip' + idx + '">' +
+                '<td></td>' +
+                '<td colspan="6"><div class="patient-history-body">Loading…</div></td>' +
              '</tr>';
    }).join('');
 
@@ -10137,6 +10279,7 @@ async function _renderInPatientsTable(user) {
       '<div class="apt-tbl-wrap" style="grid-column:1/-1">' +
          '<table class="apt-tbl">' +
             '<thead><tr>' +
+               '<th style="width:32px"></th>' +
                '<th>Patient</th>' +
                '<th>Phone</th>' +
                '<th>Location / Bed</th>' +
@@ -10207,7 +10350,7 @@ async function openPrescriptionModal(aptId) {
    // Past history
    get('rx-history-body').innerHTML = '<div style="color:#888;font-style:italic;padding:8px 0">Loading…</div>';
    get('rx-history-count').textContent = '';
-   AppDB.getPatientPrescriptionHistory(apt.provider_id, apt.patient_phone).then(function(rows) {
+   AppDB.getPatientPrescriptionHistory(apt.provider_id, apt.patient_phone, apt.patient_name).then(function(rows) {
       var countEl = get('rx-history-count');
       var bodyEl  = get('rx-history-body');
       if (!rows || !rows.length) {

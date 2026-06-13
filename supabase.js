@@ -256,8 +256,10 @@ window.AppDB = {
       if (error) { console.error('insertPrescription:', error.message); return false; }
       return true;
    },
-   // Patient history at one hospital, newest first. Keyed by normalized phone.
-   async getPatientPrescriptionHistory(providerId, phone) {
+   // Patient history at one hospital, newest first. Keyed by (provider, phone, name)
+   // so a family sharing one phone number doesn't collide — each person sees only
+   // their own visits. Name is matched on a normalized form (lowercased, single-spaced).
+   async getPatientPrescriptionHistory(providerId, phone, name) {
       const norm = (phone || '').replace(/\D/g, '').slice(-10);
       if (!providerId || norm.length !== 10) return [];
       const { data, error } = await _sb.from('prescriptions').select('*')
@@ -265,7 +267,10 @@ window.AppDB = {
          .eq('patient_phone_norm', norm)
          .order('created_at', { ascending: false });
       if (error) { console.error('getPatientPrescriptionHistory:', error.message); return []; }
-      return data || [];
+      const rows = data || [];
+      const nameNorm = this._normalizeName(name);
+      if (!nameNorm) return rows;
+      return rows.filter(r => this._normalizeName(r.patient_name) === nameNorm);
    },
    // Look up the prescription linked to one appointment, if it exists.
    // Used by the prescription modal so re-opening an already-written Rx
@@ -293,6 +298,38 @@ window.AppDB = {
          .eq('patient_phone_norm', norm)
          .order('created_at', { ascending: false });
       if (error) { console.error('getMyPrescriptions:', error.message); return []; }
+      return data || [];
+   },
+
+   // ── PATIENT NOTES (Phase 8.2) — append-only doctor/staff journal ──
+   async addPatientNote(n) {
+      const phoneNorm = (n.patient_phone || '').replace(/\D/g, '').slice(-10);
+      const nameNorm  = this._normalizeName(n.patient_name);
+      if (!n.provider_id || !phoneNorm || !nameNorm || !n.note) return false;
+      const row = {
+         id:                 'pn_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+         provider_id:        n.provider_id,
+         patient_phone_norm: phoneNorm,
+         patient_name:       n.patient_name || '',
+         patient_name_norm:  nameNorm,
+         author_email:       n.author_email || '',
+         author_name:        n.author_name || '',
+         note:               n.note
+      };
+      const { error } = await _sb.from('patient_notes').insert(row);
+      if (error) { console.error('addPatientNote:', error.message); return false; }
+      return true;
+   },
+   async getPatientNotes(providerId, phone, name) {
+      const phoneNorm = (phone || '').replace(/\D/g, '').slice(-10);
+      const nameNorm  = this._normalizeName(name);
+      if (!providerId || !phoneNorm || !nameNorm) return [];
+      const { data, error } = await _sb.from('patient_notes').select('*')
+         .eq('provider_id', providerId)
+         .eq('patient_phone_norm', phoneNorm)
+         .eq('patient_name_norm', nameNorm)
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getPatientNotes:', error.message); return []; }
       return data || [];
    },
 

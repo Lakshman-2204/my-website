@@ -10118,7 +10118,28 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
    if (!rxRows.length) {
       visitsHtml = '<div style="color:#888;font-style:italic;padding:6px 0">No past prescriptions on file at this hospital.</div>';
    } else {
-      visitsHtml = rxRows.map(function(r) {
+      // Summary strip — quick at-a-glance facts that save the doctor from
+      // having to scan every card to spot patterns (recurring complaints,
+      // frequent visitor, etc.)
+      var dxCounts = {};
+      rxRows.forEach(function(r) {
+         var k = (r.diagnosis || '').trim().toLowerCase();
+         if (k) dxCounts[k] = (dxCounts[k] || 0) + 1;
+      });
+      var topDx = Object.keys(dxCounts).sort(function(a, b) { return dxCounts[b] - dxCounts[a]; })[0];
+      var firstD = new Date(rxRows[rxRows.length - 1].created_at);
+      var lastD  = new Date(rxRows[0].created_at);
+      var firstLbl = isNaN(firstD.getTime()) ? '—' : firstD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      var lastLbl  = isNaN(lastD.getTime())  ? '—' : lastD.toLocaleDateString('en-IN',  { day: '2-digit', month: 'short', year: 'numeric' });
+      var summary =
+         '<div class="ph-summary">' +
+            '<span><strong>' + rxRows.length + '</strong> visit' + (rxRows.length === 1 ? '' : 's') + '</span>' +
+            '<span>First: <strong>' + firstLbl + '</strong></span>' +
+            '<span>Most recent: <strong>' + lastLbl + '</strong></span>' +
+            (topDx ? '<span>Most common Dx: <strong>' + topDx + '</strong></span>' : '') +
+         '</div>';
+
+      visitsHtml = summary + rxRows.map(function(r) {
          var d = new Date(r.created_at);
          var when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
          var meds = (r.medicines || []).map(function(m) {
@@ -10132,15 +10153,23 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
          if (r.pulse_bpm)   vitals.push('Pulse ' + r.pulse_bpm);
          if (r.temp_f)      vitals.push('Temp ' + r.temp_f + '°F');
          if (r.spo2)        vitals.push('SpO2 ' + r.spo2 + '%');
+         var fuLbl = '';
+         if (r.follow_up_date) {
+            var fd = new Date(r.follow_up_date + 'T00:00:00');
+            if (!isNaN(fd.getTime())) fuLbl = fd.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+         }
          return '<div class="ph-visit">' +
                    '<div class="ph-visit-head">' +
                       '<span class="ph-visit-date">' + when + '</span> · ' +
-                      '<span class="ph-visit-doc">' + (r.doctor_name || '—') + '</span>' +
+                      '<span class="ph-visit-doc">' + (r.doctor_name || '—') +
+                      (r.doctor_speciality ? ' <span style="color:#8a93a7">· ' + r.doctor_speciality + '</span>' : '') +
+                      '</span>' +
                       (vitals.length ? '<span class="ph-visit-vitals">' + vitals.join(' · ') + '</span>' : '') +
                    '</div>' +
                    (r.diagnosis ? '<div class="ph-visit-dx"><strong>Dx:</strong> ' + r.diagnosis + '</div>' : '') +
                    (meds ? '<ul class="ph-visit-meds">' + meds + '</ul>' : '') +
                    (r.advice ? '<div class="ph-visit-advice"><strong>Advice:</strong> ' + r.advice + '</div>' : '') +
+                   (fuLbl ? '<div class="ph-visit-fu">📅 Follow-up advised: <strong>' + fuLbl + '</strong></div>' : '') +
                 '</div>';
       }).join('');
    }

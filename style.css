@@ -2031,8 +2031,19 @@ body.guest .store-section-divider {
 }
 .patient-history .ph-notes-btn:hover { background: #1a73e8; color: #fff; }
 
+.patient-history .ph-summary {
+	display: flex; flex-wrap: wrap; gap: 6px 14px;
+	background: #f3f6fc; border: 1px solid #e0e7f5; border-radius: 8px;
+	padding: 8px 12px; margin-bottom: 10px; font-size: 0.8rem; color: #5f6473;
+}
+.patient-history .ph-summary strong { color: #1a1a2e; }
+.patient-history .ph-visit-fu {
+	margin-top: 6px; padding-top: 6px; border-top: 1px dashed #eef0f5;
+	font-size: 0.8rem; color: #1a73e8;
+}
+
 /* Notes modal (opens from Show Notes button) */
-.notes-modal-card { max-width: 560px; width: 92vw; }
+.notes-modal-card { max-width: 760px; width: 92vw; }
 .notes-modal-card .ph-note {
 	background: #fff; border-left: 3px solid #1a73e8;
 	padding: 10px 12px; margin-bottom: 8px;

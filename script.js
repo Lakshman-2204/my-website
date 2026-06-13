@@ -10172,14 +10172,14 @@ async function _openNotesModal(providerId, phone, name) {
    if (!modal) {
       modal = document.createElement('div');
       modal.id = 'notesModal';
-      modal.className = 'modal-overlay hidden';
+      modal.className = 'sp-modal-overlay hidden';
       modal.innerHTML =
-         '<div class="modal-card notes-modal-card">' +
-            '<div class="modal-head">' +
+         '<div class="sp-modal notes-modal-card">' +
+            '<div class="sp-modal-header">' +
                '<h3 id="notes-modal-title">📝 Patient Notes</h3>' +
-               '<button class="modal-close" onclick="_closeNotesModal()">✕</button>' +
+               '<button onclick="_closeNotesModal()">✕</button>' +
             '</div>' +
-            '<div class="modal-body">' +
+            '<div class="sp-modal-body">' +
                '<div id="notes-modal-list" style="max-height:50vh;overflow:auto;margin-bottom:14px"></div>' +
                '<div class="ph-add-note">' +
                   '<textarea id="notes-modal-input" placeholder="Add a note (e.g. allergy to penicillin · referred to specialist · pre-booked tomorrow)" rows="3"></textarea>' +

@@ -2015,6 +2015,7 @@ body.guest .store-section-divider {
 .op-expand { transition: color 0.15s; }
 .op-expand:hover { color: #1557b0; }
 .patient-history-body { padding: 14px 18px; background: #fafbfd; }
+.patient-history { max-width: 720px; }
 .patient-history .ph-section h4 {
 	margin: 0; font-size: 0.82rem;
 	color: #1565c0; text-transform: uppercase; letter-spacing: 0.05em;

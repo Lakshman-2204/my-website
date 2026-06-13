@@ -10211,7 +10211,7 @@ async function _openNotesModal(providerId, phone, name) {
             '<div class="sp-modal-body">' +
                '<div id="notes-modal-list" style="max-height:50vh;overflow:auto;margin-bottom:14px"></div>' +
                '<div class="ph-add-note">' +
-                  '<textarea id="notes-modal-input" placeholder="Add a note (e.g. allergy to penicillin · referred to specialist · pre-booked tomorrow)" rows="3"></textarea>' +
+                  '<textarea id="notes-modal-input" placeholder="Add a note (e.g. allergy to penicillin · referred to specialist · pre-booked tomorrow)" rows="5"></textarea>' +
                   '<button onclick="_submitNoteFromModal()">➕ Add Note</button>' +
                '</div>' +
             '</div>' +

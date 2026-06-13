@@ -2043,7 +2043,9 @@ body.guest .store-section-divider {
 }
 
 /* Notes modal (opens from Show Notes button) */
-.notes-modal-card { max-width: 760px; width: 92vw; }
+.notes-modal-card { max-width: 1100px; width: 92vw; }
+.notes-modal-card .sp-modal-body { padding: 22px 26px; }
+.notes-modal-card #notes-modal-list { max-height: 60vh !important; }
 .notes-modal-card .ph-note {
 	background: #fff; border-left: 3px solid #1a73e8;
 	padding: 10px 12px; margin-bottom: 8px;

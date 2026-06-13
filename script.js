@@ -10145,57 +10145,101 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
       }).join('');
    }
 
-   var notesHtml;
-   if (!notes.length) {
-      notesHtml = '<div style="color:#888;font-style:italic;padding:6px 0">No notes yet — first entry will appear here.</div>';
-   } else {
-      notesHtml = notes.map(function(n) {
-         var d = new Date(n.created_at);
-         var when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-         return '<div class="ph-note">' +
-                   '<div class="ph-note-head"><strong>' + (n.author_name || n.author_email || 'Staff') + '</strong> · <span class="ph-note-when">' + when + '</span></div>' +
-                   '<div class="ph-note-body">' + String(n.note).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}).replace(/\n/g, '<br/>') + '</div>' +
-                '</div>';
-      }).join('');
-   }
-
    var providerJs = providerId.replace(/'/g, "\\'");
    var phoneJs    = (phone || '').replace(/'/g, "\\'");
    var nameJs     = (name  || '').replace(/'/g, "\\'");
+   var noteCount  = notes.length;
+   var noteBtnLbl = noteCount ? '📝 Show Notes (' + noteCount + ')' : '📝 Add Notes';
+
    host.innerHTML =
       '<div class="patient-history">' +
          '<div class="ph-section">' +
-            '<h4>📋 Past Visits</h4>' +
-            visitsHtml +
-         '</div>' +
-         '<div class="ph-section">' +
-            '<h4>📝 Notes</h4>' +
-            notesHtml +
-            '<div class="ph-add-note">' +
-               '<textarea id="ph-newnote-' + rowKey + '" placeholder="Add a note (e.g. allergy to penicillin · pre-booked tomorrow · referred to specialist)" rows="2"></textarea>' +
-               '<button onclick="_addPatientNote(\'' + rowKey + '\',\'' + providerJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">➕ Add Note</button>' +
+            '<div class="ph-section-head">' +
+               '<h4>📋 Past Visits</h4>' +
+               '<button class="ph-notes-btn" onclick="_openNotesModal(\'' + providerJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' + noteBtnLbl + '</button>' +
             '</div>' +
+            visitsHtml +
          '</div>' +
       '</div>';
 }
 
-async function _addPatientNote(rowKey, providerId, phone, name) {
-   var ta = document.getElementById('ph-newnote-' + rowKey);
+// ── Notes modal (opens from the Show Notes button in the timeline) ──
+var _notesModalCtx = null;  // {providerId, phone, name}
+
+async function _openNotesModal(providerId, phone, name) {
+   _notesModalCtx = { providerId: providerId, phone: phone, name: name };
+   var modal = document.getElementById('notesModal');
+   if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'notesModal';
+      modal.className = 'modal-overlay hidden';
+      modal.innerHTML =
+         '<div class="modal-card notes-modal-card">' +
+            '<div class="modal-head">' +
+               '<h3 id="notes-modal-title">📝 Patient Notes</h3>' +
+               '<button class="modal-close" onclick="_closeNotesModal()">✕</button>' +
+            '</div>' +
+            '<div class="modal-body">' +
+               '<div id="notes-modal-list" style="max-height:50vh;overflow:auto;margin-bottom:14px"></div>' +
+               '<div class="ph-add-note">' +
+                  '<textarea id="notes-modal-input" placeholder="Add a note (e.g. allergy to penicillin · referred to specialist · pre-booked tomorrow)" rows="3"></textarea>' +
+                  '<button onclick="_submitNoteFromModal()">➕ Add Note</button>' +
+               '</div>' +
+            '</div>' +
+         '</div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) _closeNotesModal(); });
+   }
+   document.getElementById('notes-modal-title').textContent = '📝 Notes for ' + (name || 'Patient');
+   modal.classList.remove('hidden');
+   await _refreshNotesModal();
+   _liveSubscribe('notes_modal', 'patient_notes', function() { _refreshNotesModal(); });
+}
+
+function _closeNotesModal() {
+   var modal = document.getElementById('notesModal');
+   if (modal) modal.classList.add('hidden');
+   _notesModalCtx = null;
+}
+
+async function _refreshNotesModal() {
+   if (!_notesModalCtx) return;
+   var list = document.getElementById('notes-modal-list');
+   if (!list) return;
+   list.innerHTML = '<div style="color:#888;padding:8px">Loading…</div>';
+   var notes = await AppDB.getPatientNotes(_notesModalCtx.providerId, _notesModalCtx.phone, _notesModalCtx.name);
+   if (!notes.length) {
+      list.innerHTML = '<div style="color:#888;font-style:italic;padding:10px 0;text-align:center">No notes yet — first entry will appear here.</div>';
+      return;
+   }
+   list.innerHTML = notes.map(function(n) {
+      var d = new Date(n.created_at);
+      var when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      return '<div class="ph-note">' +
+                '<div class="ph-note-head"><strong>' + (n.author_name || n.author_email || 'Staff') + '</strong> · <span class="ph-note-when">' + when + '</span></div>' +
+                '<div class="ph-note-body">' + String(n.note).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}).replace(/\n/g, '<br/>') + '</div>' +
+             '</div>';
+   }).join('');
+}
+
+async function _submitNoteFromModal() {
+   if (!_notesModalCtx) return;
+   var ta = document.getElementById('notes-modal-input');
    if (!ta) return;
    var text = (ta.value || '').trim();
    if (!text) { alert('Type a note first.'); return; }
    var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
    var ok = await AppDB.addPatientNote({
-      provider_id: providerId,
-      patient_phone: phone,
-      patient_name: name,
-      author_email: user.email || '',
-      author_name:  user.name || '',
+      provider_id:   _notesModalCtx.providerId,
+      patient_phone: _notesModalCtx.phone,
+      patient_name:  _notesModalCtx.name,
+      author_email:  user.email || '',
+      author_name:   user.name || '',
       note: text
    });
    if (!ok) { alert('Failed to save note.'); return; }
    ta.value = '';
-   _renderPatientHistoryPanel(rowKey, providerId, phone, name);
+   await _refreshNotesModal();
 }
 
 async function _renderInPatientsTable(user) {

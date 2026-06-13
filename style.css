@@ -2011,6 +2011,65 @@ body.guest .store-section-divider {
 .total-apts-card .tac-done { background: #dfeeff; color: #1565c0; }
 .total-apts-card .tac-up   { background: #ffeed3; color: #e65100; }
 
+/* Patient history timeline (Out-patients inline expansion) */
+.op-expand { transition: color 0.15s; }
+.op-expand:hover { color: #1557b0; }
+.patient-history-body { padding: 14px 18px; background: #fafbfd; }
+.patient-history .ph-section h4 {
+	margin: 0; font-size: 0.82rem;
+	color: #1565c0; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.patient-history .ph-section-head {
+	display: flex; justify-content: space-between; align-items: center;
+	border-bottom: 1px solid #e0e4ec; padding-bottom: 6px; margin-bottom: 10px;
+}
+.patient-history .ph-notes-btn {
+	background: #fff; color: #1a73e8; border: 1px solid #1a73e8;
+	border-radius: 6px; padding: 5px 12px; font-size: 0.78rem;
+	font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.patient-history .ph-notes-btn:hover { background: #1a73e8; color: #fff; }
+
+/* Notes modal (opens from Show Notes button) */
+.notes-modal-card { max-width: 560px; width: 92vw; }
+.notes-modal-card .ph-note {
+	background: #fff; border-left: 3px solid #1a73e8;
+	padding: 10px 12px; margin-bottom: 8px;
+	font-size: 0.88rem; border-radius: 4px;
+	box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+}
+.notes-modal-card .ph-note-head { font-size: 0.78rem; color: #5f6473; margin-bottom: 4px; }
+.notes-modal-card .ph-note-head strong { color: #1a1a2e; }
+.notes-modal-card .ph-note-when { color: #8a93a7; }
+.notes-modal-card .ph-note-body { color: #1a1a2e; white-space: pre-wrap; }
+.notes-modal-card .ph-add-note { margin-top: 10px; display: flex; gap: 8px; align-items: flex-end; }
+.notes-modal-card .ph-add-note textarea {
+	flex: 1; padding: 8px 10px; border: 1px solid #cbd4e3;
+	border-radius: 6px; resize: vertical; font-family: inherit; font-size: 0.88rem;
+}
+.notes-modal-card .ph-add-note textarea:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 3px rgba(26,115,232,0.12); }
+.notes-modal-card .ph-add-note button {
+	background: #1a73e8; color: #fff; border: none;
+	border-radius: 6px; padding: 8px 14px; cursor: pointer;
+	font-weight: 600; font-size: 0.85rem; white-space: nowrap;
+}
+.notes-modal-card .ph-add-note button:hover { background: #1557b0; }
+.patient-history .ph-visit {
+	background: #fff; border: 1px solid #eef0f5; border-radius: 8px;
+	padding: 10px 12px; margin-bottom: 8px; font-size: 0.85rem;
+}
+.patient-history .ph-visit-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; color: #1a1a2e; font-size: 0.82rem; margin-bottom: 6px; }
+.patient-history .ph-visit-date { font-weight: 700; }
+.patient-history .ph-visit-doc { color: #5f6473; }
+.patient-history .ph-visit-vitals {
+	margin-left: auto; font-size: 0.74rem; color: #5f6473;
+	background: #f3f6fc; padding: 2px 8px; border-radius: 999px;
+}
+.patient-history .ph-visit-dx { color: #444; margin-bottom: 4px; }
+.patient-history .ph-visit-meds { margin: 4px 0; padding-left: 18px; color: #444; font-size: 0.82rem; }
+.patient-history .ph-visit-meds li { margin: 1px 0; }
+.patient-history .ph-visit-advice { color: #5f6473; font-size: 0.82rem; font-style: italic; margin-top: 4px; }
+
 /* Admissions table — Rounds pill, click to toggle */
 .adm-rounds-pill {
 	display: inline-block;

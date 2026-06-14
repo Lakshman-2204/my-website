@@ -704,3 +704,80 @@ END $$;
 ALTER TABLE public.prescriptions
    ADD COLUMN IF NOT EXISTS doctor_reg_no text DEFAULT '',
    ADD COLUMN IF NOT EXISTS allergies     text DEFAULT '';
+
+-- 30. DISCHARGE_SUMMARIES — DAMA fields. When the condition_at_discharge is
+--     'DAMA' (Discharged Against Medical Advice), the hospital must capture
+--     the risks explained to the patient and the patient's stated reason for
+--     leaving. These are printed on a separate DAMA acknowledgement form
+--     that the patient/attendant signs — distinct from a regular discharge
+--     summary. Storing on the same row keeps a single source of truth per
+--     admission.
+ALTER TABLE public.discharge_summaries
+   ADD COLUMN IF NOT EXISTS dama_risks_explained text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS dama_reason_given    text DEFAULT '';
+
+-- 31. IP_BILLS — final itemized in-patient bill issued at discharge. One
+--     bill per admission (UNIQUE admission_id). Bill numbers are sequential
+--     per hospital so the printed bill carries an audit-friendly reference.
+--     Status flow: Draft (editable) → Issued (printed, locked) → Paid.
+--     Subtotal / discount / GST / advance / round-off / net are all stored
+--     denormalized so reprints stay accurate even if a line item changes.
+CREATE TABLE IF NOT EXISTS public.ip_bills (
+   id            text         PRIMARY KEY,
+   provider_id   text         NOT NULL,
+   admission_id  text         NOT NULL UNIQUE,
+   bill_seq      integer      NOT NULL,
+   bill_no       text         NOT NULL,
+   bill_date     date         NOT NULL,
+   subtotal      numeric      DEFAULT 0,
+   discount_pct  numeric      DEFAULT 0,
+   discount_amt  numeric      DEFAULT 0,
+   gst_total     numeric      DEFAULT 0,
+   advance_paid  numeric      DEFAULT 0,
+   round_off     numeric      DEFAULT 0,
+   net_payable   numeric      DEFAULT 0,
+   status        text         DEFAULT 'Draft',
+   issued_at     timestamptz,
+   notes         text         DEFAULT '',
+   created_at    timestamptz  DEFAULT now(),
+   updated_at    timestamptz  DEFAULT now(),
+   UNIQUE (provider_id, bill_seq)
+);
+ALTER TABLE public.ip_bills DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS ip_bills_provider_idx ON public.ip_bills(provider_id);
+
+-- 32. IP_BILL_ITEMS — line items for one IP bill. Categories cover the
+--     standard hospital cost centres (room rent, doctor fee, investigations,
+--     pharmacy, consumables, procedure, service, other). HSN/SAC is the
+--     India-specific tax classification code printed on each line for GST
+--     compliance. Amount = qty × rate; gst_amt is computed from gst_pct;
+--     total = amount + gst_amt. We delete + bulk-reinsert on every save
+--     rather than tracking row-level updates — simpler and safe at this scale.
+CREATE TABLE IF NOT EXISTS public.ip_bill_items (
+   id           text         PRIMARY KEY,
+   bill_id      text         NOT NULL,
+   provider_id  text         NOT NULL,
+   sort_order   integer      DEFAULT 0,
+   category     text         NOT NULL,
+   description  text         NOT NULL,
+   hsn_sac      text         DEFAULT '',
+   qty          numeric      DEFAULT 1,
+   rate         numeric      NOT NULL,
+   gst_pct      numeric      DEFAULT 0,
+   amount       numeric      NOT NULL,
+   gst_amt      numeric      DEFAULT 0,
+   total        numeric      NOT NULL,
+   created_at   timestamptz  DEFAULT now()
+);
+ALTER TABLE public.ip_bill_items DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS ip_bill_items_bill_idx     ON public.ip_bill_items(bill_id);
+CREATE INDEX IF NOT EXISTS ip_bill_items_provider_idx ON public.ip_bill_items(provider_id);
+
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.ip_bills;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.ip_bill_items;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

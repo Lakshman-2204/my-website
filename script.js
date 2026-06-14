@@ -10968,6 +10968,430 @@ async function printDepositReceipt(paymentId) {
    w.document.write(html); w.document.close();
 }
 
+// ── IP BILL — itemized in-patient bill with GST split ──
+// Working state held in module-scoped variables while the modal is open:
+// the line items, the admission row, and the advance running total. The
+// modal saves into ip_bills + ip_bill_items via supabase.upsertIpBill which
+// replaces the items wholesale on each save (delete-then-insert).
+var _billAdmission = null;
+var _billItems = [];          // [{category, description, hsn_sac, qty, rate, gst_pct, amount, gst_amt, total}]
+var _billAdvancePaid = 0;
+var _billExisting = null;     // existing ip_bills row if any
+
+// GST defaults per category (Indian healthcare typical rates). Doctor /
+// accountant can override per-line. Healthcare services to humans are
+// generally GST-exempt; medicines and consumables attract GST.
+var BILL_CATEGORIES = [
+   { value: 'Room',          label: 'Room Rent',     gst: 0,  hsn: '996311' },
+   { value: 'Doctor Fee',    label: 'Doctor Fee',    gst: 0,  hsn: '999312' },
+   { value: 'Nursing',       label: 'Nursing',       gst: 0,  hsn: '999319' },
+   { value: 'Procedure',     label: 'Procedure / OT', gst: 0, hsn: '999319' },
+   { value: 'Investigation', label: 'Investigation', gst: 0,  hsn: '999316' },
+   { value: 'Medicine',      label: 'Medicine',      gst: 12, hsn: '3004'   },
+   { value: 'Consumable',    label: 'Consumable',    gst: 12, hsn: '9018'   },
+   { value: 'Service',       label: 'Service',       gst: 18, hsn: ''       },
+   { value: 'Other',         label: 'Other',         gst: 0,  hsn: ''       }
+];
+
+async function openIpBillModal(admId) {
+   var rows = await AppDB.getAdmissions(_admHospitalChoice);
+   var r = (rows || []).find(function(x) { return x.id === admId; });
+   if (!r) { alert('Admission not found.'); return; }
+   _billAdmission = r;
+   _billItems = [];
+
+   var get = function(eid) { return document.getElementById(eid); };
+   get('bill-admission-id').value = r.id;
+
+   // Patient strip
+   var admitLbl = r.admit_date ? new Date(r.admit_date + 'T00:00:00').toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+   get('bill-patient-strip').innerHTML =
+      '<strong>' + (r.patient_name || '—') + '</strong>' +
+      (r.patient_ref ? ' · UHID ' + r.patient_ref : '') +
+      (r.patient_phone ? ' · 📞 ' + r.patient_phone : '') +
+      '<br/><span style="color:#666;font-size:0.82rem">' +
+         (r.ward ? r.ward : '—') + (r.room_bed ? ' · ' + r.room_bed : '') +
+         ' · Admitted ' + admitLbl + (r.room_category ? ' · ' + r.room_category : '') +
+         (r.payment_mode ? ' · ' + r.payment_mode : '') +
+      '</span>';
+
+   // Live advance from admission_payments
+   var payments = await AppDB.getAdmissionPayments(r.id);
+   _billAdvancePaid = (payments || []).reduce(function(s, p) { return s + Number(p.amount || 0); }, 0);
+
+   // Load existing bill if present
+   _billExisting = await AppDB.getIpBill(r.id);
+   if (_billExisting) {
+      document.getElementById('ipBillModalTitle').textContent = '✏️ Edit IP Bill · ' + _billExisting.bill_no + (_billExisting.status === 'Issued' ? ' (Issued)' : ' (Draft)');
+      var existingItems = await AppDB.getIpBillItems(_billExisting.id);
+      _billItems = (existingItems || []).map(function(it) {
+         return {
+            category: it.category, description: it.description, hsn_sac: it.hsn_sac,
+            qty: Number(it.qty || 1), rate: Number(it.rate || 0), gst_pct: Number(it.gst_pct || 0),
+            amount: Number(it.amount || 0), gst_amt: Number(it.gst_amt || 0), total: Number(it.total || 0)
+         };
+      });
+      get('bill-discount-pct').value = _billExisting.discount_pct || '';
+      get('bill-discount-amt').value = _billExisting.discount_amt || '';
+      get('bill-round-off').value    = _billExisting.round_off    || '';
+      get('bill-notes').value        = _billExisting.notes        || '';
+   } else {
+      document.getElementById('ipBillModalTitle').textContent = '🧾 Itemized IP Bill';
+      get('bill-discount-pct').value = '';
+      get('bill-discount-amt').value = '';
+      get('bill-round-off').value    = '';
+      get('bill-notes').value        = '';
+   }
+
+   _billRenderItems();
+   _billRecalc();
+   document.getElementById('ipBillModal').classList.remove('hidden');
+}
+
+function closeIpBillModal() {
+   document.getElementById('ipBillModal').classList.add('hidden');
+   _billAdmission = null;
+   _billItems = [];
+   _billExisting = null;
+}
+
+function _billAddItem(prefill) {
+   var defaults = BILL_CATEGORIES[0];
+   var item = Object.assign({
+      category:    defaults.value,
+      description: '',
+      hsn_sac:     defaults.hsn,
+      qty:         1,
+      rate:        0,
+      gst_pct:     defaults.gst,
+      amount:      0,
+      gst_amt:     0,
+      total:       0
+   }, prefill || {});
+   _billItems.push(item);
+   _billRenderItems();
+   _billRecalc();
+}
+
+function _billRemoveItem(idx) {
+   _billItems.splice(idx, 1);
+   _billRenderItems();
+   _billRecalc();
+}
+
+function _billUpdateField(idx, field, value) {
+   var item = _billItems[idx];
+   if (!item) return;
+   if (field === 'category') {
+      item.category = value;
+      var cat = BILL_CATEGORIES.find(function(c) { return c.value === value; });
+      if (cat) {
+         // Only override HSN/GST if they are at the previous default — don't
+         // clobber a value the user manually set.
+         if (!item.hsn_sac) item.hsn_sac = cat.hsn;
+         if (item.gst_pct === 0 || item.gst_pct == null) item.gst_pct = cat.gst;
+      }
+   } else if (field === 'qty' || field === 'rate' || field === 'gst_pct') {
+      item[field] = Number(value) || 0;
+   } else {
+      item[field] = value;
+   }
+   item.amount  = Number((item.qty * item.rate).toFixed(2));
+   item.gst_amt = Number(((item.amount * item.gst_pct) / 100).toFixed(2));
+   item.total   = Number((item.amount + item.gst_amt).toFixed(2));
+   // Update just this row's display values without rerendering everything
+   // (prevents the user's focused input from losing focus)
+   var totalEl = document.querySelector('#bill-items-body tr[data-idx="' + idx + '"] .bill-row-total');
+   if (totalEl) totalEl.textContent = '₹' + item.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+   _billRecalc();
+}
+
+function _billRenderItems() {
+   var body = document.getElementById('bill-items-body');
+   if (!body) return;
+   if (!_billItems.length) {
+      body.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:#888;font-style:italic">No line items yet — click "+ Add Line" or use a quick-add button above.</td></tr>';
+      return;
+   }
+   body.innerHTML = _billItems.map(function(it, idx) {
+      var catOpts = BILL_CATEGORIES.map(function(c) {
+         return '<option value="' + c.value + '"' + (c.value === it.category ? ' selected' : '') + '>' + c.label + '</option>';
+      }).join('');
+      var totalStr = '₹' + Number(it.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return '<tr data-idx="' + idx + '" style="border-top:1px solid #eef0f5">' +
+                '<td style="padding:6px 8px"><select onchange="_billUpdateField(' + idx + ',\'category\',this.value)" style="width:100%;padding:5px 6px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.82rem;background:#fff">' + catOpts + '</select></td>' +
+                '<td style="padding:6px 8px"><input type="text" value="' + (it.description || '').replace(/"/g,'&quot;') + '" oninput="_billUpdateField(' + idx + ',\'description\',this.value)" placeholder="e.g. Ward A · Single occupancy" style="width:100%;padding:5px 8px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.82rem"/></td>' +
+                '<td style="padding:6px 8px"><input type="text" value="' + (it.hsn_sac || '').replace(/"/g,'&quot;') + '" oninput="_billUpdateField(' + idx + ',\'hsn_sac\',this.value)" placeholder="" style="width:100%;padding:5px 6px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.78rem"/></td>' +
+                '<td style="padding:6px 4px"><input type="number" min="0" step="1" value="' + (it.qty || 0) + '" oninput="_billUpdateField(' + idx + ',\'qty\',this.value)" style="width:100%;padding:5px 4px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.82rem;text-align:right"/></td>' +
+                '<td style="padding:6px 4px"><input type="number" min="0" step="0.01" value="' + (it.rate || 0) + '" oninput="_billUpdateField(' + idx + ',\'rate\',this.value)" style="width:100%;padding:5px 4px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.82rem;text-align:right"/></td>' +
+                '<td style="padding:6px 4px"><input type="number" min="0" step="0.5" value="' + (it.gst_pct || 0) + '" oninput="_billUpdateField(' + idx + ',\'gst_pct\',this.value)" style="width:100%;padding:5px 4px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.82rem;text-align:right"/></td>' +
+                '<td style="padding:6px 10px;text-align:right;font-weight:600"><span class="bill-row-total">' + totalStr + '</span></td>' +
+                '<td style="padding:6px 4px;text-align:center"><button type="button" onclick="_billRemoveItem(' + idx + ')" title="Remove" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1.1rem">×</button></td>' +
+             '</tr>';
+   }).join('');
+}
+
+function _billRecalc() {
+   var subtotal = 0, gstTotal = 0;
+   _billItems.forEach(function(it) {
+      subtotal += Number(it.amount || 0);
+      gstTotal += Number(it.gst_amt || 0);
+   });
+   var discPct = Number(document.getElementById('bill-discount-pct').value) || 0;
+   var discAmt = Number(document.getElementById('bill-discount-amt').value) || 0;
+   var roundOff = Number(document.getElementById('bill-round-off').value) || 0;
+   // If both pct and amt are present, treat pct as the source of truth and
+   // recompute amt for display (silently — don't overwrite the user's input).
+   var effectiveDiscount = discAmt;
+   if (discPct > 0) effectiveDiscount = ((subtotal + gstTotal) * discPct) / 100;
+   var net = subtotal + gstTotal - effectiveDiscount - _billAdvancePaid + roundOff;
+   if (net < 0) net = 0;
+
+   var fmt = function(n) { return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+   document.getElementById('bill-subtotal').textContent    = fmt(subtotal);
+   document.getElementById('bill-gst-total').textContent   = fmt(gstTotal);
+   document.getElementById('bill-advance').textContent     = fmt(_billAdvancePaid);
+   document.getElementById('bill-net-payable').textContent = fmt(net);
+
+   // GST split — group by rate
+   var splitMap = {};
+   _billItems.forEach(function(it) {
+      var k = Number(it.gst_pct || 0);
+      splitMap[k] = (splitMap[k] || 0) + Number(it.gst_amt || 0);
+   });
+   var splitLines = Object.keys(splitMap).filter(function(k) { return splitMap[k] > 0; })
+      .sort(function(a, b) { return Number(a) - Number(b); })
+      .map(function(k) { return 'GST @ ' + k + '%: ' + fmt(splitMap[k]); });
+   document.getElementById('bill-gst-split').textContent = splitLines.length ? splitLines.join(' · ') : 'No GST charged';
+}
+
+function _billQuickAddRoomRent() {
+   if (!_billAdmission) return;
+   var days = 1;
+   if (_billAdmission.admit_date) {
+      var a = new Date(_billAdmission.admit_date + 'T00:00:00');
+      var b = new Date();
+      if (!isNaN(a.getTime())) days = Math.max(1, Math.round((b - a) / 86400000));
+   }
+   _billAddItem({
+      category: 'Room',
+      description: (_billAdmission.room_category || 'Room') + ' · ' + (_billAdmission.ward || '—') + (_billAdmission.room_bed ? ' · ' + _billAdmission.room_bed : ''),
+      hsn_sac: '996311',
+      qty: days,
+      rate: 0,
+      gst_pct: 0
+   });
+}
+
+function _billQuickAddDoctorVisits() {
+   if (!_billAdmission) return;
+   var days = 1;
+   if (_billAdmission.admit_date) {
+      var a = new Date(_billAdmission.admit_date + 'T00:00:00');
+      var b = new Date();
+      if (!isNaN(a.getTime())) days = Math.max(1, Math.round((b - a) / 86400000));
+   }
+   _billAddItem({
+      category: 'Doctor Fee',
+      description: 'Doctor visit charges · ' + (_billAdmission.doctor_name || 'Treating doctor'),
+      hsn_sac: '999312',
+      qty: days,
+      rate: 0,
+      gst_pct: 0
+   });
+}
+
+function _billQuickAddNursing() {
+   if (!_billAdmission) return;
+   var days = 1;
+   if (_billAdmission.admit_date) {
+      var a = new Date(_billAdmission.admit_date + 'T00:00:00');
+      var b = new Date();
+      if (!isNaN(a.getTime())) days = Math.max(1, Math.round((b - a) / 86400000));
+   }
+   _billAddItem({
+      category: 'Nursing',
+      description: 'Nursing charges',
+      hsn_sac: '999319',
+      qty: days,
+      rate: 0,
+      gst_pct: 0
+   });
+}
+
+async function saveIpBill(status, printAfter) {
+   if (!_billAdmission) return;
+   if (status === 'Issued' && !_billItems.length) {
+      alert('Cannot issue an empty bill. Add at least one line item.');
+      return;
+   }
+   var subtotal = 0, gstTotal = 0;
+   _billItems.forEach(function(it) {
+      subtotal += Number(it.amount || 0);
+      gstTotal += Number(it.gst_amt || 0);
+   });
+   var discPct = Number(document.getElementById('bill-discount-pct').value) || 0;
+   var discAmt = Number(document.getElementById('bill-discount-amt').value) || 0;
+   var roundOff = Number(document.getElementById('bill-round-off').value) || 0;
+   var effectiveDiscount = discAmt;
+   if (discPct > 0) effectiveDiscount = ((subtotal + gstTotal) * discPct) / 100;
+   var net = subtotal + gstTotal - effectiveDiscount - _billAdvancePaid + roundOff;
+   if (net < 0) net = 0;
+
+   var res = await AppDB.upsertIpBill({
+      provider_id:  _billAdmission.provider_id,
+      admission_id: _billAdmission.id,
+      bill_date:    _todayLocalYmd(),
+      subtotal:     subtotal,
+      discount_pct: discPct,
+      discount_amt: effectiveDiscount,
+      gst_total:    gstTotal,
+      advance_paid: _billAdvancePaid,
+      round_off:    roundOff,
+      net_payable:  net,
+      status:       status,
+      notes:        document.getElementById('bill-notes').value || ''
+   }, _billItems);
+
+   if (!res) { alert('Failed to save bill.'); return; }
+   var admId = _billAdmission.id;
+   closeIpBillModal();
+   if (printAfter) printIpBill(admId);
+   renderShopAdmissions();
+}
+
+async function printIpBill(admId) {
+   var bill = await AppDB.getIpBill(admId);
+   if (!bill) { alert('Bill not found.'); return; }
+   var items = await AppDB.getIpBillItems(bill.id);
+   var admRows = await AppDB.getAdmissions(bill.provider_id);
+   var r = (admRows || []).find(function(x) { return x.id === admId; }) || {};
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(bill.provider_id) || {};
+   var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
+   var fmtCur = function(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+   var fmtDate = function(d) {
+      if (!d) return '—';
+      var dt = new Date(d + 'T00:00:00');
+      return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+   };
+
+   // GST split — sum by rate
+   var splitMap = {};
+   (items || []).forEach(function(it) {
+      var k = Number(it.gst_pct || 0);
+      splitMap[k] = (splitMap[k] || 0) + Number(it.gst_amt || 0);
+   });
+   var splitRows = Object.keys(splitMap).filter(function(k) { return splitMap[k] > 0; })
+      .sort(function(a, b) { return Number(a) - Number(b); })
+      .map(function(k) { return '<tr><td>GST @ ' + k + '%</td><td style="text-align:right">' + fmtCur(splitMap[k]) + '</td></tr>'; })
+      .join('');
+
+   var itemRows = (items || []).map(function(it, i) {
+      return '<tr>' +
+                '<td style="text-align:center">' + (i + 1) + '</td>' +
+                '<td>' + esc(it.description || '—') + '<div style="font-size:10px;color:#888">' + esc(it.category) + '</div></td>' +
+                '<td style="text-align:center;font-size:10px">' + esc(it.hsn_sac || '—') + '</td>' +
+                '<td style="text-align:right">' + Number(it.qty || 0) + '</td>' +
+                '<td style="text-align:right">' + fmtCur(it.rate) + '</td>' +
+                '<td style="text-align:right">' + fmtCur(it.amount) + '</td>' +
+                '<td style="text-align:right">' + (Number(it.gst_pct) || 0) + '%<div style="font-size:10px;color:#666">' + fmtCur(it.gst_amt) + '</div></td>' +
+                '<td style="text-align:right;font-weight:600">' + fmtCur(it.total) + '</td>' +
+             '</tr>';
+   }).join('');
+
+   var words = _rupeesInWords(Math.round(Number(bill.net_payable || 0))) + ' Rupees Only';
+
+   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Bill · ' + esc(bill.bill_no) + '</title>' +
+      '<style>' +
+         'body{font-family:ui-sans-serif,system-ui,sans-serif;color:#111;padding:24px;max-width:880px;margin:0 auto;line-height:1.45;font-size:13px}' +
+         '.head{border-bottom:2px solid #00695c;padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px}' +
+         '.head h1{margin:0 0 4px;font-size:22px;color:#00695c}' +
+         '.head .sub{font-size:11px;color:#555}' +
+         '.doc-title{text-align:center;margin:14px 0;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#00695c}' +
+         '.info{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;background:#f0fdf4;padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:12px}' +
+         '.info b{color:#1a1a2e}' +
+         'table.lines{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}' +
+         'table.lines th,table.lines td{border:1px solid #cfd8e3;padding:7px 8px}' +
+         'table.lines th{background:#e0f2f1;color:#00695c;font-size:10.5px;text-transform:uppercase;letter-spacing:0.04em}' +
+         '.summary{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:14px}' +
+         '.summary table{width:100%;font-size:12px}' +
+         '.summary table td{padding:5px 6px}' +
+         '.summary .total-row{background:#00695c;color:#fff;font-weight:800;font-size:14px}' +
+         '.words{font-style:italic;color:#444;margin-top:4px}' +
+         '.gst-split{font-size:11px;color:#666;border-top:1px solid #eef0f5;padding-top:6px;margin-top:6px}' +
+         '.sig{margin-top:36px;display:flex;justify-content:space-between;font-size:11px}' +
+         '.sig .line{border-top:1px solid #333;margin-top:50px;padding-top:4px;min-width:200px}' +
+         '.footer{margin-top:18px;text-align:center;font-size:10.5px;color:#666}' +
+         '.toolbar{text-align:right;margin-bottom:10px}' +
+         '.toolbar button{padding:7px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12.5px;background:#1a73e8;color:#fff}' +
+         '@media print{.toolbar{display:none}body{padding:14px}}' +
+      '</style></head><body>' +
+      '<div class="toolbar"><button onclick="window.print()">🖨 Print / Save PDF</button></div>' +
+      '<div class="head">' +
+         '<div>' +
+            '<h1>' + esc(prov.name || 'Hospital') + '</h1>' +
+            '<div class="sub">' + esc(prov.address || '') + '</div>' +
+            (prov.phone ? '<div class="sub">📞 ' + esc(prov.phone) + '</div>' : '') +
+         '</div>' +
+         '<div style="text-align:right;font-size:11px;color:#666">' +
+            '<b>Bill No:</b> ' + esc(bill.bill_no) + '<br/>' +
+            '<b>Date:</b> ' + esc(fmtDate(bill.bill_date)) + '<br/>' +
+            '<b>Status:</b> ' + esc(bill.status) +
+         '</div>' +
+      '</div>' +
+      '<div class="doc-title">Itemized In-Patient Bill</div>' +
+      '<div class="info">' +
+         '<div><b>Patient:</b> ' + esc(r.patient_name || '—') + '</div>' +
+         '<div><b>UHID:</b> ' + esc(r.patient_ref || '—') + '</div>' +
+         '<div><b>Phone:</b> ' + esc(r.patient_phone || '—') + '</div>' +
+         '<div><b>Ward / Bed:</b> ' + esc((r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '')) + '</div>' +
+         '<div><b>Admit Date:</b> ' + esc(fmtDate(r.admit_date)) + '</div>' +
+         '<div><b>Discharge Date:</b> ' + esc(fmtDate(r.target_discharge)) + '</div>' +
+         '<div><b>Treating Doctor:</b> ' + esc(r.doctor_name || '—') + '</div>' +
+         '<div><b>Payment Mode:</b> ' + esc(r.payment_mode || '—') + (r.tpa_name ? ' · ' + esc(r.tpa_name) : '') + '</div>' +
+      '</div>' +
+      '<table class="lines">' +
+         '<thead><tr>' +
+            '<th style="width:4%">#</th>' +
+            '<th style="width:34%">Description / Category</th>' +
+            '<th style="width:9%">HSN/SAC</th>' +
+            '<th style="width:6%">Qty</th>' +
+            '<th style="width:10%">Rate</th>' +
+            '<th style="width:10%">Amount</th>' +
+            '<th style="width:10%">GST</th>' +
+            '<th style="width:13%">Total</th>' +
+         '</tr></thead>' +
+         '<tbody>' + (itemRows || '<tr><td colspan="8" style="text-align:center;color:#888;padding:14px">No line items</td></tr>') + '</tbody>' +
+      '</table>' +
+      '<div class="summary">' +
+         '<div>' +
+            (bill.notes ? '<div style="background:#fff7ed;border-left:3px solid #d97706;padding:8px 12px;border-radius:4px;font-size:11.5px"><b>Notes:</b> ' + esc(bill.notes) + '</div>' : '') +
+            '<div class="gst-split"><b>GST Split:</b><br/><table style="margin-top:4px">' + (splitRows || '<tr><td colspan="2" style="color:#888">No GST charged on this bill.</td></tr>') + '</table></div>' +
+            '<div style="margin-top:10px;font-size:10.5px;color:#888"><b>Amount in words:</b> ' + esc(words) + '</div>' +
+         '</div>' +
+         '<div>' +
+            '<table>' +
+               '<tr><td>Subtotal</td><td style="text-align:right">' + fmtCur(bill.subtotal) + '</td></tr>' +
+               '<tr><td>+ GST</td><td style="text-align:right">' + fmtCur(bill.gst_total) + '</td></tr>' +
+               (Number(bill.discount_amt) > 0 ? '<tr><td>− Discount' + (Number(bill.discount_pct) > 0 ? ' (' + Number(bill.discount_pct) + '%)' : '') + '</td><td style="text-align:right">−' + fmtCur(bill.discount_amt) + '</td></tr>' : '') +
+               (Number(bill.advance_paid) > 0 ? '<tr><td>− Advance paid</td><td style="text-align:right">−' + fmtCur(bill.advance_paid) + '</td></tr>' : '') +
+               (Number(bill.round_off) !== 0 ? '<tr><td>Round-off</td><td style="text-align:right">' + fmtCur(bill.round_off) + '</td></tr>' : '') +
+               '<tr class="total-row"><td>NET PAYABLE</td><td style="text-align:right">' + fmtCur(bill.net_payable) + '</td></tr>' +
+            '</table>' +
+         '</div>' +
+      '</div>' +
+      '<div class="sig">' +
+         '<div><div class="line"></div>Patient / Attendant Signature</div>' +
+         '<div style="text-align:right"><div class="line"></div>Cashier / Authorised Signatory</div>' +
+      '</div>' +
+      '<div class="footer">' + esc(prov.name || '') + ' · Computer-generated itemized bill. Healthcare services to in-patients are generally exempt from GST under notification 12/2017 — taxable items are split above.</div>' +
+      '</body></html>';
+
+   var w = window.open('', 'bill-' + admId, 'width=900,height=1000');
+   w.document.write(html); w.document.close();
+}
+
 // ── ADMISSIONS tab — inpatient (admitted) tracking ──
 // Shows 3 stat cards (Total occupied, Avg LOS, Pending discharges today),
 // then a table of admitted patients with discharge actions. Owner picks one
@@ -11055,6 +11479,7 @@ async function renderShopAdmissions() {
                       '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
                       '<button class="apt-view-btn" style="background:#6a1b9a" title="Print general consent form" onclick="printAdmissionConsent(\'' + rid + '\')">📄 Consent</button> ' +
                       '<button class="apt-view-btn" style="background:#00796b" title="Collect deposit / advance" onclick="openDepositModal(\'' + rid + '\')">💰 Deposit</button> ' +
+                      '<button class="apt-view-btn" style="background:#00695c" title="Itemized bill" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button> ' +
                       '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button> ' +
                       '<button class="apt-view-btn" style="background:#c62828" title="Permanently delete this admission record" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
                    '</td>' +
@@ -11412,16 +11837,19 @@ async function dischargeAdmission(id) {
       get('ds-followup-advice').value  = existing.follow_up_advice || '';
       get('ds-followup-date').value    = existing.follow_up_date || '';
       get('ds-discharge-date').value   = existing.discharge_date || _todayLocalYmd();
+      get('ds-dama-risks').value       = existing.dama_risks_explained || '';
+      get('ds-dama-reason').value      = existing.dama_reason_given || '';
       if (existing.doctor_name)        get('ds-doc-name').value = existing.doctor_name;
       if (existing.doctor_speciality)  get('ds-doc-spec').value = existing.doctor_speciality;
       if (existing.doctor_reg_no)      get('ds-doc-reg').value  = existing.doctor_reg_no;
    } else {
       titleEl.textContent = '📋 Discharge Summary';
-      ['ds-final-dx','ds-course','ds-invs','ds-treatment','ds-meds','ds-followup-advice','ds-followup-date']
+      ['ds-final-dx','ds-course','ds-invs','ds-treatment','ds-meds','ds-followup-advice','ds-followup-date','ds-dama-risks','ds-dama-reason']
          .forEach(function(f) { get(f).value = ''; });
       get('ds-condition').value = 'Stable';
       get('ds-discharge-date').value = _todayLocalYmd();
    }
+   _dsConditionChanged();
 
    document.getElementById('dischargeModal').classList.remove('hidden');
 }
@@ -11429,6 +11857,20 @@ async function dischargeAdmission(id) {
 function closeDischargeModal() {
    document.getElementById('dischargeModal').classList.add('hidden');
    _dsAdmission = null;
+}
+
+// Show / hide the DAMA acknowledgement section based on the condition pick.
+// DAMA flips the Save button label so the doctor knows they're issuing a
+// DAMA form rather than a routine discharge summary.
+function _dsConditionChanged() {
+   var cond = (document.getElementById('ds-condition').value || '').trim();
+   var damaSection = document.getElementById('ds-dama-section');
+   if (damaSection) damaSection.classList.toggle('hidden', cond !== 'DAMA');
+   var saveBtn = document.querySelector('#dischargeModal .sp-modal-footer .sp-btn-save');
+   if (saveBtn) {
+      saveBtn.innerHTML = cond === 'DAMA' ? '💾 Save &amp; Print DAMA Form' : '💾 Discharge &amp; Print Summary';
+      saveBtn.style.background = cond === 'DAMA' ? '#b91c1c' : '#0d47a1';
+   }
 }
 
 // Populate the Discharge Medications textarea with one line per medicine
@@ -11457,8 +11899,15 @@ async function saveDischargeAndPrint() {
    var get = function(id) { return (document.getElementById(id).value || '').trim(); };
    var finalDx = get('ds-final-dx');
    var dischargeDate = get('ds-discharge-date');
+   var condition = get('ds-condition') || 'Stable';
+   var damaRisks = get('ds-dama-risks');
+   var damaReason = get('ds-dama-reason');
    if (!finalDx)       { alert('Final diagnosis is required.'); return; }
    if (!dischargeDate) { alert('Discharge date is required.'); return; }
+   if (condition === 'DAMA' && !damaRisks) {
+      alert('For DAMA, you must record the risks that were explained to the patient. This is what protects the hospital legally.');
+      return;
+   }
 
    var saved = await AppDB.upsertDischargeSummary({
       provider_id:            _dsAdmission.provider_id,
@@ -11467,14 +11916,16 @@ async function saveDischargeAndPrint() {
       course_in_hospital:     get('ds-course'),
       investigations_summary: get('ds-invs'),
       treatment_given:        get('ds-treatment'),
-      condition_at_discharge: get('ds-condition') || 'Stable',
+      condition_at_discharge: condition,
       discharge_medications:  get('ds-meds'),
       follow_up_advice:       get('ds-followup-advice'),
       follow_up_date:         get('ds-followup-date') || null,
       discharge_date:         dischargeDate,
       doctor_name:            get('ds-doc-name'),
       doctor_speciality:      get('ds-doc-spec'),
-      doctor_reg_no:          get('ds-doc-reg')
+      doctor_reg_no:          get('ds-doc-reg'),
+      dama_risks_explained:   damaRisks,
+      dama_reason_given:      damaReason
    });
    if (!saved) { alert('Failed to save discharge summary.'); return; }
 
@@ -11488,7 +11939,10 @@ async function saveDischargeAndPrint() {
 
    var admId = _dsAdmission.id;
    closeDischargeModal();
-   printDischargeSummary(admId);
+   // DAMA path prints the DAMA acknowledgement form (different legal weight);
+   // all other discharges print the standard summary.
+   if (condition === 'DAMA') printDamaForm(admId);
+   else                       printDischargeSummary(admId);
    renderShopAdmissions();
 }
 
@@ -11598,6 +12052,103 @@ async function printDischargeSummary(admId) {
       '</body></html>';
 
    var w = window.open('', 'discharge-' + admId, 'width=860,height=1000');
+   w.document.write(html); w.document.close();
+}
+
+// DAMA acknowledgement form — printed when discharge condition = DAMA.
+// Legally distinct from a discharge summary: the patient/attendant signs
+// acknowledging they understood the specific risks listed and chose to
+// leave anyway. Bold warning banner at the top; the doctor's name + reg
+// no on the right, the patient's signature block on the left.
+async function printDamaForm(admId) {
+   var summary = await AppDB.getDischargeSummary(admId);
+   if (!summary) { alert('Discharge summary not found.'); return; }
+   var admRows = await AppDB.getAdmissions(summary.provider_id);
+   var r = (admRows || []).find(function(x) { return x.id === admId; }) || {};
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(summary.provider_id) || {};
+   var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
+   var nl2br = function(s) { return esc(s).replace(/\n/g, '<br/>'); };
+   var fmt = function(d) {
+      if (!d) return '—';
+      var dt = new Date(d + 'T00:00:00');
+      return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+   };
+   var nowStr = new Date().toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+   var ageSex = '';
+   if (r.dob) {
+      var dob = new Date(r.dob + 'T00:00:00');
+      if (!isNaN(dob.getTime())) {
+         var age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 86400000));
+         ageSex = age + 'Y' + (r.gender ? ' / ' + r.gender[0] : '');
+      }
+   }
+
+   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>DAMA Form · ' + esc(r.patient_name) + '</title>' +
+      '<style>' +
+         'body{font-family:ui-sans-serif,system-ui,sans-serif;color:#111;padding:24px;max-width:820px;margin:0 auto;line-height:1.55}' +
+         '.head{border-bottom:2px solid #b91c1c;padding-bottom:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px}' +
+         '.head h1{margin:0 0 4px;font-size:22px;color:#b91c1c}' +
+         '.head .sub{font-size:12px;color:#555}' +
+         '.doc-title{text-align:center;margin:14px 0;font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#b91c1c}' +
+         '.warn-banner{background:#fef2f2;border:2px solid #b91c1c;color:#b91c1c;padding:12px 14px;margin:14px 0 18px;border-radius:8px;font-weight:700;font-size:14px;text-align:center}' +
+         '.info{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;background:#fdf4f4;padding:12px;border-radius:8px;margin-bottom:16px;font-size:13px}' +
+         '.info b{color:#1a1a2e}' +
+         '.section{margin:14px 0}' +
+         '.section h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:0.05em;color:#b91c1c;border-bottom:1px solid #fcd6d6;padding-bottom:4px}' +
+         '.section .body{font-size:13.5px;white-space:pre-wrap}' +
+         '.declaration{background:#fff;border:1px solid #d6dce8;border-radius:8px;padding:14px;margin:16px 0;font-size:13.5px}' +
+         '.declaration p{margin:6px 0}' +
+         '.sig-block{margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:30px 40px;font-size:12.5px}' +
+         '.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:4px}' +
+         '.footer{margin-top:30px;padding-top:14px;border-top:1px solid #d6dce8;font-size:11px;color:#666;text-align:center}' +
+         '.toolbar{text-align:right;margin-bottom:10px}' +
+         '.toolbar button{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;background:#1a73e8;color:#fff}' +
+         '@media print{.toolbar{display:none}body{padding:14px}}' +
+      '</style></head><body>' +
+      '<div class="toolbar"><button onclick="window.print()">🖨 Print / Save PDF</button></div>' +
+      '<div class="head">' +
+         '<div>' +
+            '<h1>' + esc(prov.name || 'Hospital') + '</h1>' +
+            '<div class="sub">' + esc(prov.address || '') + '</div>' +
+            (prov.phone ? '<div class="sub">📞 ' + esc(prov.phone) + '</div>' : '') +
+         '</div>' +
+         '<div style="text-align:right;font-size:11px;color:#666">' +
+            'Form: DAMA-01<br/>Issued: ' + esc(nowStr) +
+         '</div>' +
+      '</div>' +
+      '<div class="doc-title">Discharge Against Medical Advice (DAMA)</div>' +
+      '<div class="warn-banner">⚠️ THIS DISCHARGE IS HAPPENING AT THE PATIENT\'S OWN REQUEST, AGAINST THE TREATING DOCTOR\'S ADVICE</div>' +
+      '<div class="info">' +
+         '<div><b>Patient:</b> ' + esc(r.patient_name || '—') + (ageSex ? ' · ' + esc(ageSex) : '') + '</div>' +
+         '<div><b>UHID:</b> ' + esc(r.patient_ref || '—') + '</div>' +
+         '<div><b>Phone:</b> ' + esc(r.patient_phone || '—') + '</div>' +
+         '<div><b>Ward / Bed:</b> ' + esc((r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '')) + '</div>' +
+         '<div><b>Admit Date:</b> ' + esc(fmt(r.admit_date)) + '</div>' +
+         '<div><b>DAMA Date:</b> ' + esc(fmt(summary.discharge_date)) + '</div>' +
+         '<div style="grid-column:1/-1"><b>Treating Doctor:</b> ' + esc(summary.doctor_name || '—') + (summary.doctor_speciality ? ' · ' + esc(summary.doctor_speciality) : '') + (summary.doctor_reg_no ? ' · Reg No. ' + esc(summary.doctor_reg_no) : '') + '</div>' +
+      '</div>' +
+      '<div class="section"><h3>Provisional / Final Diagnosis</h3><div class="body">' + nl2br(summary.final_diagnosis) + '</div></div>' +
+      (summary.course_in_hospital ? '<div class="section"><h3>Course in Hospital So Far</h3><div class="body">' + nl2br(summary.course_in_hospital) + '</div></div>' : '') +
+      '<div class="section"><h3>Risks Explained to Patient / Attendant</h3><div class="body" style="background:#fef2f2;padding:10px;border-radius:6px;border-left:4px solid #b91c1c">' + nl2br(summary.dama_risks_explained || '—') + '</div></div>' +
+      (summary.dama_reason_given ? '<div class="section"><h3>Reason Given by Patient / Attendant</h3><div class="body">' + nl2br(summary.dama_reason_given) + '</div></div>' : '') +
+      '<div class="declaration">' +
+         '<p><b>I, the undersigned (patient / patient\'s authorised attendant),</b> hereby declare that:</p>' +
+         '<p>1. I am leaving ' + esc(prov.name || 'the hospital') + ' against the medical advice of the treating doctor and the hospital staff.</p>' +
+         '<p>2. The risks of leaving the hospital in my present condition — including but not limited to those listed above — have been fully explained to me in a language I understand. I have had the opportunity to ask questions and my questions have been answered.</p>' +
+         '<p>3. I understand that continuing treatment in the hospital was the recommended course of action and that leaving now may result in serious harm, including the possibility of death.</p>' +
+         '<p>4. I take full responsibility for any consequences arising from this decision. I will not hold ' + esc(prov.name || 'the hospital') + ', its doctors, nurses or staff liable for any deterioration of my condition or any other adverse outcome resulting from this discharge.</p>' +
+         '<p>5. I acknowledge that I have been advised on warning signs that should prompt an immediate return to a hospital, and on the option to seek a second opinion or treatment elsewhere.</p>' +
+      '</div>' +
+      '<div class="sig-block">' +
+         '<div><div class="sig-line"></div><div><b>Patient / Attendant Signature</b></div><div style="color:#666">Name: ' + esc(r.patient_name || '__________________________') + '</div><div style="color:#666">Relation (if attendant): ' + esc(r.guardian_relation || '____________') + '</div><div style="color:#666">Date: __________  Time: __________</div></div>' +
+         '<div><div class="sig-line"></div><div><b>Witness Signature</b></div><div style="color:#666">Name: __________________________</div><div style="color:#666">Designation / Relation: ____________</div><div style="color:#666">Date: __________  Time: __________</div></div>' +
+         '<div style="grid-column:1/-1"><div class="sig-line"></div><div><b>Treating Doctor</b></div><div style="color:#666">Name: ' + esc(summary.doctor_name || '__________________________') + (summary.doctor_reg_no ? ' · Reg No. ' + esc(summary.doctor_reg_no) : '') + '</div></div>' +
+      '</div>' +
+      '<div class="footer">' + esc(prov.name || '') + ' · DAMA form — computer-generated, valid only when signed by the patient / attendant, a witness, and the treating doctor.</div>' +
+      '</body></html>';
+
+   var w = window.open('', 'dama-' + admId, 'width=860,height=1000');
    w.document.write(html); w.document.close();
 }
 

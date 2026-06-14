@@ -660,6 +660,99 @@ window.AppDB = {
       if (error) { console.error('getDischargeSummary:', error.message); return null; }
       return data;
    },
+   // ── IP BILLS (Phase 8.3) — itemized in-patient bill at discharge.
+   //    Bill numbers are sequential per hospital — same retry-on-conflict
+   //    pattern as admission_payments. Items are replaced on every save
+   //    (delete-then-insert) so the doctor can freely add/remove lines
+   //    without us tracking individual diffs.
+   async getIpBill(admissionId) {
+      const { data, error } = await _sb.from('ip_bills').select('*')
+         .eq('admission_id', admissionId).maybeSingle();
+      if (error) { console.error('getIpBill:', error.message); return null; }
+      return data;
+   },
+   async getIpBillItems(billId) {
+      const { data, error } = await _sb.from('ip_bill_items').select('*')
+         .eq('bill_id', billId)
+         .order('sort_order', { ascending: true });
+      if (error) { console.error('getIpBillItems:', error.message); return []; }
+      return data || [];
+   },
+   async upsertIpBill(b, items) {
+      if (!b.provider_id || !b.admission_id || !b.bill_date) return null;
+      let existing = await this.getIpBill(b.admission_id);
+      let billId, billSeq, billNo;
+      if (existing) {
+         billId  = existing.id;
+         billSeq = existing.bill_seq;
+         billNo  = existing.bill_no;
+      } else {
+         // Mint a new sequential bill no — retry on UNIQUE conflict.
+         for (let attempt = 0; attempt < 5; attempt++) {
+            const { data: maxRow } = await _sb.from('ip_bills')
+               .select('bill_seq').eq('provider_id', b.provider_id)
+               .order('bill_seq', { ascending: false }).limit(1).maybeSingle();
+            const nextSeq = (maxRow && maxRow.bill_seq ? maxRow.bill_seq : 0) + 1;
+            const yy = String(new Date().getFullYear()).slice(-2);
+            const candidateNo = 'BL-' + yy + '-' + String(nextSeq).padStart(5, '0');
+            billId  = 'bill_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            billSeq = nextSeq;
+            billNo  = candidateNo;
+            const { error: insErr } = await _sb.from('ip_bills').insert({
+               id: billId, provider_id: b.provider_id, admission_id: b.admission_id,
+               bill_seq: billSeq, bill_no: billNo, bill_date: b.bill_date,
+               subtotal: 0, status: 'Draft', net_payable: 0
+            });
+            if (!insErr) { existing = { id: billId }; break; }
+            if (insErr.code !== '23505') { console.error('upsertIpBill insert:', insErr.message); return null; }
+            // race; retry
+         }
+         if (!existing) { console.error('upsertIpBill: too many races minting bill no.'); return null; }
+      }
+
+      // Update bill header
+      const headerPatch = {
+         bill_date:    b.bill_date,
+         subtotal:     Number(b.subtotal     || 0),
+         discount_pct: Number(b.discount_pct || 0),
+         discount_amt: Number(b.discount_amt || 0),
+         gst_total:    Number(b.gst_total    || 0),
+         advance_paid: Number(b.advance_paid || 0),
+         round_off:    Number(b.round_off    || 0),
+         net_payable:  Number(b.net_payable  || 0),
+         status:       b.status || 'Draft',
+         notes:        b.notes  || '',
+         updated_at:   new Date().toISOString()
+      };
+      if (b.status === 'Issued' && !existing.issued_at) headerPatch.issued_at = new Date().toISOString();
+      const { error: updErr } = await _sb.from('ip_bills').update(headerPatch).eq('id', billId);
+      if (updErr) { console.error('upsertIpBill update:', updErr.message); return null; }
+
+      // Replace items — delete then bulk-insert
+      const { error: delErr } = await _sb.from('ip_bill_items').delete().eq('bill_id', billId);
+      if (delErr) { console.error('upsertIpBill delete items:', delErr.message); return null; }
+      if (Array.isArray(items) && items.length) {
+         const rows = items.map((it, idx) => ({
+            id:           'bi_' + Date.now().toString(36) + '_' + idx + Math.random().toString(36).slice(2, 4),
+            bill_id:      billId,
+            provider_id:  b.provider_id,
+            sort_order:   idx,
+            category:     it.category || 'Other',
+            description:  it.description || '',
+            hsn_sac:      it.hsn_sac || '',
+            qty:          Number(it.qty || 1),
+            rate:         Number(it.rate || 0),
+            gst_pct:      Number(it.gst_pct || 0),
+            amount:       Number(it.amount || 0),
+            gst_amt:      Number(it.gst_amt || 0),
+            total:        Number(it.total || 0)
+         }));
+         const { error: insItemsErr } = await _sb.from('ip_bill_items').insert(rows);
+         if (insItemsErr) { console.error('upsertIpBill insert items:', insItemsErr.message); return null; }
+      }
+      return { id: billId, bill_no: billNo, bill_seq: billSeq };
+   },
+
    async upsertDischargeSummary(s) {
       if (!s.provider_id || !s.admission_id || !s.discharge_date) return false;
       const existing = await this.getDischargeSummary(s.admission_id);
@@ -680,6 +773,8 @@ window.AppDB = {
          doctor_name:            s.doctor_name || '',
          doctor_reg_no:          s.doctor_reg_no || '',
          doctor_speciality:      s.doctor_speciality || '',
+         dama_risks_explained:   s.dama_risks_explained || '',
+         dama_reason_given:      s.dama_reason_given || '',
          updated_at:             new Date().toISOString()
       };
       const { error } = await _sb.from('discharge_summaries').upsert(row, { onConflict: 'admission_id' });

@@ -11795,8 +11795,10 @@ async function dischargeAdmission(id) {
    if (!r) { alert('Admission not found.'); return; }
    _dsAdmission = r;
 
-   var get = function(eid) { return document.getElementById(eid); };
-   get('ds-admission-id').value = r.id;
+   var get  = function(eid) { return document.getElementById(eid); };
+   // Defensive setter — survives stale-cache HTML where new fields are missing
+   var setV = function(eid, val) { var el = get(eid); if (el) el.value = (val == null ? '' : val); };
+   setV('ds-admission-id', r.id);
 
    get('ds-patient-strip').innerHTML =
       '<strong>' + (r.patient_name || '—') + '</strong>' +
@@ -11809,45 +11811,43 @@ async function dischargeAdmission(id) {
       '</span>';
 
    // Pre-fill doctor identity from the admission
-   get('ds-doc-name').value = r.doctor_name || '';
-   get('ds-doc-spec').value = '';
-   get('ds-doc-reg').value  = '';
+   setV('ds-doc-name', r.doctor_name || '');
+   setV('ds-doc-spec', '');
+   setV('ds-doc-reg',  '');
    // Try to pick up speciality from the provider's doctor roster
    await loadAptProviders(true);
    var prov = _aptGetProvider(r.provider_id);
    var doc = prov && (prov.doctors || []).find(function(d) { return d.name === r.doctor_name; });
    if (doc) {
-      if (doc.speciality)  get('ds-doc-spec').value = doc.speciality;
-      if (doc.mci_reg_no || doc.nmc_reg_no || doc.reg_no) {
-         get('ds-doc-reg').value = doc.nmc_reg_no || doc.mci_reg_no || doc.reg_no || '';
-      }
+      if (doc.speciality)  setV('ds-doc-spec', doc.speciality);
+      if (doc.reg_no)      setV('ds-doc-reg',  doc.reg_no);
    }
 
    // Load any existing summary for edit; otherwise blank with today's date.
    var existing = await AppDB.getDischargeSummary(r.id);
    var titleEl = document.getElementById('dischargeModalTitle');
    if (existing) {
-      titleEl.textContent = '✏️ Edit Discharge Summary';
-      get('ds-final-dx').value         = existing.final_diagnosis || '';
-      get('ds-course').value           = existing.course_in_hospital || '';
-      get('ds-invs').value             = existing.investigations_summary || '';
-      get('ds-treatment').value        = existing.treatment_given || '';
-      get('ds-condition').value        = existing.condition_at_discharge || 'Stable';
-      get('ds-meds').value             = existing.discharge_medications || '';
-      get('ds-followup-advice').value  = existing.follow_up_advice || '';
-      get('ds-followup-date').value    = existing.follow_up_date || '';
-      get('ds-discharge-date').value   = existing.discharge_date || _todayLocalYmd();
-      get('ds-dama-risks').value       = existing.dama_risks_explained || '';
-      get('ds-dama-reason').value      = existing.dama_reason_given || '';
-      if (existing.doctor_name)        get('ds-doc-name').value = existing.doctor_name;
-      if (existing.doctor_speciality)  get('ds-doc-spec').value = existing.doctor_speciality;
-      if (existing.doctor_reg_no)      get('ds-doc-reg').value  = existing.doctor_reg_no;
+      if (titleEl) titleEl.textContent = '✏️ Edit Discharge Summary';
+      setV('ds-final-dx',         existing.final_diagnosis);
+      setV('ds-course',           existing.course_in_hospital);
+      setV('ds-invs',             existing.investigations_summary);
+      setV('ds-treatment',        existing.treatment_given);
+      setV('ds-condition',        existing.condition_at_discharge || 'Stable');
+      setV('ds-meds',             existing.discharge_medications);
+      setV('ds-followup-advice',  existing.follow_up_advice);
+      setV('ds-followup-date',    existing.follow_up_date);
+      setV('ds-discharge-date',   existing.discharge_date || _todayLocalYmd());
+      setV('ds-dama-risks',       existing.dama_risks_explained);
+      setV('ds-dama-reason',      existing.dama_reason_given);
+      if (existing.doctor_name)        setV('ds-doc-name', existing.doctor_name);
+      if (existing.doctor_speciality)  setV('ds-doc-spec', existing.doctor_speciality);
+      if (existing.doctor_reg_no)      setV('ds-doc-reg',  existing.doctor_reg_no);
    } else {
-      titleEl.textContent = '📋 Discharge Summary';
+      if (titleEl) titleEl.textContent = '📋 Discharge Summary';
       ['ds-final-dx','ds-course','ds-invs','ds-treatment','ds-meds','ds-followup-advice','ds-followup-date','ds-dama-risks','ds-dama-reason']
-         .forEach(function(f) { get(f).value = ''; });
-      get('ds-condition').value = 'Stable';
-      get('ds-discharge-date').value = _todayLocalYmd();
+         .forEach(function(f) { setV(f, ''); });
+      setV('ds-condition', 'Stable');
+      setV('ds-discharge-date', _todayLocalYmd());
    }
    _dsConditionChanged();
 

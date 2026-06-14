@@ -10238,7 +10238,6 @@ async function _openNotesModal(providerId, phone, name) {
             '</div>' +
          '</div>';
       document.body.appendChild(modal);
-      modal.addEventListener('click', function(e) { if (e.target === modal) _closeNotesModal(); });
    }
    document.getElementById('notes-modal-title').textContent = '📝 Notes for ' + (name || 'Patient');
    modal.classList.remove('hidden');

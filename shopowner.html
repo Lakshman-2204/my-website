@@ -233,7 +233,7 @@
    </div>
 
    <!-- PRESCRIPTION MODAL — doctor writes vitals + diagnosis + medicines for one consultation -->
-   <div class="sp-modal-overlay hidden" id="prescriptionModal" onclick="if(event.target===this)closePrescriptionModal()">
+   <div class="sp-modal-overlay hidden" id="prescriptionModal">
       <div class="sp-modal" style="max-width:920px">
          <div class="sp-modal-header" style="background:#0a8a3a">
             <h3 id="prescriptionModalTitle">📝 Write Prescription</h3>
@@ -300,7 +300,7 @@
    </div>
 
    <!-- ADMISSIONS MODAL — admit a new patient OR edit an existing admission -->
-   <div class="sp-modal-overlay hidden" id="admissionModal" onclick="if(event.target===this)closeAdmissionModal()">
+   <div class="sp-modal-overlay hidden" id="admissionModal">
       <div class="sp-modal" style="max-width:820px">
          <div class="sp-modal-header" style="background:#1565c0">
             <h3 id="admissionModalTitle">🛏️ Admit Patient</h3>
@@ -541,7 +541,7 @@
    </div>
 
    <!-- DEPOSIT / ADVANCE RECEIPT MODAL — collect money for an admission -->
-   <div class="sp-modal-overlay hidden" id="depositModal" onclick="if(event.target===this)closeDepositModal()">
+   <div class="sp-modal-overlay hidden" id="depositModal">
       <div class="sp-modal" style="max-width:560px">
          <div class="sp-modal-header" style="background:#2e7d32">
             <h3>💰 Collect Deposit / Advance</h3>
@@ -584,7 +584,7 @@
    </div>
 
    <!-- IP BILL MODAL — itemized in-patient bill with GST split -->
-   <div class="sp-modal-overlay hidden" id="ipBillModal" onclick="if(event.target===this)closeIpBillModal()">
+   <div class="sp-modal-overlay hidden" id="ipBillModal">
       <div class="sp-modal" style="max-width:1100px;width:96vw">
          <div class="sp-modal-header" style="background:#00695c">
             <h3 id="ipBillModalTitle">🧾 Itemized IP Bill</h3>
@@ -655,7 +655,7 @@
    </div>
 
    <!-- DISCHARGE SUMMARY MODAL — fill final clinical summary + discharge -->
-   <div class="sp-modal-overlay hidden" id="dischargeModal" onclick="if(event.target===this)closeDischargeModal()">
+   <div class="sp-modal-overlay hidden" id="dischargeModal">
       <div class="sp-modal" style="max-width:820px">
          <div class="sp-modal-header" style="background:#0d47a1">
             <h3 id="dischargeModalTitle">📋 Discharge Summary</h3>
@@ -843,7 +843,7 @@
    </div>
 
    <!-- DOCTOR EDIT MODAL (same IDs as admin's so saveAptDoctor can be reused) -->
-   <div class="admin-modal-overlay hidden" id="aptDoctorModal" onclick="if(event.target===this)closeAptDoctorModal()">
+   <div class="admin-modal-overlay hidden" id="aptDoctorModal">
       <div class="admin-modal">
          <div class="admin-modal-header">
             <h3 id="aptDoctorModalTitle">Add</h3>
@@ -983,7 +983,7 @@
    </div>
 
    <!-- ADD/EDIT PRODUCT MODAL -->
-   <div class="sp-modal-overlay hidden" id="shopProductModal" onclick="if(event.target===this)closeStoreProductModal()">
+   <div class="sp-modal-overlay hidden" id="shopProductModal">
       <div class="sp-modal">
          <div class="sp-modal-header">
             <h3 id="sp-modal-title">Add Item</h3>
@@ -1116,7 +1116,7 @@
    <!-- PRINTABLE BILL — opens in a new tab via window.open with this template -->
 
    <!-- STOCK MANAGEMENT MODAL — list & add inventory batches for one product -->
-   <div class="sp-modal-overlay hidden" id="stockModal" onclick="if(event.target===this)closeStockModal()">
+   <div class="sp-modal-overlay hidden" id="stockModal">
       <div class="sp-modal" style="max-width:760px">
          <div class="sp-modal-header">
             <h3 id="stockModalTitle">📦 Stock</h3>
@@ -1152,7 +1152,7 @@
    </div>
 
    <!-- BULK ADD FROM CATALOGUE MODAL — multi-select catalogue items to add as products -->
-   <div class="sp-modal-overlay hidden" id="bulkAddModal" onclick="if(event.target===this)closeBulkAddModal()">
+   <div class="sp-modal-overlay hidden" id="bulkAddModal">
       <div class="sp-modal" style="max-width:720px">
          <div class="sp-modal-header">
             <h3>📦 Bulk Add from Catalogue</h3>
@@ -1179,7 +1179,7 @@
    </div>
 
    <!-- RESCHEDULE MODAL: change date/slot of a confirmed booking without refund/repay -->
-   <div class="admin-modal-overlay hidden" id="rescheduleModal" onclick="if(event.target===this)closeRescheduleModal()">
+   <div class="admin-modal-overlay hidden" id="rescheduleModal">
       <div class="admin-modal" style="max-width:540px">
          <div class="admin-modal-header">
             <h3>🔄 Reschedule Appointment</h3>
@@ -1210,7 +1210,7 @@
    </div>
 
    <!-- FREE FOLLOW-UP BOOKING MODAL: paste apt_id → validate → pick slot → book -->
-   <div class="admin-modal-overlay hidden" id="followupBookingModal" onclick="if(event.target===this)closeFollowupBookingModal()">
+   <div class="admin-modal-overlay hidden" id="followupBookingModal">
       <div class="admin-modal" style="max-width:600px">
          <div class="admin-modal-header">
             <h3>🔁 Free Follow-up Booking</h3>
@@ -1250,7 +1250,7 @@
    </div>
 
    <!-- DOCTOR DAY-OFF MODAL: pick a date, cancel all bookings for that doctor on that date -->
-   <div class="admin-modal-overlay hidden" id="dayCancelModal" onclick="if(event.target===this)closeDayCancelModal()">
+   <div class="admin-modal-overlay hidden" id="dayCancelModal">
       <div class="admin-modal" style="max-width:420px">
          <div class="admin-modal-header">
             <h3>🚨 Cancel a Doctor's Day</h3>

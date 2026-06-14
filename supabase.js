@@ -234,6 +234,7 @@ window.AppDB = {
          doctor_id:          p.doctor_id || '',
          doctor_name:        p.doctor_name || '',
          doctor_speciality:  p.doctor_speciality || '',
+         doctor_reg_no:      p.doctor_reg_no || '',
          appointment_id:     p.appointment_id || null,
          patient_phone:      p.patient_phone || '',
          patient_phone_norm: norm,
@@ -249,6 +250,7 @@ window.AppDB = {
          diagnosis:          p.diagnosis || '',
          medicines:          p.medicines || [],
          advice:             p.advice || '',
+         allergies:          p.allergies || '',
          follow_up_date:     p.follow_up_date || null,
          updated_at:         new Date().toISOString()
       };
@@ -290,6 +292,54 @@ window.AppDB = {
       if (error) { console.error('getPrescriptionById:', error.message); return null; }
       return data;
    },
+   // Most recent non-empty allergies entry for this patient at this hospital.
+   // Pulls from both admissions (known_allergies) and prescriptions (allergies)
+   // and returns whichever was updated last — so the latest doctor-entered
+   // value wins regardless of which workflow recorded it. 'NIL' is treated as
+   // an explicit "no allergies" answer and returned so the UI can show a
+   // green tick rather than a missing-data warning.
+   async getPatientAllergies(providerId, phone, name) {
+      const phoneNorm = (phone || '').replace(/\D/g, '').slice(-10);
+      const nameNorm  = this._normalizeName(name);
+      if (!providerId || !phoneNorm || !nameNorm) return null;
+
+      // Admissions: filtered by provider only, then JS-side match on phone+name.
+      // Hospitals are small enough that pulling all admissions for a provider
+      // is cheap; the SQL ilike on phone strings of varied formats is not
+      // reliable (+91 vs spaces vs dashes). Prescriptions are already keyed
+      // on a normalized phone column so we can filter server-side.
+      const [admR, rxR] = await Promise.all([
+         _sb.from('admissions')
+            .select('known_allergies,updated_at,patient_phone,patient_name')
+            .eq('provider_id', providerId)
+            .order('updated_at', { ascending: false }).limit(200),
+         _sb.from('prescriptions')
+            .select('allergies,updated_at,patient_name')
+            .eq('provider_id', providerId)
+            .eq('patient_phone_norm', phoneNorm)
+            .order('updated_at', { ascending: false }).limit(20)
+      ]);
+
+      const candidates = [];
+      (admR.data || []).forEach(r => {
+         const rPhoneNorm = (r.patient_phone || '').replace(/\D/g, '').slice(-10);
+         if (rPhoneNorm !== phoneNorm) return;
+         if (this._normalizeName(r.patient_name) !== nameNorm) return;
+         if (r.known_allergies && r.known_allergies.trim()) {
+            candidates.push({ value: r.known_allergies.trim(), at: r.updated_at, src: 'admission' });
+         }
+      });
+      (rxR.data || []).forEach(r => {
+         if (this._normalizeName(r.patient_name) !== nameNorm) return;
+         if (r.allergies && r.allergies.trim()) {
+            candidates.push({ value: r.allergies.trim(), at: r.updated_at, src: 'prescription' });
+         }
+      });
+      if (!candidates.length) return null;
+      candidates.sort((a, b) => new Date(b.at) - new Date(a.at));
+      return candidates[0];
+   },
+
    // Customer-side: all prescriptions across hospitals for a customer's phone.
    async getMyPrescriptions(phone) {
       const norm = (phone || '').replace(/\D/g, '').slice(-10);
@@ -524,6 +574,20 @@ window.AppDB = {
          address:            a.address || '',
          city:               a.city || '',
          postal_code:        a.postal_code || '',
+         // Phase 8.3 — launch-ready intake fields
+         admission_type:       a.admission_type || 'Planned',
+         chief_complaint:      a.chief_complaint || '',
+         known_allergies:      a.known_allergies || '',
+         current_medications:  a.current_medications || '',
+         past_medical_history: a.past_medical_history || '',
+         id_proof_type:        a.id_proof_type || '',
+         id_proof_number:      a.id_proof_number || '',
+         room_category:        a.room_category || '',
+         payment_mode:         a.payment_mode || '',
+         tpa_name:             a.tpa_name || '',
+         tpa_card_no:          a.tpa_card_no || '',
+         mlc:                  !!a.mlc,
+         mlc_number:           a.mlc_number || '',
          updated_at:         new Date().toISOString()
       };
       const { error } = await _sb.from('admissions').upsert(row, { onConflict: 'id' });
@@ -539,6 +603,87 @@ window.AppDB = {
    async deleteAdmission(id) {
       const { error } = await _sb.from('admissions').delete().eq('id', id);
       if (error) { console.error('deleteAdmission:', error.message); return false; }
+      return true;
+   },
+
+   // ── ADMISSION_PAYMENTS (Phase 8.3) — deposits / advances / refunds.
+   //    Receipt numbers are sequential per hospital; we mint by SELECT max+1
+   //    and rely on the (provider_id, receipt_seq) UNIQUE constraint to catch
+   //    races — on conflict we retry up to 5 times before bailing out.
+   async addAdmissionPayment(p) {
+      if (!p.provider_id || !p.admission_id || p.amount == null) return null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+         const { data: maxRow } = await _sb.from('admission_payments')
+            .select('receipt_seq').eq('provider_id', p.provider_id)
+            .order('receipt_seq', { ascending: false }).limit(1).maybeSingle();
+         const nextSeq = (maxRow && maxRow.receipt_seq ? maxRow.receipt_seq : 0) + 1;
+         const yy = String(new Date().getFullYear()).slice(-2);
+         const receiptNo = 'RC-' + yy + '-' + String(nextSeq).padStart(5, '0');
+         const id = 'pay_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+         const row = {
+            id,
+            provider_id:  p.provider_id,
+            admission_id: p.admission_id,
+            receipt_seq:  nextSeq,
+            receipt_no:   receiptNo,
+            amount:       Number(p.amount),
+            payment_mode: p.payment_mode || 'Cash',
+            txn_ref:      p.txn_ref || '',
+            received_by:  p.received_by || '',
+            notes:        p.notes || ''
+         };
+         const { error } = await _sb.from('admission_payments').insert(row);
+         if (!error) return { ...row, paid_at: new Date().toISOString() };
+         if (error.code !== '23505') { console.error('addAdmissionPayment:', error.message); return null; }
+         // 23505 = unique violation on receipt_seq — another tab won the race; retry
+      }
+      console.error('addAdmissionPayment: too many races minting receipt no.');
+      return null;
+   },
+   async getAdmissionPayments(admissionId) {
+      const { data, error } = await _sb.from('admission_payments').select('*')
+         .eq('admission_id', admissionId)
+         .order('paid_at', { ascending: false });
+      if (error) { console.error('getAdmissionPayments:', error.message); return []; }
+      return data || [];
+   },
+   async getAdmissionPaymentById(id) {
+      const { data, error } = await _sb.from('admission_payments').select('*').eq('id', id).maybeSingle();
+      if (error) { console.error('getAdmissionPaymentById:', error.message); return null; }
+      return data;
+   },
+
+   // ── DISCHARGE_SUMMARIES (Phase 8.3) — one row per admission.
+   async getDischargeSummary(admissionId) {
+      const { data, error } = await _sb.from('discharge_summaries').select('*')
+         .eq('admission_id', admissionId).maybeSingle();
+      if (error) { console.error('getDischargeSummary:', error.message); return null; }
+      return data;
+   },
+   async upsertDischargeSummary(s) {
+      if (!s.provider_id || !s.admission_id || !s.discharge_date) return false;
+      const existing = await this.getDischargeSummary(s.admission_id);
+      const id = (existing && existing.id) || ('ds_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+      const row = {
+         id,
+         provider_id:            s.provider_id,
+         admission_id:           s.admission_id,
+         final_diagnosis:        s.final_diagnosis || '',
+         course_in_hospital:     s.course_in_hospital || '',
+         investigations_summary: s.investigations_summary || '',
+         treatment_given:        s.treatment_given || '',
+         condition_at_discharge: s.condition_at_discharge || 'Stable',
+         discharge_medications:  s.discharge_medications || '',
+         follow_up_advice:       s.follow_up_advice || '',
+         follow_up_date:         s.follow_up_date || null,
+         discharge_date:         s.discharge_date,
+         doctor_name:            s.doctor_name || '',
+         doctor_reg_no:          s.doctor_reg_no || '',
+         doctor_speciality:      s.doctor_speciality || '',
+         updated_at:             new Date().toISOString()
+      };
+      const { error } = await _sb.from('discharge_summaries').upsert(row, { onConflict: 'admission_id' });
+      if (error) { console.error('upsertDischargeSummary:', error.message); return false; }
       return true;
    },
 

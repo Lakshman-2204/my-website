@@ -243,6 +243,9 @@
             <input type="hidden" id="rx-id"/>
             <input type="hidden" id="rx-appt-id"/>
 
+            <!-- Allergy safety banner — auto-loaded by getPatientAllergies. Hidden until data found. -->
+            <div id="rx-allergy-banner" class="hidden" style="background:#fef2f2;border-left:4px solid #b91c1c;color:#b91c1c;padding:10px 14px;margin-bottom:10px;border-radius:6px;font-size:0.9rem;display:flex;align-items:center;gap:8px"></div>
+
             <!-- Patient identity strip (read-only — sourced from the appointment) -->
             <div id="rx-patient-strip" style="background:#f7f9fc;border:1px solid #eef0f5;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:0.88rem"></div>
 
@@ -262,6 +265,10 @@
                <div class="sp-field"><label>Temp (°F)</label><input type="number" step="0.1" id="rx-temp" placeholder="98.6"/></div>
                <div class="sp-field"><label>SpO2 (%)</label><input type="number" id="rx-spo2" placeholder="98"/></div>
             </div>
+
+            <!-- Allergies (separate from diagnosis — surfaced as banner on future visits) -->
+            <h4 class="adm-section-head" style="background:#fee2e2;color:#b91c1c;margin-top:14px">⚠️ Known Allergies <small style="color:#7f1d1d;font-weight:400">(shown as banner on every future Rx — type 'NIL' if none)</small></h4>
+            <input type="text" id="rx-allergies" placeholder="e.g. penicillin, sulfa drugs, peanuts — or NIL" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ccc;border-radius:8px"/>
 
             <!-- Diagnosis -->
             <h4 class="adm-section-head" style="background:#e3f2fd;color:#1565c0;margin-top:14px">Diagnosis / Complaint</h4>
@@ -313,6 +320,25 @@
             <h4 class="adm-section-head" style="background:#fee2e2;color:#b91c1c">Admission Details</h4>
             <div class="profile-card-body" style="padding:0">
                <div class="sp-field">
+                  <label>Admission Type *</label>
+                  <select id="adm-type">
+                     <option value="Planned">Planned</option>
+                     <option value="Emergency">Emergency</option>
+                     <option value="Day-care">Day-care</option>
+                     <option value="Observation">Observation</option>
+                  </select>
+               </div>
+               <div class="sp-field" style="display:flex;align-items:center;gap:10px">
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                     <input type="checkbox" id="adm-mlc" style="width:auto" onchange="document.getElementById('adm-mlc-no-wrap').style.display = this.checked ? '' : 'none'"/>
+                     <span>⚖️ MLC (Medico-Legal Case)</span>
+                  </label>
+               </div>
+               <div class="sp-field" id="adm-mlc-no-wrap" style="display:none;grid-column:1/-1">
+                  <label>MLC / Police Case No</label>
+                  <input type="text" id="adm-mlc-no" placeholder="e.g. FIR 234/2026 · PS Machilipatnam"/>
+               </div>
+               <div class="sp-field">
                   <label>Doctor's Name</label>
                   <select id="adm-doctor"><option value="">— Select doctor —</option></select>
                </div>
@@ -339,6 +365,29 @@
                <div class="sp-field" style="grid-column:1/-1">
                   <label>Patient Ref / Chart No <small style="color:#888;font-weight:400">(auto-filled on phone blur)</small></label>
                   <input type="text" id="adm-ref" placeholder="auto"/>
+               </div>
+            </div>
+
+            <!-- CLINICAL SNAPSHOT — the doctor's at-admission read on the patient.
+                 Known allergies drives the safety banner shown on the patient's
+                 history + future prescriptions. -->
+            <h4 class="adm-section-head" style="background:#fff7ed;color:#9a3412;margin-top:16px">🩺 Clinical Snapshot</h4>
+            <div class="profile-card-body" style="padding:0">
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Chief Complaint <small style="color:#888;font-weight:400">(what brought the patient in)</small></label>
+                  <input type="text" id="adm-complaint" placeholder="e.g. severe abdominal pain × 2 days"/>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label style="color:#b91c1c">⚠️ Known Allergies <small style="color:#888;font-weight:400">(drug / food / other — shown as a banner to doctors)</small></label>
+                  <input type="text" id="adm-allergies" placeholder="e.g. penicillin, sulfa drugs, peanuts — or 'NIL'"/>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Current Medications</label>
+                  <textarea id="adm-current-meds" rows="2" placeholder="Drugs the patient is already on (name + dose if known)"></textarea>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Past Medical History</label>
+                  <textarea id="adm-past-history" rows="2" placeholder="DM, HTN, prior surgeries, family history…"></textarea>
                </div>
             </div>
 
@@ -403,6 +452,62 @@
                   <label>Postal / Zip Code</label>
                   <input type="text" id="adm-postal" placeholder="521001"/>
                </div>
+               <div class="sp-field">
+                  <label>ID Proof Type</label>
+                  <select id="adm-id-proof-type">
+                     <option value="">—</option>
+                     <option value="Aadhaar">Aadhaar</option>
+                     <option value="PAN">PAN</option>
+                     <option value="Driving License">Driving License</option>
+                     <option value="Voter ID">Voter ID</option>
+                     <option value="Passport">Passport</option>
+                  </select>
+               </div>
+               <div class="sp-field">
+                  <label>ID Proof Number <small style="color:#888;font-weight:400">(masked on print)</small></label>
+                  <input type="text" id="adm-id-proof-no" placeholder="e.g. xxxx-xxxx-1234"/>
+               </div>
+            </div>
+
+            <!-- BILLING & INSURANCE — drives room-rate billing and TPA workflow.
+                 TPA fields auto-show when Payment Mode = TPA / Corporate. -->
+            <h4 class="adm-section-head" style="background:#ecfdf5;color:#065f46;margin-top:16px">💳 Billing &amp; Insurance</h4>
+            <div class="profile-card-body" style="padding:0">
+               <div class="sp-field">
+                  <label>Room Category</label>
+                  <select id="adm-room-cat">
+                     <option value="">—</option>
+                     <option value="General Ward">General Ward</option>
+                     <option value="Semi-Private">Semi-Private</option>
+                     <option value="Private">Private</option>
+                     <option value="Deluxe">Deluxe</option>
+                     <option value="ICU">ICU</option>
+                     <option value="NICU">NICU</option>
+                     <option value="Day-care">Day-care</option>
+                  </select>
+               </div>
+               <div class="sp-field">
+                  <label>Payment Mode</label>
+                  <select id="adm-pay-mode" onchange="document.getElementById('adm-tpa-wrap').style.display = (this.value === 'TPA / Insurance' || this.value === 'Corporate') ? '' : 'none'">
+                     <option value="">—</option>
+                     <option value="Self-pay">Self-pay (Cash / UPI / Card)</option>
+                     <option value="TPA / Insurance">TPA / Insurance</option>
+                     <option value="Corporate">Corporate</option>
+                     <option value="Govt Scheme">Govt Scheme (Ayushman / CGHS / ESI)</option>
+                  </select>
+               </div>
+               <div id="adm-tpa-wrap" style="display:none;grid-column:1/-1">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                     <div class="sp-field">
+                        <label>TPA / Insurer Name</label>
+                        <input type="text" id="adm-tpa-name" placeholder="e.g. Star Health / Bajaj Allianz"/>
+                     </div>
+                     <div class="sp-field">
+                        <label>Card / Policy Number</label>
+                        <input type="text" id="adm-tpa-card" placeholder="e.g. SH-001234567"/>
+                     </div>
+                  </div>
+               </div>
             </div>
 
             <!-- GUARDIAN / EMERGENCY CONTACT -->
@@ -431,6 +536,135 @@
          <div class="sp-modal-footer">
             <button class="sp-btn-cancel" onclick="closeAdmissionModal()">Cancel</button>
             <button class="sp-btn-save" onclick="saveAdmission()">💾 Save</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- DEPOSIT / ADVANCE RECEIPT MODAL — collect money for an admission -->
+   <div class="sp-modal-overlay hidden" id="depositModal" onclick="if(event.target===this)closeDepositModal()">
+      <div class="sp-modal" style="max-width:560px">
+         <div class="sp-modal-header" style="background:#2e7d32">
+            <h3>💰 Collect Deposit / Advance</h3>
+            <button onclick="closeDepositModal()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 8px">✕</button>
+         </div>
+         <div class="sp-modal-body">
+            <input type="hidden" id="dep-admission-id"/>
+            <div id="dep-patient-strip" style="background:#f3f6fc;padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:0.9rem"></div>
+            <div id="dep-prior-list" style="margin-bottom:14px"></div>
+            <div class="profile-card-body" style="padding:0">
+               <div class="sp-field">
+                  <label>Amount (₹) *</label>
+                  <input type="number" id="dep-amount" min="1" step="1" placeholder="e.g. 10000"/>
+               </div>
+               <div class="sp-field">
+                  <label>Payment Mode *</label>
+                  <select id="dep-mode">
+                     <option value="Cash">Cash</option>
+                     <option value="UPI">UPI</option>
+                     <option value="Card">Card (Debit / Credit)</option>
+                     <option value="Cheque">Cheque</option>
+                     <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Txn Ref / UPI ID / Cheque No <small style="color:#888;font-weight:400">(optional, for audit)</small></label>
+                  <input type="text" id="dep-txn-ref" placeholder="e.g. UPI: 4123abcd · Cheque: 567890"/>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Notes</label>
+                  <input type="text" id="dep-notes" placeholder="e.g. Initial admission advance"/>
+               </div>
+            </div>
+         </div>
+         <div class="sp-modal-footer">
+            <button class="sp-btn-cancel" onclick="closeDepositModal()">Cancel</button>
+            <button class="sp-btn-save" style="background:#2e7d32" onclick="saveDepositAndPrint()">💾 Save &amp; Print Receipt</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- DISCHARGE SUMMARY MODAL — fill final clinical summary + discharge -->
+   <div class="sp-modal-overlay hidden" id="dischargeModal" onclick="if(event.target===this)closeDischargeModal()">
+      <div class="sp-modal" style="max-width:820px">
+         <div class="sp-modal-header" style="background:#0d47a1">
+            <h3 id="dischargeModalTitle">📋 Discharge Summary</h3>
+            <button onclick="closeDischargeModal()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 8px">✕</button>
+         </div>
+         <div class="sp-modal-body">
+            <input type="hidden" id="ds-admission-id"/>
+            <div id="ds-patient-strip" style="background:#f3f6fc;padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:0.9rem"></div>
+
+            <h4 class="adm-section-head" style="background:#e3f2fd;color:#0d47a1">Clinical Summary</h4>
+            <div class="profile-card-body" style="padding:0">
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Final Diagnosis *</label>
+                  <textarea id="ds-final-dx" rows="2" placeholder="e.g. Acute appendicitis · status post laparoscopic appendectomy"></textarea>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Course in Hospital</label>
+                  <textarea id="ds-course" rows="4" placeholder="Day-by-day summary of the patient's course. Initial presentation, key findings, response to treatment, complications if any, etc."></textarea>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Investigations Summary</label>
+                  <textarea id="ds-invs" rows="3" placeholder="Key lab and radiology findings (CBC, LFT, USG abdomen, etc.) with values and interpretation"></textarea>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Treatment Given</label>
+                  <textarea id="ds-treatment" rows="3" placeholder="Surgical / medical interventions, IV antibiotics, transfusions, etc."></textarea>
+               </div>
+            </div>
+
+            <h4 class="adm-section-head" style="background:#e3f2fd;color:#0d47a1;margin-top:14px">Discharge Plan</h4>
+            <div class="profile-card-body" style="padding:0">
+               <div class="sp-field">
+                  <label>Condition at Discharge *</label>
+                  <select id="ds-condition">
+                     <option value="Stable">Stable</option>
+                     <option value="Improved">Improved</option>
+                     <option value="Status Quo">Status Quo</option>
+                     <option value="Critical">Critical</option>
+                     <option value="DAMA">Discharged Against Medical Advice (DAMA)</option>
+                     <option value="Expired">Expired</option>
+                  </select>
+               </div>
+               <div class="sp-field">
+                  <label>Discharge Date *</label>
+                  <input type="date" id="ds-discharge-date"/>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Discharge Medications</label>
+                  <textarea id="ds-meds" rows="4" placeholder="One medicine per line — e.g.&#10;Tab Cefuroxime 500mg · 1-0-1 · 5 days · after food&#10;Tab Paracetamol 650mg · SOS · for fever"></textarea>
+                  <button type="button" onclick="_dsPullFromLastRx()" style="margin-top:4px;background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9;border-radius:6px;padding:5px 10px;font-size:0.78rem;cursor:pointer">↩ Pull from latest prescription</button>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Follow-up Advice</label>
+                  <textarea id="ds-followup-advice" rows="2" placeholder="Diet, activity restrictions, wound care, when to return urgently…"></textarea>
+               </div>
+               <div class="sp-field">
+                  <label>Follow-up Date</label>
+                  <input type="date" id="ds-followup-date"/>
+               </div>
+            </div>
+
+            <h4 class="adm-section-head" style="background:#e3f2fd;color:#0d47a1;margin-top:14px">Signing Doctor</h4>
+            <div class="profile-card-body" style="padding:0">
+               <div class="sp-field">
+                  <label>Doctor Name</label>
+                  <input type="text" id="ds-doc-name" placeholder="auto-filled from admission"/>
+               </div>
+               <div class="sp-field">
+                  <label>Speciality</label>
+                  <input type="text" id="ds-doc-spec" placeholder="e.g. General Physician"/>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>NMC / MCI Reg No <small style="color:#888;font-weight:400">(legally required on discharge summary)</small></label>
+                  <input type="text" id="ds-doc-reg" placeholder="e.g. AP-12345 (NMC)"/>
+               </div>
+            </div>
+         </div>
+         <div class="sp-modal-footer">
+            <button class="sp-btn-cancel" onclick="closeDischargeModal()">Cancel</button>
+            <button class="sp-btn-save" style="background:#0d47a1" onclick="saveDischargeAndPrint()">💾 Discharge &amp; Print Summary</button>
          </div>
       </div>
    </div>
@@ -539,6 +773,10 @@
             <div class="modal-field">
                <label>Qualification / Experience</label>
                <input type="text" id="aptDocQual" placeholder="MBBS, MD"/>
+            </div>
+            <div class="modal-field">
+               <label>NMC / MCI Reg No <small style="font-weight:400;color:#b91c1c">(legally required on every prescription)</small></label>
+               <input type="text" id="aptDocRegNo" placeholder="e.g. AP-12345 (NMC) / 67890 (MCI)"/>
             </div>
             <div class="modal-field">
                <label>Consultation Fee (₹)</label>

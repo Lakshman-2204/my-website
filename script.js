@@ -2695,6 +2695,7 @@ function openAptDoctorModal(providerId, doctorId) {
    document.getElementById('aptDocName').value       = doctor ? doctor.name : '';
    document.getElementById('aptDocSpec').value       = doctor ? (doctor.speciality || '') : '';
    document.getElementById('aptDocQual').value       = doctor ? (doctor.qual || '') : '';
+   document.getElementById('aptDocRegNo').value      = doctor ? (doctor.reg_no || '') : '';
    document.getElementById('aptDocFee').value        = doctor ? (doctor.fee || '') : '';
    document.getElementById('aptDocPhoto').value      = doctor ? (doctor.photo || '') : '';
    var fileInput = document.getElementById('aptDocPhotoFile'); if (fileInput) fileInput.value = '';
@@ -2912,6 +2913,7 @@ async function saveAptDoctor() {
       name: name,
       speciality:           document.getElementById('aptDocSpec').value.trim(),
       qual:                 document.getElementById('aptDocQual').value.trim(),
+      reg_no:               document.getElementById('aptDocRegNo').value.trim(),
       fee:                  parseInt(document.getElementById('aptDocFee').value, 10) || 0,
       photo:                document.getElementById('aptDocPhoto').value.trim(),
       booking_mode:         document.getElementById('aptDocBookingMode').value || 'slot',
@@ -10109,10 +10111,28 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
       _renderPatientHistoryPanel(rowKey, providerId, phone, name);
    });
 
-   var [rxRows, notes] = await Promise.all([
+   var [rxRows, notes, allergy] = await Promise.all([
       AppDB.getPatientPrescriptionHistory(providerId, phone, name),
-      AppDB.getPatientNotes(providerId, phone, name)
+      AppDB.getPatientNotes(providerId, phone, name),
+      AppDB.getPatientAllergies(providerId, phone, name)
    ]);
+
+   var allergyBanner = '';
+   if (allergy) {
+      var isNil = allergy.value.trim().toUpperCase() === 'NIL';
+      if (isNil) {
+         allergyBanner =
+            '<div style="background:#ecfdf5;border-left:4px solid #065f46;color:#065f46;padding:8px 12px;margin-bottom:10px;border-radius:6px;font-size:0.85rem">' +
+               '<b>✅ No known allergies on file</b> · last confirmed via ' + allergy.src +
+            '</div>';
+      } else {
+         allergyBanner =
+            '<div style="background:#fef2f2;border-left:4px solid #b91c1c;color:#b91c1c;padding:8px 12px;margin-bottom:10px;border-radius:6px;font-size:0.85rem">' +
+               '<b>⚠️ Known Allergies:</b> ' + String(allergy.value).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}) +
+               ' <span style="color:#7f1d1d;font-weight:400;font-size:0.9em">(from ' + allergy.src + ')</span>' +
+            '</div>';
+      }
+   }
 
    var visitsHtml;
    if (!rxRows.length) {
@@ -10182,6 +10202,7 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
 
    host.innerHTML =
       '<div class="patient-history">' +
+         allergyBanner +
          '<div class="ph-section">' +
             '<div class="ph-section-head">' +
                '<h4>📋 Past Visits</h4>' +
@@ -10389,8 +10410,32 @@ async function openPrescriptionModal(aptId) {
    var get = function(id) { return document.getElementById(id); };
    get('rx-id').value = '';
    get('rx-appt-id').value = apt.apt_id || '';
-   ['rx-weight','rx-bp-sys','rx-bp-dia','rx-pulse','rx-temp','rx-spo2','rx-diagnosis','rx-advice','rx-followup'].forEach(function(f) {
+   ['rx-weight','rx-bp-sys','rx-bp-dia','rx-pulse','rx-temp','rx-spo2','rx-diagnosis','rx-advice','rx-allergies','rx-followup'].forEach(function(f) {
       var el = get(f); if (el) el.value = '';
+   });
+   // Hide allergy banner until data load resolves
+   var banner = get('rx-allergy-banner');
+   if (banner) { banner.classList.add('hidden'); banner.innerHTML = ''; }
+
+   // Async: look up known allergies from prior admissions / prescriptions.
+   // If found, show a red banner at top of the modal AND pre-fill the
+   // allergies input so the doctor sees what was recorded last time (and
+   // can edit / extend rather than re-type).
+   AppDB.getPatientAllergies(apt.provider_id, apt.patient_phone, apt.patient_name).then(function(allergy) {
+      if (!allergy) return;
+      var el = get('rx-allergies');
+      if (el && !el.value) el.value = allergy.value;
+      var b = get('rx-allergy-banner');
+      if (!b) return;
+      var isNil = allergy.value.trim().toUpperCase() === 'NIL';
+      if (isNil) {
+         b.style.background = '#ecfdf5'; b.style.borderLeftColor = '#065f46'; b.style.color = '#065f46';
+         b.innerHTML = '<span style="font-size:1.1rem">✅</span><span><b>No known allergies on file</b> · last confirmed via ' + allergy.src + '</span>';
+      } else {
+         b.style.background = '#fef2f2'; b.style.borderLeftColor = '#b91c1c'; b.style.color = '#b91c1c';
+         b.innerHTML = '<span style="font-size:1.1rem">⚠️</span><span><b>Known Allergies:</b> ' + String(allergy.value).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}) + ' <span style="color:#7f1d1d;font-weight:400;font-size:0.85em">(from ' + allergy.src + ')</span></span>';
+      }
+      b.classList.remove('hidden');
    });
 
    // Pre-fill Follow-up date using the provider's free_followup_days policy —
@@ -10464,6 +10509,7 @@ async function openPrescriptionModal(aptId) {
       get('rx-spo2').value        = existing.spo2         != null ? existing.spo2         : '';
       get('rx-diagnosis').value   = existing.diagnosis || '';
       get('rx-advice').value      = existing.advice || '';
+      get('rx-allergies').value   = existing.allergies || '';
       get('rx-followup').value    = existing.follow_up_date || '';
       _rxMedRows = Array.isArray(existing.medicines) ? existing.medicines.map(function(m) {
          return { name: m.name || '', type: m.type || 'Tablet', dosage: m.dosage || '', duration: m.duration || '', notes: m.notes || '' };
@@ -10520,12 +10566,18 @@ async function savePrescription(printAfter) {
       return;
    }
    var id = get('rx-id').value || ('rx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+   // Look up the doctor's NMC reg no from the provider's roster so we can
+   // snapshot it onto the prescription (legally required on every Indian Rx).
+   var prov  = _aptGetProvider(_rxAppt.provider_id);
+   var docRow = prov && (prov.doctors || []).find(function(d) { return d.id === _rxAppt.doctor_id; });
+   var docRegNo = (docRow && docRow.reg_no) || '';
    var p = {
       id:                 id,
       provider_id:        _rxAppt.provider_id,
       doctor_id:          _rxAppt.doctor_id || '',
       doctor_name:        _rxAppt.doctor_name || '',
       doctor_speciality:  _rxAppt.speciality || '',
+      doctor_reg_no:      docRegNo,
       appointment_id:     _rxAppt.apt_id || null,
       patient_phone:      _rxAppt.patient_phone || '',
       patient_name:       _rxAppt.patient_name || '',
@@ -10540,6 +10592,7 @@ async function savePrescription(printAfter) {
       diagnosis:          get('rx-diagnosis').value.trim(),
       medicines:          meds,
       advice:             get('rx-advice').value.trim(),
+      allergies:          get('rx-allergies').value.trim(),
       follow_up_date:     get('rx-followup').value || null
    };
    var ok = await AppDB.insertPrescription(p);
@@ -10629,7 +10682,7 @@ async function printPrescription(id) {
          '<div><b>Patient:</b> ' + esc(p.patient_name || '—') + (p.patient_age ? ' (' + p.patient_age + 'Y' + (p.patient_sex ? '/' + p.patient_sex[0] : '') + ')' : '') + '</div>' +
          '<div><b>Date:</b> ' + esc(when) + '</div>' +
          (p.patient_phone ? '<div><b>Phone:</b> ' + esc(p.patient_phone) + '</div>' : '<div></div>') +
-         '<div><b>Doctor:</b> ' + esc(p.doctor_name || '—') + (p.doctor_speciality ? ' · ' + esc(p.doctor_speciality) : '') + '</div>' +
+         '<div><b>Doctor:</b> ' + esc(p.doctor_name || '—') + (p.doctor_speciality ? ' · ' + esc(p.doctor_speciality) : '') + (p.doctor_reg_no ? ' · Reg No. ' + esc(p.doctor_reg_no) : '') + '</div>' +
       '</div>' +
       (vitals.length ? '<div class="section"><h3>Vitals</h3><div class="vitals">' + vitals.join(' · ') + '</div></div>' : '') +
       (p.diagnosis ? '<div class="section"><h3>Diagnosis</h3><div>' + esc(p.diagnosis) + '</div></div>' : '') +
@@ -10639,10 +10692,279 @@ async function printPrescription(id) {
       '</table></div>' : '') +
       (p.advice ? '<div class="section"><h3>Advice</h3><div>' + esc(p.advice) + '</div></div>' : '') +
       (followUp ? '<div class="section"><h3>Follow-up</h3><div>' + esc(followUp) + '</div></div>' : '') +
-      '<div class="signature"><div>______________________</div><div class="name">' + esc(p.doctor_name || '') + '</div><div style="color:#666">' + esc(p.doctor_speciality || '') + '</div></div>' +
+      '<div class="signature"><div>______________________</div><div class="name">' + esc(p.doctor_name || '') + '</div><div style="color:#666">' + esc(p.doctor_speciality || '') + '</div>' + (p.doctor_reg_no ? '<div style="color:#666">Reg No. ' + esc(p.doctor_reg_no) + '</div>' : '') + '</div>' +
       '<div class="footer"><div>Generated by ' + esc(prov.name || 'MyStore') + '</div><div>This is a computer-generated prescription.</div></div>' +
       '</body></html>';
    var w = window.open('', 'rx-' + id, 'width=820,height=900');
+   w.document.write(html); w.document.close();
+}
+
+// ── ADMISSION FORMS (printable) ──
+// General Consent + DPDP data consent — printed at admission, signed by
+// patient/attendant + witness. Pulls hospital letterhead from the provider
+// row and patient identity from the admission. The MLC case adds a clause
+// that statutory reporting is not waived. Layout is A4-print-clean with a
+// toolbar that hides on print.
+async function printAdmissionConsent(admId) {
+   var rows = await AppDB.getAdmissions(_admHospitalChoice);
+   var r = (rows || []).find(function(x) { return x.id === admId; });
+   if (!r) { alert('Admission not found.'); return; }
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(r.provider_id) || {};
+   var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
+
+   var admitWhen = r.admit_date ? new Date(r.admit_date + 'T00:00:00').toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+   var today = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+   var ageSex = '';
+   if (r.dob) {
+      var dob = new Date(r.dob + 'T00:00:00');
+      if (!isNaN(dob.getTime())) {
+         var age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 86400000));
+         ageSex = age + 'Y' + (r.gender ? ' / ' + r.gender[0] : '');
+      }
+   }
+   var maskedId = r.id_proof_number ? r.id_proof_type + ': ' + r.id_proof_number.replace(/.(?=.{4})/g, 'x') : '';
+
+   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>General Consent · ' + esc(r.patient_name) + '</title>' +
+      '<style>' +
+         'body{font-family:ui-sans-serif,system-ui,sans-serif;color:#111;padding:24px;max-width:820px;margin:0 auto;line-height:1.5}' +
+         '.head{border-bottom:2px solid #6a1b9a;padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px}' +
+         '.head h1{margin:0 0 4px;font-size:22px;color:#6a1b9a}' +
+         '.head .sub{font-size:12px;color:#555}' +
+         '.doc-title{text-align:center;margin:18px 0 12px;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6a1b9a}' +
+         '.info{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;background:#f7f3fb;padding:12px;border-radius:8px;margin-bottom:18px;font-size:13px}' +
+         '.info b{color:#1a1a2e}' +
+         '.clause{margin:10px 0;font-size:13.5px;text-align:justify}' +
+         '.clause-num{display:inline-block;width:24px;font-weight:700;color:#6a1b9a}' +
+         '.mlc-note{background:#fef3c7;border-left:3px solid #d97706;padding:10px 12px;margin:14px 0;font-size:13px}' +
+         '.sig-block{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;gap:30px 40px;font-size:12.5px}' +
+         '.sig-line{border-top:1px solid #333;margin-top:50px;padding-top:4px}' +
+         '.footer{margin-top:30px;padding-top:14px;border-top:1px solid #d6dce8;font-size:11px;color:#666;text-align:center}' +
+         '.toolbar{text-align:right;margin-bottom:14px}' +
+         '.toolbar button{margin-left:6px;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;background:#1a73e8;color:#fff}' +
+         '@media print{.toolbar{display:none}}' +
+      '</style></head><body>' +
+      '<div class="toolbar"><button onclick="window.print()">🖨 Print / Save PDF</button></div>' +
+      '<div class="head">' +
+         '<div>' +
+            '<h1>' + esc(prov.name || 'Hospital') + '</h1>' +
+            '<div class="sub">' + esc(prov.address || '') + '</div>' +
+            (prov.phone ? '<div class="sub">📞 ' + esc(prov.phone) + '</div>' : '') +
+         '</div>' +
+         '<div style="text-align:right;font-size:11px;color:#666">' +
+            'Form: GEN-CONSENT-01<br/>' +
+            'Date: ' + esc(today) +
+         '</div>' +
+      '</div>' +
+      '<div class="doc-title">General Consent for Admission &amp; Treatment</div>' +
+      '<div class="info">' +
+         '<div><b>Patient Name:</b> ' + esc(r.patient_name || '—') + '</div>' +
+         '<div><b>UHID / Ref:</b> ' + esc(r.patient_ref || '—') + '</div>' +
+         '<div><b>Age / Sex:</b> ' + esc(ageSex || '—') + '</div>' +
+         '<div><b>Phone:</b> ' + esc(r.patient_phone || '—') + '</div>' +
+         '<div><b>Admit Date:</b> ' + esc(admitWhen) + '</div>' +
+         '<div><b>Admission Type:</b> ' + esc(r.admission_type || '—') + '</div>' +
+         '<div><b>Ward / Bed:</b> ' + esc((r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '')) + '</div>' +
+         '<div><b>Treating Doctor:</b> ' + esc(r.doctor_name || '—') + '</div>' +
+         (maskedId ? '<div style="grid-column:1/-1"><b>ID Proof:</b> ' + esc(maskedId) + '</div>' : '') +
+      '</div>' +
+      (r.mlc ? '<div class="mlc-note"><b>⚖️ MLC Case' + (r.mlc_number ? ' — ' + esc(r.mlc_number) : '') + '.</b> This consent does not waive the hospital\'s statutory duty to report the case to the police and other authorities as required by law.</div>' : '') +
+      '<p style="font-size:13.5px">I, the undersigned (patient / patient\'s authorised attendant), having understood the following in a language I am familiar with, hereby give my voluntary consent to:</p>' +
+      '<div class="clause"><span class="clause-num">1.</span> <b>Treatment &amp; Investigations:</b> Admission to the hospital and routine medical care, including physical examination, laboratory investigations, radiology, IV cannulation, intravenous fluids and medications considered necessary by the treating doctor. I understand that medicine is not an exact science and no guarantee has been made to me about results.</div>' +
+      '<div class="clause"><span class="clause-num">2.</span> <b>Procedures &amp; Anaesthesia:</b> Diagnostic or therapeutic procedures, including minor surgical procedures and local / general anaesthesia where required. Specific high-risk procedures and major surgery will require a separate, procedure-specific informed consent.</div>' +
+      '<div class="clause"><span class="clause-num">3.</span> <b>Blood &amp; Blood Products:</b> Transfusion of blood and / or blood products if medically indicated, after the doctor explains the risks and obtains a separate transfusion consent where applicable.</div>' +
+      '<div class="clause"><span class="clause-num">4.</span> <b>Information Sharing:</b> Disclosure of clinical information to the patient\'s immediate family / attendant, and to the patient\'s insurer / TPA / employer / government scheme for the purpose of obtaining cashless approval, processing reimbursement, or auditing the claim.</div>' +
+      '<div class="clause"><span class="clause-num">5.</span> <b>Medical Records &amp; Photography:</b> Capture and storage of clinical photographs, X-ray / scan images, video of procedures and other medical records, used solely for treatment, internal quality audit and de-identified medical education / research.</div>' +
+      '<div class="clause"><span class="clause-num">6.</span> <b>Financial Responsibility:</b> I undertake to pay the hospital all charges for the services rendered as per the hospital\'s prevailing rate card. I understand the bill may exceed any estimate given, especially when the treatment course changes.</div>' +
+      '<div class="clause"><span class="clause-num">7.</span> <b>Valuables:</b> The hospital is not responsible for any cash, jewellery or valuables not deposited in the hospital\'s designated safe. Valuables left in the room / ward are kept at the patient\'s own risk.</div>' +
+      '<div class="clause"><span class="clause-num">8.</span> <b>Hospital Rules:</b> I agree to follow the hospital\'s rules on visiting hours, infection control, smoking, and conduct on the premises. I will not hold the hospital responsible for events resulting from non-compliance with medical advice.</div>' +
+      '<div class="clause"><span class="clause-num">9.</span> <b>Data Privacy (DPDP Act, 2023):</b> I consent to the collection, storage and processing of my personal and sensitive health data by the hospital for the purposes of treatment, billing, statutory reporting, and the purposes listed above. I understand that I may withdraw this consent at any time by written notice to the hospital, subject to legal and clinical obligations that may require continued retention.</div>' +
+      '<div class="clause"><span class="clause-num">10.</span> <b>Acknowledgement:</b> The hospital staff has explained the above to me in a language I understand. I have had the opportunity to ask questions, and my questions have been answered to my satisfaction.</div>' +
+      '<div class="sig-block">' +
+         '<div><div class="sig-line"></div><div><b>Patient / Attendant Signature</b></div><div style="color:#666">Name: ' + esc(r.patient_name || '__________________________') + '</div><div style="color:#666">Relation (if attendant): ' + esc(r.guardian_relation || '____________') + '</div><div style="color:#666">Date: __________  Time: __________</div></div>' +
+         '<div><div class="sig-line"></div><div><b>Witness Signature</b></div><div style="color:#666">Name: __________________________</div><div style="color:#666">Designation / Relation: ____________</div><div style="color:#666">Date: __________  Time: __________</div></div>' +
+         '<div style="grid-column:1/-1"><div class="sig-line"></div><div><b>Hospital Authorised Signatory</b></div><div style="color:#666">Name &amp; Designation: __________________________</div></div>' +
+      '</div>' +
+      '<div class="footer">' + esc(prov.name || '') + ' · Computer-generated consent form, valid only when signed by the patient / attendant and the hospital authorised signatory.</div>' +
+      '</body></html>';
+   var w = window.open('', 'consent-' + admId, 'width=860,height=1000');
+   w.document.write(html); w.document.close();
+}
+
+// ── DEPOSIT / ADVANCE RECEIPT ──
+// Open the deposit modal scoped to one admission. Shows prior receipts for
+// the same admission (running balance), then collects amount + mode + txn
+// reference, mints a sequential receipt number, and pops the printable
+// receipt window. Multi-tab safe via UNIQUE(provider_id, receipt_seq) +
+// retry-on-conflict in supabase.addAdmissionPayment.
+var _depAdmission = null;
+
+async function openDepositModal(admId) {
+   var rows = await AppDB.getAdmissions(_admHospitalChoice);
+   var r = (rows || []).find(function(x) { return x.id === admId; });
+   if (!r) { alert('Admission not found.'); return; }
+   _depAdmission = r;
+   var get = function(id) { return document.getElementById(id); };
+   get('dep-admission-id').value = r.id;
+   get('dep-amount').value = '';
+   get('dep-mode').value   = 'Cash';
+   get('dep-txn-ref').value = '';
+   get('dep-notes').value   = '';
+
+   // Patient strip — quick context so receptionist confirms before charging
+   get('dep-patient-strip').innerHTML =
+      '<strong>' + (r.patient_name || '—') + '</strong>' +
+      (r.patient_ref ? ' · UHID ' + r.patient_ref : '') +
+      (r.patient_phone ? ' · 📞 ' + r.patient_phone : '') +
+      '<br/><span style="color:#666;font-size:0.82rem">' +
+         (r.ward ? r.ward : '—') + (r.room_bed ? ' · ' + r.room_bed : '') +
+         ' · Admitted ' + (r.admit_date || '—') +
+      '</span>';
+
+   // Prior payments — running balance summary
+   var prior = await AppDB.getAdmissionPayments(r.id);
+   var priorEl = get('dep-prior-list');
+   if (!prior.length) {
+      priorEl.innerHTML = '<div style="font-size:0.82rem;color:#888;font-style:italic">No prior receipts on this admission.</div>';
+   } else {
+      var total = prior.reduce(function(s, p) { return s + Number(p.amount || 0); }, 0);
+      priorEl.innerHTML =
+         '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:8px 12px;font-size:0.82rem">' +
+            '<strong>Prior receipts:</strong> ' +
+            prior.map(function(p) {
+               return p.receipt_no + ' · ₹' + Number(p.amount).toLocaleString('en-IN') + ' (' + p.payment_mode + ')';
+            }).join(' · ') +
+            '<br/><strong style="color:#065f46">Running total: ₹' + total.toLocaleString('en-IN') + '</strong>' +
+         '</div>';
+   }
+
+   document.getElementById('depositModal').classList.remove('hidden');
+}
+
+function closeDepositModal() {
+   document.getElementById('depositModal').classList.add('hidden');
+   _depAdmission = null;
+}
+
+async function saveDepositAndPrint() {
+   if (!_depAdmission) return;
+   var get = function(id) { return (document.getElementById(id).value || '').trim(); };
+   var amount = Number(get('dep-amount'));
+   if (!amount || amount < 1) { alert('Enter a valid amount.'); return; }
+   var mode = get('dep-mode') || 'Cash';
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+
+   var paid = await AppDB.addAdmissionPayment({
+      provider_id:  _depAdmission.provider_id,
+      admission_id: _depAdmission.id,
+      amount:       amount,
+      payment_mode: mode,
+      txn_ref:      get('dep-txn-ref'),
+      received_by:  user.name || user.email || '',
+      notes:        get('dep-notes')
+   });
+   if (!paid) { alert('Failed to save deposit. Please try again.'); return; }
+   closeDepositModal();
+   printDepositReceipt(paid.id);
+   renderShopAdmissions();
+}
+
+// Convert an integer rupee amount to Indian words.
+// Handles up to crore range — enough for a single hospital receipt.
+function _rupeesInWords(n) {
+   n = Math.floor(Number(n) || 0);
+   if (n === 0) return 'Zero';
+   var ones = ['', 'One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+               'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+   var tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+   function below100(x) {
+      if (x < 20) return ones[x];
+      return tens[Math.floor(x/10)] + (x%10 ? ' ' + ones[x%10] : '');
+   }
+   function below1000(x) {
+      if (x < 100) return below100(x);
+      return ones[Math.floor(x/100)] + ' Hundred' + (x%100 ? ' ' + below100(x%100) : '');
+   }
+   var parts = [];
+   var crore = Math.floor(n / 10000000); n %= 10000000;
+   var lakh  = Math.floor(n / 100000);   n %= 100000;
+   var thou  = Math.floor(n / 1000);     n %= 1000;
+   var rest  = n;
+   if (crore) parts.push(below1000(crore) + ' Crore');
+   if (lakh)  parts.push(below100(lakh)  + ' Lakh');
+   if (thou)  parts.push(below100(thou)  + ' Thousand');
+   if (rest)  parts.push(below1000(rest));
+   return parts.join(' ').trim();
+}
+
+async function printDepositReceipt(paymentId) {
+   var pay = await AppDB.getAdmissionPaymentById(paymentId);
+   if (!pay) { alert('Receipt not found.'); return; }
+   var admRows = await AppDB.getAdmissions(pay.provider_id);
+   var r = (admRows || []).find(function(x) { return x.id === pay.admission_id; }) || {};
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(pay.provider_id) || {};
+   var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
+   var paidAt = new Date(pay.paid_at);
+   var when = isNaN(paidAt.getTime()) ? '' :
+      paidAt.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) +
+      ' · ' + paidAt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+   var amt = Number(pay.amount || 0);
+   var words = _rupeesInWords(amt) + ' Rupees Only';
+
+   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Deposit Receipt · ' + esc(pay.receipt_no) + '</title>' +
+      '<style>' +
+         'body{font-family:ui-sans-serif,system-ui,sans-serif;color:#111;padding:24px;max-width:600px;margin:0 auto;line-height:1.5}' +
+         '.head{border-bottom:2px solid #2e7d32;padding-bottom:12px;margin-bottom:14px;text-align:center}' +
+         '.head h1{margin:0 0 4px;font-size:20px;color:#2e7d32}' +
+         '.head .sub{font-size:12px;color:#555}' +
+         '.doc-title{text-align:center;margin:14px 0;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#2e7d32}' +
+         '.meta{display:flex;justify-content:space-between;font-size:13px;margin-bottom:14px}' +
+         '.meta b{color:#1a1a2e}' +
+         '.body{font-size:13.5px;background:#f7fdf9;border:1px solid #c8e6c9;border-radius:8px;padding:14px}' +
+         '.body table{width:100%;font-size:13px}' +
+         '.body td{padding:5px 4px;vertical-align:top}' +
+         '.body td.label{color:#555;width:38%}' +
+         '.amt-box{margin-top:12px;text-align:right;font-size:18px;color:#1b5e20;font-weight:800;border-top:1px dashed #a5d6a7;padding-top:8px}' +
+         '.words{font-style:italic;color:#444;font-size:12.5px;margin-top:4px}' +
+         '.sig{margin-top:30px;display:flex;justify-content:space-between;font-size:12px}' +
+         '.sig .line{border-top:1px solid #333;margin-top:50px;padding-top:4px;min-width:180px}' +
+         '.footer{margin-top:18px;text-align:center;font-size:10.5px;color:#666}' +
+         '.toolbar{text-align:right;margin-bottom:10px}' +
+         '.toolbar button{padding:7px 12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12.5px;background:#1a73e8;color:#fff}' +
+         '@media print{.toolbar{display:none}body{padding:8px}}' +
+      '</style></head><body>' +
+      '<div class="toolbar"><button onclick="window.print()">🖨 Print / Save PDF</button></div>' +
+      '<div class="head">' +
+         '<h1>' + esc(prov.name || 'Hospital') + '</h1>' +
+         '<div class="sub">' + esc(prov.address || '') + '</div>' +
+         (prov.phone ? '<div class="sub">📞 ' + esc(prov.phone) + '</div>' : '') +
+      '</div>' +
+      '<div class="doc-title">Deposit / Advance Receipt</div>' +
+      '<div class="meta">' +
+         '<div><b>Receipt No:</b> ' + esc(pay.receipt_no) + '</div>' +
+         '<div><b>Date:</b> ' + esc(when) + '</div>' +
+      '</div>' +
+      '<div class="body">' +
+         '<table>' +
+            '<tr><td class="label">Received from</td><td><b>' + esc(r.patient_name || '—') + '</b>' + (r.patient_ref ? ' (UHID ' + esc(r.patient_ref) + ')' : '') + '</td></tr>' +
+            (r.patient_phone ? '<tr><td class="label">Phone</td><td>' + esc(r.patient_phone) + '</td></tr>' : '') +
+            (r.ward ? '<tr><td class="label">Ward / Bed</td><td>' + esc(r.ward) + (r.room_bed ? ' · ' + esc(r.room_bed) : '') + '</td></tr>' : '') +
+            (r.admit_date ? '<tr><td class="label">Admission Date</td><td>' + esc(new Date(r.admit_date + 'T00:00:00').toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })) + '</td></tr>' : '') +
+            '<tr><td class="label">Payment Mode</td><td>' + esc(pay.payment_mode) + (pay.txn_ref ? ' · ' + esc(pay.txn_ref) : '') + '</td></tr>' +
+            (pay.notes ? '<tr><td class="label">Notes</td><td>' + esc(pay.notes) + '</td></tr>' : '') +
+            (pay.received_by ? '<tr><td class="label">Received by</td><td>' + esc(pay.received_by) + '</td></tr>' : '') +
+         '</table>' +
+         '<div class="amt-box">₹ ' + amt.toLocaleString('en-IN') + '</div>' +
+         '<div class="words">In words: <b>' + esc(words) + '</b></div>' +
+      '</div>' +
+      '<div class="sig">' +
+         '<div><div class="line"></div>Patient / Attendant</div>' +
+         '<div style="text-align:right"><div class="line"></div>Cashier / Authorised Signatory</div>' +
+      '</div>' +
+      '<div class="footer">This receipt is an acknowledgement of the advance / deposit amount only and is adjustable against the final bill. ' + esc(prov.name || '') + '</div>' +
+      '</body></html>';
+   var w = window.open('', 'receipt-' + pay.id, 'width=700,height=900');
    w.document.write(html); w.document.close();
 }
 
@@ -10731,6 +11053,8 @@ async function renderShopAdmissions() {
                           'onclick="toggleAdmissionRounds(\'' + rid + '\')">' + roundsLbl + '</span></td>' +
                    '<td style="text-align:right;white-space:nowrap">' +
                       '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
+                      '<button class="apt-view-btn" style="background:#6a1b9a" title="Print general consent form" onclick="printAdmissionConsent(\'' + rid + '\')">📄 Consent</button> ' +
+                      '<button class="apt-view-btn" style="background:#00796b" title="Collect deposit / advance" onclick="openDepositModal(\'' + rid + '\')">💰 Deposit</button> ' +
                       '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button> ' +
                       '<button class="apt-view-btn" style="background:#c62828" title="Permanently delete this admission record" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
                    '</td>' +
@@ -10775,6 +11099,11 @@ var _ADM_FIELDS = [
    'adm-doctor','adm-procedure','adm-email','adm-dob','adm-gender',
    'adm-marital','adm-employment','adm-address','adm-city','adm-postal',
    'adm-guardian-name','adm-guardian-relation','adm-guardian-phone',
+   // Launch-ready intake (Phase 8.3)
+   'adm-type','adm-mlc-no','adm-complaint','adm-allergies',
+   'adm-current-meds','adm-past-history',
+   'adm-id-proof-type','adm-id-proof-no',
+   'adm-room-cat','adm-pay-mode','adm-tpa-name','adm-tpa-card',
    'adm-lookup'
 ];
 
@@ -10813,12 +11142,35 @@ function openAdmissionModal(id) {
          get('adm-guardian-name').value     = r.guardian_name || '';
          get('adm-guardian-relation').value = r.guardian_relation || '';
          get('adm-guardian-phone').value    = r.guardian_phone || '';
+         // Phase 8.3 — launch-ready intake fields
+         get('adm-type').value          = r.admission_type || 'Planned';
+         get('adm-complaint').value     = r.chief_complaint || '';
+         get('adm-allergies').value     = r.known_allergies || '';
+         get('adm-current-meds').value  = r.current_medications || '';
+         get('adm-past-history').value  = r.past_medical_history || '';
+         get('adm-id-proof-type').value = r.id_proof_type || '';
+         get('adm-id-proof-no').value   = r.id_proof_number || '';
+         get('adm-room-cat').value      = r.room_category || '';
+         get('adm-pay-mode').value      = r.payment_mode || '';
+         get('adm-tpa-name').value      = r.tpa_name || '';
+         get('adm-tpa-card').value      = r.tpa_card_no || '';
+         get('adm-mlc').checked         = !!r.mlc;
+         get('adm-mlc-no').value        = r.mlc_number || '';
+         // Reveal conditional rows to match loaded values
+         get('adm-mlc-no-wrap').style.display = r.mlc ? '' : 'none';
+         get('adm-tpa-wrap').style.display    = (r.payment_mode === 'TPA / Insurance' || r.payment_mode === 'Corporate') ? '' : 'none';
          modal.classList.remove('hidden');
       });
    } else {
       titleEl.textContent = '🛏️ Admit Patient';
       _ADM_FIELDS.forEach(function(e) { var el = get(e); if (el) el.value = ''; });
       delete get('adm-ref').dataset.autofilled;
+      // Reset conditional toggles to closed state
+      var mlcChk = get('adm-mlc'); if (mlcChk) mlcChk.checked = false;
+      var mlcWrap = get('adm-mlc-no-wrap'); if (mlcWrap) mlcWrap.style.display = 'none';
+      var tpaWrap = get('adm-tpa-wrap');    if (tpaWrap) tpaWrap.style.display = 'none';
+      // Default admission type to Planned
+      var typeEl = get('adm-type'); if (typeEl) typeEl.value = 'Planned';
       // Stale typeahead results from the previous open — wipe + hide the panel
       var lookupResults = get('adm-lookup-results');
       if (lookupResults) { lookupResults.innerHTML = ''; lookupResults.classList.add('hidden'); }
@@ -10973,7 +11325,21 @@ async function saveAdmission() {
       postal_code:        get('adm-postal'),
       guardian_name:      get('adm-guardian-name'),
       guardian_relation:  get('adm-guardian-relation'),
-      guardian_phone:     get('adm-guardian-phone')
+      guardian_phone:     get('adm-guardian-phone'),
+      // Phase 8.3 — launch-ready intake
+      admission_type:       get('adm-type') || 'Planned',
+      chief_complaint:      get('adm-complaint'),
+      known_allergies:      get('adm-allergies'),
+      current_medications:  get('adm-current-meds'),
+      past_medical_history: get('adm-past-history'),
+      id_proof_type:        get('adm-id-proof-type'),
+      id_proof_number:      get('adm-id-proof-no'),
+      room_category:        get('adm-room-cat'),
+      payment_mode:         get('adm-pay-mode'),
+      tpa_name:             get('adm-tpa-name'),
+      tpa_card_no:          get('adm-tpa-card'),
+      mlc:                  document.getElementById('adm-mlc').checked,
+      mlc_number:           get('adm-mlc-no')
    });
    if (!ok) { alert('Failed to save admission.'); return; }
    closeAdmissionModal();
@@ -10993,11 +11359,246 @@ async function toggleAdmissionRounds(id) {
    renderShopAdmissions();
 }
 
+// Open the discharge summary modal for an admission. Loads any existing
+// summary for re-edit, otherwise pre-fills the discharge date (today),
+// doctor name + speciality from the admission row, and offers a one-click
+// "pull from latest prescription" to populate the discharge meds field.
+var _dsAdmission = null;
 async function dischargeAdmission(id) {
-   if (!confirm('Mark this patient as Discharged? They\'ll move out of the Currently Admitted list.')) return;
-   var ok = await AppDB.patchAdmission(id, { status: 'Discharged' });
-   if (!ok) { alert('Failed to discharge.'); return; }
+   var rows = await AppDB.getAdmissions(_admHospitalChoice);
+   var r = (rows || []).find(function(x) { return x.id === id; });
+   if (!r) { alert('Admission not found.'); return; }
+   _dsAdmission = r;
+
+   var get = function(eid) { return document.getElementById(eid); };
+   get('ds-admission-id').value = r.id;
+
+   get('ds-patient-strip').innerHTML =
+      '<strong>' + (r.patient_name || '—') + '</strong>' +
+      (r.patient_ref ? ' · UHID ' + r.patient_ref : '') +
+      (r.patient_phone ? ' · 📞 ' + r.patient_phone : '') +
+      '<br/><span style="color:#666;font-size:0.82rem">' +
+         (r.ward ? r.ward : '—') + (r.room_bed ? ' · ' + r.room_bed : '') +
+         ' · Admitted ' + (r.admit_date || '—') +
+         (r.planned_procedure ? ' · Procedure: ' + r.planned_procedure : '') +
+      '</span>';
+
+   // Pre-fill doctor identity from the admission
+   get('ds-doc-name').value = r.doctor_name || '';
+   get('ds-doc-spec').value = '';
+   get('ds-doc-reg').value  = '';
+   // Try to pick up speciality from the provider's doctor roster
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(r.provider_id);
+   var doc = prov && (prov.doctors || []).find(function(d) { return d.name === r.doctor_name; });
+   if (doc) {
+      if (doc.speciality)  get('ds-doc-spec').value = doc.speciality;
+      if (doc.mci_reg_no || doc.nmc_reg_no || doc.reg_no) {
+         get('ds-doc-reg').value = doc.nmc_reg_no || doc.mci_reg_no || doc.reg_no || '';
+      }
+   }
+
+   // Load any existing summary for edit; otherwise blank with today's date.
+   var existing = await AppDB.getDischargeSummary(r.id);
+   var titleEl = document.getElementById('dischargeModalTitle');
+   if (existing) {
+      titleEl.textContent = '✏️ Edit Discharge Summary';
+      get('ds-final-dx').value         = existing.final_diagnosis || '';
+      get('ds-course').value           = existing.course_in_hospital || '';
+      get('ds-invs').value             = existing.investigations_summary || '';
+      get('ds-treatment').value        = existing.treatment_given || '';
+      get('ds-condition').value        = existing.condition_at_discharge || 'Stable';
+      get('ds-meds').value             = existing.discharge_medications || '';
+      get('ds-followup-advice').value  = existing.follow_up_advice || '';
+      get('ds-followup-date').value    = existing.follow_up_date || '';
+      get('ds-discharge-date').value   = existing.discharge_date || _todayLocalYmd();
+      if (existing.doctor_name)        get('ds-doc-name').value = existing.doctor_name;
+      if (existing.doctor_speciality)  get('ds-doc-spec').value = existing.doctor_speciality;
+      if (existing.doctor_reg_no)      get('ds-doc-reg').value  = existing.doctor_reg_no;
+   } else {
+      titleEl.textContent = '📋 Discharge Summary';
+      ['ds-final-dx','ds-course','ds-invs','ds-treatment','ds-meds','ds-followup-advice','ds-followup-date']
+         .forEach(function(f) { get(f).value = ''; });
+      get('ds-condition').value = 'Stable';
+      get('ds-discharge-date').value = _todayLocalYmd();
+   }
+
+   document.getElementById('dischargeModal').classList.remove('hidden');
+}
+
+function closeDischargeModal() {
+   document.getElementById('dischargeModal').classList.add('hidden');
+   _dsAdmission = null;
+}
+
+// Populate the Discharge Medications textarea with one line per medicine
+// from the patient's most recent prescription at this hospital. Useful
+// because the doctor almost always continues some of the inpatient meds.
+async function _dsPullFromLastRx() {
+   if (!_dsAdmission) return;
+   var rxRows = await AppDB.getPatientPrescriptionHistory(
+      _dsAdmission.provider_id, _dsAdmission.patient_phone, _dsAdmission.patient_name
+   );
+   if (!rxRows || !rxRows.length) { alert('No prescriptions found for this patient at this hospital.'); return; }
+   var last = rxRows[0];
+   var lines = (last.medicines || []).map(function(m) {
+      return (m.name || '—') + (m.type ? ' (' + m.type + ')' : '') +
+             (m.dosage ? ' · ' + m.dosage : '') +
+             (m.duration ? ' · ' + m.duration : '') +
+             (m.notes ? ' · ' + m.notes : '');
+   });
+   if (!lines.length) { alert('Latest prescription has no medicines listed.'); return; }
+   var existing = (document.getElementById('ds-meds').value || '').trim();
+   document.getElementById('ds-meds').value = (existing ? existing + '\n' : '') + lines.join('\n');
+}
+
+async function saveDischargeAndPrint() {
+   if (!_dsAdmission) return;
+   var get = function(id) { return (document.getElementById(id).value || '').trim(); };
+   var finalDx = get('ds-final-dx');
+   var dischargeDate = get('ds-discharge-date');
+   if (!finalDx)       { alert('Final diagnosis is required.'); return; }
+   if (!dischargeDate) { alert('Discharge date is required.'); return; }
+
+   var saved = await AppDB.upsertDischargeSummary({
+      provider_id:            _dsAdmission.provider_id,
+      admission_id:           _dsAdmission.id,
+      final_diagnosis:        finalDx,
+      course_in_hospital:     get('ds-course'),
+      investigations_summary: get('ds-invs'),
+      treatment_given:        get('ds-treatment'),
+      condition_at_discharge: get('ds-condition') || 'Stable',
+      discharge_medications:  get('ds-meds'),
+      follow_up_advice:       get('ds-followup-advice'),
+      follow_up_date:         get('ds-followup-date') || null,
+      discharge_date:         dischargeDate,
+      doctor_name:            get('ds-doc-name'),
+      doctor_speciality:      get('ds-doc-spec'),
+      doctor_reg_no:          get('ds-doc-reg')
+   });
+   if (!saved) { alert('Failed to save discharge summary.'); return; }
+
+   // Flip admission to Discharged so it leaves the Currently Admitted list.
+   // We update the admission row's target_discharge to match the actual
+   // discharge date — keeps the row's "Discharged on" column accurate.
+   await AppDB.patchAdmission(_dsAdmission.id, {
+      status: 'Discharged',
+      target_discharge: dischargeDate
+   });
+
+   var admId = _dsAdmission.id;
+   closeDischargeModal();
+   printDischargeSummary(admId);
    renderShopAdmissions();
+}
+
+async function printDischargeSummary(admId) {
+   var summary = await AppDB.getDischargeSummary(admId);
+   if (!summary) { alert('Discharge summary not found.'); return; }
+   var admRows = await AppDB.getAdmissions(summary.provider_id);
+   var r = (admRows || []).find(function(x) { return x.id === admId; }) || {};
+   await loadAptProviders(true);
+   var prov = _aptGetProvider(summary.provider_id) || {};
+   var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
+   var nl2br = function(s) { return esc(s).replace(/\n/g, '<br/>'); };
+
+   var fmt = function(d) {
+      if (!d) return '—';
+      var dt = new Date(d + 'T00:00:00');
+      return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+   };
+   var admit = fmt(r.admit_date);
+   var disch = fmt(summary.discharge_date);
+   var followUp = summary.follow_up_date ? fmt(summary.follow_up_date) : '';
+   var losDays = '—';
+   if (r.admit_date && summary.discharge_date) {
+      var a = new Date(r.admit_date + 'T00:00:00'), b = new Date(summary.discharge_date + 'T00:00:00');
+      if (!isNaN(a.getTime()) && !isNaN(b.getTime())) losDays = Math.max(0, Math.round((b - a) / 86400000)) + ' day(s)';
+   }
+   var ageSex = '';
+   if (r.dob) {
+      var dob = new Date(r.dob + 'T00:00:00');
+      if (!isNaN(dob.getTime())) {
+         var age = Math.floor((Date.now() - dob.getTime()) / (365.25 * 86400000));
+         ageSex = age + 'Y' + (r.gender ? ' / ' + r.gender[0] : '');
+      }
+   }
+   var medsHtml = (summary.discharge_medications || '').trim()
+      .split('\n').filter(Boolean)
+      .map(function(line, i) { return '<li>' + esc(line) + '</li>'; })
+      .join('');
+
+   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Discharge Summary · ' + esc(r.patient_name) + '</title>' +
+      '<style>' +
+         'body{font-family:ui-sans-serif,system-ui,sans-serif;color:#111;padding:24px;max-width:820px;margin:0 auto;line-height:1.55}' +
+         '.head{border-bottom:2px solid #0d47a1;padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px}' +
+         '.head h1{margin:0 0 4px;font-size:22px;color:#0d47a1}' +
+         '.head .sub{font-size:12px;color:#555}' +
+         '.doc-title{text-align:center;margin:18px 0 12px;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#0d47a1}' +
+         '.info{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;background:#f3f6fc;padding:12px;border-radius:8px;margin-bottom:16px;font-size:13px}' +
+         '.info b{color:#1a1a2e}' +
+         '.section{margin:14px 0}' +
+         '.section h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:0.05em;color:#0d47a1;border-bottom:1px solid #cfd8e3;padding-bottom:4px}' +
+         '.section .body{font-size:13.5px;white-space:pre-wrap}' +
+         '.cond-pill{display:inline-block;background:#e3f2fd;color:#0d47a1;padding:3px 10px;border-radius:999px;font-weight:600;font-size:12px}' +
+         '.cond-pill.danger{background:#fee2e2;color:#b91c1c}' +
+         '.allergy-banner{background:#fef2f2;border-left:4px solid #b91c1c;padding:8px 12px;margin:10px 0;font-size:13px;color:#b91c1c}' +
+         'ul.meds{margin:4px 0;padding-left:22px;font-size:13.5px}' +
+         'ul.meds li{margin:3px 0}' +
+         '.sig-block{margin-top:36px;display:flex;justify-content:flex-end}' +
+         '.sig-block .sig{min-width:260px;text-align:center;font-size:12.5px}' +
+         '.sig-block .line{margin-top:50px;border-top:1px solid #333;padding-top:4px}' +
+         '.footer{margin-top:30px;padding-top:14px;border-top:1px solid #d6dce8;font-size:11px;color:#666;text-align:center}' +
+         '.toolbar{text-align:right;margin-bottom:14px}' +
+         '.toolbar button{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;background:#1a73e8;color:#fff}' +
+         '@media print{.toolbar{display:none}body{padding:14px}}' +
+      '</style></head><body>' +
+      '<div class="toolbar"><button onclick="window.print()">🖨 Print / Save PDF</button></div>' +
+      '<div class="head">' +
+         '<div>' +
+            '<h1>' + esc(prov.name || 'Hospital') + '</h1>' +
+            '<div class="sub">' + esc(prov.address || '') + '</div>' +
+            (prov.phone ? '<div class="sub">📞 ' + esc(prov.phone) + '</div>' : '') +
+         '</div>' +
+         '<div style="text-align:right;font-size:11px;color:#666">' +
+            'Form: DS-01<br/>Issued: ' + esc(disch) +
+         '</div>' +
+      '</div>' +
+      '<div class="doc-title">Discharge Summary</div>' +
+      (r.known_allergies && r.known_allergies.toUpperCase() !== 'NIL' ? '<div class="allergy-banner"><b>⚠️ Known Allergies:</b> ' + esc(r.known_allergies) + '</div>' : '') +
+      '<div class="info">' +
+         '<div><b>Patient:</b> ' + esc(r.patient_name || '—') + (ageSex ? ' · ' + esc(ageSex) : '') + '</div>' +
+         '<div><b>UHID:</b> ' + esc(r.patient_ref || '—') + '</div>' +
+         '<div><b>Phone:</b> ' + esc(r.patient_phone || '—') + '</div>' +
+         '<div><b>Ward / Bed:</b> ' + esc((r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '')) + '</div>' +
+         '<div><b>Admit Date:</b> ' + esc(admit) + '</div>' +
+         '<div><b>Discharge Date:</b> ' + esc(disch) + '</div>' +
+         '<div><b>Length of Stay:</b> ' + esc(losDays) + '</div>' +
+         '<div><b>Condition at Discharge:</b> <span class="cond-pill' + (summary.condition_at_discharge === 'Expired' || summary.condition_at_discharge === 'DAMA' ? ' danger' : '') + '">' + esc(summary.condition_at_discharge) + '</span></div>' +
+         '<div style="grid-column:1/-1"><b>Treating Doctor:</b> ' + esc(summary.doctor_name || '—') + (summary.doctor_speciality ? ' · ' + esc(summary.doctor_speciality) : '') + (summary.doctor_reg_no ? ' · Reg No. ' + esc(summary.doctor_reg_no) : '') + '</div>' +
+      '</div>' +
+      '<div class="section"><h3>Final Diagnosis</h3><div class="body">' + nl2br(summary.final_diagnosis) + '</div></div>' +
+      (summary.course_in_hospital ? '<div class="section"><h3>Course in Hospital</h3><div class="body">' + nl2br(summary.course_in_hospital) + '</div></div>' : '') +
+      (summary.investigations_summary ? '<div class="section"><h3>Investigations</h3><div class="body">' + nl2br(summary.investigations_summary) + '</div></div>' : '') +
+      (summary.treatment_given ? '<div class="section"><h3>Treatment Given</h3><div class="body">' + nl2br(summary.treatment_given) + '</div></div>' : '') +
+      (medsHtml ? '<div class="section"><h3>Discharge Medications</h3><ul class="meds">' + medsHtml + '</ul></div>' : '') +
+      (summary.follow_up_advice || followUp ? '<div class="section"><h3>Follow-up Advice</h3><div class="body">' +
+         nl2br(summary.follow_up_advice) +
+         (followUp ? (summary.follow_up_advice ? '<br/><br/>' : '') + '<b>Next visit:</b> ' + esc(followUp) : '') +
+      '</div></div>' : '') +
+      '<div class="sig-block">' +
+         '<div class="sig">' +
+            '<div class="line"></div>' +
+            '<div><b>' + esc(summary.doctor_name || '—') + '</b></div>' +
+            '<div style="color:#666">' + esc(summary.doctor_speciality || '') + '</div>' +
+            (summary.doctor_reg_no ? '<div style="color:#666">Reg No. ' + esc(summary.doctor_reg_no) + '</div>' : '') +
+         '</div>' +
+      '</div>' +
+      '<div class="footer">This discharge summary is issued by ' + esc(prov.name || '') + '. Computer-generated; valid only when signed by the treating doctor. In case of emergency please return to the hospital or call our 24x7 number.</div>' +
+      '</body></html>';
+
+   var w = window.open('', 'discharge-' + admId, 'width=860,height=1000');
+   w.document.write(html); w.document.close();
 }
 
 // Hard-delete a single admission record from the owner's tab. Unlike

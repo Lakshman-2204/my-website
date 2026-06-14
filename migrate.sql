@@ -582,3 +582,125 @@ DO $$ BEGIN
    ALTER PUBLICATION supabase_realtime ADD TABLE public.prescriptions;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- 25. PATIENT_NOTES — running journal per (hospital, patient). Append-only:
+--     doctor/staff add text entries; older entries stay as-is for audit.
+--     No file uploads — keeps storage cost zero, avoids PHI / RLS complexity.
+CREATE TABLE IF NOT EXISTS public.patient_notes (
+   id                 text         PRIMARY KEY,
+   provider_id        text         NOT NULL,
+   patient_phone_norm text         NOT NULL,
+   patient_name       text         DEFAULT '',
+   patient_name_norm  text         DEFAULT '',
+   author_email       text         DEFAULT '',
+   author_name        text         DEFAULT '',
+   note               text         NOT NULL,
+   created_at         timestamptz  DEFAULT now()
+);
+ALTER TABLE public.patient_notes DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS patient_notes_lookup_idx
+   ON public.patient_notes(provider_id, patient_phone_norm, patient_name_norm);
+CREATE INDEX IF NOT EXISTS patient_notes_created_idx
+   ON public.patient_notes(created_at DESC);
+
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.patient_notes;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 26. ADMISSIONS — launch-ready intake fields (Phase 8.3).
+--     Captures the rest of what a hospital admission form needs:
+--     admission type (emergency / planned / day-care), clinical snapshot
+--     (chief complaint, allergies, current meds, past history — the allergy
+--     field drives the safety banner shown to doctors), ID proof for KYC,
+--     room category + payment mode + TPA for billing, and the MLC flag
+--     with police case reference for medico-legal admissions.
+ALTER TABLE public.admissions
+   ADD COLUMN IF NOT EXISTS admission_type       text DEFAULT 'Planned',
+   ADD COLUMN IF NOT EXISTS chief_complaint      text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS known_allergies      text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS current_medications  text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS past_medical_history text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS id_proof_type        text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS id_proof_number      text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS room_category        text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS payment_mode         text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS tpa_name             text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS tpa_card_no          text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS mlc                  boolean DEFAULT false,
+   ADD COLUMN IF NOT EXISTS mlc_number           text DEFAULT '';
+
+-- 27. ADMISSION_PAYMENTS — money taken at / during admission (advance,
+--     deposit top-ups, refunds). Receipts are sequential per hospital so
+--     the receipt number on the printed receipt is meaningful for audit.
+--     Refunds are stored as negative `amount` rows so the running balance
+--     stays correct without a separate refund table.
+CREATE TABLE IF NOT EXISTS public.admission_payments (
+   id            text         PRIMARY KEY,
+   provider_id   text         NOT NULL,
+   admission_id  text         NOT NULL,
+   receipt_seq   integer      NOT NULL,
+   receipt_no    text         NOT NULL,
+   amount        numeric      NOT NULL,
+   payment_mode  text         DEFAULT 'Cash',
+   txn_ref       text         DEFAULT '',
+   paid_at       timestamptz  DEFAULT now(),
+   received_by   text         DEFAULT '',
+   notes         text         DEFAULT '',
+   created_at    timestamptz  DEFAULT now(),
+   UNIQUE (provider_id, receipt_seq)
+);
+ALTER TABLE public.admission_payments DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS admission_payments_admission_idx
+   ON public.admission_payments(admission_id);
+CREATE INDEX IF NOT EXISTS admission_payments_provider_idx
+   ON public.admission_payments(provider_id);
+
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.admission_payments;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 28. DISCHARGE_SUMMARIES — final clinical summary issued when the patient
+--     leaves. One row per admission (UNIQUE). Stored separately from the
+--     admissions row because the discharge has its own clinical content
+--     (course in hospital, investigations done, discharge meds, follow-up)
+--     and may be re-printed without recomputing. `locked_at` is set when
+--     the summary is finalised and printed — any later change should be
+--     logged as an amendment (out of scope for v1, but the column is ready).
+CREATE TABLE IF NOT EXISTS public.discharge_summaries (
+   id                       text         PRIMARY KEY,
+   provider_id              text         NOT NULL,
+   admission_id             text         NOT NULL UNIQUE,
+   final_diagnosis          text         DEFAULT '',
+   course_in_hospital       text         DEFAULT '',
+   investigations_summary   text         DEFAULT '',
+   treatment_given          text         DEFAULT '',
+   condition_at_discharge   text         DEFAULT 'Stable',
+   discharge_medications    text         DEFAULT '',
+   follow_up_advice         text         DEFAULT '',
+   follow_up_date           date,
+   discharge_date           date         NOT NULL,
+   doctor_name              text         DEFAULT '',
+   doctor_reg_no            text         DEFAULT '',
+   doctor_speciality        text         DEFAULT '',
+   locked_at                timestamptz,
+   created_at               timestamptz  DEFAULT now(),
+   updated_at               timestamptz  DEFAULT now()
+);
+ALTER TABLE public.discharge_summaries DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS discharge_summaries_provider_idx
+   ON public.discharge_summaries(provider_id);
+
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.discharge_summaries;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 29. PRESCRIPTIONS — snapshot the doctor's NMC/MCI registration number on
+--     every Rx (legal requirement on Indian prescriptions). Snapshotting
+--     means future reprints stay accurate even if the doctor's reg no is
+--     later corrected on their profile.
+ALTER TABLE public.prescriptions
+   ADD COLUMN IF NOT EXISTS doctor_reg_no text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS allergies     text DEFAULT '';

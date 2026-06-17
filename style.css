@@ -2084,6 +2084,85 @@ body.guest .store-section-divider {
 .patient-history .ph-visit-meds li { margin: 1px 0; }
 .patient-history .ph-visit-advice { color: #5f6473; font-size: 0.82rem; font-style: italic; margin-top: 4px; }
 
+/* ── Patient Card Grid (Gemini-style) ── */
+.ph-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; grid-column: 1/-1; }
+.ph-card {
+   background: #fff; border: 1.5px solid #e8ecf0; border-radius: 14px;
+   padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+   cursor: pointer; transition: border-color 0.18s, box-shadow 0.18s;
+}
+.ph-card:hover { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.08); }
+.ph-card.ph-card-active { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }
+.ph-card-avatar {
+   width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+   background: linear-gradient(135deg,#d1fae5,#a7f3d0);
+   color: #065f46; font-weight: 700; font-size: 0.95rem;
+   display: flex; align-items: center; justify-content: center;
+}
+.ph-card-avatar.ph-av-ip { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #1e40af; }
+.ph-card-info { flex: 1; min-width: 0; }
+.ph-card-name { font-weight: 700; font-size: 0.9rem; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-card-sub  { font-size: 0.76rem; color: #8a93a7; margin-top: 2px; }
+.ph-card-chevron { color: #c4cad4; font-size: 0.8rem; flex-shrink: 0; transition: color 0.15s; }
+.ph-card:hover .ph-card-chevron, .ph-card.ph-card-active .ph-card-chevron { color: #10b981; }
+
+/* ── Patient Profile Panel ── */
+.ph-profile-wrap { grid-column: 1/-1; margin-top: 4px; }
+.ph-profile-panel {
+   background: #fff; border: 1.5px solid #e8ecf0; border-radius: 16px;
+   padding: 20px 24px; margin-top: 4px;
+}
+.ph-profile-back {
+   display: inline-flex; align-items: center; gap: 6px;
+   font-size: 0.82rem; font-weight: 600; color: #5f6473;
+   background: #f3f4f6; border: none; border-radius: 8px;
+   padding: 5px 12px; cursor: pointer; margin-bottom: 16px; transition: background 0.15s;
+}
+.ph-profile-back:hover { background: #e8ecf0; }
+.ph-profile-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.ph-profile-bigav {
+   width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
+   background: linear-gradient(135deg,#d1fae5,#a7f3d0);
+   color: #065f46; font-weight: 700; font-size: 1.25rem;
+   display: flex; align-items: center; justify-content: center;
+}
+.ph-profile-bigav.ph-av-ip { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #1e40af; }
+.ph-profile-title { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; }
+.ph-profile-subtitle { font-size: 0.82rem; color: #8a93a7; margin-top: 3px; }
+.ph-meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px 20px; background: #f8fafc; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; }
+.ph-meta-lbl { font-size: 0.72rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em; }
+.ph-meta-val { font-size: 0.88rem; font-weight: 600; color: #374151; margin-top: 2px; }
+
+/* ── Visit Timeline (Gemini style) ── */
+.ph-tl-wrap { position: relative; padding-left: 28px; border-left: 2px solid #e5e7eb; margin-left: 8px; }
+.ph-tl-entry { position: relative; margin-bottom: 20px; }
+.ph-tl-dot {
+   position: absolute; left: -36px; top: 4px;
+   width: 10px; height: 10px; border-radius: 50%;
+   background: #d1d5db; border: 3px solid #fff; box-shadow: 0 0 0 2px #d1d5db;
+}
+.ph-tl-dot.ph-tl-latest { background: #10b981; box-shadow: 0 0 0 2px #10b981; }
+.ph-tl-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+.ph-tl-date { font-size: 0.78rem; font-weight: 700; color: #374151; }
+.ph-tl-doc  { font-size: 0.78rem; color: #6b7280; }
+.ph-tl-badge { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+.ph-tl-badge-latest  { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.ph-tl-badge-past    { background: #f3f4f6; color: #6b7280;  border: 1px solid #e5e7eb; }
+.ph-tl-dx { font-size: 0.84rem; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
+.ph-tl-vitals { font-size: 0.75rem; color: #6b7280; background: #f8fafc; border-radius: 6px; padding: 3px 8px; display: inline-block; margin-bottom: 4px; }
+.ph-tl-meds { font-size: 0.79rem; color: #374151; padding-left: 16px; margin: 4px 0; }
+.ph-tl-meds li { margin: 1px 0; }
+.ph-tl-advice { font-size: 0.78rem; color: #6b7280; font-style: italic; margin-top: 3px; }
+.ph-tl-fu { font-size: 0.78rem; color: #d97706; margin-top: 4px; font-weight: 600; }
+.ph-section-title { font-size: 0.92rem; font-weight: 700; color: #1a1a2e; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+.ph-notes-btn2 {
+   font-size: 0.78rem; font-weight: 600; color: #1a73e8;
+   background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+   padding: 4px 10px; cursor: pointer; margin-left: auto; transition: background 0.15s;
+}
+.ph-notes-btn2:hover { background: #dbeafe; }
+.ph-tl-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+
 /* Admissions table — Rounds pill, click to toggle */
 .adm-rounds-pill {
 	display: inline-block;

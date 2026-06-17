@@ -10042,74 +10042,65 @@ async function _renderOutPatientsTable(user) {
       if (!firstProviderByKey[key]) firstProviderByKey[key] = a.provider_id;
    });
 
-   var rowHtml = rows.map(function(p, idx) {
-      var lastLbl = p.lastDate ? new Date(p.lastDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-      var ids = Object.keys(p.patientIds || {});
-      var idCell = ids.length
-         ? ids.map(function(x) { return '<div class="apt-tbl-name" style="font-family:ui-monospace,monospace;font-size:0.78rem">' + x + '</div>'; }).join('')
-         : '<span style="color:#bbb">— not paid yet</span>';
-      var key = ((p.phone || p.email || '').toLowerCase().trim()) + '|' + ((p.name || '').toLowerCase().trim());
-      var provId = firstProviderByKey[key] || '';
-      var pidJs  = provId.replace(/'/g, "\\'");
-      var nameJs = (p.name || '').replace(/'/g, "\\'");
-      var phoneJs = (p.phone || '').replace(/'/g, "\\'");
-      return '<tr class="op-row" data-key="' + idx + '">' +
-                '<td style="width:32px;text-align:center"><span class="op-expand" onclick="_togglePatientHistory(\'op' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')" style="cursor:pointer;font-size:1.1rem;color:#1a73e8;user-select:none">▸</span></td>' +
-                '<td>' + idCell + '</td>' +
-                '<td><div class="apt-tbl-name">' + p.name + '</div>' +
-                    (p.email ? '<div class="apt-tbl-sub">' + p.email + '</div>' : '') +
-                '</td>' +
-                '<td>' + (p.phone ? '<a href="tel:' + String(p.phone).replace(/[^0-9+]/g, '') + '" style="color:#1a73e8;font-weight:600">' + p.phone + '</a>' : '<span style="color:#bbb">—</span>') + '</td>' +
-                '<td style="text-align:center"><div class="apt-tbl-fee">' + p.visits + '</div><div class="apt-tbl-sub">' + p.completed + ' completed</div></td>' +
-                '<td><div class="apt-tbl-name">' + lastLbl + '</div></td>' +
-                '<td style="text-align:right"><div class="apt-tbl-fee">₹' + p.totalFee.toLocaleString('en-IN') + '</div></td>' +
-             '</tr>' +
-             '<tr class="op-history hidden" id="op-history-op' + idx + '">' +
-                '<td></td>' +
-                '<td colspan="6"><div class="patient-history-body">Loading…</div></td>' +
-             '</tr>';
-   }).join('');
+   var _initials = function(n) { return (n || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2); };
 
-   return filterBar +
-      '<div class="apt-tbl-wrap" style="grid-column:1/-1">' +
-         '<table class="apt-tbl">' +
-            '<thead><tr>' +
-               '<th style="width:32px"></th>' +
-               '<th>Patient ID</th>' +
-               '<th>Patient</th>' +
-               '<th>Phone</th>' +
-               '<th style="text-align:center">Visits</th>' +
-               '<th>Last Visit</th>' +
-               '<th style="text-align:right">Total Paid</th>' +
-            '</tr></thead>' +
-            '<tbody>' + rowHtml + '</tbody>' +
-         '</table>' +
-      '</div>';
+   var cardHtml = '', profileHtml = '';
+   rows.forEach(function(p, idx) {
+      var lastLbl = p.lastDate ? new Date(p.lastDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      var key = ((p.phone || p.email || '').toLowerCase().trim()) + '|' + ((p.name || '').toLowerCase().trim());
+      var provId  = firstProviderByKey[key] || '';
+      var pidJs   = provId.replace(/'/g, "\\'");
+      var nameJs  = (p.name  || '').replace(/'/g, "\\'");
+      var phoneJs = (p.phone || '').replace(/'/g, "\\'");
+      var ids = Object.keys(p.patientIds || {});
+      var idBadge = ids.length ? ' <span style="font-family:monospace;font-size:0.72rem;background:#f0f4ff;color:#3b5bdb;border-radius:4px;padding:1px 5px">#' + ids[0] + '</span>' : '';
+      cardHtml +=
+         '<div class="ph-card" id="ph-card-op' + idx + '" onclick="_selectPatientCard(\'op' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' +
+            '<div class="ph-card-avatar">' + _initials(p.name) + '</div>' +
+            '<div class="ph-card-info">' +
+               '<div class="ph-card-name">' + p.name + idBadge + '</div>' +
+               '<div class="ph-card-sub">' + (p.phone || p.email || '—') + ' · ' + p.visits + ' visit' + (p.visits===1?'':'s') + ' · Last: ' + lastLbl + '</div>' +
+            '</div>' +
+            '<span class="ph-card-chevron">›</span>' +
+         '</div>';
+      profileHtml +=
+         '<div class="ph-profile-wrap hidden" id="op-history-op' + idx + '">' +
+            '<div class="ph-profile-panel">' +
+               '<button class="ph-profile-back" onclick="_selectPatientCard(\'op' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">✕ Close</button>' +
+               '<div class="patient-history-body" style="padding:0">Loading…</div>' +
+            '</div>' +
+         '</div>';
+   });
+
+   return filterBar + '<div class="ph-card-grid" style="grid-column:1/-1">' + cardHtml + '</div>' + profileHtml;
 }
 
-// ── Patient history timeline (inline, expandable in Out-patients) ──
-async function _togglePatientHistory(rowKey, providerId, phone, name) {
-   var row = document.getElementById('op-history-' + rowKey);
-   if (!row) return;
-   var arrow = row.previousElementSibling && row.previousElementSibling.querySelector('.op-expand');
-   if (row.classList.contains('hidden')) {
-      row.classList.remove('hidden');
-      if (arrow) arrow.textContent = '▾';
-      await _renderPatientHistoryPanel(rowKey, providerId, phone, name);
-   } else {
-      row.classList.add('hidden');
-      if (arrow) arrow.textContent = '▸';
-   }
+// ── Patient card select / deselect ──
+async function _selectPatientCard(rowKey, providerId, phone, name) {
+   var panel = document.getElementById('op-history-' + rowKey);
+   if (!panel) return;
+   var isOpen = !panel.classList.contains('hidden');
+   // Close all open panels and deactivate all cards
+   document.querySelectorAll('.ph-profile-wrap').forEach(function(el) { el.classList.add('hidden'); });
+   document.querySelectorAll('.ph-card').forEach(function(el) { el.classList.remove('ph-card-active'); });
+   if (isOpen) return; // toggle off
+   panel.classList.remove('hidden');
+   var card = document.getElementById('ph-card-' + rowKey);
+   if (card) card.classList.add('ph-card-active');
+   await _renderPatientHistoryPanel(rowKey, providerId, phone, name);
+   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
    var host = document.querySelector('#op-history-' + rowKey + ' .patient-history-body');
    if (!host) return;
-   host.innerHTML = '<div style="color:#888;padding:8px">Loading…</div>';
-   // Live updates: any new note for this patient re-renders the panel
+   host.innerHTML = '<div style="color:#8a93a7;padding:12px;font-size:0.85rem">Loading history…</div>';
    _liveSubscribe('phist_' + rowKey, 'patient_notes', function() {
       _renderPatientHistoryPanel(rowKey, providerId, phone, name);
    });
+
+   var _esc = function(s) { return String(s || '').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
+   var _initials = function(n) { return (n || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2); };
 
    var [rxRows, notes, allergy] = await Promise.all([
       AppDB.getPatientPrescriptionHistory(providerId, phone, name),
@@ -10117,99 +10108,101 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
       AppDB.getPatientAllergies(providerId, phone, name)
    ]);
 
+   // ── Allergy banner ──
    var allergyBanner = '';
    if (allergy) {
       var isNil = allergy.value.trim().toUpperCase() === 'NIL';
-      if (isNil) {
-         allergyBanner =
-            '<div style="background:#ecfdf5;border-left:4px solid #065f46;color:#065f46;padding:8px 12px;margin-bottom:10px;border-radius:6px;font-size:0.85rem">' +
-               '<b>✅ No known allergies on file</b> · last confirmed via ' + allergy.src +
-            '</div>';
-      } else {
-         allergyBanner =
-            '<div style="background:#fef2f2;border-left:4px solid #b91c1c;color:#b91c1c;padding:8px 12px;margin-bottom:10px;border-radius:6px;font-size:0.85rem">' +
-               '<b>⚠️ Known Allergies:</b> ' + String(allergy.value).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}) +
-               ' <span style="color:#7f1d1d;font-weight:400;font-size:0.9em">(from ' + allergy.src + ')</span>' +
-            '</div>';
-      }
+      allergyBanner = isNil
+         ? '<div style="background:#ecfdf5;border-left:4px solid #10b981;color:#065f46;padding:9px 14px;border-radius:8px;font-size:0.83rem;margin-bottom:16px"><b>✅ No known allergies</b> · confirmed via ' + _esc(allergy.src) + '</div>'
+         : '<div style="background:#fef2f2;border-left:4px solid #ef4444;color:#991b1b;padding:9px 14px;border-radius:8px;font-size:0.83rem;margin-bottom:16px"><b>⚠️ Known Allergies:</b> ' + _esc(allergy.value) + ' <span style="color:#7f1d1d;font-weight:400">(from ' + _esc(allergy.src) + ')</span></div>';
    }
 
-   var visitsHtml;
-   if (!rxRows.length) {
-      visitsHtml = '<div style="color:#888;font-style:italic;padding:6px 0">No past prescriptions on file at this hospital.</div>';
-   } else {
-      // Summary strip — quick at-a-glance facts that save the doctor from
-      // having to scan every card to spot patterns (recurring complaints,
-      // frequent visitor, etc.)
-      var dxCounts = {};
-      rxRows.forEach(function(r) {
-         var k = (r.diagnosis || '').trim().toLowerCase();
-         if (k) dxCounts[k] = (dxCounts[k] || 0) + 1;
-      });
-      var topDx = Object.keys(dxCounts).sort(function(a, b) { return dxCounts[b] - dxCounts[a]; })[0];
-      var firstD = new Date(rxRows[rxRows.length - 1].created_at);
-      var lastD  = new Date(rxRows[0].created_at);
-      var firstLbl = isNaN(firstD.getTime()) ? '—' : firstD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      var lastLbl  = isNaN(lastD.getTime())  ? '—' : lastD.toLocaleDateString('en-IN',  { day: '2-digit', month: 'short', year: 'numeric' });
-      var summary =
-         '<div class="ph-summary">' +
-            '<span><strong>' + rxRows.length + '</strong> visit' + (rxRows.length === 1 ? '' : 's') + '</span>' +
-            '<span>First: <strong>' + firstLbl + '</strong></span>' +
-            '<span>Most recent: <strong>' + lastLbl + '</strong></span>' +
-            (topDx ? '<span>Most common Dx: <strong>' + topDx + '</strong></span>' : '') +
-         '</div>';
+   // ── Patient header ──
+   var inits = _initials(name);
+   var isIp = rowKey.indexOf('ip') === 0;
+   var avClass = isIp ? 'ph-profile-bigav ph-av-ip' : 'ph-profile-bigav';
+   var visitCount = rxRows.length;
+   var firstD = visitCount ? new Date(rxRows[rxRows.length-1].created_at) : null;
+   var lastD  = visitCount ? new Date(rxRows[0].created_at) : null;
+   var firstLbl = (firstD && !isNaN(firstD)) ? firstD.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+   var lastLbl  = (lastD  && !isNaN(lastD))  ? lastD.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : '—';
 
-      visitsHtml = summary + rxRows.map(function(r) {
+   var dxCounts = {};
+   rxRows.forEach(function(r) { var k=(r.diagnosis||'').trim().toLowerCase(); if(k) dxCounts[k]=(dxCounts[k]||0)+1; });
+   var topDx = Object.keys(dxCounts).sort(function(a,b){return dxCounts[b]-dxCounts[a];})[0] || '';
+
+   var headerHtml =
+      '<div class="ph-profile-header">' +
+         '<div class="' + avClass + '">' + inits + '</div>' +
+         '<div>' +
+            '<div class="ph-profile-title">' + _esc(name) + '</div>' +
+            '<div class="ph-profile-subtitle">' + _esc(phone || '—') + '</div>' +
+         '</div>' +
+      '</div>' +
+      '<div class="ph-meta-grid">' +
+         '<div><div class="ph-meta-lbl">Visits</div><div class="ph-meta-val">' + visitCount + '</div></div>' +
+         '<div><div class="ph-meta-lbl">First seen</div><div class="ph-meta-val">' + firstLbl + '</div></div>' +
+         '<div><div class="ph-meta-lbl">Last seen</div><div class="ph-meta-val">' + lastLbl + '</div></div>' +
+         (topDx ? '<div><div class="ph-meta-lbl">Common Dx</div><div class="ph-meta-val" style="text-transform:capitalize">' + _esc(topDx) + '</div></div>' : '') +
+      '</div>';
+
+   // ── Visit timeline ──
+   var timelineHtml;
+   if (!rxRows.length) {
+      timelineHtml = '<div style="color:#9ca3af;font-style:italic;font-size:0.85rem;padding:6px 0">No prescription history at this hospital yet.</div>';
+   } else {
+      timelineHtml = '<div class="ph-tl-wrap">' + rxRows.map(function(r, idx) {
          var d = new Date(r.created_at);
-         var when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+         var when = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+         var time = isNaN(d.getTime()) ? '' : ' · ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+         var isLatest = idx === 0;
          var meds = (r.medicines || []).map(function(m) {
-            return '<li><b>' + (m.name || '—') + '</b>' + (m.type ? ' <span style="color:#666">(' + m.type + ')</span>' : '') +
-                   (m.dosage ? ' · ' + m.dosage : '') +
-                   (m.duration ? ' · ' + m.duration : '') + '</li>';
+            return '<li><b>' + _esc(m.name||'—') + '</b>' +
+               (m.type    ? ' <span style="color:#6b7280">(' + _esc(m.type) + ')</span>' : '') +
+               (m.dosage  ? ' · ' + _esc(m.dosage)   : '') +
+               (m.duration? ' · ' + _esc(m.duration)  : '') + '</li>';
          }).join('');
          var vitals = [];
          if (r.weight_kg)   vitals.push('Wt ' + r.weight_kg + 'kg');
-         if (r.bp_systolic) vitals.push('BP ' + r.bp_systolic + '/' + (r.bp_diastolic || '—'));
+         if (r.bp_systolic) vitals.push('BP ' + r.bp_systolic + '/' + (r.bp_diastolic||'—'));
          if (r.pulse_bpm)   vitals.push('Pulse ' + r.pulse_bpm);
          if (r.temp_f)      vitals.push('Temp ' + r.temp_f + '°F');
-         if (r.spo2)        vitals.push('SpO2 ' + r.spo2 + '%');
+         if (r.spo2)        vitals.push('SpO₂ ' + r.spo2 + '%');
          var fuLbl = '';
-         if (r.follow_up_date) {
-            var fd = new Date(r.follow_up_date + 'T00:00:00');
-            if (!isNaN(fd.getTime())) fuLbl = fd.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-         }
-         return '<div class="ph-visit">' +
-                   '<div class="ph-visit-head">' +
-                      '<span class="ph-visit-date">' + when + '</span> · ' +
-                      '<span class="ph-visit-doc">' + (r.doctor_name || '—') +
-                      (r.doctor_speciality ? ' <span style="color:#8a93a7">· ' + r.doctor_speciality + '</span>' : '') +
-                      '</span>' +
-                      (vitals.length ? '<span class="ph-visit-vitals">' + vitals.join(' · ') + '</span>' : '') +
+         if (r.follow_up_date) { var fd=new Date(r.follow_up_date+'T00:00:00'); if(!isNaN(fd.getTime())) fuLbl=fd.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+         return '<div class="ph-tl-entry">' +
+                   '<div class="ph-tl-dot' + (isLatest?' ph-tl-latest':'') + '"></div>' +
+                   '<div class="ph-tl-head">' +
+                      '<div>' +
+                         '<span class="ph-tl-date">' + when + time + '</span>' +
+                         '<span class="ph-tl-doc"> · ' + _esc(r.doctor_name||'—') + (r.doctor_speciality?' <span style="color:#9ca3af">· '+_esc(r.doctor_speciality)+'</span>':'') + '</span>' +
+                      '</div>' +
+                      '<span class="ph-tl-badge ' + (isLatest?'ph-tl-badge-latest':'ph-tl-badge-past') + '">' + (isLatest?'Latest':'Visit') + '</span>' +
                    '</div>' +
-                   (r.diagnosis ? '<div class="ph-visit-dx"><strong>Dx:</strong> ' + r.diagnosis + '</div>' : '') +
-                   (meds ? '<ul class="ph-visit-meds">' + meds + '</ul>' : '') +
-                   (r.advice ? '<div class="ph-visit-advice"><strong>Advice:</strong> ' + r.advice + '</div>' : '') +
-                   (fuLbl ? '<div class="ph-visit-fu">📅 Follow-up advised: <strong>' + fuLbl + '</strong></div>' : '') +
+                   (vitals.length ? '<div class="ph-tl-vitals">' + vitals.join(' · ') + '</div>' : '') +
+                   (r.diagnosis   ? '<div class="ph-tl-dx">Dx: ' + _esc(r.diagnosis) + '</div>' : '') +
+                   (meds          ? '<ul class="ph-tl-meds">' + meds + '</ul>' : '') +
+                   (r.advice      ? '<div class="ph-tl-advice">Advice: ' + _esc(r.advice) + '</div>' : '') +
+                   (fuLbl         ? '<div class="ph-tl-fu">📅 Follow-up: ' + fuLbl + '</div>' : '') +
                 '</div>';
-      }).join('');
+      }).join('') + '</div>';
    }
 
-   var providerJs = providerId.replace(/'/g, "\\'");
-   var phoneJs    = (phone || '').replace(/'/g, "\\'");
-   var nameJs     = (name  || '').replace(/'/g, "\\'");
+   var providerJs = (providerId||'').replace(/'/g,"\\'");
+   var phoneJs    = (phone||'').replace(/'/g,"\\'");
+   var nameJs     = (name||'').replace(/'/g,"\\'");
    var noteCount  = notes.length;
-   var noteBtnLbl = noteCount ? '📝 Show Notes (' + noteCount + ')' : '📝 Add Notes';
+   var noteBtnLbl = noteCount ? 'Notes (' + noteCount + ')' : '+ Add Note';
 
    host.innerHTML =
-      '<div class="patient-history">' +
-         allergyBanner +
-         '<div class="ph-section">' +
-            '<div class="ph-section-head">' +
-               '<h4>📋 Past Visits</h4>' +
-               '<button class="ph-notes-btn" onclick="_openNotesModal(\'' + providerJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' + noteBtnLbl + '</button>' +
-            '</div>' +
-            visitsHtml +
+      headerHtml +
+      allergyBanner +
+      '<div>' +
+         '<div class="ph-tl-section-head">' +
+            '<span class="ph-section-title">📋 Visit History</span>' +
+            '<button class="ph-notes-btn2" onclick="_openNotesModal(\'' + providerJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' + noteBtnLbl + '</button>' +
          '</div>' +
+         timelineHtml +
       '</div>';
 }
 
@@ -10335,7 +10328,8 @@ async function _renderInPatientsTable(user) {
 
    var headerLine = searchBar;
 
-   var rowHtml = admitted.map(function(r, idx) {
+   var cardHtml = '', profileHtml = '';
+   admitted.forEach(function(r, idx) {
       var d = new Date((r.admit_date || '') + 'T00:00:00');
       var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
       var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -10345,44 +10339,33 @@ async function _renderInPatientsTable(user) {
          var td = new Date(r.target_discharge + 'T00:00:00');
          targetLbl = isDueToday ? 'TODAY' : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       }
-      var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
+      var loc = (r.ward || '') + (r.room_bed ? (r.ward ? ' · ' : '') + r.room_bed : '') || '—';
       var pidJs   = (r.provider_id || '').replace(/'/g, "\\'");
       var phoneJs = (r.patient_phone || '').replace(/'/g, "\\'");
       var nameJs  = (r.patient_name || '').replace(/'/g, "\\'");
-      return '<tr class="ip-row"' + (isDueToday ? ' style="background:#fff8e1"' : '') + '>' +
-                '<td style="width:32px;text-align:center"><span class="op-expand" onclick="_togglePatientHistory(\'ip' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')" style="cursor:pointer;font-size:1.1rem;color:#1a73e8;user-select:none">▸</span></td>' +
-                '<td><div class="apt-tbl-name">' + (r.patient_name || '—') + '</div>' +
-                    (r.patient_ref ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
-                '</td>' +
-                '<td>' + (r.patient_phone ? '<a href="tel:' + String(r.patient_phone).replace(/[^0-9+]/g, '') + '" style="color:#1a73e8;font-weight:600">' + r.patient_phone + '</a>' : '<span style="color:#bbb">—</span>') + '</td>' +
-                '<td><div class="apt-tbl-name">' + loc + '</div>' +
-                    (mine.length > 1 ? '<div class="apt-tbl-sub">' + r._hospital + '</div>' : '') +
-                '</td>' +
-                '<td><span class="apt-status confirmed">🗓️ ' + losDays + ' day' + (losDays === 1 ? '' : 's') + '</span></td>' +
-                '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
-                '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
-             '</tr>' +
-             '<tr class="op-history hidden" id="op-history-ip' + idx + '">' +
-                '<td></td>' +
-                '<td colspan="6"><div class="patient-history-body">Loading…</div></td>' +
-             '</tr>';
-   }).join('');
+      var ipInitials = function(n) { return (n||'?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2); };
+      var dischargeBadge = isDueToday
+         ? ' <span style="font-size:0.68rem;font-weight:700;background:#fef3c7;color:#d97706;border:1px solid #fde68a;border-radius:5px;padding:1px 6px">🕐 Today</span>'
+         : (r.target_discharge ? ' <span style="font-size:0.68rem;color:#6b7280">→ ' + targetLbl + '</span>' : '');
+      cardHtml +=
+         '<div class="ph-card" id="ph-card-ip' + idx + '" onclick="_selectPatientCard(\'ip' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' +
+            '<div class="ph-card-avatar ph-av-ip">' + ipInitials(r.patient_name) + '</div>' +
+            '<div class="ph-card-info">' +
+               '<div class="ph-card-name">' + (r.patient_name || '—') + (r.patient_ref ? ' <span style="font-family:monospace;font-size:0.72rem;background:#f0f4ff;color:#3b5bdb;border-radius:4px;padding:1px 5px">#' + r.patient_ref + '</span>' : '') + dischargeBadge + '</div>' +
+               '<div class="ph-card-sub">' + loc + ' · Day ' + losDays + ' · Admitted ' + admitLbl + '</div>' +
+            '</div>' +
+            '<span class="ph-card-chevron">›</span>' +
+         '</div>';
+      profileHtml +=
+         '<div class="ph-profile-wrap hidden" id="op-history-ip' + idx + '">' +
+            '<div class="ph-profile-panel">' +
+               '<button class="ph-profile-back" onclick="_selectPatientCard(\'ip' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">✕ Close</button>' +
+               '<div class="patient-history-body" style="padding:0">Loading…</div>' +
+            '</div>' +
+         '</div>';
+   });
 
-   return headerLine +
-      '<div class="apt-tbl-wrap" style="grid-column:1/-1">' +
-         '<table class="apt-tbl">' +
-            '<thead><tr>' +
-               '<th style="width:32px"></th>' +
-               '<th>Patient</th>' +
-               '<th>Phone</th>' +
-               '<th>Location / Bed</th>' +
-               '<th>Length of Stay</th>' +
-               '<th>Admit Date</th>' +
-               '<th>Target Discharge</th>' +
-            '</tr></thead>' +
-            '<tbody>' + rowHtml + '</tbody>' +
-         '</table>' +
-      '</div>';
+   return headerLine + '<div class="ph-card-grid" style="grid-column:1/-1">' + cardHtml + '</div>' + profileHtml;
 }
 
 // ── PRESCRIPTION pad (Phase 8.1 EMR) ──

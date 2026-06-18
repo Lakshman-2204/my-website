@@ -9429,14 +9429,12 @@ async function renderShopOverview() {
                '<div id="hkpi-adm-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🏥</span><span>Admissions</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
             '</div>' +
             '<div class="shop-ov-layout">' +
-               '<div class="shop-ov-main" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+               '<div class="shop-ov-main">' +
                   _renderHospitalSurvey(provApts) +
                   _todayQueueWidget(provApts, todayYmd) +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
                   _renderStatusDonut(provApts) +
-                  _statRow('👨‍⚕️', docCount,         'Doctors') +
-                  _statRow('📊',  thisWeek.length,  'This Week') +
                '</aside>' +
             '</div>' +
          '</div>';

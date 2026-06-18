@@ -9427,8 +9427,11 @@ async function renderShopOverview() {
             '</div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
-                  _renderHospitalSurvey(provApts, p.id) +
+                  _renderHospitalSurvey(provApts) +
                   _todayQueueWidget(provApts, todayYmd) +
+               '</div>' +
+               '<div id="dash-adm-kpis-' + p.id + '" style="align-self:start">' +
+                  '<div style="text-align:center;color:#bbb;font-size:0.75rem;padding:16px">Loading…</div>' +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
                   _renderStatusDonut(provApts) +
@@ -9450,11 +9453,11 @@ async function renderShopOverview() {
       var kpiEl = document.getElementById('dash-adm-kpis-' + p.id);
       if (!kpiEl) return;
       kpiEl.innerHTML =
-         '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
-            '<span style="font-size:0.68rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.04em;margin-right:2px">🛏️ In-patient:</span>' +
-            _ipChip('🛏️', admitted.length,  'Admitted',  '#059669') +
-            _ipChip('📤', todayDischarge,    'Discharge', '#dc2626') +
-            _ipChip('📥', newToday,          'New Today', '#2563eb') +
+         '<div style="background:#f0fdf4;border-radius:14px;padding:14px;border:1px solid #d1fae5;display:flex;flex-direction:column;gap:8px">' +
+            '<div style="font-size:0.7rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">🛏️ In-Patient Status</div>' +
+            _ipStatRow('🛏️', admitted.length,  'Currently Admitted',   '#059669') +
+            _ipStatRow('📤', todayDischarge,    'Discharges Due Today', '#dc2626') +
+            _ipStatRow('📥', newToday,          'Admissions Today',     '#2563eb') +
          '</div>';
    });
 }
@@ -9493,7 +9496,7 @@ function _ipStatRow(icon, value, label, color) {
 
 // ── Cliniva Hospital Survey area chart — 30-day daily appointments ──
 // "New" = regular bookings (is_followup=false). "Follow-up" = free FT* bookings.
-function _renderHospitalSurvey(apts, providerId) {
+function _renderHospitalSurvey(apts) {
    var days = 30;
    var labels = [];
    var newSeries = new Array(days).fill(0);   // regular bookings
@@ -9600,18 +9603,13 @@ function _renderHospitalSurvey(apts, providerId) {
       ' data-vw="' + w + '" data-vh="' + h + '"' +
       ' data-padl="' + padL + '" data-padr="' + padR + '" data-padt="' + padT + '" data-padb="' + padB + '"';
 
-   var ipPlaceholder = providerId
-      ? '<div id="dash-adm-kpis-' + providerId + '" style="display:flex;gap:8px;align-items:center"><div style="font-size:0.72rem;color:#bbb">Loading…</div></div>'
-      : '';
-
    return '<div class="hospital-survey"' + dataAttrs + '>' +
-             '<div class="hs-head" style="flex-wrap:wrap;gap:8px">' +
+             '<div class="hs-head">' +
                 '<div class="hs-title">Hospital Survey</div>' +
                 '<div class="hs-legend">' +
                    '<span class="hs-leg-dot" style="background:#1e88e5"></span>New Patients' +
                    '<span class="hs-leg-dot" style="background:#ef6c00;margin-left:14px"></span>Follow-up' +
                 '</div>' +
-                ipPlaceholder +
              '</div>' +
              '<div class="hs-chart">' + svg +
                 '<div class="hs-tooltip hidden"></div>' +

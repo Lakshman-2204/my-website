@@ -9425,7 +9425,7 @@ async function renderShopOverview() {
                '<div id="hkpi-beds-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🛏️</span><span>Total Beds</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
                _hkpi('👨‍⚕️', 'Doctors', docCount, 'Active', '0 on leave') +
                '<div id="hkpi-pts-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>👥</span><span>Patients</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
-               _hkpi('📅', 'Appointments', provApts.length, '', todayPending.length + ' pending · ' + todayDone.length + ' done today · ' + thisMonth.length + ' this month') +
+               _hkpi('📅', 'Appointments', todayApts.length, 'Today', todayPending.length + ' pending · ' + todayDone.length + ' completed') +
                '<div id="hkpi-adm-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🏥</span><span>Admissions</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
             '</div>' +
             '<div class="shop-ov-layout">' +

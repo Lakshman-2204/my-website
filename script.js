@@ -12318,6 +12318,7 @@ async function renderShopBeds() {
    var chosen = _admHospitalChoice && mine.find(function(p) { return p.id === _admHospitalChoice; }); if (!chosen) chosen = mine[0];
 
    var beds = await AppDB.getBeds(chosen.id);
+   console.log('[Beds] provider:', chosen.id, '| fetched:', beds.length, beds);
    var active = beds.filter(function(b) { return b.active !== false; });
 
    // Summary bar
@@ -12608,7 +12609,9 @@ async function saveBulkBeds() {
       }
    }
 
+   console.log('[BulkBeds] saving', rows.length, 'beds for provider:', provId, rows[0]);
    var result = await AppDB.bulkUpsertBeds(rows);
+   console.log('[BulkBeds] result:', result);
    if (btn) { btn.textContent = '⚡ Create ' + rows.length + ' Beds'; btn.disabled = false; }
 
    if (!result.ok) {

@@ -9480,8 +9480,8 @@ async function renderShopOverview() {
       var admEl = document.getElementById('hkpi-adm-' + p.id);
       if (admEl) admEl.innerHTML =
          '<div class="hkpi-head"><span>🏥</span><span>Admissions</span></div>' +
-         '<div class="hkpi-body"><span class="hkpi-num">' + newToday + '</span><span class="hkpi-badge hkpi-blue">Today</span></div>' +
-         '<div class="hkpi-sub">' + admitted.length + ' active · ' + discharged + ' discharged · ' + admRows.length + ' total</div>';
+         '<div class="hkpi-body"><span class="hkpi-num">' + admitted.length + '</span><span class="hkpi-badge hkpi-green">Active</span></div>' +
+         '<div class="hkpi-sub">' + newToday + ' new today · ' + discharged + ' discharged · ' + admRows.length + ' total</div>';
 
    });
 }

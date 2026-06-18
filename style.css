@@ -2163,6 +2163,54 @@ body.guest .store-section-divider {
 .ph-notes-btn2:hover { background: #dbeafe; }
 .ph-tl-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 
+/* ── Blood group badge ── */
+.adm-bg-badge { display:inline-block; font-size:0.65rem; font-weight:800; padding:1px 6px; border-radius:4px; margin-left:4px; vertical-align:middle; background:#fee2e2; color:#b91c1c; }
+.adm-bg-badge.adm-bg-Opos, .adm-bg-badge.adm-bg-Oneg { background:#dcfce7; color:#166534; }
+.adm-bg-badge.adm-bg-Apos, .adm-bg-badge.adm-bg-Aneg { background:#dbeafe; color:#1e40af; }
+.adm-bg-badge.adm-bg-Bpos, .adm-bg-badge.adm-bg-Bneg { background:#fef3c7; color:#92400e; }
+.adm-bg-badge.adm-bg-ABpos, .adm-bg-badge.adm-bg-ABneg { background:#f3e8ff; color:#6b21a8; }
+
+/* ── Admission type badge ── */
+.adm-type-badge { font-size:0.68rem; font-weight:700; padding:1px 7px; border-radius:5px; }
+.adm-type-emergency { background:#fee2e2; color:#b91c1c; }
+.adm-type-daycare { background:#eff6ff; color:#1e40af; }
+.adm-type-observation { background:#fff7ed; color:#c2410c; }
+
+/* ── Staff directory ── */
+.staff-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+.staff-card {
+   background:#fff; border:1.5px solid #e8ecf0; border-radius:14px;
+   padding:16px; display:flex; flex-direction:column; gap:12px;
+   transition: border-color 0.18s, box-shadow 0.18s;
+}
+.staff-card:hover { border-color:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,0.07); }
+.staff-card-head { display:flex; align-items:center; gap:12px; }
+.staff-avatar {
+   width:44px; height:44px; border-radius:12px; font-weight:700;
+   font-size:1rem; display:flex; align-items:center; justify-content:center;
+   flex-shrink:0;
+}
+.staff-name { font-weight:700; font-size:0.88rem; color:#1a1a2e; margin-bottom:4px; }
+.staff-role-badge {
+   font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:5px;
+   border:1px solid; display:inline-block;
+}
+.staff-meta { display:flex; flex-direction:column; gap:3px; flex:1; }
+.staff-meta-row { font-size:0.78rem; color:#5f6473; }
+.staff-card-foot { display:flex; gap:6px; border-top:1px solid #f0f2f6; padding-top:10px; }
+.staff-btn-edit {
+   flex:1; padding:6px 0; border-radius:8px; border:1px solid #e5e7eb;
+   background:#f9fafb; color:#374151; font-size:0.78rem; font-weight:600;
+   cursor:pointer; transition:background 0.15s;
+}
+.staff-btn-edit:hover { background:#f0fdf4; border-color:#10b981; color:#065f46; }
+.staff-btn-del {
+   padding:6px 10px; border-radius:8px; border:1px solid #fee2e2;
+   background:#fff5f5; color:#b91c1c; font-size:0.78rem; cursor:pointer;
+   transition:background 0.15s;
+}
+.staff-btn-del:hover { background:#fee2e2; }
+
 /* Admissions table — Rounds pill, click to toggle */
 .adm-rounds-pill {
 	display: inline-block;
@@ -5775,22 +5823,18 @@ body.shopowner-page { background: #f5f7fb; }
 	padding: 4px 10px 6px;
 }
 .shop-side-item {
-	display: flex; align-items: center; gap: 10px;
-	padding: 8px 12px;
-	background: transparent;
-	border: 1px solid transparent;
-	border-radius: 10px;
-	color: #5f6473;
-	font-size: 0.82rem; font-weight: 600;
-	cursor: pointer; width: 100%; text-align: left;
-	transition: all 0.18s;
+   display: flex; align-items: center; gap: 10px;
+   padding: 9px 14px; border-radius: 10px;
+   font-size: 0.83rem; font-weight: 500; color: #5f6473;
+   background: transparent; border: none; cursor: pointer;
+   text-align: left; width: 100%; transition: all 0.15s;
+   text-decoration: none;
 }
 .shop-side-item .ssi-icon { font-size: 0.95rem; }
-.shop-side-item:hover { background: #f3f6fc; color: #1a73e8; }
+.shop-side-item:hover { background: #f0fdf4; color: #065f46; }
 .shop-side-item.active {
-	background: linear-gradient(135deg, #1a73e8, #1557b0);
-	color: #fff;
-	box-shadow: 0 4px 14px rgba(26,115,232,0.28);
+   background: #d1fae5; color: #065f46; font-weight: 700;
+   box-shadow: inset 3px 0 0 #10b981;
 }
 .shop-side-item.active .ssi-icon { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18)); }
 .shop-side-item .ssi-icon { font-size: 1.1rem; line-height: 1; }
@@ -5825,11 +5869,9 @@ body.shopowner-page { background: #f5f7fb; }
 	transition: all 0.18s;
 }
 .shop-side-subitem .ssi-icon { font-size: 0.85rem; line-height: 1; }
-.shop-side-subitem:hover { background: #f3f6fc; color: #1a73e8; }
+.shop-side-subitem:hover { background: #f0fdf4; color: #065f46; }
 .shop-side-subitem.active {
-	background: linear-gradient(135deg, #1a73e8, #1557b0);
-	color: #fff;
-	box-shadow: 0 3px 10px rgba(26,115,232,0.28);
+   background: #d1fae5; color: #065f46; font-weight: 700;
 }
 
 .shop-main-area { display: flex; flex-direction: column; min-width: 0; }

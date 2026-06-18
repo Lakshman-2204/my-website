@@ -630,6 +630,65 @@ ALTER TABLE public.admissions
    ADD COLUMN IF NOT EXISTS mlc                  boolean DEFAULT false,
    ADD COLUMN IF NOT EXISTS mlc_number           text DEFAULT '';
 
+-- Phase 9 — Complete admission form (missing fields identified 2026-06-18)
+ALTER TABLE public.admissions
+   -- Admission logistics
+   ADD COLUMN IF NOT EXISTS admit_time            text DEFAULT '',        -- HH:MM (24h)
+   ADD COLUMN IF NOT EXISTS admission_source      text DEFAULT '',        -- Self/OPD/Emergency/Referred
+   ADD COLUMN IF NOT EXISTS referring_doctor      text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS referring_hospital    text DEFAULT '',
+   -- Vitals at admission
+   ADD COLUMN IF NOT EXISTS bp_systolic           integer,
+   ADD COLUMN IF NOT EXISTS bp_diastolic          integer,
+   ADD COLUMN IF NOT EXISTS pulse_bpm             integer,
+   ADD COLUMN IF NOT EXISTS temp_f                numeric(4,1),
+   ADD COLUMN IF NOT EXISTS spo2                  integer,
+   ADD COLUMN IF NOT EXISTS weight_kg             numeric(5,1),
+   ADD COLUMN IF NOT EXISTS height_cm             numeric(5,1),
+   ADD COLUMN IF NOT EXISTS rbs_mg_dl             integer,               -- random blood sugar
+   -- Clinical
+   ADD COLUMN IF NOT EXISTS provisional_diagnosis text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS surgical_history      text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS social_tobacco        text DEFAULT '',        -- None/Smoker/Chewer/Both + qty
+   ADD COLUMN IF NOT EXISTS social_alcohol        text DEFAULT '',        -- None/Occasional/Regular
+   ADD COLUMN IF NOT EXISTS obstetric_lmp         date,                   -- last menstrual period
+   ADD COLUMN IF NOT EXISTS obstetric_gpla        text DEFAULT '',        -- e.g. G2P1L1A0
+   -- Demographics
+   ADD COLUMN IF NOT EXISTS blood_group           text DEFAULT '',        -- A+/A-/B+/B-/O+/O-/AB+/AB-/Unknown
+   ADD COLUMN IF NOT EXISTS religion              text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS state                 text DEFAULT '',
+   -- Second emergency contact
+   ADD COLUMN IF NOT EXISTS emergency2_name       text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS emergency2_relation   text DEFAULT '',
+   ADD COLUMN IF NOT EXISTS emergency2_phone      text DEFAULT '',
+   -- Consent
+   ADD COLUMN IF NOT EXISTS consent_general       boolean DEFAULT false,
+   ADD COLUMN IF NOT EXISTS consent_dpdp          boolean DEFAULT false;
+
+-- Phase 9 — Hospital Staff directory
+CREATE TABLE IF NOT EXISTS public.hospital_staff (
+   id                text         PRIMARY KEY,
+   provider_id       text         NOT NULL,
+   name              text         NOT NULL DEFAULT '',
+   role              text         NOT NULL DEFAULT '',   -- Nurse/Receptionist/Ward Boy/Lab Tech/Pharmacist/Technician/Admin/Security
+   department        text         DEFAULT '',           -- OPD/ICU/Emergency/Ward/Lab/Pharmacy/Admin
+   phone             text         DEFAULT '',
+   email             text         DEFAULT '',
+   shift             text         DEFAULT '',           -- Morning/Afternoon/Night/Rotating
+   qualification     text         DEFAULT '',
+   date_of_joining   date,
+   notes             text         DEFAULT '',
+   active            boolean      DEFAULT true,
+   created_at        timestamptz  DEFAULT now(),
+   updated_at        timestamptz  DEFAULT now()
+);
+ALTER TABLE public.hospital_staff DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS hospital_staff_provider_idx ON public.hospital_staff(provider_id);
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.hospital_staff;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- 27. ADMISSION_PAYMENTS — money taken at / during admission (advance,
 --     deposit top-ups, refunds). Receipts are sequential per hospital so
 --     the receipt number on the printed receipt is meaningful for audit.

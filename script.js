@@ -8872,6 +8872,7 @@ function switchShopTab(tab) {
    if (tab === 'doctors')      renderShopDoctors();
    if (tab === 'patients')     { _patientsMode = patientsSub || _patientsMode || 'out'; renderShopPatients(); }
    if (tab === 'admissions')   renderShopAdmissions();
+   if (tab === 'staff')        renderShopStaff();
    if (tab === 'schedule')     renderShopSchedule();
 }
 
@@ -9424,6 +9425,7 @@ async function renderShopOverview() {
                _kpiCard('green',  '✅', todayDone.length,                                   'Completed Today',   _last7DayCounts(provApts, 'Completed')) +
                _kpiCard('blue',   '💰', '₹' + monthRevenue.toLocaleString('en-IN'),         'Revenue (Month)',   _last7DayRevenue(provApts)) +
             '</div>' +
+            '<div id="dash-adm-kpis-' + p.id + '" style="margin-bottom:14px"><div style="text-align:center;color:#bbb;font-size:0.75rem;padding:8px">Loading bed status…</div></div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
                   _renderHospitalSurvey(provApts) +
@@ -9439,6 +9441,23 @@ async function renderShopOverview() {
    });
 
    container.innerHTML = html;
+
+   // Async: load admission KPIs per hospital and inject
+   mine.forEach(async function(p) {
+      var admRows = await AppDB.getAdmissions(p.id);
+      var admitted = admRows.filter(function(r) { return r.status === 'Admitted'; });
+      var todayDischarge = admitted.filter(function(r) { return r.target_discharge === todayYmd; }).length;
+      var newToday = admRows.filter(function(r) { return r.admit_date === todayYmd; }).length;
+      var kpiEl = document.getElementById('dash-adm-kpis-' + p.id);
+      if (!kpiEl) return;
+      kpiEl.innerHTML =
+         '<div class="shop-ov-kpis" style="background:#f0fdf4;border-radius:12px;padding:12px;border:1px solid #d1fae5">' +
+            '<div style="grid-column:1/-1;font-size:0.72rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">🛏️ In-Patient Status</div>' +
+            _kpiCard('green',  '🛏️', admitted.length,   'Currently Admitted') +
+            _kpiCard('red',    '📤', todayDischarge,     'Discharges Due Today') +
+            _kpiCard('blue',   '📥', newToday,           'Admissions Today') +
+         '</div>';
+   });
 }
 
 // Cliniva-style KPI card — pastel icon tile + big number + label + sparkline.
@@ -11446,14 +11465,27 @@ async function renderShopAdmissions() {
          var rid = r.id.replace(/'/g, "\\'");
          var rowCls = isDueToday ? ' style="background:#fff8e1"' : '';
          return '<tr' + rowCls + '>' +
-                   '<td><div class="apt-tbl-name">' + loc + '</div></td>' +
-                   '<td><div class="apt-tbl-name">' + (r.patient_name || '—') + '</div>' +
-                       (r.patient_ref ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
-                       (r.patient_phone ? '<div class="apt-tbl-sub">📞 ' + r.patient_phone + '</div>' : '') +
+                   '<td>' +
+                      '<div class="apt-tbl-name">' + loc + '</div>' +
+                      (r.admission_type && r.admission_type !== 'Planned' ? '<div class="apt-tbl-sub"><span class="adm-type-badge adm-type-' + r.admission_type.toLowerCase().replace(/[^a-z]/g,'') + '">' + r.admission_type + '</span></div>' : '') +
+                   '</td>' +
+                   '<td>' +
+                      '<div class="apt-tbl-name">' + (r.patient_name || '—') +
+                         (r.blood_group ? ' <span class="adm-bg-badge adm-bg-' + (r.blood_group.replace('+','pos').replace('-','neg')) + '">' + r.blood_group + '</span>' : '') +
+                      '</div>' +
+                      (r.patient_ref    ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
+                      (r.patient_phone  ? '<div class="apt-tbl-sub">📞 ' + r.patient_phone + '</div>' : '') +
+                      (r.provisional_diagnosis ? '<div class="apt-tbl-sub" style="color:#7c3aed;font-style:italic">Dx: ' + r.provisional_diagnosis + '</div>' : '') +
                    '</td>' +
                    '<td><span class="apt-status confirmed">🗓️ ' + losDays + ' day' + (losDays === 1 ? '' : 's') + '</span></td>' +
                    '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
                    '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
+                   '<td style="font-size:0.75rem;color:#5f6473;white-space:nowrap">' +
+                      (r.bp_systolic ? '<div>BP ' + r.bp_systolic + '/' + (r.bp_diastolic||'—') + '</div>' : '') +
+                      (r.pulse_bpm   ? '<div>♥ ' + r.pulse_bpm + ' bpm</div>' : '') +
+                      (r.spo2        ? '<div>SpO₂ ' + r.spo2 + '%</div>' : '') +
+                      (!r.bp_systolic && !r.pulse_bpm ? '<span style="color:#ccc">—</span>' : '') +
+                   '</td>' +
                    '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" ' +
                           'title="Click to toggle — doctor uses this for morning rounds checklist" ' +
                           'onclick="toggleAdmissionRounds(\'' + rid + '\')">' + roundsLbl + '</span></td>' +
@@ -11489,6 +11521,7 @@ async function renderShopAdmissions() {
             '<th>Length of Stay</th>' +
             '<th>Admit Date</th>' +
             '<th>Target Discharge</th>' +
+            '<th>Vitals</th>' +
             '<th>Rounds</th>' +
             '<th style="text-align:right">Actions</th>' +
          '</tr></thead>' +
@@ -11501,17 +11534,23 @@ function _admPickHospital(id) { _admHospitalChoice = id; renderShopAdmissions();
 // All editable form-field IDs in the Admit modal. Used by open/reset.
 var _ADM_FIELDS = [
    'adm-id','adm-name','adm-phone','adm-ref','adm-ward','adm-room',
-   'adm-admit-date','adm-target-date','adm-notes',
+   'adm-admit-date','adm-admit-time','adm-target-date','adm-notes',
    // Extended (Phase 7.2)
    'adm-doctor','adm-procedure','adm-email','adm-dob','adm-gender',
-   'adm-marital','adm-employment','adm-address','adm-city','adm-postal',
+   'adm-marital','adm-employment','adm-address','adm-city','adm-state','adm-postal',
    'adm-guardian-name','adm-guardian-relation','adm-guardian-phone',
    // Launch-ready intake (Phase 8.3)
    'adm-type','adm-mlc-no','adm-complaint','adm-allergies',
    'adm-current-meds','adm-past-history',
    'adm-id-proof-type','adm-id-proof-no',
    'adm-room-cat','adm-pay-mode','adm-tpa-name','adm-tpa-card',
-   'adm-lookup'
+   'adm-lookup',
+   // Phase 9 — complete form
+   'adm-source','adm-ref-doctor','adm-ref-hospital',
+   'adm-weight','adm-height','adm-bp-sys','adm-bp-dia','adm-pulse','adm-temp','adm-spo2','adm-rbs',
+   'adm-prov-dx','adm-surgical-history','adm-tobacco','adm-alcohol','adm-lmp','adm-gpla',
+   'adm-blood-group','adm-religion',
+   'adm-emg2-name','adm-emg2-relation','adm-emg2-phone'
 ];
 
 function openAdmissionModal(id) {
@@ -11566,6 +11605,36 @@ function openAdmissionModal(id) {
          // Reveal conditional rows to match loaded values
          get('adm-mlc-no-wrap').style.display = r.mlc ? '' : 'none';
          get('adm-tpa-wrap').style.display    = (r.payment_mode === 'TPA / Insurance' || r.payment_mode === 'Corporate') ? '' : 'none';
+         // Phase 9 — complete form
+         var setV9 = function(eid, val) { var el = get(eid); if (el) el.value = (val == null ? '' : val); };
+         setV9('adm-admit-time',         r.admit_time || '');
+         setV9('adm-source',             r.admission_source || '');
+         setV9('adm-ref-doctor',         r.referring_doctor || '');
+         setV9('adm-ref-hospital',       r.referring_hospital || '');
+         setV9('adm-weight',             r.weight_kg  != null ? r.weight_kg  : '');
+         setV9('adm-height',             r.height_cm  != null ? r.height_cm  : '');
+         setV9('adm-bp-sys',             r.bp_systolic  != null ? r.bp_systolic  : '');
+         setV9('adm-bp-dia',             r.bp_diastolic != null ? r.bp_diastolic : '');
+         setV9('adm-pulse',              r.pulse_bpm  != null ? r.pulse_bpm  : '');
+         setV9('adm-temp',               r.temp_f     != null ? r.temp_f     : '');
+         setV9('adm-spo2',               r.spo2       != null ? r.spo2       : '');
+         setV9('adm-rbs',                r.rbs_mg_dl  != null ? r.rbs_mg_dl  : '');
+         setV9('adm-prov-dx',            r.provisional_diagnosis || '');
+         setV9('adm-surgical-history',   r.surgical_history || '');
+         setV9('adm-tobacco',            r.social_tobacco || '');
+         setV9('adm-alcohol',            r.social_alcohol || '');
+         setV9('adm-lmp',                r.obstetric_lmp || '');
+         setV9('adm-gpla',               r.obstetric_gpla || '');
+         setV9('adm-blood-group',        r.blood_group || '');
+         setV9('adm-religion',           r.religion || '');
+         setV9('adm-state',              r.state || '');
+         setV9('adm-emg2-name',          r.emergency2_name || '');
+         setV9('adm-emg2-relation',      r.emergency2_relation || '');
+         setV9('adm-emg2-phone',         r.emergency2_phone || '');
+         var cgEl = get('adm-consent-general'); if (cgEl) cgEl.checked = !!r.consent_general;
+         var cdEl = get('adm-consent-dpdp');    if (cdEl) cdEl.checked = !!r.consent_dpdp;
+         var refWrap = get('adm-referral-wrap');
+         if (refWrap) refWrap.style.display = r.admission_source === 'Referred' ? '' : 'none';
          modal.classList.remove('hidden');
       });
    } else {
@@ -11576,6 +11645,9 @@ function openAdmissionModal(id) {
       var mlcChk = get('adm-mlc'); if (mlcChk) mlcChk.checked = false;
       var mlcWrap = get('adm-mlc-no-wrap'); if (mlcWrap) mlcWrap.style.display = 'none';
       var tpaWrap = get('adm-tpa-wrap');    if (tpaWrap) tpaWrap.style.display = 'none';
+      var refWrap = get('adm-referral-wrap'); if (refWrap) refWrap.style.display = 'none';
+      var cgEl = get('adm-consent-general'); if (cgEl) cgEl.checked = false;
+      var cdEl = get('adm-consent-dpdp');    if (cdEl) cdEl.checked = false;
       // Default admission type to Planned
       var typeEl = get('adm-type'); if (typeEl) typeEl.value = 'Planned';
       // Stale typeahead results from the previous open — wipe + hide the panel
@@ -11746,7 +11818,34 @@ async function saveAdmission() {
       tpa_name:             get('adm-tpa-name'),
       tpa_card_no:          get('adm-tpa-card'),
       mlc:                  document.getElementById('adm-mlc').checked,
-      mlc_number:           get('adm-mlc-no')
+      mlc_number:           get('adm-mlc-no'),
+      // Phase 9 — complete form
+      admit_time:           get('adm-admit-time'),
+      admission_source:     get('adm-source'),
+      referring_doctor:     get('adm-ref-doctor'),
+      referring_hospital:   get('adm-ref-hospital'),
+      bp_systolic:          get('adm-bp-sys')   ? Number(get('adm-bp-sys'))   : null,
+      bp_diastolic:         get('adm-bp-dia')   ? Number(get('adm-bp-dia'))   : null,
+      pulse_bpm:            get('adm-pulse')    ? Number(get('adm-pulse'))    : null,
+      temp_f:               get('adm-temp')     ? Number(get('adm-temp'))     : null,
+      spo2:                 get('adm-spo2')     ? Number(get('adm-spo2'))     : null,
+      weight_kg:            get('adm-weight')   ? Number(get('adm-weight'))   : null,
+      height_cm:            get('adm-height')   ? Number(get('adm-height'))   : null,
+      rbs_mg_dl:            get('adm-rbs')      ? Number(get('adm-rbs'))      : null,
+      provisional_diagnosis: get('adm-prov-dx'),
+      surgical_history:     get('adm-surgical-history'),
+      social_tobacco:       get('adm-tobacco'),
+      social_alcohol:       get('adm-alcohol'),
+      obstetric_lmp:        get('adm-lmp') || null,
+      obstetric_gpla:       get('adm-gpla'),
+      blood_group:          get('adm-blood-group'),
+      religion:             get('adm-religion'),
+      state:                get('adm-state'),
+      emergency2_name:      get('adm-emg2-name'),
+      emergency2_relation:  get('adm-emg2-relation'),
+      emergency2_phone:     get('adm-emg2-phone'),
+      consent_general:      document.getElementById('adm-consent-general') ? document.getElementById('adm-consent-general').checked : false,
+      consent_dpdp:         document.getElementById('adm-consent-dpdp')    ? document.getElementById('adm-consent-dpdp').checked    : false
    });
    if (!ok) { alert('Failed to save admission.'); return; }
    closeAdmissionModal();
@@ -12142,6 +12241,167 @@ async function shopDeleteAdmission(id) {
    var ok = await AppDB.deleteAdmission(id);
    if (!ok) { alert('Failed to delete admission.'); return; }
    renderShopAdmissions();
+}
+
+// ── STAFF DIRECTORY (Phase 9) ──
+async function renderShopStaff() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var host = document.getElementById('shopStaffContent');
+   if (!host) return;
+
+   await loadAptProviders(true);
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   if (!mine.length) { host.innerHTML = '<div class="shop-empty">No hospital linked to your account.</div>'; return; }
+   var chosen = _admHospitalChoice && mine.find(function(p) { return p.id === _admHospitalChoice; }); if (!chosen) chosen = mine[0];
+
+   var staff = await AppDB.getStaff(chosen.id);
+   var active = staff.filter(function(s) { return s.active !== false; });
+   var inactive = staff.filter(function(s) { return s.active === false; });
+
+   var roleColor = { 'Nurse':'#0891b2', 'Receptionist':'#7c3aed', 'Ward Boy':'#ea580c', 'Lab Technician':'#16a34a', 'Pharmacist':'#ca8a04', 'Technician':'#2563eb', 'Admin':'#9f1239', 'Security':'#374151' };
+   var shiftEmoji = { 'Morning':'🌅', 'Afternoon':'☀️', 'Night':'🌙', 'Rotating':'🔄' };
+
+   var cards = active.length === 0
+      ? '<div class="shop-empty" style="grid-column:1/-1">No staff added yet. Click <strong>+ Add Staff</strong> to begin.</div>'
+      : active.map(function(s) {
+           var inits = (s.name || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
+           var col = roleColor[s.role] || '#6b7280';
+           var shift = s.shift ? (shiftEmoji[s.shift] || '') + ' ' + s.shift : '';
+           var sId = s.id.replace(/'/g, "\\'");
+           return '<div class="staff-card">' +
+                     '<div class="staff-card-head">' +
+                        '<div class="staff-avatar" style="background:' + col + '20;color:' + col + '">' + inits + '</div>' +
+                        '<div>' +
+                           '<div class="staff-name">' + s.name + '</div>' +
+                           '<span class="staff-role-badge" style="background:' + col + '15;color:' + col + ';border-color:' + col + '40">' + (s.role || '—') + '</span>' +
+                        '</div>' +
+                     '</div>' +
+                     '<div class="staff-meta">' +
+                        (s.department ? '<div class="staff-meta-row">🏥 ' + s.department + '</div>' : '') +
+                        (s.phone      ? '<div class="staff-meta-row">📞 ' + s.phone + '</div>' : '') +
+                        (shift        ? '<div class="staff-meta-row">' + shift + '</div>' : '') +
+                        (s.qualification ? '<div class="staff-meta-row">🎓 ' + s.qualification + '</div>' : '') +
+                     '</div>' +
+                     '<div class="staff-card-foot">' +
+                        '<button class="staff-btn-edit" onclick="openStaffModal(\'' + sId + '\')">✏️ Edit</button>' +
+                        '<button class="staff-btn-del"  onclick="deleteStaffMember(\'' + sId + '\',\'' + chosen.id + '\')">🗑</button>' +
+                     '</div>' +
+                  '</div>';
+        }).join('');
+
+   host.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">' +
+         '<div>' +
+            '<h3 style="margin:0;color:#1a1a2e;font-size:1rem">Staff Directory</h3>' +
+            '<div style="font-size:0.8rem;color:#8a93a7;margin-top:2px">' + active.length + ' active' + (inactive.length ? ' · ' + inactive.length + ' inactive' : '') + '</div>' +
+         '</div>' +
+         '<button onclick="openStaffModal()" style="background:#10b981;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:0.85rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">+ Add Staff</button>' +
+      '</div>' +
+      '<div class="staff-grid">' + cards + '</div>';
+   _liveSubscribe('shopStaff', 'hospital_staff', renderShopStaff);
+}
+
+var _staffHospital = null;
+function openStaffModal(id) {
+   var modal = document.getElementById('staffModal');
+   if (!modal) { _buildStaffModal(); modal = document.getElementById('staffModal'); }
+   var get = function(eid) { return document.getElementById(eid); };
+   if (id) {
+      AppDB.getStaff(_admHospitalChoice || '').then(function(staff) {
+         var s = staff.find(function(x) { return x.id === id; });
+         if (!s) return;
+         get('staff-id').value          = s.id;
+         get('staff-name').value        = s.name || '';
+         get('staff-role').value        = s.role || '';
+         get('staff-dept').value        = s.department || '';
+         get('staff-phone').value       = s.phone || '';
+         get('staff-email').value       = s.email || '';
+         get('staff-shift').value       = s.shift || '';
+         get('staff-qual').value        = s.qualification || '';
+         get('staff-doj').value         = s.date_of_joining || '';
+         get('staff-notes').value       = s.notes || '';
+         get('staff-active').checked    = s.active !== false;
+         document.getElementById('staffModalTitle').textContent = '✏️ Edit Staff';
+         modal.classList.remove('hidden');
+      });
+   } else {
+      ['staff-id','staff-name','staff-role','staff-dept','staff-phone','staff-email','staff-shift','staff-qual','staff-doj','staff-notes'].forEach(function(f){ var el=get(f); if(el) el.value=''; });
+      var ac = get('staff-active'); if (ac) ac.checked = true;
+      document.getElementById('staffModalTitle').textContent = '+ Add Staff Member';
+      modal.classList.remove('hidden');
+   }
+}
+
+function _buildStaffModal() {
+   var m = document.createElement('div');
+   m.className = 'sp-modal-overlay hidden'; m.id = 'staffModal';
+   m.innerHTML =
+      '<div class="sp-modal" style="max-width:600px">' +
+         '<div class="sp-modal-header" style="background:#059669">' +
+            '<h3 id="staffModalTitle">+ Add Staff Member</h3>' +
+            '<button onclick="closeStaffModal()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer">✕</button>' +
+         '</div>' +
+         '<div class="sp-modal-body">' +
+            '<input type="hidden" id="staff-id"/>' +
+            '<div class="profile-card-body" style="padding:0">' +
+               '<div class="sp-field"><label>Full Name *</label><input type="text" id="staff-name" placeholder="e.g. Anjali Reddy"/></div>' +
+               '<div class="sp-field"><label>Role *</label><select id="staff-role"><option value="">—</option><option>Nurse</option><option>Receptionist</option><option>Ward Boy</option><option>Lab Technician</option><option>Pharmacist</option><option>Technician</option><option>Admin</option><option>Security</option></select></div>' +
+               '<div class="sp-field"><label>Department</label><select id="staff-dept"><option value="">—</option><option>OPD</option><option>Emergency</option><option>ICU</option><option>General Ward</option><option>Maternity</option><option>Lab</option><option>Pharmacy</option><option>Operation Theatre</option><option>Admin</option></select></div>' +
+               '<div class="sp-field"><label>Phone</label><input type="tel" id="staff-phone" placeholder="98765 43210"/></div>' +
+               '<div class="sp-field"><label>Email</label><input type="email" id="staff-email" placeholder="staff@hospital.com"/></div>' +
+               '<div class="sp-field"><label>Shift</label><select id="staff-shift"><option value="">—</option><option>Morning</option><option>Afternoon</option><option>Night</option><option>Rotating</option></select></div>' +
+               '<div class="sp-field"><label>Qualification</label><input type="text" id="staff-qual" placeholder="GNM / B.Sc Nursing / Diploma…"/></div>' +
+               '<div class="sp-field"><label>Date of Joining</label><input type="date" id="staff-doj"/></div>' +
+               '<div class="sp-field" style="grid-column:1/-1"><label>Notes</label><textarea id="staff-notes" rows="2" placeholder="Any special notes…"></textarea></div>' +
+               '<div class="sp-field" style="grid-column:1/-1;display:flex;align-items:center;gap:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0"><input type="checkbox" id="staff-active" checked style="width:auto"/> Active (uncheck to mark as inactive/resigned)</label></div>' +
+            '</div>' +
+         '</div>' +
+         '<div class="sp-modal-footer">' +
+            '<button class="sp-btn-cancel" onclick="closeStaffModal()">Cancel</button>' +
+            '<button class="sp-btn-save" onclick="saveStaffMember()">💾 Save</button>' +
+         '</div>' +
+      '</div>';
+   document.body.appendChild(m);
+}
+
+function closeStaffModal() { var m = document.getElementById('staffModal'); if (m) m.classList.add('hidden'); }
+
+async function saveStaffMember() {
+   var get = function(id) { return (document.getElementById(id).value || '').trim(); };
+   var name = get('staff-name'), role = get('staff-role');
+   if (!name) { alert('Name is required.'); return; }
+   if (!role) { alert('Role is required.'); return; }
+
+   await loadAptProviders(true);
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   var provId = _admHospitalChoice || (mine[0] && mine[0].id) || '';
+   if (!provId) { alert('No hospital selected.'); return; }
+
+   var id = get('staff-id') || ('stf_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+   var ok = await AppDB.upsertStaff({
+      id: id, provider_id: provId,
+      name: name, role: role,
+      department: get('staff-dept'), phone: get('staff-phone'),
+      email: get('staff-email'), shift: get('staff-shift'),
+      qualification: get('staff-qual'),
+      date_of_joining: get('staff-doj') || null,
+      notes: get('staff-notes'),
+      active: document.getElementById('staff-active').checked
+   });
+   if (!ok) { alert('Failed to save staff member.'); return; }
+   closeStaffModal();
+   renderShopStaff();
+}
+
+async function deleteStaffMember(id, providerId) {
+   if (!confirm('Remove this staff member?')) return;
+   await AppDB.deleteStaff(id);
+   renderShopStaff();
 }
 
 // Bulk delete every admission currently shown. Type-to-confirm to avoid

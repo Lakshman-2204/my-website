@@ -588,6 +588,32 @@ window.AppDB = {
          tpa_card_no:          a.tpa_card_no || '',
          mlc:                  !!a.mlc,
          mlc_number:           a.mlc_number || '',
+         admit_time:           a.admit_time || '',
+         admission_source:     a.admission_source || '',
+         referring_doctor:     a.referring_doctor || '',
+         referring_hospital:   a.referring_hospital || '',
+         bp_systolic:          a.bp_systolic || null,
+         bp_diastolic:         a.bp_diastolic || null,
+         pulse_bpm:            a.pulse_bpm || null,
+         temp_f:               a.temp_f || null,
+         spo2:                 a.spo2 || null,
+         weight_kg:            a.weight_kg || null,
+         height_cm:            a.height_cm || null,
+         rbs_mg_dl:            a.rbs_mg_dl || null,
+         provisional_diagnosis: a.provisional_diagnosis || '',
+         surgical_history:     a.surgical_history || '',
+         social_tobacco:       a.social_tobacco || '',
+         social_alcohol:       a.social_alcohol || '',
+         obstetric_lmp:        a.obstetric_lmp || null,
+         obstetric_gpla:       a.obstetric_gpla || '',
+         blood_group:          a.blood_group || '',
+         religion:             a.religion || '',
+         state:                a.state || '',
+         emergency2_name:      a.emergency2_name || '',
+         emergency2_relation:  a.emergency2_relation || '',
+         emergency2_phone:     a.emergency2_phone || '',
+         consent_general:      !!a.consent_general,
+         consent_dpdp:         !!a.consent_dpdp,
          updated_at:         new Date().toISOString()
       };
       const { error } = await _sb.from('admissions').upsert(row, { onConflict: 'id' });
@@ -1516,4 +1542,30 @@ window.AppDB = {
       if (error) { console.error('saveSettings:', error.message); return false; }
       return true;
    },
+
+  async getStaff(providerId) {
+     const { data, error } = await _sb.from('hospital_staff').select('*')
+        .eq('provider_id', providerId).order('name');
+     if (error) { console.error('getStaff:', error.message); return []; }
+     return data || [];
+  },
+  async upsertStaff(s) {
+     const row = {
+        id: s.id, provider_id: s.provider_id, name: s.name || '',
+        role: s.role || '', department: s.department || '',
+        phone: s.phone || '', email: s.email || '',
+        shift: s.shift || '', qualification: s.qualification || '',
+        date_of_joining: s.date_of_joining || null,
+        notes: s.notes || '', active: s.active !== false,
+        updated_at: new Date().toISOString()
+     };
+     const { error } = await _sb.from('hospital_staff').upsert(row, { onConflict: 'id' });
+     if (error) { console.error('upsertStaff:', error.message); return false; }
+     return true;
+  },
+  async deleteStaff(id) {
+     const { error } = await _sb.from('hospital_staff').delete().eq('id', id);
+     if (error) { console.error('deleteStaff:', error.message); return false; }
+     return true;
+  },
 };

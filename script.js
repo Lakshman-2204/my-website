@@ -9423,19 +9423,14 @@ async function renderShopOverview() {
          '<div class="shop-ov-card">' +
             '<div class="hosp-kpi-grid">' +
                '<div id="hkpi-beds-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🛏️</span><span>Total Beds</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
-               _hkpi('👨‍⚕️', 'Doctors',      docCount,          '', 'Active doctors on staff') +
-               '<div id="hkpi-pts-' + p.id + '"  class="hosp-kpi-card"><div class="hkpi-head"><span>👥</span><span>Patients</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
-               _hkpi('📅', 'Appointments', todayApts.length,  'Today', 'Month: ' + thisMonth.length + ' completed') +
-               '<div id="hkpi-adm-' + p.id + '"  class="hosp-kpi-card"><div class="hkpi-head"><span>🏥</span><span>Admissions</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
+               _hkpi('👨‍⚕️', 'Doctors', docCount, 'Active', '0 on leave') +
+               '<div id="hkpi-pts-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>👥</span><span>Patients</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
+               _hkpi('📅', 'Appointments', provApts.length, '', todayPending.length + ' pending · ' + todayDone.length + ' done today · ' + thisMonth.length + ' this month') +
+               '<div id="hkpi-adm-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🏥</span><span>Admissions</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
             '</div>' +
             '<div class="shop-ov-layout">' +
-               '<div class="shop-ov-main">' +
-                  '<div style="display:flex;gap:12px;align-items:stretch;margin-bottom:10px">' +
-                     '<div style="flex:1;min-width:0">' + _renderHospitalSurvey(provApts) + '</div>' +
-                     '<div id="dash-adm-kpis-' + p.id + '" style="width:190px;flex-shrink:0">' +
-                        '<div style="text-align:center;color:#bbb;font-size:0.75rem;padding:16px">Loading…</div>' +
-                     '</div>' +
-                  '</div>' +
+               '<div class="shop-ov-main" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+                  _renderHospitalSurvey(provApts) +
                   _todayQueueWidget(provApts, todayYmd) +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
@@ -9452,41 +9447,38 @@ async function renderShopOverview() {
    // Async: fill admission-dependent KPI cards
    mine.forEach(async function(p) {
       var provApts2 = apts.filter(function(a) { return a.provider_id === p.id; });
-      var admRows = await AppDB.getAdmissions(p.id);
-      var admitted    = admRows.filter(function(r) { return r.status === 'Admitted'; });
-      var todayDisch  = admitted.filter(function(r) { return r.target_discharge === todayYmd; }).length;
-      var newToday    = admRows.filter(function(r) { return r.admit_date === todayYmd; }).length;
-      var uniquePts   = new Set(provApts2.map(function(a) { return a.patient_phone || a.id; })).size;
+      var admRows   = await AppDB.getAdmissions(p.id);
+      var bedRows   = await AppDB.getBeds(p.id);
+      var admitted  = admRows.filter(function(r) { return r.status === 'Admitted'; });
+      var discharged= admRows.filter(function(r) { return r.status === 'Discharged'; }).length;
+      var todayDisch= admitted.filter(function(r) { return r.target_discharge === todayYmd; }).length;
+      var newToday  = admRows.filter(function(r) { return r.admit_date === todayYmd; }).length;
+      var uniquePts = new Set(provApts2.map(function(a) { return a.patient_phone || a.id; })).size;
+      var totalBeds = bedRows.filter(function(b) { return b.active !== false; }).length;
+      var availBeds = bedRows.filter(function(b) { return b.active !== false && b.status === 'Available'; }).length;
+      var occBeds   = bedRows.filter(function(b) { return b.active !== false && b.status === 'Occupied'; }).length;
 
       var bedsEl = document.getElementById('hkpi-beds-' + p.id);
       if (bedsEl) bedsEl.innerHTML =
          '<div class="hkpi-head"><span>🛏️</span><span>Total Beds</span></div>' +
-         '<div class="hkpi-body"><span class="hkpi-num">' + admitted.length + '</span><span class="hkpi-badge hkpi-red">Occupied</span></div>' +
-         '<div class="hkpi-sub">' + todayDisch + ' discharges due · ' + newToday + ' admitted today</div>';
+         '<div class="hkpi-body"><span class="hkpi-num">' + totalBeds + '</span>' +
+            '<span class="hkpi-badge hkpi-green">' + availBeds + ' Available</span>' +
+            '<span class="hkpi-badge hkpi-red" style="margin-left:4px">' + occBeds + ' Occupied</span>' +
+         '</div>' +
+         '<div class="hkpi-sub">' + (totalBeds - availBeds - occBeds) + ' under maintenance / reserved</div>';
 
       var ptsEl = document.getElementById('hkpi-pts-' + p.id);
       if (ptsEl) ptsEl.innerHTML =
          '<div class="hkpi-head"><span>👥</span><span>Patients</span></div>' +
          '<div class="hkpi-body"><span class="hkpi-num">' + uniquePts + '</span><span class="hkpi-badge hkpi-blue">Total</span></div>' +
-         '<div class="hkpi-sub">Unique patients via appointments</div>';
+         '<div class="hkpi-sub">Unique via appointments · ' + admitted.length + ' admitted</div>';
 
       var admEl = document.getElementById('hkpi-adm-' + p.id);
       if (admEl) admEl.innerHTML =
          '<div class="hkpi-head"><span>🏥</span><span>Admissions</span></div>' +
-         '<div class="hkpi-body"><span class="hkpi-num">' + admitted.length + '</span><span class="hkpi-badge hkpi-green">Active</span></div>' +
-         '<div class="hkpi-sub">' + newToday + ' new today · ' + admRows.length + ' total</div>';
+         '<div class="hkpi-body"><span class="hkpi-num">' + admRows.length + '</span></div>' +
+         '<div class="hkpi-sub">' + admitted.length + ' admitted · ' + discharged + ' discharged · ' + newToday + ' today</div>';
 
-      var kpiEl = document.getElementById('dash-adm-kpis-' + p.id);
-      if (!kpiEl) return;
-      kpiEl.innerHTML =
-         '<div style="background:#f0fdf4;border-radius:14px;padding:12px;border:1px solid #d1fae5;height:100%;box-sizing:border-box;display:flex;flex-direction:column">' +
-            '<div style="font-size:0.68rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">🛏️ In-Patient Status</div>' +
-            '<div style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:space-evenly">' +
-               _ipStatRow('🛏️', admitted.length,  'Admitted',  '#059669') +
-               _ipStatRow('📤', todayDisch,        'Discharge', '#dc2626') +
-               _ipStatRow('📥', newToday,          'New Today', '#2563eb') +
-            '</div>' +
-         '</div>';
    });
 }
 

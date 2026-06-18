@@ -9427,11 +9427,11 @@ async function renderShopOverview() {
             '</div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
-                  '<div id="dash-adm-kpis-' + p.id + '" style="margin-bottom:14px"><div style="text-align:center;color:#bbb;font-size:0.75rem;padding:8px">Loading bed status…</div></div>' +
                   _renderHospitalSurvey(provApts) +
                   _todayQueueWidget(provApts, todayYmd) +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
+                  '<div id="dash-adm-kpis-' + p.id + '" style="margin-bottom:16px"><div style="text-align:center;color:#bbb;font-size:0.75rem;padding:8px">Loading…</div></div>' +
                   _renderStatusDonut(provApts) +
                   _statRow('👨‍⚕️', docCount,         'Doctors') +
                   _statRow('📊',  thisWeek.length,  'This Week') +
@@ -9451,11 +9451,13 @@ async function renderShopOverview() {
       var kpiEl = document.getElementById('dash-adm-kpis-' + p.id);
       if (!kpiEl) return;
       kpiEl.innerHTML =
-         '<div class="shop-ov-kpis" style="grid-template-columns:repeat(3,1fr);background:#f0fdf4;border-radius:12px;padding:12px;border:1px solid #d1fae5">' +
-            '<div style="grid-column:1/-1;font-size:0.72rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">🛏️ In-Patient Status</div>' +
-            _kpiCard('green',  '🛏️', admitted.length,   'Currently Admitted') +
-            _kpiCard('red',    '📤', todayDischarge,     'Discharges Due Today') +
-            _kpiCard('blue',   '📥', newToday,           'Admissions Today') +
+         '<div style="background:#f0fdf4;border-radius:12px;padding:14px 16px;border:1px solid #d1fae5">' +
+            '<div style="font-size:0.72rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">🛏️ In-Patient Status</div>' +
+            '<div style="display:flex;flex-direction:column;gap:8px">' +
+               _ipStatRow('🛏️', admitted.length,  'Currently Admitted',    '#059669') +
+               _ipStatRow('📤', todayDischarge,    'Discharges Due Today',  '#dc2626') +
+               _ipStatRow('📥', newToday,          'Admissions Today',      '#2563eb') +
+            '</div>' +
          '</div>';
    });
 }
@@ -9470,6 +9472,16 @@ function _kpiCard(color, icon, value, label, trend) {
                 '<div class="shop-stat-num">' + value + '</div>' +
                 '<div class="shop-stat-label">' + label + '</div>' +
                 spark +
+             '</div>' +
+          '</div>';
+}
+
+function _ipStatRow(icon, value, label, color) {
+   return '<div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:8px;padding:8px 12px;border:1px solid #d1fae5">' +
+             '<div style="width:32px;height:32px;border-radius:8px;background:' + color + '18;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">' + icon + '</div>' +
+             '<div>' +
+                '<div style="font-size:1.15rem;font-weight:800;color:#1a1a2e;line-height:1">' + value + '</div>' +
+                '<div style="font-size:0.7rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;margin-top:2px">' + label + '</div>' +
              '</div>' +
           '</div>';
 }

@@ -9427,11 +9427,13 @@ async function renderShopOverview() {
             '</div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
-                  _renderHospitalSurvey(provApts) +
+                  '<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px">' +
+                     '<div style="flex:1;min-width:0">' + _renderHospitalSurvey(provApts) + '</div>' +
+                     '<div id="dash-adm-kpis-' + p.id + '" style="width:200px;flex-shrink:0"><div style="text-align:center;color:#bbb;font-size:0.75rem;padding:8px">Loading…</div></div>' +
+                  '</div>' +
                   _todayQueueWidget(provApts, todayYmd) +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
-                  '<div id="dash-adm-kpis-' + p.id + '" style="margin-bottom:16px"><div style="text-align:center;color:#bbb;font-size:0.75rem;padding:8px">Loading…</div></div>' +
                   _renderStatusDonut(provApts) +
                   _statRow('👨‍⚕️', docCount,         'Doctors') +
                   _statRow('📊',  thisWeek.length,  'This Week') +

@@ -2698,6 +2698,7 @@ function openAptDoctorModal(providerId, doctorId) {
    document.getElementById('aptDocRegNo').value      = doctor ? (doctor.reg_no || '') : '';
    document.getElementById('aptDocFee').value        = doctor ? (doctor.fee || '') : '';
    document.getElementById('aptDocPhoto').value      = doctor ? (doctor.photo || '') : '';
+   document.getElementById('aptDocOnLeave').checked  = !!(doctor && doctor.on_leave);
    var fileInput = document.getElementById('aptDocPhotoFile'); if (fileInput) fileInput.value = '';
    var statusEl  = document.getElementById('aptDocPhotoStatus'); if (statusEl) statusEl.textContent = '';
    _aptDocPhotoPreview();
@@ -2923,7 +2924,8 @@ async function saveAptDoctor() {
       daily_cap_online:      Math.max(0, parseInt(document.getElementById('aptDocDailyCapOnline').value,  10) || 0),
       daily_cap_offline:     Math.max(0, parseInt(document.getElementById('aptDocDailyCapOffline').value, 10) || 0),
       availability: availability,
-      vacations: Array.isArray(window._aptDocVacWorking) ? window._aptDocVacWorking.slice() : []
+      vacations:    Array.isArray(window._aptDocVacWorking) ? window._aptDocVacWorking.slice() : [],
+      on_leave:     document.getElementById('aptDocOnLeave').checked
    };
 
    var doctors = (provider.doctors || []).slice();
@@ -9423,9 +9425,13 @@ async function renderShopOverview() {
          '<div class="shop-ov-card">' +
             '<div class="hosp-kpi-grid">' +
                '<div id="hkpi-beds-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🛏️</span><span>Total Beds</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
-               _hkpi('👨‍⚕️', 'Doctors', docCount, 'Active', '0 on leave') +
+               _hkpi('👨‍⚕️', 'Doctors', docCount - (p.doctors||[]).filter(function(d){return d.on_leave;}).length, 'Active', (p.doctors||[]).filter(function(d){return d.on_leave;}).length + ' on leave') +
                '<div id="hkpi-pts-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>👥</span><span>Patients</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
-               _hkpi('📅', 'Appointments', todayApts.length, 'Today', todayPending.length + ' pending · ' + todayDone.length + ' completed') +
+               (function(){
+                  var todayCollected = todayApts.filter(function(a){return a.status==='Completed';}).reduce(function(s,a){return s+(a.fee||0);},0);
+                  var todayPending   = todayApts.filter(function(a){return a.status==='Confirmed';}).reduce(function(s,a){return s+(a.fee||0);},0);
+                  return _hkpi('💰', 'Revenue', '₹' + todayCollected.toLocaleString('en-IN'), 'Today', '₹' + todayPending.toLocaleString('en-IN') + ' pending · Month: ₹' + monthRevenue.toLocaleString('en-IN'));
+               })() +
                '<div id="hkpi-adm-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🏥</span><span>Admissions</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
             '</div>' +
             '<div class="shop-ov-layout">' +
@@ -9474,8 +9480,8 @@ async function renderShopOverview() {
       var admEl = document.getElementById('hkpi-adm-' + p.id);
       if (admEl) admEl.innerHTML =
          '<div class="hkpi-head"><span>🏥</span><span>Admissions</span></div>' +
-         '<div class="hkpi-body"><span class="hkpi-num">' + admRows.length + '</span></div>' +
-         '<div class="hkpi-sub">' + admitted.length + ' admitted · ' + discharged + ' discharged · ' + newToday + ' today</div>';
+         '<div class="hkpi-body"><span class="hkpi-num">' + newToday + '</span><span class="hkpi-badge hkpi-blue">Today</span></div>' +
+         '<div class="hkpi-sub">' + admitted.length + ' active · ' + discharged + ' discharged · ' + admRows.length + ' total</div>';
 
    });
 }
@@ -9731,7 +9737,7 @@ function _filterAptsByRange(apts, range) {
 }
 
 function _renderStatusDonut(apts) {
-   var range = window._donutRange || 'month';
+   var range = window._donutRange || 'day';
    var filtered = _filterAptsByRange(apts, range);
    var counts = { Confirmed: 0, Completed: 0, 'No-show': 0, Cancelled: 0 };
    filtered.forEach(function(a) {

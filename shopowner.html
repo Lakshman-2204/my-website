@@ -1062,6 +1062,10 @@
                <label>Consultation Fee (₹)</label>
                <input type="number" id="aptDocFee" min="0" placeholder="500"/>
             </div>
+            <div class="modal-field" style="display:flex;align-items:center;gap:10px">
+               <input type="checkbox" id="aptDocOnLeave" style="width:16px;height:16px;accent-color:#ef4444"/>
+               <label for="aptDocOnLeave" style="margin:0;font-weight:500;color:#ef4444">Mark as On Leave</label>
+            </div>
             <div class="modal-field">
                <label>Doctor Photo <small style="font-weight:400;color:#aaa">(optional — JPG/PNG, max 2 MB)</small></label>
                <input type="file" id="aptDocPhotoFile" accept="image/*" onchange="uploadDoctorPhotoFile(this)"/>

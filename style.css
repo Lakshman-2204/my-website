@@ -1962,6 +1962,61 @@ body.guest .store-section-divider {
 }
 .shop-ov-kpis .shop-stat { border: 1px solid #eef0f5; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
 
+/* ── Hospital KPI cards (top row) ── */
+.hosp-kpi-grid {
+   display: grid;
+   grid-template-columns: repeat(5, 1fr);
+   gap: 12px;
+   margin-bottom: 4px;
+}
+.hosp-kpi-card {
+   background: #fff;
+   border: 1px solid #e8ecf0;
+   border-radius: 14px;
+   padding: 16px 18px;
+   display: flex;
+   flex-direction: column;
+   gap: 6px;
+   transition: box-shadow 0.15s;
+}
+.hosp-kpi-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+.hkpi-head {
+   display: flex;
+   align-items: center;
+   gap: 7px;
+   font-size: 0.82rem;
+   font-weight: 600;
+   color: #5f6473;
+}
+.hkpi-head span:first-child { font-size: 1rem; }
+.hkpi-body {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   margin-top: 2px;
+}
+.hkpi-num {
+   font-size: 2rem;
+   font-weight: 800;
+   color: #1a1a2e;
+   line-height: 1;
+}
+.hkpi-badge {
+   font-size: 0.7rem;
+   font-weight: 700;
+   padding: 3px 9px;
+   border-radius: 20px;
+   border: 1px solid;
+}
+.hkpi-green { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+.hkpi-blue  { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+.hkpi-red   { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.hkpi-sub {
+   font-size: 0.72rem;
+   color: #8a93a7;
+   margin-top: 2px;
+}
+
 /* Hospital Survey area chart card — matches queue width (full column) */
 .hospital-survey {
 	grid-column: 1 / -1;
@@ -2175,6 +2230,58 @@ body.guest .store-section-divider {
 .adm-type-emergency { background:#fee2e2; color:#b91c1c; }
 .adm-type-daycare { background:#eff6ff; color:#1e40af; }
 .adm-type-observation { background:#fff7ed; color:#c2410c; }
+
+/* ── Bed Management ── */
+.bed-summary-bar {
+   display: flex; align-items: center; background: #fff;
+   border: 1px solid #e8ecf0; border-radius: 12px;
+   padding: 14px 20px; margin-bottom: 18px; gap: 0;
+}
+.bed-sum-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.bed-sum-num { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+.bed-sum-lbl { font-size: 0.68rem; color: #8a93a7; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
+.bed-sum-divider { width: 1px; background: #e8ecf0; height: 36px; flex-shrink: 0; }
+.bed-category-section { margin-bottom: 22px; }
+.bed-cat-header {
+   display: flex; align-items: center; justify-content: space-between;
+   margin-bottom: 10px; flex-wrap: wrap; gap: 6px;
+}
+.bed-cat-title { font-size: 0.9rem; font-weight: 700; color: #1a1a2e; }
+.bed-cat-count { font-size: 0.78rem; color: #8a93a7; }
+.bed-add-btn {
+   background: #f0fdf4; color: #059669; border: 1px solid #6ee7b7;
+   border-radius: 7px; padding: 4px 10px; font-size: 0.75rem; font-weight: 600;
+   cursor: pointer; transition: background 0.15s;
+}
+.bed-add-btn:hover { background: #d1fae5; }
+.bed-card-grid {
+   display: grid;
+   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+   gap: 10px;
+}
+.bed-card {
+   background: #fff; border: 1.5px solid #e8ecf0; border-radius: 12px;
+   padding: 12px; display: flex; flex-direction: column; gap: 5px;
+   transition: border-color 0.15s, box-shadow 0.15s;
+}
+.bed-card:hover { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.06); }
+.bed-card-top { display: flex; justify-content: space-between; align-items: center; }
+.bed-room-label { font-size: 0.82rem; font-weight: 700; color: #1a1a2e; }
+.bed-bed-label { font-weight: 400; color: #6b7280; }
+.bed-status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.bed-floor { font-size: 0.7rem; color: #8a93a7; }
+.bed-status-text { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.bed-card-actions { display: flex; gap: 5px; margin-top: 4px; }
+.bed-btn-edit {
+   flex: 1; padding: 4px 0; border-radius: 6px; border: 1px solid #e5e7eb;
+   background: #f9fafb; font-size: 0.75rem; cursor: pointer;
+}
+.bed-btn-edit:hover { background: #f0fdf4; border-color: #10b981; }
+.bed-btn-del {
+   padding: 4px 8px; border-radius: 6px; border: 1px solid #fee2e2;
+   background: #fff5f5; cursor: pointer; font-size: 0.75rem;
+}
+.bed-btn-del:hover { background: #fee2e2; }
 
 /* ── Staff directory ── */
 .staff-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }

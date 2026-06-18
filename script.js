@@ -6356,6 +6356,7 @@ async function checkShopOwnerLogin() {
    var docTab    = document.getElementById('shop-tab-doctors');
    var patTab    = document.getElementById('shop-tab-patients');
    var admTab    = document.getElementById('shop-tab-admissions');
+   var bedsTab   = document.getElementById('shop-tab-beds');
    var staffTab  = document.getElementById('shop-tab-staff');
    var schedTab  = document.getElementById('shop-tab-schedule');
    var prodTab   = document.getElementById('shop-tab-products');
@@ -6366,6 +6367,7 @@ async function checkShopOwnerLogin() {
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
    if (patTab)    patTab.classList.toggle('hidden',    !ownsHospital);
    if (admTab)    admTab.classList.toggle('hidden',    !ownsHospital);
+   if (bedsTab)   bedsTab.classList.toggle('hidden',   !ownsHospital);
    if (staffTab)  staffTab.classList.toggle('hidden',  !ownsHospital);
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
    var walkinTab = document.getElementById('shop-tab-walkin');
@@ -8818,7 +8820,7 @@ function switchShopTab(tab) {
    if (tab === 'patients-out') { patientsSub = 'out'; tab = 'patients'; }
    else if (tab === 'patients-in') { patientsSub = 'in';  tab = 'patients'; }
 
-   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'admissions', 'staff', 'schedule', 'products'].forEach(function(t) {
+   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'admissions', 'beds', 'staff', 'schedule', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
@@ -8873,6 +8875,7 @@ function switchShopTab(tab) {
    if (tab === 'patients')     { _patientsMode = patientsSub || _patientsMode || 'out'; renderShopPatients(); }
    if (tab === 'admissions')   renderShopAdmissions();
    if (tab === 'staff')        renderShopStaff();
+   if (tab === 'beds')         renderShopBeds();
    if (tab === 'schedule')     renderShopSchedule();
 }
 
@@ -9418,12 +9421,12 @@ async function renderShopOverview() {
       // every page) — skip the redundant header/info block on the dashboard.
       html +=
          '<div class="shop-ov-card">' +
-            // Cliniva-style KPI cards — 4 prominent stats with 7-day sparkline trends
-            '<div class="shop-ov-kpis">' +
-               _kpiCard('purple', '📅', todayApts.length,                                   'Today\'s Bookings', _last7DayCounts(provApts, 'all')) +
-               _kpiCard('orange', '⏳', todayPending.length,                                'Pending Today',     _last7DayCounts(provApts, 'Confirmed')) +
-               _kpiCard('green',  '✅', todayDone.length,                                   'Completed Today',   _last7DayCounts(provApts, 'Completed')) +
-               _kpiCard('blue',   '💰', '₹' + monthRevenue.toLocaleString('en-IN'),         'Revenue (Month)',   _last7DayRevenue(provApts)) +
+            '<div class="hosp-kpi-grid">' +
+               '<div id="hkpi-beds-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🛏️</span><span>Total Beds</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
+               _hkpi('👨‍⚕️', 'Doctors',      docCount,          '', 'Active doctors on staff') +
+               '<div id="hkpi-pts-' + p.id + '"  class="hosp-kpi-card"><div class="hkpi-head"><span>👥</span><span>Patients</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
+               _hkpi('📅', 'Appointments', todayApts.length,  'Today', 'Month: ' + thisMonth.length + ' completed') +
+               '<div id="hkpi-adm-' + p.id + '"  class="hosp-kpi-card"><div class="hkpi-head"><span>🏥</span><span>Admissions</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
             '</div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
@@ -9446,12 +9449,33 @@ async function renderShopOverview() {
 
    container.innerHTML = html;
 
-   // Async: load admission KPIs per hospital and inject
+   // Async: fill admission-dependent KPI cards
    mine.forEach(async function(p) {
+      var provApts2 = apts.filter(function(a) { return a.provider_id === p.id; });
       var admRows = await AppDB.getAdmissions(p.id);
-      var admitted = admRows.filter(function(r) { return r.status === 'Admitted'; });
-      var todayDischarge = admitted.filter(function(r) { return r.target_discharge === todayYmd; }).length;
-      var newToday = admRows.filter(function(r) { return r.admit_date === todayYmd; }).length;
+      var admitted    = admRows.filter(function(r) { return r.status === 'Admitted'; });
+      var todayDisch  = admitted.filter(function(r) { return r.target_discharge === todayYmd; }).length;
+      var newToday    = admRows.filter(function(r) { return r.admit_date === todayYmd; }).length;
+      var uniquePts   = new Set(provApts2.map(function(a) { return a.patient_phone || a.id; })).size;
+
+      var bedsEl = document.getElementById('hkpi-beds-' + p.id);
+      if (bedsEl) bedsEl.innerHTML =
+         '<div class="hkpi-head"><span>🛏️</span><span>Total Beds</span></div>' +
+         '<div class="hkpi-body"><span class="hkpi-num">' + admitted.length + '</span><span class="hkpi-badge hkpi-red">Occupied</span></div>' +
+         '<div class="hkpi-sub">' + todayDisch + ' discharges due · ' + newToday + ' admitted today</div>';
+
+      var ptsEl = document.getElementById('hkpi-pts-' + p.id);
+      if (ptsEl) ptsEl.innerHTML =
+         '<div class="hkpi-head"><span>👥</span><span>Patients</span></div>' +
+         '<div class="hkpi-body"><span class="hkpi-num">' + uniquePts + '</span><span class="hkpi-badge hkpi-blue">Total</span></div>' +
+         '<div class="hkpi-sub">Unique patients via appointments</div>';
+
+      var admEl = document.getElementById('hkpi-adm-' + p.id);
+      if (admEl) admEl.innerHTML =
+         '<div class="hkpi-head"><span>🏥</span><span>Admissions</span></div>' +
+         '<div class="hkpi-body"><span class="hkpi-num">' + admitted.length + '</span><span class="hkpi-badge hkpi-green">Active</span></div>' +
+         '<div class="hkpi-sub">' + newToday + ' new today · ' + admRows.length + ' total</div>';
+
       var kpiEl = document.getElementById('dash-adm-kpis-' + p.id);
       if (!kpiEl) return;
       kpiEl.innerHTML =
@@ -9459,7 +9483,7 @@ async function renderShopOverview() {
             '<div style="font-size:0.68rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">🛏️ In-Patient Status</div>' +
             '<div style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:space-evenly">' +
                _ipStatRow('🛏️', admitted.length,  'Admitted',  '#059669') +
-               _ipStatRow('📤', todayDischarge,    'Discharge', '#dc2626') +
+               _ipStatRow('📤', todayDisch,        'Discharge', '#dc2626') +
                _ipStatRow('📥', newToday,          'New Today', '#2563eb') +
             '</div>' +
          '</div>';
@@ -9477,6 +9501,15 @@ function _kpiCard(color, icon, value, label, trend) {
                 '<div class="shop-stat-label">' + label + '</div>' +
                 spark +
              '</div>' +
+          '</div>';
+}
+
+function _hkpi(icon, title, num, badge, sub) {
+   var badgeHtml = badge ? '<span class="hkpi-badge hkpi-green">' + badge + '</span>' : '';
+   return '<div class="hosp-kpi-card">' +
+             '<div class="hkpi-head"><span>' + icon + '</span><span>' + title + '</span></div>' +
+             '<div class="hkpi-body"><span class="hkpi-num">' + num + '</span>' + badgeHtml + '</div>' +
+             '<div class="hkpi-sub">' + sub + '</div>' +
           '</div>';
 }
 
@@ -12265,6 +12298,315 @@ async function shopDeleteAdmission(id) {
    var ok = await AppDB.deleteAdmission(id);
    if (!ok) { alert('Failed to delete admission.'); return; }
    renderShopAdmissions();
+}
+
+// ── BEDS MANAGEMENT (Phase 10) ──
+var BED_CATEGORIES = ['General Ward','Twin Sharing / Semi-Private','Private Room','Deluxe Room','Super Deluxe Room','ICU'];
+var BED_STATUS_COLOR = { 'Available':'#059669', 'Occupied':'#dc2626', 'Maintenance':'#d97706', 'Reserved':'#7c3aed' };
+var BED_CAT_ICON = { 'General Ward':'🏨', 'Twin Sharing / Semi-Private':'🛏️', 'Private Room':'🚪', 'Deluxe Room':'⭐', 'Super Deluxe Room':'👑', 'ICU':'🏥' };
+
+async function renderShopBeds() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var host = document.getElementById('shopBedsContent');
+   if (!host) return;
+
+   await loadAptProviders(true);
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   if (!mine.length) { host.innerHTML = '<div class="shop-empty">No hospital linked to your account.</div>'; return; }
+   var chosen = _admHospitalChoice && mine.find(function(p) { return p.id === _admHospitalChoice; }); if (!chosen) chosen = mine[0];
+
+   var beds = await AppDB.getBeds(chosen.id);
+   var active = beds.filter(function(b) { return b.active !== false; });
+
+   // Summary bar
+   var totalByStatus = { Available:0, Occupied:0, Maintenance:0, Reserved:0 };
+   active.forEach(function(b) { if (totalByStatus[b.status] !== undefined) totalByStatus[b.status]++; });
+
+   var summaryHtml =
+      '<div class="bed-summary-bar">' +
+         '<div class="bed-sum-item"><span class="bed-sum-num" style="color:#059669">' + totalByStatus.Available + '</span><span class="bed-sum-lbl">Available</span></div>' +
+         '<div class="bed-sum-divider"></div>' +
+         '<div class="bed-sum-item"><span class="bed-sum-num" style="color:#dc2626">' + totalByStatus.Occupied + '</span><span class="bed-sum-lbl">Occupied</span></div>' +
+         '<div class="bed-sum-divider"></div>' +
+         '<div class="bed-sum-item"><span class="bed-sum-num" style="color:#d97706">' + totalByStatus.Maintenance + '</span><span class="bed-sum-lbl">Maintenance</span></div>' +
+         '<div class="bed-sum-divider"></div>' +
+         '<div class="bed-sum-item"><span class="bed-sum-num" style="color:#7c3aed">' + totalByStatus.Reserved + '</span><span class="bed-sum-lbl">Reserved</span></div>' +
+         '<div class="bed-sum-divider"></div>' +
+         '<div class="bed-sum-item"><span class="bed-sum-num" style="color:#1a1a2e">' + active.length + '</span><span class="bed-sum-lbl">Total Beds</span></div>' +
+      '</div>';
+
+   // Group by category
+   var grouped = {};
+   BED_CATEGORIES.forEach(function(c) { grouped[c] = []; });
+   active.forEach(function(b) { if (grouped[b.category]) grouped[b.category].push(b); else { grouped[b.category] = grouped[b.category] || []; grouped[b.category].push(b); } });
+
+   var categoryHtml = '';
+   BED_CATEGORIES.forEach(function(cat) {
+      var catBeds = grouped[cat] || [];
+      var availCount = catBeds.filter(function(b) { return b.status === 'Available'; }).length;
+      var icon = BED_CAT_ICON[cat] || '🛏️';
+
+      var bedCards = catBeds.length === 0
+         ? '<div style="color:#bbb;font-size:0.8rem;padding:8px 0">No beds added yet.</div>'
+         : catBeds.map(function(b) {
+              var sc = BED_STATUS_COLOR[b.status] || '#6b7280';
+              var bid = b.id.replace(/'/g,"\\'");
+              return '<div class="bed-card">' +
+                        '<div class="bed-card-top">' +
+                           '<div class="bed-room-label">Room ' + b.room_number + '<span class="bed-bed-label"> · ' + b.bed_number + '</span></div>' +
+                           '<span class="bed-status-dot" style="background:' + sc + '" title="' + b.status + '"></span>' +
+                        '</div>' +
+                        (b.floor ? '<div class="bed-floor">Floor ' + b.floor + '</div>' : '') +
+                        '<div class="bed-status-text" style="color:' + sc + '">' + b.status + '</div>' +
+                        '<div class="bed-card-actions">' +
+                           '<button onclick="openBedModal(\'' + bid + '\')" class="bed-btn-edit">✏️</button>' +
+                           '<button onclick="deleteBedItem(\'' + bid + '\')" class="bed-btn-del">🗑</button>' +
+                        '</div>' +
+                     '</div>';
+           }).join('');
+
+      categoryHtml +=
+         '<div class="bed-category-section">' +
+            '<div class="bed-cat-header">' +
+               '<div class="bed-cat-title">' + icon + ' ' + cat + '</div>' +
+               '<span class="bed-cat-count">' + catBeds.length + ' beds · <span style="color:#059669">' + availCount + ' available</span></span>' +
+            '</div>' +
+            '<div class="bed-card-grid">' + bedCards + '</div>' +
+         '</div>';
+   });
+
+   host.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">' +
+         '<div>' +
+            '<h3 style="margin:0;color:#1a1a2e;font-size:1rem">Bed Management</h3>' +
+            '<div style="font-size:0.8rem;color:#8a93a7;margin-top:2px">' + active.length + ' beds across ' + BED_CATEGORIES.length + ' categories</div>' +
+         '</div>' +
+         '<div style="display:flex;gap:8px">' +
+            '<button onclick="openBulkBedModal()" style="background:#f0fdf4;color:#059669;border:1px solid #6ee7b7;border-radius:10px;padding:9px 16px;font-size:0.85rem;font-weight:600;cursor:pointer">⚡ Bulk Add</button>' +
+            '<button onclick="openBedModal()" style="background:#10b981;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:0.85rem;font-weight:600;cursor:pointer">+ Add Bed</button>' +
+         '</div>' +
+      '</div>' +
+      summaryHtml +
+      categoryHtml;
+
+   _liveSubscribe('shopBeds', 'hospital_beds', renderShopBeds);
+}
+
+function openBedModal(id, defaultCat) {
+   var modal = document.getElementById('bedModal');
+   if (!modal) { _buildBedModal(); modal = document.getElementById('bedModal'); }
+   var get = function(eid) { return document.getElementById(eid); };
+   if (id) {
+      AppDB.getBeds(_admHospitalChoice || '').then(function(beds) {
+         var b = beds.find(function(x) { return x.id === id; });
+         if (!b) return;
+         get('bed-id').value       = b.id;
+         get('bed-category').value = b.category;
+         get('bed-room').value     = b.room_number;
+         get('bed-num').value      = b.bed_number;
+         get('bed-floor').value    = b.floor || '';
+         get('bed-status').value   = b.status;
+         get('bed-notes').value    = b.notes || '';
+         get('bed-active').checked = b.active !== false;
+         document.getElementById('bedModalTitle').textContent = '✏️ Edit Bed';
+         modal.classList.remove('hidden');
+      });
+   } else {
+      ['bed-id','bed-room','bed-num','bed-floor','bed-notes'].forEach(function(f){ var el=get(f); if(el) el.value=''; });
+      if (get('bed-category') && defaultCat) get('bed-category').value = defaultCat;
+      if (get('bed-status')) get('bed-status').value = 'Available';
+      var ac = get('bed-active'); if (ac) ac.checked = true;
+      document.getElementById('bedModalTitle').textContent = '+ Add Bed';
+      modal.classList.remove('hidden');
+   }
+}
+
+function _buildBedModal() {
+   var m = document.createElement('div');
+   m.className = 'sp-modal-overlay hidden'; m.id = 'bedModal';
+   var catOptions = BED_CATEGORIES.map(function(c) { return '<option>' + c + '</option>'; }).join('');
+   m.innerHTML =
+      '<div class="sp-modal" style="max-width:520px">' +
+         '<div class="sp-modal-header" style="background:#0891b2">' +
+            '<h3 id="bedModalTitle">+ Add Bed</h3>' +
+            '<button onclick="closeBedModal()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer">✕</button>' +
+         '</div>' +
+         '<div class="sp-modal-body">' +
+            '<input type="hidden" id="bed-id"/>' +
+            '<div class="profile-card-body" style="padding:0">' +
+               '<div class="sp-field" style="grid-column:1/-1"><label>Category *</label><select id="bed-category">' + catOptions + '</select></div>' +
+               '<div class="sp-field"><label>Room Number *</label><input type="text" id="bed-room" placeholder="e.g. 101, A-12"/></div>' +
+               '<div class="sp-field"><label>Bed Number *</label><input type="text" id="bed-num" placeholder="e.g. B1, Left, Window"/></div>' +
+               '<div class="sp-field"><label>Floor</label><input type="text" id="bed-floor" placeholder="e.g. Ground, 1st, 2nd"/></div>' +
+               '<div class="sp-field"><label>Status</label><select id="bed-status"><option>Available</option><option>Occupied</option><option>Maintenance</option><option>Reserved</option></select></div>' +
+               '<div class="sp-field" style="grid-column:1/-1"><label>Notes</label><textarea id="bed-notes" rows="2" placeholder="Any special notes…"></textarea></div>' +
+               '<div class="sp-field" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0"><input type="checkbox" id="bed-active" checked style="width:auto"/> Active</label></div>' +
+            '</div>' +
+         '</div>' +
+         '<div class="sp-modal-footer">' +
+            '<button class="sp-btn-cancel" onclick="closeBedModal()">Cancel</button>' +
+            '<button class="sp-btn-save" onclick="saveBedItem()">💾 Save</button>' +
+         '</div>' +
+      '</div>';
+   document.body.appendChild(m);
+}
+
+function closeBedModal() { var m = document.getElementById('bedModal'); if (m) m.classList.add('hidden'); }
+
+async function saveBedItem() {
+   var get = function(id) { var el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+   var category = get('bed-category'), room = get('bed-room'), bedNum = get('bed-num');
+   if (!category) { alert('Category is required.'); return; }
+   if (!room)     { alert('Room number is required.'); return; }
+   if (!bedNum)   { alert('Bed number is required.'); return; }
+
+   await loadAptProviders(true);
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   var provId = _admHospitalChoice || (mine[0] && mine[0].id) || '';
+   if (!provId) { alert('No hospital selected.'); return; }
+
+   var id = get('bed-id') || ('bed_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+   var ok = await AppDB.upsertBed({
+      id: id, provider_id: provId,
+      category: category, room_number: room, bed_number: bedNum,
+      floor: get('bed-floor'), status: get('bed-status'),
+      notes: get('bed-notes'),
+      active: document.getElementById('bed-active').checked
+   });
+   if (!ok) { alert('Failed to save bed.'); return; }
+   closeBedModal();
+   renderShopBeds();
+}
+
+async function deleteBedItem(id) {
+   if (!confirm('Remove this bed?')) return;
+   await AppDB.deleteBed(id);
+   renderShopBeds();
+}
+
+function openBulkBedModal() {
+   var modal = document.getElementById('bulkBedModal');
+   if (!modal) { _buildBulkBedModal(); modal = document.getElementById('bulkBedModal'); }
+   modal.classList.remove('hidden');
+   _bulkBedPreview();
+}
+
+function closeBulkBedModal() { var m = document.getElementById('bulkBedModal'); if (m) m.classList.add('hidden'); }
+
+function _buildBulkBedModal() {
+   var m = document.createElement('div');
+   m.className = 'sp-modal-overlay hidden'; m.id = 'bulkBedModal';
+   var catOptions = BED_CATEGORIES.map(function(c) { return '<option>' + c + '</option>'; }).join('');
+   m.innerHTML =
+      '<div class="sp-modal" style="max-width:560px">' +
+         '<div class="sp-modal-header" style="background:#0891b2">' +
+            '<h3>⚡ Bulk Add Beds</h3>' +
+            '<button onclick="closeBulkBedModal()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer">✕</button>' +
+         '</div>' +
+         '<div class="sp-modal-body">' +
+            '<div class="profile-card-body" style="padding:0">' +
+               '<div class="sp-field" style="grid-column:1/-1">' +
+                  '<label>Category *</label>' +
+                  '<select id="bulk-category" onchange="_bulkBedPreview()">' + catOptions + '</select>' +
+               '</div>' +
+               '<div class="sp-field">' +
+                  '<label>Floor</label>' +
+                  '<input type="text" id="bulk-floor" placeholder="e.g. Ground, 1st" oninput="_bulkBedPreview()"/>' +
+               '</div>' +
+               '<div class="sp-field">' +
+                  '<label>Room Start *</label>' +
+                  '<input type="number" id="bulk-room-start" value="101" min="1" oninput="_bulkBedPreview()"/>' +
+               '</div>' +
+               '<div class="sp-field">' +
+                  '<label>Number of Rooms *</label>' +
+                  '<input type="number" id="bulk-room-count" value="10" min="1" max="100" oninput="_bulkBedPreview()"/>' +
+               '</div>' +
+               '<div class="sp-field">' +
+                  '<label>Beds per Room *</label>' +
+                  '<input type="number" id="bulk-beds-per-room" value="1" min="1" max="10" oninput="_bulkBedPreview()"/>' +
+               '</div>' +
+               '<div class="sp-field">' +
+                  '<label>Bed Label Style</label>' +
+                  '<select id="bulk-label-style" onchange="_bulkBedPreview()">' +
+                     '<option value="alpha">A, B, C…</option>' +
+                     '<option value="num">1, 2, 3…</option>' +
+                     '<option value="named">Left, Right (twin only)</option>' +
+                  '</select>' +
+               '</div>' +
+               '<div class="sp-field" style="grid-column:1/-1">' +
+                  '<label>Preview</label>' +
+                  '<div id="bulk-preview" style="background:#f8fafc;border:1px solid #e8ecf0;border-radius:8px;padding:10px;font-size:0.78rem;color:#5f6473;max-height:120px;overflow-y:auto;font-family:monospace;line-height:1.6"></div>' +
+               '</div>' +
+            '</div>' +
+         '</div>' +
+         '<div class="sp-modal-footer">' +
+            '<button class="sp-btn-cancel" onclick="closeBulkBedModal()">Cancel</button>' +
+            '<button class="sp-btn-save" id="bulk-save-btn" onclick="saveBulkBeds()">⚡ Create All Beds</button>' +
+         '</div>' +
+      '</div>';
+   document.body.appendChild(m);
+}
+
+function _bulkBedPreview() {
+   var el = document.getElementById('bulk-preview');
+   if (!el) return;
+   var start  = parseInt(document.getElementById('bulk-room-start').value) || 101;
+   var count  = Math.min(parseInt(document.getElementById('bulk-room-count').value) || 10, 100);
+   var bpr    = Math.min(parseInt(document.getElementById('bulk-beds-per-room').value) || 1, 10);
+   var style  = (document.getElementById('bulk-label-style') || {}).value || 'alpha';
+   var labels = style === 'alpha' ? 'ABCDEFGHIJ'.split('') : style === 'num' ? ['1','2','3','4','5','6','7','8','9','10'] : ['Left','Right'];
+   var lines = [];
+   for (var r = 0; r < count; r++) {
+      for (var b = 0; b < bpr; b++) {
+         lines.push('Room ' + (start + r) + '  ·  Bed ' + (labels[b] || (b+1)));
+      }
+   }
+   var total = count * bpr;
+   var btn = document.getElementById('bulk-save-btn');
+   if (btn) btn.textContent = '⚡ Create ' + total + ' Beds';
+   el.innerHTML = lines.slice(0, 30).join('<br>') + (lines.length > 30 ? '<br><em>… and ' + (lines.length - 30) + ' more</em>' : '');
+}
+
+async function saveBulkBeds() {
+   var cat    = (document.getElementById('bulk-category') || {}).value || '';
+   var floor  = (document.getElementById('bulk-floor') || {}).value || '';
+   var start  = parseInt(document.getElementById('bulk-room-start').value) || 101;
+   var count  = Math.min(parseInt(document.getElementById('bulk-room-count').value) || 10, 100);
+   var bpr    = Math.min(parseInt(document.getElementById('bulk-beds-per-room').value) || 1, 10);
+   var style  = (document.getElementById('bulk-label-style') || {}).value || 'alpha';
+   if (!cat) { alert('Select a category.'); return; }
+
+   await loadAptProviders(true);
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   var provId = _admHospitalChoice || (mine[0] && mine[0].id) || '';
+   if (!provId) { alert('No hospital selected.'); return; }
+
+   var labels = style === 'alpha' ? 'ABCDEFGHIJ'.split('') : style === 'num' ? ['1','2','3','4','5','6','7','8','9','10'] : ['Left','Right'];
+   var btn = document.getElementById('bulk-save-btn');
+   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+
+   for (var r = 0; r < count; r++) {
+      for (var b = 0; b < bpr; b++) {
+         var id = 'bed_' + Date.now().toString(36) + '_' + r + '_' + b + '_' + Math.random().toString(36).slice(2,5);
+         await AppDB.upsertBed({
+            id: id, provider_id: provId,
+            category: cat, room_number: String(start + r),
+            bed_number: String(labels[b] || (b + 1)),
+            floor: floor, status: 'Available', notes: '', active: true
+         });
+      }
+   }
+   if (btn) { btn.disabled = false; }
+   closeBulkBedModal();
+   renderShopBeds();
 }
 
 // ── STAFF DIRECTORY (Phase 9) ──

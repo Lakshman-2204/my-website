@@ -1568,4 +1568,28 @@ window.AppDB = {
      if (error) { console.error('deleteStaff:', error.message); return false; }
      return true;
   },
+  async getBeds(providerId) {
+     const { data, error } = await _sb.from('hospital_beds').select('*')
+        .eq('provider_id', providerId).order('category').order('room_number').order('bed_number');
+     if (error) { console.error('getBeds:', error.message); return []; }
+     return data || [];
+  },
+  async upsertBed(b) {
+     const row = {
+        id: b.id, provider_id: b.provider_id,
+        category: b.category || '', room_number: b.room_number || '',
+        bed_number: b.bed_number || '', floor: b.floor || '',
+        status: b.status || 'Available', notes: b.notes || '',
+        active: b.active !== false,
+        updated_at: new Date().toISOString()
+     };
+     const { error } = await _sb.from('hospital_beds').upsert(row, { onConflict: 'id' });
+     if (error) { console.error('upsertBed:', error.message); return false; }
+     return true;
+  },
+  async deleteBed(id) {
+     const { error } = await _sb.from('hospital_beds').delete().eq('id', id);
+     if (error) { console.error('deleteBed:', error.message); return false; }
+     return true;
+  },
 };

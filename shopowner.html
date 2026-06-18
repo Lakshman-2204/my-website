@@ -43,6 +43,7 @@
             </button>
          </div>
          <button class="shop-side-item hidden" id="shop-tab-admissions"   onclick="switchShopTab('admissions')"><span class="ssi-icon">📋</span><span>Admissions</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-beds"         onclick="switchShopTab('beds')"><span class="ssi-icon">🛏️</span><span>Beds</span></button>
          <button class="shop-side-item hidden" id="shop-tab-staff"        onclick="switchShopTab('staff')"><span class="ssi-icon">👥</span><span>Staff</span></button>
          <button class="shop-side-item hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')"><span class="ssi-icon">📞</span><span>Schedule</span></button>
          <button class="shop-side-item hidden" id="shop-tab-products"     onclick="switchShopTab('products')"><span class="ssi-icon">🏪</span><span>My Stores</span></button>
@@ -938,6 +939,14 @@
          <div class="sp-modal-footer">
             <button class="sp-btn-cancel" onclick="closeDischargeModal()">Cancel</button>
             <button class="sp-btn-save" style="background:#0d47a1" onclick="saveDischargeAndPrint()">💾 Discharge &amp; Print Summary</button>
+         </div>
+      </div>
+   </div>
+
+   <div id="shop-panel-beds" class="hidden">
+      <div style="padding:18px 22px">
+         <div id="shopBedsContent">
+            <div class="shop-empty">Loading…</div>
          </div>
       </div>
    </div>

@@ -12593,18 +12593,28 @@ async function saveBulkBeds() {
    var btn = document.getElementById('bulk-save-btn');
    if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
 
+   var rows = [];
+   var ts = Date.now().toString(36);
    for (var r = 0; r < count; r++) {
       for (var b = 0; b < bpr; b++) {
-         var id = 'bed_' + Date.now().toString(36) + '_' + r + '_' + b + '_' + Math.random().toString(36).slice(2,5);
-         await AppDB.upsertBed({
-            id: id, provider_id: provId,
-            category: cat, room_number: String(start + r),
+         rows.push({
+            id: 'bed_' + ts + '_' + r + '_' + b + '_' + Math.random().toString(36).slice(2,6),
+            provider_id: provId,
+            category: cat,
+            room_number: String(start + r),
             bed_number: String(labels[b] || (b + 1)),
-            floor: floor, status: 'Available', notes: '', active: true
+            floor: floor
          });
       }
    }
-   if (btn) { btn.disabled = false; }
+
+   var result = await AppDB.bulkUpsertBeds(rows);
+   if (btn) { btn.textContent = '⚡ Create ' + rows.length + ' Beds'; btn.disabled = false; }
+
+   if (!result.ok) {
+      alert('Failed to save beds.\n\nError: ' + result.error + '\n\nMake sure you have run the latest migrate.sql in Supabase SQL Editor.');
+      return;
+   }
    closeBulkBedModal();
    renderShopBeds();
 }

@@ -1592,4 +1592,19 @@ window.AppDB = {
      if (error) { console.error('deleteBed:', error.message); return false; }
      return true;
   },
+  async bulkUpsertBeds(rows) {
+     const now = new Date().toISOString();
+     const mapped = rows.map(function(b) {
+        return {
+           id: b.id, provider_id: b.provider_id,
+           category: b.category || '', room_number: b.room_number || '',
+           bed_number: b.bed_number || '', floor: b.floor || '',
+           status: b.status || 'Available', notes: b.notes || '',
+           active: true, updated_at: now
+        };
+     });
+     const { error } = await _sb.from('hospital_beds').upsert(mapped, { onConflict: 'id' });
+     if (error) { console.error('bulkUpsertBeds:', error.message); return { ok: false, error: error.message }; }
+     return { ok: true };
+  },
 };

@@ -2283,7 +2283,7 @@ body.guest .store-section-divider {
    one continuous dashboard. */
 .shop-ov-layout {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) 200px 240px;
+	grid-template-columns: minmax(0, 1fr) 240px;
 	gap: 14px;
 	padding: 0;
 	flex: 1;
@@ -2291,7 +2291,7 @@ body.guest .store-section-divider {
 	align-items: start;
 }
 .shop-ov-main    { display: grid; grid-template-columns: 1fr; gap: 10px; min-width: 0; align-content: start; }
-.shop-ov-sidebar { display: flex; flex-direction: column; gap: 10px; }
+.shop-ov-sidebar { display: flex; flex-direction: column; gap: 10px; align-self: start; }
 
 /* Sidebar stat rows — Cliniva pastel tile style */
 .shop-stat-row {

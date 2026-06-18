@@ -11610,6 +11610,66 @@ var _ADM_FIELDS = [
    'adm-emg2-name','adm-emg2-relation','adm-emg2-phone'
 ];
 
+var _admBedsCache = [];
+
+async function _loadAdmBedDropdowns(currentWard, currentRoomBed, currentBedId) {
+   _admBedsCache = _admHospitalChoice ? await AppDB.getBeds(_admHospitalChoice) : [];
+   var available = _admBedsCache.filter(function(b) { return b.active !== false && (b.status === 'Available' || b.id === currentBedId); });
+
+   var catSel = document.getElementById('adm-ward');
+   var roomSel = document.getElementById('adm-room');
+   if (!catSel || !roomSel) return;
+
+   // Populate category dropdown
+   var cats = [];
+   available.forEach(function(b) { if (cats.indexOf(b.category) === -1) cats.push(b.category); });
+   catSel.innerHTML = '<option value="">— Select category —</option>' +
+      cats.map(function(c) {
+         var count = available.filter(function(b) { return b.category === c; }).length;
+         return '<option value="' + c + '"' + (c === currentWard ? ' selected' : '') + '>' + c + ' (' + count + ' available)</option>';
+      }).join('') +
+      (cats.length === 0 ? '<option disabled>No beds in Bed Management yet</option>' : '');
+
+   // Populate room/bed dropdown for current category
+   _admFillBedOptions(currentWard || cats[0] || '', currentRoomBed, currentBedId);
+}
+
+function _admFillBedOptions(cat, currentRoomBed, currentBedId) {
+   var roomSel = document.getElementById('adm-room');
+   var hint    = document.getElementById('adm-bed-avail-hint');
+   if (!roomSel) return;
+   var filtered = _admBedsCache.filter(function(b) {
+      return b.active !== false && b.category === cat && (b.status === 'Available' || b.id === currentBedId);
+   });
+   var availCount = filtered.filter(function(b) { return b.status === 'Available'; }).length;
+   if (hint) hint.textContent = availCount ? availCount + ' available' : '0 available';
+   roomSel.innerHTML = '<option value="">— Select bed —</option>' +
+      filtered.map(function(b) {
+         var label = 'Room ' + b.room_number + ' · Bed ' + b.bed_number + (b.floor ? ' · ' + b.floor + ' floor' : '') + (b.status !== 'Available' ? ' (' + b.status + ')' : '');
+         var val   = b.room_number + ' · ' + b.bed_number;
+         var sel   = (val === currentRoomBed || b.id === currentBedId) ? ' selected' : '';
+         return '<option value="' + val + '" data-bed-id="' + b.id + '"' + sel + '>' + label + '</option>';
+      }).join('') +
+      (filtered.length === 0 && cat ? '<option disabled>No available beds in this category</option>' : '');
+   // Sync hidden bed-id field
+   var chosen = roomSel.options[roomSel.selectedIndex];
+   var bedIdEl = document.getElementById('adm-bed-id');
+   if (bedIdEl) bedIdEl.value = chosen ? (chosen.dataset.bedId || '') : '';
+}
+
+function _admBedCatChange() {
+   var cat = (document.getElementById('adm-ward') || {}).value || '';
+   _admFillBedOptions(cat, '', '');
+}
+
+function _admRoomChange() {
+   var sel = document.getElementById('adm-room');
+   var bedIdEl = document.getElementById('adm-bed-id');
+   if (!sel || !bedIdEl) return;
+   var opt = sel.options[sel.selectedIndex];
+   bedIdEl.value = (opt && opt.dataset.bedId) ? opt.dataset.bedId : '';
+}
+
 function openAdmissionModal(id) {
    var modal = document.getElementById('admissionModal');
    var titleEl = document.getElementById('admissionModalTitle');
@@ -11627,8 +11687,7 @@ function openAdmissionModal(id) {
          get('adm-name').value         = r.patient_name || '';
          get('adm-phone').value        = r.patient_phone || '';
          get('adm-ref').value          = r.patient_ref || '';
-         get('adm-ward').value         = r.ward || '';
-         get('adm-room').value         = r.room_bed || '';
+         _loadAdmBedDropdowns(r.ward || '', r.room_bed || '', r.bed_id || '');
          get('adm-admit-date').value   = r.admit_date || '';
          get('adm-target-date').value  = r.target_discharge || '';
          get('adm-notes').value        = r.notes || '';
@@ -11712,6 +11771,7 @@ function openAdmissionModal(id) {
       if (lookupResults) { lookupResults.innerHTML = ''; lookupResults.classList.add('hidden'); }
       window._admLookupHits = [];
       get('adm-admit-date').value = _todayLocalYmd();
+      _loadAdmBedDropdowns('', '', '');
       modal.classList.remove('hidden');
    }
 }
@@ -11846,6 +11906,7 @@ async function saveAdmission() {
       patient_ref:        ref,
       ward:               get('adm-ward'),
       room_bed:           get('adm-room'),
+      bed_id:             (document.getElementById('adm-bed-id') || {}).value || '',
       admit_date:         admitDate,
       target_discharge:   get('adm-target-date') || null,
       notes:              get('adm-notes'),
@@ -11905,6 +11966,12 @@ async function saveAdmission() {
       consent_dpdp:         document.getElementById('adm-consent-dpdp')    ? document.getElementById('adm-consent-dpdp').checked    : false
    });
    if (!ok) { alert('Failed to save admission.'); return; }
+   // Mark selected bed as Occupied
+   var bedId = (document.getElementById('adm-bed-id') || {}).value || '';
+   if (bedId) {
+      var bed = _admBedsCache.find(function(b) { return b.id === bedId; });
+      if (bed) await AppDB.upsertBed(Object.assign({}, bed, { status: 'Occupied' }));
+   }
    closeAdmissionModal();
    renderShopAdmissions();
 }
@@ -12068,12 +12135,16 @@ async function saveDischargeAndPrint() {
    if (!saved) { alert('Failed to save discharge summary.'); return; }
 
    // Flip admission to Discharged so it leaves the Currently Admitted list.
-   // We update the admission row's target_discharge to match the actual
-   // discharge date — keeps the row's "Discharged on" column accurate.
    await AppDB.patchAdmission(_dsAdmission.id, {
       status: 'Discharged',
       target_discharge: dischargeDate
    });
+   // Free the bed back to Available
+   if (_dsAdmission.bed_id) {
+      var freeBed = await AppDB.getBeds(_dsAdmission.provider_id);
+      var bObj = freeBed.find(function(b) { return b.id === _dsAdmission.bed_id; });
+      if (bObj) await AppDB.upsertBed(Object.assign({}, bObj, { status: 'Available' }));
+   }
 
    var admId = _dsAdmission.id;
    closeDischargeModal();

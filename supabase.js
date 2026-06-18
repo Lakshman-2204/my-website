@@ -614,6 +614,7 @@ window.AppDB = {
          emergency2_phone:     a.emergency2_phone || '',
          consent_general:      !!a.consent_general,
          consent_dpdp:         !!a.consent_dpdp,
+         bed_id:               a.bed_id || '',
          updated_at:         new Date().toISOString()
       };
       const { error } = await _sb.from('admissions').upsert(row, { onConflict: 'id' });

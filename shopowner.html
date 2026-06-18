@@ -360,12 +360,17 @@
                   <input type="date" id="adm-target-date"/>
                </div>
                <div class="sp-field">
-                  <label>Ward</label>
-                  <input type="text" id="adm-ward" placeholder="Ward B"/>
+                  <label>Bed Category</label>
+                  <select id="adm-ward" onchange="_admBedCatChange()">
+                     <option value="">— Select category —</option>
+                  </select>
                </div>
                <div class="sp-field">
-                  <label>Room / Bed</label>
-                  <input type="text" id="adm-room" placeholder="Rm 104"/>
+                  <label>Room / Bed <small id="adm-bed-avail-hint" style="color:#10b981;font-weight:400"></small></label>
+                  <select id="adm-room" onchange="_admRoomChange()">
+                     <option value="">— Select bed —</option>
+                  </select>
+                  <input type="hidden" id="adm-bed-id"/>
                </div>
                <div class="sp-field" style="grid-column:1/-1">
                   <label>Patient Ref / Chart No <small style="color:#888;font-weight:400">(auto-filled on phone blur)</small></label>

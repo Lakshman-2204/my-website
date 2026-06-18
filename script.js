@@ -9425,13 +9425,13 @@ async function renderShopOverview() {
                _kpiCard('green',  '✅', todayDone.length,                                   'Completed Today',   _last7DayCounts(provApts, 'Completed')) +
                _kpiCard('blue',   '💰', '₹' + monthRevenue.toLocaleString('en-IN'),         'Revenue (Month)',   _last7DayRevenue(provApts)) +
             '</div>' +
+            '<div id="dash-adm-kpis-' + p.id + '" style="margin-bottom:14px">' +
+               '<div style="text-align:center;color:#bbb;font-size:0.75rem;padding:8px">Loading…</div>' +
+            '</div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
                   _renderHospitalSurvey(provApts) +
                   _todayQueueWidget(provApts, todayYmd) +
-               '</div>' +
-               '<div id="dash-adm-kpis-' + p.id + '" style="align-self:start">' +
-                  '<div style="text-align:center;color:#bbb;font-size:0.75rem;padding:16px">Loading…</div>' +
                '</div>' +
                '<aside class="shop-ov-sidebar">' +
                   _renderStatusDonut(provApts) +
@@ -9453,11 +9453,13 @@ async function renderShopOverview() {
       var kpiEl = document.getElementById('dash-adm-kpis-' + p.id);
       if (!kpiEl) return;
       kpiEl.innerHTML =
-         '<div style="background:#f0fdf4;border-radius:14px;padding:14px;border:1px solid #d1fae5;display:flex;flex-direction:column;gap:8px">' +
-            '<div style="font-size:0.7rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">🛏️ In-Patient Status</div>' +
-            _ipStatRow('🛏️', admitted.length,  'Currently Admitted',   '#059669') +
-            _ipStatRow('📤', todayDischarge,    'Discharges Due Today', '#dc2626') +
-            _ipStatRow('📥', newToday,          'Admissions Today',     '#2563eb') +
+         '<div style="background:#f0fdf4;border-radius:14px;padding:12px 16px;border:1px solid #d1fae5">' +
+            '<div style="font-size:0.7rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">🛏️ In-Patient Status</div>' +
+            '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
+               _kpiCard('green', '🛏️', admitted.length,  'Currently Admitted') +
+               _kpiCard('red',   '📤', todayDischarge,    'Discharges Due Today') +
+               _kpiCard('blue',  '📥', newToday,          'Admissions Today') +
+            '</div>' +
          '</div>';
    });
 }

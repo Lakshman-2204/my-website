@@ -9425,9 +9425,9 @@ async function renderShopOverview() {
                _kpiCard('green',  '✅', todayDone.length,                                   'Completed Today',   _last7DayCounts(provApts, 'Completed')) +
                _kpiCard('blue',   '💰', '₹' + monthRevenue.toLocaleString('en-IN'),         'Revenue (Month)',   _last7DayRevenue(provApts)) +
             '</div>' +
-            '<div id="dash-adm-kpis-' + p.id + '" style="margin-bottom:14px"><div style="text-align:center;color:#bbb;font-size:0.75rem;padding:8px">Loading bed status…</div></div>' +
             '<div class="shop-ov-layout">' +
                '<div class="shop-ov-main">' +
+                  '<div id="dash-adm-kpis-' + p.id + '" style="margin-bottom:14px"><div style="text-align:center;color:#bbb;font-size:0.75rem;padding:8px">Loading bed status…</div></div>' +
                   _renderHospitalSurvey(provApts) +
                   _todayQueueWidget(provApts, todayYmd) +
                '</div>' +
@@ -9451,7 +9451,7 @@ async function renderShopOverview() {
       var kpiEl = document.getElementById('dash-adm-kpis-' + p.id);
       if (!kpiEl) return;
       kpiEl.innerHTML =
-         '<div class="shop-ov-kpis" style="background:#f0fdf4;border-radius:12px;padding:12px;border:1px solid #d1fae5">' +
+         '<div class="shop-ov-kpis" style="grid-template-columns:repeat(3,1fr);background:#f0fdf4;border-radius:12px;padding:12px;border:1px solid #d1fae5">' +
             '<div style="grid-column:1/-1;font-size:0.72rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">🛏️ In-Patient Status</div>' +
             _kpiCard('green',  '🛏️', admitted.length,   'Currently Admitted') +
             _kpiCard('red',    '📤', todayDischarge,     'Discharges Due Today') +

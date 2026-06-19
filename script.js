@@ -11780,10 +11780,14 @@ async function renderShopAdmissions() {
          _kpiCard('green',  '✅',  discharged.length, 'Total Discharged') +
       '</div>';
 
+   var searchPlaceholder = activeTab === 'admitted' ? '🔍 Name / phone / ref / ward / diagnosis' : '🔍 Name / phone / ref / ward / diagnosis';
+   var searchVal = (activeTab === 'admitted' ? window._admAdmSearchVal : window._admDisSearchVal) || '';
+   var searchFn  = activeTab === 'admitted' ? '_admAdmSearch(this.value)' : '_admDisSearch(this.value)';
    var tabBar =
-      '<div class="adm-tab-bar">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">' +
          '<button onclick="_admTab(\'admitted\')" class="adm-tab-btn' + (activeTab==='admitted' ? ' active-admitted' : '') + '">🛏️ Admitted (' + admitted.length + ')</button>' +
          '<button onclick="_admTab(\'discharged\')" class="adm-tab-btn' + (activeTab==='discharged' ? ' active-discharged' : '') + '">✅ Discharged (' + discharged.length + ')</button>' +
+         '<input type="search" class="apt-search-input" placeholder="' + searchPlaceholder + '" value="' + searchVal.replace(/"/g,'&quot;') + '" oninput="' + searchFn + '" style="flex:1;min-width:200px;max-width:420px"/>' +
       '</div>';
 
    var tableRows, thead;
@@ -11918,8 +11922,6 @@ async function renderShopAdmissions() {
       (hospitalPicker ? '<div style="margin-bottom:12px">' + hospitalPicker + '</div>' : '') +
       statCards +
       tabBar +
-      (activeTab === 'admitted'   ? (window._admAdmSearchBar || '') : '') +
-      (activeTab === 'discharged' ? (window._admDisSearchBar || '') : '') +
       '<div class="apt-tbl-wrap"><table class="apt-tbl"><thead>' + thead + '</thead><tbody>' + tableRows + '</tbody></table></div>';
 }
 

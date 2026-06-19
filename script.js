@@ -11782,14 +11782,10 @@ async function renderShopAdmissions() {
          _kpiCard('green',  '✅',  discharged.length, 'Total Discharged') +
       '</div>';
 
-   var searchPlaceholder = activeTab === 'admitted' ? '🔍 Name / phone / ref / ward / diagnosis' : '🔍 Name / phone / ref / ward / diagnosis';
-   var searchVal = (activeTab === 'admitted' ? window._admAdmSearchVal : window._admDisSearchVal) || '';
-   var searchFn  = activeTab === 'admitted' ? '_admAdmSearch(this.value)' : '_admDisSearch(this.value)';
    var tabBar =
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">' +
          '<button onclick="_admTab(\'admitted\')" class="adm-tab-btn' + (activeTab==='admitted' ? ' active-admitted' : '') + '">🛏️ Admitted (' + admitted.length + ')</button>' +
          '<button onclick="_admTab(\'discharged\')" class="adm-tab-btn' + (activeTab==='discharged' ? ' active-discharged' : '') + '">✅ Discharged (' + discharged.length + ')</button>' +
-         '<input type="search" class="apt-search-input" placeholder="' + searchPlaceholder + '" value="' + searchVal.replace(/"/g,'&quot;') + '" oninput="' + searchFn + '" style="flex:1;min-width:200px;max-width:420px"/>' +
       '</div>';
 
    var tableRows, thead;
@@ -11925,15 +11921,39 @@ async function renderShopAdmissions() {
       statCards +
       tabBar +
       '<div class="apt-tbl-wrap"><table class="apt-tbl"><thead>' + thead + '</thead><tbody>' + tableRows + '</tbody></table></div>';
+
+   // Inject search bar into the persistent slot (outside re-rendered area) so focus is never lost
+   var activeTabNow = window._admTabActive || 'admitted';
+   var slot = document.getElementById('adm-search-slot');
+   if (slot) {
+      slot.style.display = 'flex';
+      slot.style.alignItems = 'center';
+      slot.style.gap = '10px';
+      slot.style.padding = '0 22px 10px';
+      var existing = slot.querySelector('input[type="search"]');
+      if (!existing) {
+         var ph = '🔍 Name / phone / ref / ward / diagnosis';
+         slot.innerHTML = '<input type="search" id="admSearchInput" class="apt-search-input" placeholder="' + ph + '" style="flex:1;max-width:420px" oninput="_admOnSearch(this.value)"/>';
+      }
+      var inp = slot.querySelector('input[type="search"]');
+      if (inp) inp.value = (activeTabNow === 'admitted' ? window._admAdmSearchVal : window._admDisSearchVal) || '';
+   }
 }
 
-function _admTab(tab) { window._admTabActive = tab; window._admAdmSearchVal = ''; window._admDisSearchVal = ''; renderShopAdmissions(); }
-function _admAdmSearch(q) { window._admAdmSearchVal = q; renderShopAdmissions(); _admRestoreSearchFocus(q); }
-function _admDisSearch(q) { window._admDisSearchVal = q; renderShopAdmissions(); _admRestoreSearchFocus(q); }
-function _admRestoreSearchFocus(q) {
-   var inp = document.querySelector('#shopAdmissionsContent input[type="search"]');
-   if (inp) { inp.focus(); var l = (q || '').length; try { inp.setSelectionRange(l, l); } catch(e){} }
+function _admOnSearch(q) {
+   var activeTab = window._admTabActive || 'admitted';
+   if (activeTab === 'admitted') window._admAdmSearchVal = q;
+   else window._admDisSearchVal = q;
+   renderShopAdmissions();
 }
+
+function _admTab(tab) {
+   window._admTabActive = tab; window._admAdmSearchVal = ''; window._admDisSearchVal = '';
+   var inp = document.getElementById('admSearchInput'); if (inp) inp.value = '';
+   renderShopAdmissions();
+}
+function _admAdmSearch(q) { window._admAdmSearchVal = q; renderShopAdmissions(); }
+function _admDisSearch(q) { window._admDisSearchVal = q; renderShopAdmissions(); }
 
 function _admPickHospital(id) { _admHospitalChoice = id; renderShopAdmissions(); }
 

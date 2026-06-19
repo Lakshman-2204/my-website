@@ -11307,9 +11307,17 @@ async function openIpBillModal(admId) {
             return String(b.room_number) === String(parts[0]) && String(b.bed_number) === String(parts[1]);
          });
          if (matchedBed && matchedBed.rate_per_day) {
-            var admitMs   = new Date(r.admit_date + 'T00:00:00').getTime();
-            var todayMs   = new Date(_todayLocalYmd() + 'T00:00:00').getTime();
-            var days      = Math.max(1, Math.round((todayMs - admitMs) / 86400000));
+            var admitTime     = r.admit_time || '00:00';
+            var dischargeTime = r.discharge_time || null;
+            var admitMs       = new Date(r.admit_date + 'T' + admitTime).getTime();
+            var endDate       = r.target_discharge || _todayLocalYmd();
+            var endTime       = dischargeTime || new Date().toTimeString().slice(0, 5);
+            var endMs         = new Date(endDate + 'T' + endTime).getTime();
+            var totalHours    = (endMs - admitMs) / 3600000;
+            var fullDays      = Math.floor(totalHours / 24);
+            var remainHours   = totalHours % 24;
+            // Count partial day only if remaining hours > 6
+            var days          = Math.max(1, fullDays + (remainHours > 6 ? 1 : 0));
             var rate      = Number(matchedBed.rate_per_day);
             var gstPct    = Number(matchedBed.gst_pct || 0);
             var amount    = days * rate;
@@ -12030,6 +12038,7 @@ function openAdmissionModal(id) {
          // Phase 9 — complete form
          var setV9 = function(eid, val) { var el = get(eid); if (el) el.value = (val == null ? '' : val); };
          setV9('adm-admit-time',         r.admit_time || '');
+         setV9('adm-discharge-time',     r.discharge_time || '');
          setV9('adm-source',             r.admission_source || '');
          setV9('adm-ref-doctor',         r.referring_doctor || '');
          setV9('adm-ref-hospital',       r.referring_hospital || '');
@@ -12245,6 +12254,7 @@ async function saveAdmission() {
       mlc_number:           get('adm-mlc-no'),
       // Phase 9 — complete form
       admit_time:           get('adm-admit-time'),
+      discharge_time:       get('adm-discharge-time'),
       admission_source:     get('adm-source'),
       referring_doctor:     get('adm-ref-doctor'),
       referring_hospital:   get('adm-ref-hospital'),

@@ -365,6 +365,10 @@
                   <input type="date" id="adm-target-date"/>
                </div>
                <div class="sp-field">
+                  <label>Discharge Time</label>
+                  <input type="time" id="adm-discharge-time"/>
+               </div>
+               <div class="sp-field">
                   <label>Bed Category</label>
                   <select id="adm-ward" onchange="_admBedCatChange()">
                      <option value="">— Select category —</option>
@@ -831,8 +835,10 @@
                   <div style="display:flex;justify-content:space-between;margin-bottom:6px;align-items:center;gap:8px">
                      <span>− Discount</span>
                      <span style="display:flex;gap:4px;align-items:center">
-                        <input type="number" id="bill-discount-pct" min="0" max="100" step="0.5" placeholder="0" style="width:50px;padding:3px 6px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.82rem;text-align:right" oninput="_billRecalc()"/>%
-                        <span style="color:#888">/</span>
+                        <input type="number" id="bill-discount-pct" min="0" max="100" step="0.5" placeholder="0" style="width:50px;padding:3px 6px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.82rem;text-align:right" oninput="_billRecalc()"/>
+                        <span style="color:#555;font-size:0.78rem">%</span>
+                        <span style="color:#aaa;font-size:0.75rem;font-style:italic">or</span>
+                        <span style="color:#555;font-size:0.78rem">₹</span>
                         <input type="number" id="bill-discount-amt" min="0" step="1" placeholder="0" style="width:80px;padding:3px 6px;border:1px solid #cbd4e3;border-radius:4px;font-size:0.82rem;text-align:right" oninput="_billRecalc()"/>
                      </span>
                   </div>

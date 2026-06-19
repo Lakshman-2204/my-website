@@ -879,3 +879,7 @@ ALTER TABLE public.hospital_beds
 -- Phase 11 — Rounds date tracking for daily auto-reset
 ALTER TABLE public.admissions
    ADD COLUMN IF NOT EXISTS rounds_date date DEFAULT NULL;  -- date when rounds was last marked complete
+
+-- Phase 12 — Discharge time for accurate LOS billing
+ALTER TABLE public.admissions
+   ADD COLUMN IF NOT EXISTS discharge_time text DEFAULT '';  -- HH:MM (24h), filled at discharge

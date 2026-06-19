@@ -624,6 +624,7 @@ window.AppDB = {
          mlc:                  !!a.mlc,
          mlc_number:           a.mlc_number || '',
          admit_time:           a.admit_time || '',
+         discharge_time:       a.discharge_time || '',
          admission_source:     a.admission_source || '',
          referring_doctor:     a.referring_doctor || '',
          referring_hospital:   a.referring_hospital || '',

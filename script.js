@@ -10375,7 +10375,7 @@ async function _renderInPatientsTable(user) {
    }
    var admittedAll  = all.filter(function(r) { return r.status === 'Admitted'; });
    var dischargedAll = all.filter(function(r) { return r.status === 'Discharged'; });
-   var ipTab = window._ipPatientsTab || 'admitted';
+   var ipTab = window._ipPatientsTabActive || 'admitted';
    var pool  = ipTab === 'discharged' ? dischargedAll : admittedAll;
 
    var ipInitials = function(n) { return (n||'?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2); };
@@ -10480,7 +10480,8 @@ async function _renderInPatientsTable(user) {
    return tabBar + searchBar + '<div class="ph-card-grid" style="grid-column:1/-1">' + cardHtml + '</div>' + profileHtml;
 }
 
-function _ipPatientsTab(tab) { window._ipPatientsTab = tab; renderShopPatients(); }
+function _ipPatientsTab(tab) { window._ipPatientsTabActive = tab; renderShopPatients(); }
+
 
 // ── PRESCRIPTION pad (Phase 8.1 EMR) ──
 // Opens the prescription modal for an appointment. Auto-fills patient
@@ -11516,7 +11517,7 @@ async function renderShopAdmissions() {
    var admitted   = rows.filter(function(r) { return r.status === 'Admitted'; });
    var discharged = rows.filter(function(r) { return r.status === 'Discharged'; });
    var todayYmd   = _todayLocalYmd();
-   var activeTab  = window._admTab || 'admitted';
+   var activeTab  = window._admTabActive || 'admitted';
 
    // Stats
    var totalOccupied = admitted.length;
@@ -11551,10 +11552,22 @@ async function renderShopAdmissions() {
 
    if (activeTab === 'admitted') {
       thead = '<tr><th>Location / Bed</th><th>Patient</th><th>Length of Stay</th><th>Admit Date</th><th>Target Discharge</th><th>Vitals</th><th>Rounds</th><th style="text-align:right">Actions</th></tr>';
+      var admSearchVal = (window._admAdmSearchVal || '').toLowerCase();
+      var admFiltered = admitted.filter(function(r) {
+         if (!admSearchVal) return true;
+         return ((r.patient_name  || '').toLowerCase().indexOf(admSearchVal) !== -1) ||
+                ((r.patient_phone || '').toLowerCase().indexOf(admSearchVal) !== -1) ||
+                ((r.patient_ref   || '').toLowerCase().indexOf(admSearchVal) !== -1) ||
+                ((r.ward          || '').toLowerCase().indexOf(admSearchVal) !== -1) ||
+                ((r.provisional_diagnosis || '').toLowerCase().indexOf(admSearchVal) !== -1);
+      });
+      window._admAdmSearchBar = '<div style="margin-bottom:10px"><input type="search" class="apt-search-input" placeholder="🔍 Name / phone / ref / ward / diagnosis" value="' + (window._admAdmSearchVal || '').replace(/"/g,'&quot;') + '" oninput="_admAdmSearch(this.value)" style="width:100%;max-width:360px"/></div>';
       if (!admitted.length) {
          tableRows = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#888">No admitted patients. Click <strong>+ Admit Patient</strong> to add one.</td></tr>';
+      } else if (!admFiltered.length) {
+         tableRows = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888">No matches for "' + (window._admAdmSearchVal || '') + '".</td></tr>';
       } else {
-         tableRows = admitted.map(function(r) {
+         tableRows = admFiltered.map(function(r) {
             var d = new Date((r.admit_date || '') + 'T00:00:00');
             var los = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
             var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -11601,7 +11614,7 @@ async function renderShopAdmissions() {
       }
    } else {
       thead = '<tr><th>Patient</th><th>Ward / Bed</th><th>Admit Date</th><th>Discharge Date</th><th>Length of Stay</th><th>Doctor</th><th style="text-align:right">Actions</th></tr>';
-      var admSearch = (window._admDisSearch || '').toLowerCase();
+      var admSearch = (window._admDisSearchVal || '').toLowerCase();
       var disFiltered = discharged.filter(function(r) {
          if (!admSearch) return true;
          return ((r.patient_name  || '').toLowerCase().indexOf(admSearch) !== -1) ||
@@ -11609,12 +11622,12 @@ async function renderShopAdmissions() {
                 ((r.patient_ref   || '').toLowerCase().indexOf(admSearch) !== -1) ||
                 ((r.provisional_diagnosis || '').toLowerCase().indexOf(admSearch) !== -1);
       });
-      var disSearchBar = '<div style="margin-bottom:10px"><input type="search" class="apt-search-input" placeholder="🔍 Name / phone / ref / diagnosis" value="' + (window._admDisSearch || '').replace(/"/g,'&quot;') + '" oninput="_admDisSearch(this.value)" style="width:100%;max-width:360px"/></div>';
+      var disSearchBar = '<div style="margin-bottom:10px"><input type="search" class="apt-search-input" placeholder="🔍 Name / phone / ref / diagnosis" value="' + (window._admDisSearchVal || '').replace(/"/g,'&quot;') + '" oninput="_admDisSearch(this.value)" style="width:100%;max-width:360px"/></div>';
       window._admDisSearchBar = disSearchBar;
       if (!discharged.length) {
          tableRows = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#888">No discharged patients yet.</td></tr>';
       } else if (!disFiltered.length) {
-         tableRows = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#888">No matches for "' + (window._admDisSearch || '') + '".</td></tr>';
+         tableRows = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#888">No matches for "' + (window._admDisSearchVal || '') + '".</td></tr>';
       } else {
          var sorted = disFiltered.slice().sort(function(a, b) { return (b.target_discharge || b.admit_date || '') > (a.target_discharge || a.admit_date || '') ? 1 : -1; });
          tableRows = sorted.map(function(r) {
@@ -11661,12 +11674,14 @@ async function renderShopAdmissions() {
             (activeTab === 'admitted' ? '<button class="apt-view-btn" style="background:#1565c0;padding:8px 14px;font-size:0.85rem" onclick="openAdmissionModal()">+ Admit Patient</button>' : '') +
          '</div>' +
       '</div>' +
+      (activeTab === 'admitted'   ? (window._admAdmSearchBar || '') : '') +
       (activeTab === 'discharged' ? (window._admDisSearchBar || '') : '') +
       '<div class="apt-tbl-wrap"><table class="apt-tbl"><thead>' + thead + '</thead><tbody>' + tableRows + '</tbody></table></div>';
 }
 
-function _admTab(tab) { window._admTab = tab; window._admDisSearch = ''; renderShopAdmissions(); }
-function _admDisSearch(q) { window._admDisSearch = q.toLowerCase(); renderShopAdmissions(); }
+function _admTab(tab) { window._admTabActive = tab; window._admAdmSearchVal = ''; window._admDisSearchVal = ''; renderShopAdmissions(); }
+function _admAdmSearch(q) { window._admAdmSearchVal = q.toLowerCase(); renderShopAdmissions(); }
+function _admDisSearch(q) { window._admDisSearchVal = q.toLowerCase(); renderShopAdmissions(); }
 
 function _admPickHospital(id) { _admHospitalChoice = id; renderShopAdmissions(); }
 

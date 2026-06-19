@@ -853,6 +853,7 @@ window.AppDB = {
          doctor_speciality:      s.doctor_speciality || '',
          dama_risks_explained:   s.dama_risks_explained || '',
          dama_reason_given:      s.dama_reason_given || '',
+         daily_notes:            s.daily_notes !== undefined ? s.daily_notes : [],
          updated_at:             new Date().toISOString()
       };
       const { error } = await _sb.from('discharge_summaries').upsert(row, { onConflict: 'admission_id' });

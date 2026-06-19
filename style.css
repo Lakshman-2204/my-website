@@ -2567,15 +2567,15 @@ body.guest .store-section-divider {
 	display: inline-flex;
 	align-items: center;
 	gap: 3px;
-	padding: 5px 10px;
-	font-size: 0.75rem;
+	padding: 3px 7px;
+	font-size: 0.71rem;
 	font-weight: 600;
 	border: none;
-	border-radius: 6px;
+	border-radius: 5px;
 	cursor: pointer;
 	white-space: nowrap;
 	transition: opacity 0.15s;
-	margin: 2px;
+	margin: 0;
 }
 .apt-act-btn:hover { opacity: 0.85; }
 .apt-act-ok        { background: #1a1a2e; color: #fff; }
@@ -2592,7 +2592,7 @@ body.guest .store-section-divider {
 	#shopAppointmentList { padding: 0.6rem 0.6rem; }
 	.apt-tbl { font-size: 0.74rem; }
 	.apt-tbl thead th, .apt-tbl tbody td { padding: 6px 6px; }
-	.apt-act-btn { padding: 4px 7px; font-size: 0.7rem; }
+	.apt-act-btn { padding: 3px 6px; font-size: 0.68rem; }
 	.apt-tbl-sub { font-size: 0.7rem; }
 	/* Stack actions vertically on very small screens so they don't overflow */
 	.apt-tbl-actions { white-space: normal; }

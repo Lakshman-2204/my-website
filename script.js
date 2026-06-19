@@ -2280,7 +2280,7 @@ function _slotPassed(apt) {
    var todayYmd = _todayLocalYmd();
    if (apt.date < todayYmd) return true;
    if (apt.date > todayYmd) return false;
-   if (!apt.slot) return false;   // token-mode: day still active
+   if (!apt.slot) return true;   // token-mode: no fixed slot, always completable on the day
    var now = new Date();
    return (now.getHours() * 60 + now.getMinutes()) >= _hhmmToMin(apt.slot);
 }
@@ -2294,7 +2294,7 @@ function _slotEnded(apt) {
    var todayYmd = _todayLocalYmd();
    if (apt.date < todayYmd) return true;
    if (apt.date > todayYmd) return false;
-   if (!apt.slot) return false;
+   if (!apt.slot) return true;   // token-mode: no slot window, treat as ended
    var duration = 30;
    try {
       var prov = _aptGetProvider(apt.provider_id);
@@ -9290,9 +9290,10 @@ async function renderShopAppointments(filterStatus) {
          actions = (paidBtn + receiptBtn + rxBtn + undoBtn) || '<span style="color:#bbb">—</span>';
       } else {
          var slotPassed = _slotPassed(a);
-         var completeBtn = slotPassed
+         var canComplete = slotPassed || isPaid; // paid = patient showed up, always allow complete
+         var completeBtn = canComplete
             ? '<button class="apt-act-btn apt-act-ok"      title="Mark as Completed" onclick="shopSetAptStatus(\'' + aid + '\',\'Completed\')">✅ Complete</button>'
-            : '<button class="apt-act-btn apt-act-ok"      title="Available after the slot time" disabled style="opacity:0.4;cursor:not-allowed">✅ Complete</button>';
+            : '<button class="apt-act-btn apt-act-ok"      title="Available after the slot time (or once fee is paid)" disabled style="opacity:0.4;cursor:not-allowed">✅ Complete</button>';
          var noshowBtn = '';
          // No-show available only after slot END (start + duration) so a patient
          // arriving 5 min late isn't wrongly flagged.
@@ -9307,11 +9308,11 @@ async function renderShopAppointments(filterStatus) {
          var cancelBtn     = '<button class="apt-act-btn apt-act-cancel" title="Cancel this appointment" onclick="shopSetAptStatus(\'' + aid + '\',\'Cancelled\')">✕ Cancel</button>';
          var rescheduleBtn = '<button class="apt-act-btn" style="background:#00897b;color:#fff" title="Move to a different date/slot (no refund)" onclick="openRescheduleModal(\'' + aid + '\')">🔄 Reschedule</button>';
          var prescriptionBtn = '<button class="apt-act-btn" style="background:#0a8a3a;color:#fff" title="Write prescription (vitals + diagnosis + medicines)" onclick="openPrescriptionModal(\'' + aid + '\')">📝 Prescription</button>';
-         // Stack actions: row 1 = Mark Paid + Receipt + Reschedule, row 2 = Prescription + Complete + No-show + Cancel
+         // Row 1: Paid + Receipt + Reschedule  |  Row 2: Prescription + Complete + No-show + Cancel
          actions =
-            '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">' +
-               '<div style="display:flex;gap:4px;flex-wrap:wrap">' + paidBtn + receiptBtn + rescheduleBtn + '</div>' +
-               '<div style="display:flex;gap:4px;flex-wrap:wrap">' + prescriptionBtn + completeBtn + noshowBtn + cancelBtn + '</div>' +
+            '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">' +
+               '<div class="adm-act-row">' + paidBtn + receiptBtn + rescheduleBtn + '</div>' +
+               '<div class="adm-act-row">' + prescriptionBtn + completeBtn + noshowBtn + cancelBtn + '</div>' +
             '</div>';
       }
       var tokenCell = a.token
@@ -12265,17 +12266,54 @@ function _rnRenderPriorNotes() {
    if (!host) return;
    if (!_rnDailyNotes.length) { host.innerHTML = ''; return; }
    var _esc = function(s){ return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
-   var rows = _rnDailyNotes.map(function(n) {
+   var rows = _rnDailyNotes.map(function(n, i) {
       var vitals = [n.bp&&'BP '+n.bp, n.pulse&&'Pulse '+n.pulse, n.temp&&'Temp '+n.temp+'°F', n.spo2&&'SpO₂ '+n.spo2+'%', n.weight&&'Wt '+n.weight+'kg'].filter(Boolean).join(' · ');
-      return '<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #1b5e20;border-radius:7px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem">' +
-         '<div style="font-weight:700;color:#1b5e20">' + _esc(n.date) + (n.time?' · '+_esc(n.time):'') + (n.doctor?' · '+_esc(n.doctor):'') + '</div>' +
-         (vitals ? '<div style="color:#64748b;margin-top:2px">' + vitals + '</div>' : '') +
+      var isPartial = !n.findings && !n.procedures;
+      return '<div style="background:#fff;border:1px solid ' + (isPartial?'#fde68a':'#e2e8f0') + ';border-left:4px solid ' + (isPartial?'#f59e0b':'#1b5e20') + ';border-radius:7px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem">' +
+         '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<span style="font-weight:700;color:#1b5e20">' + _esc(n.date) + (n.time?' · '+_esc(n.time):'') + (n.doctor?' · '+_esc(n.doctor):'') + (isPartial?' <span style="font-size:0.7rem;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 5px;margin-left:4px">&#9203; Awaiting findings</span>':'') + '</span>' +
+            '<span style="display:flex;gap:4px">' +
+               '<button onclick="_rnEditNote(' + i + ')" style="background:#1565c0;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:0.7rem;cursor:pointer;font-weight:600">✏️ Edit</button>' +
+               '<button onclick="_rnDeleteNote(' + i + ')" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:0.7rem;cursor:pointer">✕</button>' +
+            '</span>' +
+         '</div>' +
+         (vitals ? '<div style="color:#64748b;margin-top:3px">' + vitals + '</div>' : '') +
          (n.findings ? '<div style="color:#1e293b;margin-top:3px"><b>Findings:</b> ' + _esc(n.findings) + '</div>' : '') +
-         (n.procedures ? '<div style="color:#475569"><b>Procedures:</b> ' + _esc(n.procedures) + '</div>' : '') +
+         (n.procedures ? '<div style="color:#475569;margin-top:2px"><b>Procedures:</b> ' + _esc(n.procedures) + '</div>' : '') +
       '</div>';
    }).join('');
    host.innerHTML =
-      '<div style="font-size:0.8rem;font-weight:700;color:#64748b;margin-bottom:6px">Previous entries (' + _rnDailyNotes.length + ')</div>' + rows;
+      '<div style="font-size:0.8rem;font-weight:700;color:#64748b;margin-bottom:6px">Saved entries (' + _rnDailyNotes.length + ')</div>' + rows;
+}
+
+function _rnEditNote(idx) {
+   var n = _rnDailyNotes[idx];
+   if (!n) return;
+   var s = function(id, val){ var el=document.getElementById(id); if(el) el.value=val||''; };
+   s('rn-date', n.date); s('rn-time', n.time); s('rn-doctor', n.doctor);
+   s('rn-bp', n.bp); s('rn-pulse', n.pulse); s('rn-temp', n.temp);
+   s('rn-spo2', n.spo2); s('rn-weight', n.weight);
+   s('rn-findings', n.findings); s('rn-procedures', n.procedures);
+   _rnDailyNotes.splice(idx, 1); // remove from list — will re-add on save
+   _rnRenderPriorNotes();
+   document.getElementById('rn-bp').focus();
+}
+
+function _rnDeleteNote(idx) {
+   if (!confirm('Remove this entry?')) return;
+   _rnDailyNotes.splice(idx, 1);
+   _rnRenderPriorNotes();
+   // Auto-save deletion immediately
+   if (_rnAdmission) {
+      AppDB.getDischargeSummary(_rnAdmission.id).then(function(existing) {
+         AppDB.upsertDischargeSummary(Object.assign(existing || {}, {
+            provider_id: _rnAdmission.provider_id, admission_id: _rnAdmission.id,
+            discharge_date: (existing && existing.discharge_date) || _todayLocalYmd(),
+            final_diagnosis: (existing && existing.final_diagnosis) || '',
+            daily_notes: _rnDailyNotes
+         }));
+      });
+   }
 }
 
 async function openDailyNotesModal(id) {

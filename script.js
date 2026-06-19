@@ -10093,6 +10093,8 @@ function _patientsSearchInput(val) {
    _patientsSearchTimer = setTimeout(function() {
       _patientsSearch = (val || '').toLowerCase().trim();
       renderShopPatients();
+      var inp = document.getElementById('patientsSearchBox');
+      if (inp) { inp.focus(); try { inp.setSelectionRange(val.length, val.length); } catch(e){} }
    }, 200);
 }
 function _patientsMatchesSearch(p) {
@@ -11794,7 +11796,7 @@ async function renderShopAdmissions() {
 
    if (activeTab === 'admitted') {
       thead = '<tr><th>Location / Bed</th><th>Patient</th><th>Length of Stay</th><th>Admit Date</th><th>Target Discharge</th><th>Doctor</th><th style="text-align:right">Actions</th></tr>';
-      var admSearchVal = (window._admAdmSearchVal || '').toLowerCase();
+      var admSearchVal = (window._admAdmSearchVal || '').toLowerCase().trim();
       var admFiltered = admitted.filter(function(r) {
          if (!admSearchVal) return true;
          return ((r.patient_name  || '').toLowerCase().indexOf(admSearchVal) !== -1) ||
@@ -11854,7 +11856,7 @@ async function renderShopAdmissions() {
       }
    } else {
       thead = '<tr><th>Patient</th><th>Ward / Bed</th><th>Admit Date</th><th>Discharge Date</th><th>Length of Stay</th><th>Doctor</th><th style="text-align:right">Actions</th></tr>';
-      var admSearch = (window._admDisSearchVal || '').toLowerCase();
+      var admSearch = (window._admDisSearchVal || '').toLowerCase().trim();
       var disFiltered = discharged.filter(function(r) {
          if (!admSearch) return true;
          return ((r.patient_name  || '').toLowerCase().indexOf(admSearch) !== -1) ||
@@ -11926,8 +11928,12 @@ async function renderShopAdmissions() {
 }
 
 function _admTab(tab) { window._admTabActive = tab; window._admAdmSearchVal = ''; window._admDisSearchVal = ''; renderShopAdmissions(); }
-function _admAdmSearch(q) { window._admAdmSearchVal = q.toLowerCase(); renderShopAdmissions(); }
-function _admDisSearch(q) { window._admDisSearchVal = q.toLowerCase(); renderShopAdmissions(); }
+function _admAdmSearch(q) { window._admAdmSearchVal = q; renderShopAdmissions(); _admRestoreSearchFocus(q); }
+function _admDisSearch(q) { window._admDisSearchVal = q; renderShopAdmissions(); _admRestoreSearchFocus(q); }
+function _admRestoreSearchFocus(q) {
+   var inp = document.querySelector('#shopAdmissionsContent input[type="search"]');
+   if (inp) { inp.focus(); var l = (q || '').length; try { inp.setSelectionRange(l, l); } catch(e){} }
+}
 
 function _admPickHospital(id) { _admHospitalChoice = id; renderShopAdmissions(); }
 

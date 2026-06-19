@@ -10133,7 +10133,7 @@ async function renderShopPatients() {
          slot.innerHTML = '<input type="search" id="patientsSearchBox" class="apt-search-input" placeholder="🔍 Name / phone / email / ref" style="flex:1;max-width:420px" oninput="_patientsSearchInput(this.value)"/>';
       }
       var inp = slot.querySelector('input[type="search"]');
-      if (inp) inp.value = _patientsSearch || '';
+      if (inp && document.activeElement !== inp) inp.value = _patientsSearch || '';
    }
 }
 
@@ -11936,7 +11936,7 @@ async function renderShopAdmissions() {
          slot.innerHTML = '<input type="search" id="admSearchInput" class="apt-search-input" placeholder="' + ph + '" style="flex:1;max-width:420px" oninput="_admOnSearch(this.value)"/>';
       }
       var inp = slot.querySelector('input[type="search"]');
-      if (inp) inp.value = (activeTabNow === 'admitted' ? window._admAdmSearchVal : window._admDisSearchVal) || '';
+      if (inp && document.activeElement !== inp) inp.value = (activeTabNow === 'admitted' ? window._admAdmSearchVal : window._admDisSearchVal) || '';
    }
 }
 

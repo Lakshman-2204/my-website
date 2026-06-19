@@ -4605,7 +4605,7 @@ async function renderAllAppointments() {
 
 async function adminSetAptStatus(aptId, status) {
    if (!confirm('Set this appointment to "' + status + '"?')) return;
-   var extra = status === 'Cancelled' ? { cancelled_by: 'admin' } : null;
+   var extra = status === 'Cancelled' ? { cancelled_by: 'admin' } : (status === 'Completed' ? { is_paid: true } : null);
    var ok = await AppDB.updateAppointmentStatus(aptId, status, extra);
    if (!ok) { alert('Failed to update status.'); return; }
    renderAllAppointments();
@@ -10076,14 +10076,12 @@ async function renderShopPatients() {
 
 async function _renderOutPatientsTable(user) {
    var allRaw = await AppDB.getAppointmentsByOwner(user.email);
-   // Out-patients = patients who PAID AND were CHECKED UP at least once.
-   // Bookings that were no-show, cancelled, or just confirmed-but-not-yet-seen
-   // are excluded — those aren't real out-patient visits.
+   // Out-patients = patients with at least one completed consultation.
    var all = (allRaw || []).filter(function(a) {
-      return a.status === 'Completed' && a.is_paid;
+      return a.status === 'Completed';
    });
    if (!all.length) {
-      return '<div class="shop-empty" style="grid-column:1/-1">No out-patients yet. A patient appears here once they\'ve paid and completed a consultation.</div>';
+      return '<div class="shop-empty" style="grid-column:1/-1">No out-patients yet. A patient appears here once a consultation is marked Completed.</div>';
    }
    // Date range filter — same buckets as the donut, default 'all'
    var range = _patientsRange;

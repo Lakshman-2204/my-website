@@ -10215,12 +10215,13 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
    var _esc = function(s) { return String(s || '').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
    var _initials = function(n) { return (n || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2); };
 
-   var [rxRows, notes, allergy, aptRows, patientId] = await Promise.all([
+   var [rxRows, notes, allergy, aptRows, patientId, admRows] = await Promise.all([
       AppDB.getPatientPrescriptionHistory(providerId, phone, name),
       AppDB.getPatientNotes(providerId, phone, name),
       AppDB.getPatientAllergies(providerId, phone, name),
       AppDB.getPatientCompletedAppointments(providerId, phone, name),
-      AppDB.getHospitalPatientId(providerId, phone, name)
+      AppDB.getHospitalPatientId(providerId, phone, name),
+      AppDB.getPatientAdmissions(providerId, phone, name)
    ]);
 
    // ── Allergy banner ──
@@ -10311,6 +10312,58 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
    var noteCount  = notes.length;
    var noteBtnLbl = noteCount ? 'Notes (' + noteCount + ')' : '+ Add Note';
 
+   // ── IP Admissions cross-section ──
+   var admHtml = '';
+   if (admRows && admRows.length) {
+      var admItems = admRows.map(function(a) {
+         var admD = a.admit_date ? new Date(a.admit_date + 'T00:00:00') : null;
+         var disD = a.target_discharge ? new Date(a.target_discharge + 'T00:00:00') : null;
+         var admLbl = (admD && !isNaN(admD)) ? admD.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+         var disLbl = (disD && !isNaN(disD)) ? disD.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : null;
+         var los = (admD && disD && !isNaN(admD) && !isNaN(disD)) ? Math.max(0, Math.round((disD - admD) / 86400000)) : null;
+         var loc = (a.ward || '') + (a.room_bed ? (a.ward ? ' · ' : '') + a.room_bed : '') || '—';
+         var isDischarged = a.status === 'Discharged';
+         var statusBadge = isDischarged
+            ? '<span style="font-size:0.7rem;font-weight:700;background:#e8f5e9;color:#2e7d32;border-radius:5px;padding:1px 6px;margin-left:6px">✅ Discharged</span>'
+            : '<span style="font-size:0.7rem;font-weight:700;background:#fff3e0;color:#e65100;border-radius:5px;padding:1px 6px;margin-left:6px">🛏 Admitted</span>';
+         return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #f0f4f8">' +
+            '<div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.8rem;font-weight:700;flex-shrink:0">🛏</div>' +
+            '<div style="flex:1;min-width:0">' +
+               '<div style="font-weight:600;font-size:0.88rem;color:#1e293b">' + _esc(loc) + statusBadge + '</div>' +
+               '<div style="font-size:0.8rem;color:#64748b;margin-top:2px">Admitted ' + admLbl + (disLbl ? ' → ' + disLbl : '') + (los !== null ? ' (' + los + 'd stay)' : '') + '</div>' +
+               (a.notes ? '<div style="font-size:0.78rem;color:#64748b;margin-top:3px;font-style:italic">' + _esc(a.notes.slice(0, 120)) + (a.notes.length > 120 ? '…' : '') + '</div>' : '') +
+            '</div>' +
+         '</div>';
+      }).join('');
+      admHtml =
+         '<div style="margin-top:18px">' +
+            '<div class="ph-tl-section-head" style="margin-bottom:8px">' +
+               '<span class="ph-section-title">🏥 In-Patient Admissions (' + admRows.length + ')</span>' +
+            '</div>' +
+            '<div style="background:#f8f6ff;border-radius:10px;padding:4px 14px 4px">' + admItems + '</div>' +
+         '</div>';
+   }
+
+   // ── OPD visits cross-section (shown only in IP panels) ──
+   var opdHtml = '';
+   if (isIp && aptRows && aptRows.length) {
+      var opdItems = aptRows.map(function(a) {
+         var d = new Date(a.created_at);
+         var when = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+         return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4f8">' +
+            '<div style="width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0;margin-left:4px"></div>' +
+            '<div style="flex:1;font-size:0.83rem;color:#334155">' + when + (a.doctor_name ? ' · Dr. ' + _esc(a.doctor_name) : '') + '</div>' +
+         '</div>';
+      }).join('');
+      opdHtml =
+         '<div style="margin-top:18px">' +
+            '<div class="ph-tl-section-head" style="margin-bottom:8px">' +
+               '<span class="ph-section-title">🩺 OPD Visits (' + aptRows.length + ')</span>' +
+            '</div>' +
+            '<div style="background:#f0fdf4;border-radius:10px;padding:4px 14px 4px">' + opdItems + '</div>' +
+         '</div>';
+   }
+
    host.innerHTML =
       headerHtml +
       allergyBanner +
@@ -10320,7 +10373,9 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
             '<button class="ph-notes-btn2" onclick="_openNotesModal(\'' + providerJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' + noteBtnLbl + '</button>' +
          '</div>' +
          timelineHtml +
-      '</div>';
+      '</div>' +
+      admHtml +
+      opdHtml;
 }
 
 // ── Notes modal (opens from the Show Notes button in the timeline) ──

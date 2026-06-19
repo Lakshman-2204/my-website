@@ -275,6 +275,23 @@ window.AppDB = {
       return rows.filter(r => this._normalizeName(r.patient_name) === nameNorm);
    },
 
+   async getPatientAdmissions(providerId, phone, name) {
+      const norm = (phone || '').replace(/\D/g, '').slice(-10);
+      if (!providerId || norm.length !== 10) return [];
+      const { data, error } = await _sb.from('admissions')
+         .select('id, patient_name, patient_phone, admit_date, target_discharge, status, ward, room_bed, notes, created_at')
+         .eq('provider_id', providerId)
+         .order('admit_date', { ascending: false });
+      if (error) { console.error('getPatientAdmissions:', error.message); return []; }
+      const rows = data || [];
+      const nameNorm = this._normalizeName(name);
+      return rows.filter(r => {
+         const phoneMatch = (r.patient_phone || '').replace(/\D/g, '').slice(-10) === norm;
+         const nameMatch = !nameNorm || this._normalizeName(r.patient_name) === nameNorm;
+         return phoneMatch && nameMatch;
+      });
+   },
+
    async getPatientCompletedAppointments(providerId, phone, name) {
       const norm = (phone || '').replace(/\D/g, '').slice(-10);
       if (!providerId || norm.length !== 10) return [];

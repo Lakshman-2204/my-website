@@ -12794,7 +12794,7 @@ async function renderShopBeds() {
    active.forEach(function(b) { if (grouped[b.category]) grouped[b.category].push(b); else { grouped[b.category] = grouped[b.category] || []; grouped[b.category].push(b); } });
 
    var categoryHtml = '';
-   BED_CATEGORIES.forEach(function(cat) {
+   BED_CATEGORIES.forEach(function(cat, catIdx) {
       var catBeds = grouped[cat] || [];
       var availCount = catBeds.filter(function(b) { return b.status === 'Available'; }).length;
       var icon = BED_CAT_ICON[cat] || '🛏️';
@@ -12806,6 +12806,7 @@ async function renderShopBeds() {
               var bid = b.id.replace(/'/g,"\\'");
               return '<div class="bed-card">' +
                         '<div class="bed-card-top">' +
+                           '<input type="checkbox" class="bed-chk" data-ci="' + catIdx + '" value="' + bid + '" onchange="_bedChkChange(' + catIdx + ')" style="width:15px;height:15px;margin-right:4px;cursor:pointer;flex-shrink:0">' +
                            '<div class="bed-room-label">Room ' + b.room_number + '<span class="bed-bed-label"> · ' + b.bed_number + '</span></div>' +
                            '<span class="bed-status-dot" style="background:' + sc + '" title="' + b.status + '"></span>' +
                         '</div>' +
@@ -12826,8 +12827,14 @@ async function renderShopBeds() {
       categoryHtml +=
          '<div class="bed-category-section">' +
             '<div class="bed-cat-header">' +
-               '<div class="bed-cat-title">' + icon + ' ' + cat + '</div>' +
-               '<span class="bed-cat-count">' + catBeds.length + ' beds · <span style="color:#059669">' + availCount + ' available</span></span>' +
+               '<div style="display:flex;align-items:center;gap:8px">' +
+                  (catBeds.length ? '<input type="checkbox" id="bed-all-' + catIdx + '" onchange="_bedSelectAll(' + catIdx + ',this.checked)" title="Select all" style="width:15px;height:15px;cursor:pointer">' : '') +
+                  '<div class="bed-cat-title">' + icon + ' ' + cat + '</div>' +
+               '</div>' +
+               '<div style="display:flex;align-items:center;gap:10px">' +
+                  '<span class="bed-cat-count">' + catBeds.length + ' beds · <span style="color:#059669">' + availCount + ' available</span></span>' +
+                  '<button id="bed-bulk-del-' + catIdx + '" onclick="_bedBulkDelete(' + catIdx + ')" style="display:none;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:7px;padding:4px 10px;font-size:0.78rem;font-weight:600;cursor:pointer">🗑 Delete 0</button>' +
+               '</div>' +
             '</div>' +
             '<div class="bed-card-grid">' + bedCards + '</div>' +
          '</div>';
@@ -12987,6 +12994,32 @@ async function saveBedItem() {
 async function deleteBedItem(id) {
    if (!confirm('Remove this bed?')) return;
    await AppDB.deleteBed(id);
+   renderShopBeds();
+}
+
+function _bedSelectAll(catIdx, checked) {
+   document.querySelectorAll('.bed-chk[data-ci="' + catIdx + '"]').forEach(function(cb) { cb.checked = checked; });
+   _bedChkChange(catIdx);
+}
+
+function _bedChkChange(catIdx) {
+   var checked = document.querySelectorAll('.bed-chk[data-ci="' + catIdx + '"]:checked');
+   var all     = document.querySelectorAll('.bed-chk[data-ci="' + catIdx + '"]');
+   var allCb   = document.getElementById('bed-all-' + catIdx);
+   var btn     = document.getElementById('bed-bulk-del-' + catIdx);
+   if (allCb) allCb.indeterminate = checked.length > 0 && checked.length < all.length;
+   if (allCb && checked.length === all.length && all.length > 0) { allCb.indeterminate = false; allCb.checked = true; }
+   if (allCb && checked.length === 0) { allCb.indeterminate = false; allCb.checked = false; }
+   if (btn) { btn.style.display = checked.length ? '' : 'none'; btn.textContent = '🗑 Delete ' + checked.length; }
+}
+
+async function _bedBulkDelete(catIdx) {
+   var chks = document.querySelectorAll('.bed-chk[data-ci="' + catIdx + '"]:checked');
+   if (!chks.length) return;
+   var cat = BED_CATEGORIES[catIdx] || 'this category';
+   if (!confirm('Delete ' + chks.length + ' bed(s) from "' + cat + '"? This cannot be undone.')) return;
+   var ids = Array.from(chks).map(function(c) { return c.value; });
+   for (var i = 0; i < ids.length; i++) { await AppDB.deleteBed(ids[i]); }
    renderShopBeds();
 }
 

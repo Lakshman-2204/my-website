@@ -94,7 +94,7 @@
       <div id="ptab-info" class="profile-content hidden">
          <div class="profile-card">
             <div class="profile-card-header">👤 Personal Information</div>
-            <div class="profile-card-body">
+            <div class="profile-card-body" style="grid-template-columns:repeat(3,minmax(0,1fr))">
                <div class="profile-field">
                   <label>Full Name</label>
                   <input type="text" id="prof-name" placeholder="Your full name"/>
@@ -110,18 +110,18 @@
                   </select>
                </div>
                <div class="profile-field">
-                  <label>Email ID <span class="prof-readonly-tag">cannot be changed</span></label>
-                  <input type="email" id="prof-email" readonly/>
-               </div>
-               <div class="profile-field">
                   <label>Phone Number</label>
                   <input type="tel" id="prof-phone" placeholder="+91 98765 43210"/>
+               </div>
+               <div class="profile-field" style="grid-column:1/3">
+                  <label>Email ID <span class="prof-readonly-tag">cannot be changed</span></label>
+                  <input type="email" id="prof-email" readonly/>
                </div>
                <div class="profile-field hidden" id="prof-storename-row">
                   <label>Business / Store Name <span class="prof-readonly-tag">business partners only</span></label>
                   <input type="text" id="prof-storename" placeholder="e.g. Kumar Store"/>
                </div>
-               <div class="profile-field hidden" id="prof-address-row">
+               <div class="profile-field hidden" id="prof-address-row" style="grid-column:1/-1">
                   <label>Address <span class="prof-readonly-tag">business partners only</span></label>
                   <textarea id="prof-address" rows="2" placeholder="House no, area, city, state — PIN"></textarea>
                </div>
@@ -132,7 +132,7 @@
          <!-- MY HOSPITAL IDs -->
          <div class="profile-card" id="prof-hospital-ids-card">
             <div class="profile-card-header">🪪 My Hospital Patient IDs</div>
-            <div class="profile-card-body" id="prof-hospital-ids-body">
+            <div class="profile-card-body" style="display:block;padding:16px 20px" id="prof-hospital-ids-body">
                <div style="color:#888;font-size:0.85rem">Loading…</div>
             </div>
          </div>

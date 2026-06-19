@@ -16072,52 +16072,62 @@ async function initProfile() {
       });
       _renderMyStoresInProfile(ownedStores);
    }
-   // Load Hospital Patient IDs — derive phones from the user's own appointments
-   // so the lookup works even if user.phone is empty or in a different format.
+   // Load Hospital Patient IDs — derive phones from appointments so it works
+   // even if user.phone is empty or formatted differently.
    (async function() {
       var idsBody = document.getElementById('prof-hospital-ids-body');
       if (!idsBody) return;
+      var phones = new Set();
+      var providerMap = {};
+      // Step 1: collect phones from user profile + their appointments
       try {
-         await loadAptProviders(true);
-         // Collect all unique phones this user has ever booked with
+         var n = (user.phone || '').replace(/\D/g, '').slice(-10);
+         if (n.length === 10) phones.add(n);
          var apts = await AppDB.getAppointments(user.email);
-         var phones = new Set();
-         if (user.phone) phones.add((user.phone).replace(/\D/g, '').slice(-10));
          (apts || []).forEach(function(a) {
-            var n = (a.patient_phone || '').replace(/\D/g, '').slice(-10);
-            if (n.length === 10) phones.add(n);
+            var pn = (a.patient_phone || '').replace(/\D/g, '').slice(-10);
+            if (pn.length === 10) phones.add(pn);
          });
-         if (!phones.size) {
-            idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs found. Your ID is created automatically after your first completed appointment.</div>';
-            return;
-         }
-         // Fetch patient IDs for all known phones
+      } catch(e) { console.error('profIds step1:', e); }
+      // Step 2: load provider names
+      try {
+         await loadAptProviders(false);
+         (_aptProvidersCache || []).forEach(function(p) { providerMap[p.id] = p.name; });
+      } catch(e) { console.error('profIds step2:', e); }
+      // Step 3: fetch patient IDs for all known phones
+      if (!phones.size) {
+         idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs yet. Your ID is created automatically after your first completed appointment.</div>';
+         return;
+      }
+      try {
          var allRows = [];
          await Promise.all(Array.from(phones).map(async function(ph) {
             var rows = await AppDB.getPatientIdsByPhone(ph);
             allRows = allRows.concat(rows || []);
          }));
-         // Dedupe by patient_id
          var seen = new Set();
          allRows = allRows.filter(function(r) {
             if (seen.has(r.patient_id)) return false;
             seen.add(r.patient_id); return true;
          });
          if (!allRows.length) {
-            idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs found. Your ID is created automatically after your first completed appointment.</div>';
+            idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs yet. Your ID is created automatically after your first completed appointment.</div>';
             return;
          }
-         var providerMap = {};
-         (_aptProvidersCache || []).forEach(function(p) { providerMap[p.id] = p.name; });
-         idsBody.innerHTML = allRows.map(function(r) {
-            var hospName = providerMap[r.provider_id] || r.provider_id;
-            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0">' +
-               '<div style="font-size:0.85rem;color:#444">🏥 ' + _esc(hospName) + '</div>' +
-               '<div style="font-family:ui-monospace,monospace;font-weight:700;color:#1b5e20;font-size:0.95rem;background:#e8f5e9;padding:3px 10px;border-radius:6px;letter-spacing:0.04em">' + _esc(r.patient_id) + '</div>' +
+         idsBody.innerHTML =
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">' +
+            allRows.map(function(r) {
+               var hospName = providerMap[r.provider_id] || r.provider_id;
+               return '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:4px">' +
+                  '<div style="font-size:0.78rem;color:#15803d;font-weight:600">🏥 ' + _esc(hospName) + '</div>' +
+                  '<div style="font-family:ui-monospace,monospace;font-size:1.05rem;font-weight:800;color:#14532d;letter-spacing:0.06em">' + _esc(r.patient_id) + '</div>' +
+                  '<div style="font-size:0.7rem;color:#6b7280">Use this ID to book appointments instantly</div>' +
+               '</div>';
+            }).join('') +
             '</div>';
-         }).join('');
       } catch(e) {
-         idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">Could not load hospital IDs.</div>';
+         console.error('profIds step3:', e);
+         idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">Could not load hospital IDs. Please refresh the page.</div>';
       }
    })();
 

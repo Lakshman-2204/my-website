@@ -862,55 +862,7 @@
             <input type="hidden" id="ds-admission-id"/>
             <div id="ds-patient-strip" style="background:#f3f6fc;padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:0.9rem"></div>
 
-            <!-- DAILY PROGRESS NOTES -->
-            <h4 class="adm-section-head" style="background:#e8f5e9;color:#1b5e20" id="ds-progress-heading">📋 Daily Progress Notes</h4>
-            <div id="ds-progress-list" style="margin-bottom:10px"></div>
-            <div style="background:#f9fafb;border:1.5px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:6px" id="ds-progress-form">
-               <div style="font-size:0.82rem;font-weight:700;color:#1b5e20;margin-bottom:10px">➕ Add Today's Entry</div>
-               <div class="profile-card-body" style="padding:0;gap:8px">
-                  <div class="sp-field">
-                     <label>Date</label>
-                     <input type="date" id="dpn-date"/>
-                  </div>
-                  <div class="sp-field">
-                     <label>Doctor</label>
-                     <input type="text" id="dpn-doctor" placeholder="Dr. Name"/>
-                  </div>
-                  <div class="sp-field">
-                     <label>BP (mmHg)</label>
-                     <input type="text" id="dpn-bp" placeholder="120/80"/>
-                  </div>
-                  <div class="sp-field">
-                     <label>Pulse (bpm)</label>
-                     <input type="number" id="dpn-pulse" placeholder="72" min="20" max="300"/>
-                  </div>
-                  <div class="sp-field">
-                     <label>Temp (°F)</label>
-                     <input type="number" id="dpn-temp" placeholder="98.6" step="0.1"/>
-                  </div>
-                  <div class="sp-field">
-                     <label>SpO₂ (%)</label>
-                     <input type="number" id="dpn-spo2" placeholder="98" min="50" max="100"/>
-                  </div>
-                  <div class="sp-field">
-                     <label>Weight (kg)</label>
-                     <input type="number" id="dpn-weight" placeholder="70" step="0.1"/>
-                  </div>
-                  <div class="sp-field" style="grid-column:1/-1">
-                     <label>Findings / Assessment</label>
-                     <textarea id="dpn-findings" rows="2" placeholder="Doctor's clinical findings for today — e.g. fever subsided, wound healing well, ambulating independently…"></textarea>
-                  </div>
-                  <div class="sp-field" style="grid-column:1/-1">
-                     <label>Procedures / Interventions</label>
-                     <textarea id="dpn-procedures" rows="2" placeholder="e.g. IV line changed, dressing done, physiotherapy session, blood drawn for CBC…"></textarea>
-                  </div>
-               </div>
-               <div style="text-align:right;margin-top:8px">
-                  <button type="button" onclick="_dsAddProgressNote()" style="background:#1b5e20;color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:0.83rem;font-weight:600;cursor:pointer">✚ Add Entry</button>
-               </div>
-            </div>
-
-            <h4 class="adm-section-head" style="background:#e3f2fd;color:#0d47a1;margin-top:18px">Clinical Summary</h4>
+            <h4 class="adm-section-head" style="background:#e3f2fd;color:#0d47a1">Clinical Summary</h4>
             <div class="profile-card-body" style="padding:0">
                <div class="sp-field" style="grid-column:1/-1">
                   <label>Final Diagnosis *</label>
@@ -997,8 +949,7 @@
          </div>
          <div class="sp-modal-footer">
             <button class="sp-btn-cancel" onclick="closeDischargeModal()">Cancel</button>
-            <button class="sp-btn-save" id="ds-save-progress-btn" style="background:#1b5e20" onclick="saveProgressNote()">💾 Save Progress Note</button>
-            <button class="sp-btn-save" id="ds-discharge-btn" style="background:#0d47a1" onclick="saveDischargeAndPrint()">💾 Discharge &amp; Print Summary</button>
+            <button class="sp-btn-save" style="background:#0d47a1" onclick="saveDischargeAndPrint()">💾 Discharge &amp; Print Summary</button>
          </div>
       </div>
    </div>
@@ -1538,6 +1489,65 @@
 
       </div><!-- /.shop-main-area -->
    </div><!-- /.shop-app-layout -->
+
+   <!-- ROUNDS / DAILY PROGRESS NOTES MODAL -->
+   <div class="sp-modal-overlay hidden" id="roundsModal">
+      <div class="sp-modal" style="max-width:620px">
+         <div class="sp-modal-header" style="background:#1b5e20">
+            <h3>📋 Doctor Rounds — Daily Progress Note</h3>
+            <button onclick="closeRoundsModal()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 8px">✕</button>
+         </div>
+         <div class="sp-modal-body">
+            <div id="rn-patient-strip" style="background:#f3f6fc;padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:0.9rem"></div>
+            <div id="rn-prior-list" style="margin-bottom:12px"></div>
+            <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:14px 16px">
+               <div style="font-size:0.82rem;font-weight:700;color:#1b5e20;margin-bottom:10px">➕ Today's Entry</div>
+               <div class="profile-card-body" style="padding:0;gap:8px">
+                  <div class="sp-field">
+                     <label>Date</label>
+                     <input type="date" id="rn-date"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>Doctor</label>
+                     <input type="text" id="rn-doctor" placeholder="Dr. Name"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>BP (mmHg)</label>
+                     <input type="text" id="rn-bp" placeholder="120/80"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>Pulse (bpm)</label>
+                     <input type="number" id="rn-pulse" placeholder="72" min="20" max="300"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>Temp (°F)</label>
+                     <input type="number" id="rn-temp" placeholder="98.6" step="0.1"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>SpO₂ (%)</label>
+                     <input type="number" id="rn-spo2" placeholder="98" min="50" max="100"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>Weight (kg)</label>
+                     <input type="number" id="rn-weight" placeholder="70" step="0.1"/>
+                  </div>
+                  <div class="sp-field" style="grid-column:1/-1">
+                     <label>Findings / Assessment</label>
+                     <textarea id="rn-findings" rows="3" placeholder="Doctor's clinical findings — e.g. fever subsided, wound healing well, ambulating independently…"></textarea>
+                  </div>
+                  <div class="sp-field" style="grid-column:1/-1">
+                     <label>Procedures / Interventions</label>
+                     <textarea id="rn-procedures" rows="2" placeholder="e.g. IV line changed, dressing done, physiotherapy, blood drawn for CBC…"></textarea>
+                  </div>
+               </div>
+            </div>
+         </div>
+         <div class="sp-modal-footer">
+            <button class="sp-btn-cancel" onclick="closeRoundsModal()">Cancel</button>
+            <button class="sp-btn-save" style="background:#1b5e20" onclick="saveRoundsNote()">💾 Save &amp; Mark Rounds Done</button>
+         </div>
+      </div>
+   </div>
 
    <script src="script.js"></script>
    <script>

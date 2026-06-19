@@ -12268,21 +12268,100 @@ async function saveAdmission() {
    renderShopAdmissions();
 }
 
+var _rnAdmission = null;
+var _rnDailyNotes = [];
+
+function _rnRenderPriorNotes() {
+   var host = document.getElementById('rn-prior-list');
+   if (!host) return;
+   if (!_rnDailyNotes.length) { host.innerHTML = ''; return; }
+   var _esc = function(s){ return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
+   var rows = _rnDailyNotes.map(function(n) {
+      var vitals = [n.bp&&'BP '+n.bp, n.pulse&&'Pulse '+n.pulse, n.temp&&'Temp '+n.temp+'°F', n.spo2&&'SpO₂ '+n.spo2+'%', n.weight&&'Wt '+n.weight+'kg'].filter(Boolean).join(' · ');
+      return '<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #1b5e20;border-radius:7px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem">' +
+         '<div style="font-weight:700;color:#1b5e20">' + _esc(n.date) + (n.doctor?' · '+_esc(n.doctor):'') + '</div>' +
+         (vitals ? '<div style="color:#64748b;margin-top:2px">' + vitals + '</div>' : '') +
+         (n.findings ? '<div style="color:#1e293b;margin-top:3px"><b>Findings:</b> ' + _esc(n.findings) + '</div>' : '') +
+         (n.procedures ? '<div style="color:#475569"><b>Procedures:</b> ' + _esc(n.procedures) + '</div>' : '') +
+      '</div>';
+   }).join('');
+   host.innerHTML =
+      '<div style="font-size:0.8rem;font-weight:700;color:#64748b;margin-bottom:6px">Previous entries (' + _rnDailyNotes.length + ')</div>' + rows;
+}
+
 async function toggleAdmissionRounds(id) {
    var rows = await AppDB.getAdmissions(_admHospitalChoice);
    var r = (rows || []).find(function(x) { return x.id === id; });
    if (!r) return;
    var todayYmd = _todayLocalYmd();
-   if (r.rounds_status === 'complete' && r.rounds_date === todayYmd) return; // already done today
-   _dsRoundsMode = true;
-   await dischargeAdmission(id);
-   // Scroll to progress notes section and focus findings
-   setTimeout(function() {
-      var heading = document.getElementById('ds-progress-heading');
-      if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      var findings = document.getElementById('dpn-findings');
-      if (findings) findings.focus();
-   }, 300);
+   if (r.rounds_status === 'complete' && r.rounds_date === todayYmd) return;
+   _rnAdmission = r;
+   // Load existing daily notes from discharge summary
+   var ds = await AppDB.getDischargeSummary(r.id);
+   _rnDailyNotes = (ds && Array.isArray(ds.daily_notes)) ? ds.daily_notes : [];
+   _rnRenderPriorNotes();
+   // Fill patient strip
+   var strip = document.getElementById('rn-patient-strip');
+   if (strip) strip.innerHTML =
+      '<strong>' + (r.patient_name||'—') + '</strong>' +
+      (r.patient_ref ? ' · UHID ' + r.patient_ref : '') +
+      (r.patient_phone ? ' · 📞 ' + r.patient_phone : '') +
+      '<br/><span style="color:#666;font-size:0.82rem">' +
+         (r.ward||'—') + (r.room_bed?' · '+r.room_bed:'') + ' · Admitted ' + (r.admit_date||'—') +
+      '</span>';
+   // Pre-fill form
+   var g = function(id, val){ var el=document.getElementById(id); if(el) el.value=val||''; };
+   g('rn-date', todayYmd);
+   g('rn-doctor', r.doctor_name || '');
+   g('rn-bp',''); g('rn-pulse',''); g('rn-temp',''); g('rn-spo2',''); g('rn-weight','');
+   g('rn-findings',''); g('rn-procedures','');
+   document.getElementById('roundsModal').classList.remove('hidden');
+   setTimeout(function(){ var el=document.getElementById('rn-bp'); if(el) el.focus(); }, 200);
+}
+
+function closeRoundsModal() {
+   document.getElementById('roundsModal').classList.add('hidden');
+   _rnAdmission = null;
+   _rnDailyNotes = [];
+}
+
+async function saveRoundsNote() {
+   if (!_rnAdmission) return;
+   var g = function(id){ return ((document.getElementById(id)||{}).value||'').trim(); };
+   var entry = {
+      date: g('rn-date') || _todayLocalYmd(),
+      doctor: g('rn-doctor'), bp: g('rn-bp'), pulse: g('rn-pulse'),
+      temp: g('rn-temp'), spo2: g('rn-spo2'), weight: g('rn-weight'),
+      findings: g('rn-findings'), procedures: g('rn-procedures')
+   };
+   if (!entry.findings && !entry.procedures && !entry.bp && !entry.pulse) {
+      alert('Please fill at least vitals (BP / Pulse) or Findings before saving.'); return;
+   }
+   var existingIdx = _rnDailyNotes.findIndex(function(n){ return n.date === entry.date; });
+   if (existingIdx !== -1) {
+      if (!confirm('An entry for ' + entry.date + ' already exists. Replace it?')) return;
+      _rnDailyNotes[existingIdx] = entry;
+   } else {
+      _rnDailyNotes.unshift(entry);
+   }
+   var btn = document.querySelector('#roundsModal .sp-btn-save');
+   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+   var existing = await AppDB.getDischargeSummary(_rnAdmission.id);
+   var saved = await AppDB.upsertDischargeSummary(Object.assign(existing || {}, {
+      provider_id:   _rnAdmission.provider_id,
+      admission_id:  _rnAdmission.id,
+      discharge_date: (existing && existing.discharge_date) || _todayLocalYmd(),
+      final_diagnosis: (existing && existing.final_diagnosis) || '',
+      daily_notes:   _rnDailyNotes
+   }));
+   if (!saved) {
+      alert('Failed to save progress note.');
+      if (btn) { btn.disabled = false; btn.textContent = '💾 Save & Mark Rounds Done'; }
+      return;
+   }
+   await AppDB.patchAdmission(_rnAdmission.id, { rounds_status: 'complete', rounds_date: _todayLocalYmd() });
+   closeRoundsModal();
+   renderShopAdmissions();
 }
 
 // Open the discharge summary modal for an admission. Loads any existing
@@ -12410,11 +12489,6 @@ async function dischargeAdmission(id) {
    // Load any existing summary for edit; otherwise blank with today's date.
    var existing = await AppDB.getDischargeSummary(r.id);
    _dsDailyNotes = (existing && Array.isArray(existing.daily_notes)) ? existing.daily_notes : [];
-   _dsRenderProgressNotes();
-   // Pre-fill today's progress note form
-   var todayYmd = _todayLocalYmd();
-   var dpnDate = document.getElementById('dpn-date'); if (dpnDate) dpnDate.value = todayYmd;
-   var dpnDoc = document.getElementById('dpn-doctor'); if (dpnDoc && !dpnDoc.value) dpnDoc.value = r.doctor_name || '';
    var titleEl = document.getElementById('dischargeModalTitle');
    if (existing) {
       if (titleEl) titleEl.textContent = '✏️ Edit Discharge Summary';

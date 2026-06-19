@@ -10373,9 +10373,20 @@ async function _renderInPatientsTable(user) {
       var rows = await AppDB.getAdmissions(mine[i].id);
       (rows || []).forEach(function(r) { r._hospital = nameByProv[r.provider_id] || ''; all.push(r); });
    }
-   var admittedAll = all.filter(function(r) { return r.status === 'Admitted'; });
-   // Apply search across name / phone / patient_ref (no email on admissions)
-   var admitted = admittedAll.filter(function(r) {
+   var admittedAll  = all.filter(function(r) { return r.status === 'Admitted'; });
+   var dischargedAll = all.filter(function(r) { return r.status === 'Discharged'; });
+   var ipTab = window._ipPatientsTab || 'admitted';
+   var pool  = ipTab === 'discharged' ? dischargedAll : admittedAll;
+
+   var ipInitials = function(n) { return (n||'?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2); };
+
+   var tabBar =
+      '<div style="grid-column:1/-1;display:flex;gap:0;margin-bottom:12px;border:1.5px solid #e0e0e0;border-radius:8px;overflow:hidden;width:fit-content">' +
+         '<button onclick="_ipPatientsTab(\'admitted\')" style="padding:6px 18px;font-size:0.83rem;font-weight:600;border:none;cursor:pointer;' + (ipTab==='admitted' ? 'background:#1565c0;color:#fff' : 'background:#fff;color:#555') + '">🛏️ Admitted (' + admittedAll.length + ')</button>' +
+         '<button onclick="_ipPatientsTab(\'discharged\')" style="padding:6px 18px;font-size:0.83rem;font-weight:600;border:none;cursor:pointer;border-left:1.5px solid #e0e0e0;' + (ipTab==='discharged' ? 'background:#2e7d32;color:#fff' : 'background:#fff;color:#555') + '">✅ Discharged (' + dischargedAll.length + ')</button>' +
+      '</div>';
+
+   var filtered = pool.filter(function(r) {
       if (!_patientsSearch) return true;
       var q = _patientsSearch;
       return ((r.patient_name  || '').toLowerCase().indexOf(q) !== -1) ||
@@ -10386,59 +10397,90 @@ async function _renderInPatientsTable(user) {
    var searchVal = (_patientsSearch || '').replace(/"/g, '&quot;');
    var searchBar =
       '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-bottom:8px">' +
-         '<div style="font-size:0.85rem;color:#666"><strong>' + admitted.length + '</strong> match' + (admitted.length === 1 ? '' : 'es') + (_patientsSearch ? ' for "' + searchVal + '"' : ' currently admitted') + '</div>' +
+         '<div style="font-size:0.85rem;color:#666"><strong>' + filtered.length + '</strong> ' + (ipTab === 'discharged' ? 'discharged' : 'admitted') + (_patientsSearch ? ' matching "' + searchVal + '"' : '') + '</div>' +
          '<input type="search" id="patientsSearchBox" class="apt-search-input" placeholder="🔍 Name / phone / ref" value="' + searchVal + '" oninput="_patientsSearchInput(this.value)" style="min-width:240px"/>' +
       '</div>';
 
-   if (!admittedAll.length) {
-      return '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#888"><div style="font-size:2rem;margin-bottom:6px">🛏️</div>No in-patients currently admitted.<br><span style="font-size:0.85rem">Add a new admission via the <strong>Admissions</strong> tab.</span></div>';
+   if (!pool.length) {
+      var emptyMsg = ipTab === 'discharged'
+         ? 'No discharged patients yet.'
+         : 'No in-patients currently admitted.<br><span style="font-size:0.85rem">Add a new admission via the <strong>Admissions</strong> tab.</span>';
+      return tabBar + '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#888">' + emptyMsg + '</div>';
    }
-   if (!admitted.length) {
-      return searchBar + '<div class="shop-empty" style="grid-column:1/-1">No in-patients match "' + searchVal + '".</div>';
+   if (!filtered.length) {
+      return tabBar + searchBar + '<div class="shop-empty" style="grid-column:1/-1">No patients match "' + searchVal + '".</div>';
    }
    var todayYmd = _todayLocalYmd();
-
-   var headerLine = searchBar;
-
    var cardHtml = '', profileHtml = '';
-   admitted.forEach(function(r, idx) {
-      var d = new Date((r.admit_date || '') + 'T00:00:00');
-      var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
-      var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      var targetLbl = '—', isDueToday = false;
-      if (r.target_discharge) {
-         isDueToday = r.target_discharge === todayYmd;
-         var td = new Date(r.target_discharge + 'T00:00:00');
-         targetLbl = isDueToday ? 'TODAY' : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      }
-      var loc = (r.ward || '') + (r.room_bed ? (r.ward ? ' · ' : '') + r.room_bed : '') || '—';
-      var pidJs   = (r.provider_id || '').replace(/'/g, "\\'");
-      var phoneJs = (r.patient_phone || '').replace(/'/g, "\\'");
-      var nameJs  = (r.patient_name || '').replace(/'/g, "\\'");
-      var ipInitials = function(n) { return (n||'?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2); };
-      var dischargeBadge = isDueToday
-         ? ' <span style="font-size:0.68rem;font-weight:700;background:#fef3c7;color:#d97706;border:1px solid #fde68a;border-radius:5px;padding:1px 6px">🕐 Today</span>'
-         : (r.target_discharge ? ' <span style="font-size:0.68rem;color:#6b7280">→ ' + targetLbl + '</span>' : '');
-      cardHtml +=
-         '<div class="ph-card" id="ph-card-ip' + idx + '" onclick="_selectPatientCard(\'ip' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' +
-            '<div class="ph-card-avatar ph-av-ip">' + ipInitials(r.patient_name) + '</div>' +
-            '<div class="ph-card-info">' +
-               '<div class="ph-card-name">' + (r.patient_name || '—') + (r.patient_ref ? ' <span style="font-family:monospace;font-size:0.72rem;background:#f0f4ff;color:#3b5bdb;border-radius:4px;padding:1px 5px">#' + r.patient_ref + '</span>' : '') + dischargeBadge + '</div>' +
-               '<div class="ph-card-sub">' + loc + ' · Day ' + losDays + ' · Admitted ' + admitLbl + '</div>' +
-            '</div>' +
-            '<span class="ph-card-chevron">›</span>' +
-         '</div>';
-      profileHtml +=
-         '<div class="ph-profile-wrap hidden" id="op-history-ip' + idx + '">' +
-            '<div class="ph-profile-panel">' +
-               '<button class="ph-profile-back" onclick="_selectPatientCard(\'ip' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">✕ Close</button>' +
-               '<div class="patient-history-body" style="padding:0">Loading…</div>' +
-            '</div>' +
-         '</div>';
-   });
 
-   return headerLine + '<div class="ph-card-grid" style="grid-column:1/-1">' + cardHtml + '</div>' + profileHtml;
+   if (ipTab === 'admitted') {
+      filtered.forEach(function(r, idx) {
+         var d = new Date((r.admit_date || '') + 'T00:00:00');
+         var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
+         var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+         var isDueToday = r.target_discharge === todayYmd;
+         var targetLbl = r.target_discharge ? (isDueToday ? 'TODAY' : new Date(r.target_discharge + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })) : '';
+         var loc = (r.ward || '') + (r.room_bed ? (r.ward ? ' · ' : '') + r.room_bed : '') || '—';
+         var pidJs = (r.provider_id || '').replace(/'/g, "\\'");
+         var phoneJs = (r.patient_phone || '').replace(/'/g, "\\'");
+         var nameJs = (r.patient_name || '').replace(/'/g, "\\'");
+         var dischargeBadge = isDueToday
+            ? ' <span style="font-size:0.68rem;font-weight:700;background:#fef3c7;color:#d97706;border:1px solid #fde68a;border-radius:5px;padding:1px 6px">🕐 Today</span>'
+            : (targetLbl ? ' <span style="font-size:0.68rem;color:#6b7280">→ ' + targetLbl + '</span>' : '');
+         cardHtml +=
+            '<div class="ph-card" id="ph-card-ip' + idx + '" onclick="_selectPatientCard(\'ip' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' +
+               '<div class="ph-card-avatar ph-av-ip">' + ipInitials(r.patient_name) + '</div>' +
+               '<div class="ph-card-info">' +
+                  '<div class="ph-card-name">' + (r.patient_name || '—') + (r.patient_ref ? ' <span style="font-family:monospace;font-size:0.72rem;background:#f0f4ff;color:#3b5bdb;border-radius:4px;padding:1px 5px">#' + r.patient_ref + '</span>' : '') + dischargeBadge + '</div>' +
+                  '<div class="ph-card-sub">' + loc + ' · Day ' + losDays + ' · Admitted ' + admitLbl + '</div>' +
+               '</div>' +
+               '<span class="ph-card-chevron">›</span>' +
+            '</div>';
+         profileHtml +=
+            '<div class="ph-profile-wrap hidden" id="op-history-ip' + idx + '">' +
+               '<div class="ph-profile-panel">' +
+                  '<button class="ph-profile-back" onclick="_selectPatientCard(\'ip' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">✕ Close</button>' +
+                  '<div class="patient-history-body" style="padding:0">Loading…</div>' +
+               '</div>' +
+            '</div>';
+      });
+   } else {
+      var sortedDis = filtered.slice().sort(function(a, b) { return (b.target_discharge || b.admit_date || '') > (a.target_discharge || a.admit_date || '') ? 1 : -1; });
+      sortedDis.forEach(function(r, idx) {
+         var admD = new Date((r.admit_date || '') + 'T00:00:00');
+         var disD = new Date((r.target_discharge || '') + 'T00:00:00');
+         var admitLbl = isNaN(admD.getTime()) ? '—' : admD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+         var disLbl   = isNaN(disD.getTime()) ? '—' : disD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+         var los = (!isNaN(admD.getTime()) && !isNaN(disD.getTime())) ? Math.max(0, Math.round((disD - admD) / 86400000)) : null;
+         var loc = (r.ward || '') + (r.room_bed ? (r.ward ? ' · ' : '') + r.room_bed : '') || '—';
+         var pidJs = (r.provider_id || '').replace(/'/g, "\\'");
+         var phoneJs = (r.patient_phone || '').replace(/'/g, "\\'");
+         var nameJs  = (r.patient_name || '').replace(/'/g, "\\'");
+         cardHtml +=
+            '<div class="ph-card" id="ph-card-dis' + idx + '" onclick="_selectPatientCard(\'dis' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">' +
+               '<div class="ph-card-avatar" style="background:#e8f5e9;color:#2e7d32">' + ipInitials(r.patient_name) + '</div>' +
+               '<div class="ph-card-info">' +
+                  '<div class="ph-card-name">' + (r.patient_name || '—') + (r.patient_ref ? ' <span style="font-family:monospace;font-size:0.72rem;background:#f0fff4;color:#2e7d32;border-radius:4px;padding:1px 5px">#' + r.patient_ref + '</span>' : '') +
+                     ' <span style="font-size:0.68rem;font-weight:700;background:#e8f5e9;color:#2e7d32;border-radius:5px;padding:1px 6px">✅ Discharged</span>' +
+                  '</div>' +
+                  '<div class="ph-card-sub">' + loc + ' · Admitted ' + admitLbl + ' → Discharged ' + disLbl + (los !== null ? ' (' + los + 'd)' : '') + '</div>' +
+               '</div>' +
+               '<span class="ph-card-chevron">›</span>' +
+            '</div>';
+         profileHtml +=
+            '<div class="ph-profile-wrap hidden" id="op-history-dis' + idx + '">' +
+               '<div class="ph-profile-panel">' +
+                  '<button class="ph-profile-back" onclick="_selectPatientCard(\'dis' + idx + '\',\'' + pidJs + '\',\'' + phoneJs + '\',\'' + nameJs + '\')">✕ Close</button>' +
+                  '<div class="patient-history-body" style="padding:0">Loading…</div>' +
+               '</div>' +
+            '</div>';
+      });
+   }
+
+   return tabBar + searchBar + '<div class="ph-card-grid" style="grid-column:1/-1">' + cardHtml + '</div>' + profileHtml;
 }
+
+function _ipPatientsTab(tab) { window._ipPatientsTab = tab; renderShopPatients(); }
 
 // ── PRESCRIPTION pad (Phase 8.1 EMR) ──
 // Opens the prescription modal for an appointment. Auto-fills patient
@@ -11559,13 +11601,25 @@ async function renderShopAdmissions() {
       }
    } else {
       thead = '<tr><th>Patient</th><th>Ward / Bed</th><th>Admit Date</th><th>Discharge Date</th><th>Length of Stay</th><th>Doctor</th><th style="text-align:right">Actions</th></tr>';
+      var admSearch = (window._admDisSearch || '').toLowerCase();
+      var disFiltered = discharged.filter(function(r) {
+         if (!admSearch) return true;
+         return ((r.patient_name  || '').toLowerCase().indexOf(admSearch) !== -1) ||
+                ((r.patient_phone || '').toLowerCase().indexOf(admSearch) !== -1) ||
+                ((r.patient_ref   || '').toLowerCase().indexOf(admSearch) !== -1) ||
+                ((r.provisional_diagnosis || '').toLowerCase().indexOf(admSearch) !== -1);
+      });
+      var disSearchBar = '<div style="margin-bottom:10px"><input type="search" class="apt-search-input" placeholder="🔍 Name / phone / ref / diagnosis" value="' + (window._admDisSearch || '').replace(/"/g,'&quot;') + '" oninput="_admDisSearch(this.value)" style="width:100%;max-width:360px"/></div>';
+      window._admDisSearchBar = disSearchBar;
       if (!discharged.length) {
          tableRows = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#888">No discharged patients yet.</td></tr>';
+      } else if (!disFiltered.length) {
+         tableRows = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#888">No matches for "' + (window._admDisSearch || '') + '".</td></tr>';
       } else {
-         var sorted = discharged.slice().sort(function(a, b) { return (b.discharge_date || b.admit_date || '') > (a.discharge_date || a.admit_date || '') ? 1 : -1; });
+         var sorted = disFiltered.slice().sort(function(a, b) { return (b.target_discharge || b.admit_date || '') > (a.target_discharge || a.admit_date || '') ? 1 : -1; });
          tableRows = sorted.map(function(r) {
             var admD  = new Date((r.admit_date || '') + 'T00:00:00');
-            var disD  = new Date((r.discharge_date || '') + 'T00:00:00');
+            var disD  = new Date((r.target_discharge || '') + 'T00:00:00');
             var admLbl = isNaN(admD.getTime()) ? '—' : admD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             var disLbl = isNaN(disD.getTime()) ? '—' : disD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             var los = (!isNaN(admD.getTime()) && !isNaN(disD.getTime())) ? Math.max(0, Math.round((disD - admD) / 86400000)) : '—';
@@ -11607,10 +11661,12 @@ async function renderShopAdmissions() {
             (activeTab === 'admitted' ? '<button class="apt-view-btn" style="background:#1565c0;padding:8px 14px;font-size:0.85rem" onclick="openAdmissionModal()">+ Admit Patient</button>' : '') +
          '</div>' +
       '</div>' +
+      (activeTab === 'discharged' ? (window._admDisSearchBar || '') : '') +
       '<div class="apt-tbl-wrap"><table class="apt-tbl"><thead>' + thead + '</thead><tbody>' + tableRows + '</tbody></table></div>';
 }
 
-function _admTab(tab) { window._admTab = tab; renderShopAdmissions(); }
+function _admTab(tab) { window._admTab = tab; window._admDisSearch = ''; renderShopAdmissions(); }
+function _admDisSearch(q) { window._admDisSearch = q.toLowerCase(); renderShopAdmissions(); }
 
 function _admPickHospital(id) { _admHospitalChoice = id; renderShopAdmissions(); }
 

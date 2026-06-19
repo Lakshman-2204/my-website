@@ -10093,8 +10093,6 @@ function _patientsSearchInput(val) {
    _patientsSearchTimer = setTimeout(function() {
       _patientsSearch = (val || '').toLowerCase().trim();
       renderShopPatients();
-      var inp = document.getElementById('patientsSearchBox');
-      if (inp) { inp.focus(); try { inp.setSelectionRange(val.length, val.length); } catch(e){} }
    }, 200);
 }
 function _patientsMatchesSearch(p) {
@@ -10124,14 +10122,18 @@ async function renderShopPatients() {
    } else {
       body.innerHTML = header + await _renderOutPatientsTable(user);
    }
-   // Restore focus to the search box after re-render so the user can keep typing
-   if (_patientsSearch) {
-      var box = document.getElementById('patientsSearchBox');
-      if (box) {
-         box.focus();
-         var v = box.value;
-         box.setSelectionRange(v.length, v.length);
+   // Inject search bar into persistent slot outside re-rendered area so focus is never lost
+   var slot = document.getElementById('pat-search-slot');
+   if (slot) {
+      slot.style.display = 'flex';
+      slot.style.alignItems = 'center';
+      slot.style.padding = '10px 16px 0';
+      var existing = slot.querySelector('input[type="search"]');
+      if (!existing) {
+         slot.innerHTML = '<input type="search" id="patientsSearchBox" class="apt-search-input" placeholder="🔍 Name / phone / email / ref" style="flex:1;max-width:420px" oninput="_patientsSearchInput(this.value)"/>';
       }
+      var inp = slot.querySelector('input[type="search"]');
+      if (inp) inp.value = _patientsSearch || '';
    }
 }
 
@@ -10195,7 +10197,6 @@ async function _renderOutPatientsTable(user) {
       '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-bottom:8px">' +
          '<div style="font-size:0.85rem;color:#666"><strong>' + rows.length + '</strong> match' + (rows.length === 1 ? '' : 'es') + (_patientsSearch ? ' for "' + searchVal + '"' : (range !== 'all' ? ' · ' + rangeOptions.find(function(r){return r[0]===range;})[1].toLowerCase() : ' on file')) + '</div>' +
          '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
-            '<input type="search" id="patientsSearchBox" class="apt-search-input" placeholder="🔍 Name / phone / email" value="' + searchVal + '" oninput="_patientsSearchInput(this.value)" style="min-width:240px"/>' +
             '<select class="admin-filter-select" onchange="_setPatientsRange(this.value)">' +
                rangeOptions.map(function(r){ return '<option value="' + r[0] + '"' + (r[0] === range ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') +
             '</select>' +
@@ -10597,8 +10598,7 @@ async function _renderInPatientsTable(user) {
    var searchVal = (_patientsSearch || '').replace(/"/g, '&quot;');
    var searchBar =
       '<div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-bottom:8px">' +
-         '<div style="font-size:0.85rem;color:#666"><strong>' + filtered.length + '</strong> ' + (ipTab === 'discharged' ? 'discharged' : 'admitted') + (_patientsSearch ? ' matching "' + searchVal + '"' : '') + '</div>' +
-         '<input type="search" id="patientsSearchBox" class="apt-search-input" placeholder="🔍 Name / phone / ref" value="' + searchVal + '" oninput="_patientsSearchInput(this.value)" style="min-width:240px"/>' +
+         '<div style="font-size:0.85rem;color:#666"><strong>' + filtered.length + '</strong> ' + (ipTab === 'discharged' ? 'discharged' : 'admitted') + (_patientsSearch ? ' matching "' + (_patientsSearch || '').replace(/"/g, '&quot;') + '"' : '') + '</div>' +
       '</div>';
 
    if (!pool.length) {

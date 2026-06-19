@@ -2477,8 +2477,20 @@ async function confirmAptBooking() {
    showAptDone(apt);
 }
 
-function showAptDone(apt) {
+async function showAptDone(apt) {
    var tokenLine = apt.token ? '<div style="margin-top:6px;font-size:1rem;font-weight:700;color:#1a73e8">🎟 Your token: ' + _tokenLabel(apt) + '</div>' : '';
+   // Fetch Patient ID for this hospital
+   var patientIdLine = '';
+   try {
+      var pid = await AppDB.getHospitalPatientId(apt.provider_id, apt.patient_phone, apt.patient_name);
+      if (pid) {
+         patientIdLine = '<div style="margin-top:10px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 12px">' +
+            '<div style="font-size:0.75rem;color:#2e7d32;font-weight:600;margin-bottom:2px">🪪 YOUR PATIENT ID AT THIS HOSPITAL</div>' +
+            '<div style="font-size:1.05rem;font-weight:800;color:#1b5e20;font-family:ui-monospace,monospace;letter-spacing:0.05em">' + pid + '</div>' +
+            '<div style="font-size:0.72rem;color:#555;margin-top:3px">Save this ID — use it to book future appointments instantly</div>' +
+         '</div>';
+      }
+   } catch(e) {}
    document.getElementById('aptDoneDetails').innerHTML =
       '<div style="background:#f8f9ff;border-radius:10px;padding:14px;margin-top:10px">' +
          '<div style="font-size:0.78rem;color:#888">Appointment ID</div>' +
@@ -2490,6 +2502,7 @@ function showAptDone(apt) {
             '<div>💰 ₹' + apt.fee + '</div>' +
          '</div>' +
          tokenLine +
+         patientIdLine +
       '</div>';
    document.getElementById('aptDoneOverlay').classList.remove('hidden');
 }
@@ -11332,22 +11345,7 @@ async function openIpBillModal(admId) {
             return String(b.room_number) === String(parts[0]) && String(b.bed_number) === String(parts[1]);
          });
          if (matchedBed && matchedBed.rate_per_day) {
-            var admitTime     = r.admit_time || '00:00';
-            var dischargeTime = r.discharge_time || null;
-            var admitMs       = new Date(r.admit_date + 'T' + admitTime).getTime();
-            var endDate       = r.target_discharge || _todayLocalYmd();
-            var endTime       = dischargeTime || new Date().toTimeString().slice(0, 5);
-            var endMs         = new Date(endDate + 'T' + endTime).getTime();
-            var totalHours    = (endMs - admitMs) / 3600000;
-            var days;
-            if (isNaN(totalHours) || totalHours <= 0) {
-               days = 1;
-            } else {
-               var fullDays   = Math.floor(totalHours / 24);
-               var remainHrs  = totalHours % 24;
-               days = fullDays + (remainHrs > 6 ? 1 : 0);
-               if (days < 1) days = 1;
-            }
+            var days = _calcLos(r.admit_date, r.admit_time, r.target_discharge, r.discharge_time);
             var rate      = Number(matchedBed.rate_per_day);
             var gstPct    = Number(matchedBed.gst_pct || 0);
             var amount    = days * rate;
@@ -11722,6 +11720,19 @@ async function printIpBill(admId) {
 // of their hospitals at the top if they run more than one.
 var _admHospitalChoice = null;
 
+function _calcLos(admitDate, admitTime, endDate, dischargeTime) {
+   var aTime = admitTime || '00:00';
+   var admitMs = new Date(admitDate + 'T' + aTime).getTime();
+   var eDate = endDate || _todayLocalYmd();
+   var eTime = dischargeTime || new Date().toTimeString().slice(0, 5);
+   var endMs = new Date(eDate + 'T' + eTime).getTime();
+   var totalHours = (endMs - admitMs) / 3600000;
+   if (isNaN(totalHours) || totalHours <= 0) return 1;
+   var fullDays  = Math.floor(totalHours / 24);
+   var remainHrs = totalHours % 24;
+   return Math.max(1, fullDays + (remainHrs > 6 ? 1 : 0));
+}
+
 async function renderShopAdmissions() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
    var host = document.getElementById('shopAdmissionsContent');
@@ -11796,7 +11807,7 @@ async function renderShopAdmissions() {
       } else {
          tableRows = admFiltered.map(function(r) {
             var d = new Date((r.admit_date || '') + 'T00:00:00');
-            var los = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
+            var los = isNaN(d.getTime()) ? 0 : _calcLos(r.admit_date, r.admit_time, todayYmd, null);
             var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             var targetLbl = '—', isDueToday = false;
             if (r.target_discharge) {
@@ -11860,7 +11871,7 @@ async function renderShopAdmissions() {
             var disD  = new Date((r.target_discharge || '') + 'T00:00:00');
             var admLbl = isNaN(admD.getTime()) ? '—' : admD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             var disLbl = isNaN(disD.getTime()) ? '—' : disD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-            var los = (!isNaN(admD.getTime()) && !isNaN(disD.getTime())) ? Math.max(0, Math.round((disD - admD) / 86400000)) : '—';
+            var los = (!isNaN(admD.getTime()) && !isNaN(disD.getTime())) ? _calcLos(r.admit_date, r.admit_time, r.target_discharge, r.discharge_time) : '—';
             var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
             var rid = r.id.replace(/'/g, "\\'");
             return '<tr>' +
@@ -16061,6 +16072,33 @@ async function initProfile() {
       });
       _renderMyStoresInProfile(ownedStores);
    }
+   // Load Hospital Patient IDs for this user by phone
+   (async function() {
+      var idsBody = document.getElementById('prof-hospital-ids-body');
+      if (!idsBody) return;
+      var phone = user.phone || '';
+      if (!phone) { idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">Add a phone number to your profile to see your hospital IDs.</div>'; return; }
+      try {
+         await loadAptProviders(true);
+         var rows = await AppDB.getPatientIdsByPhone(phone);
+         if (!rows.length) {
+            idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs found. Your ID is created automatically when you first visit a hospital on this platform.</div>';
+            return;
+         }
+         var providerMap = {};
+         (_aptProvidersCache || []).forEach(function(p) { providerMap[p.id] = p.name; });
+         idsBody.innerHTML = rows.map(function(r) {
+            var hospName = providerMap[r.provider_id] || r.provider_id;
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0">' +
+               '<div style="font-size:0.85rem;color:#444">🏥 ' + _esc(hospName) + '</div>' +
+               '<div style="font-family:ui-monospace,monospace;font-weight:700;color:#1b5e20;font-size:0.95rem;background:#e8f5e9;padding:3px 10px;border-radius:6px;letter-spacing:0.04em">' + _esc(r.patient_id) + '</div>' +
+            '</div>';
+         }).join('');
+      } catch(e) {
+         idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">Could not load hospital IDs.</div>';
+      }
+   })();
+
    // Hide customer-only tabs only for PURE store-owners (not admins — they're
    // full users too and may want to use Addresses, Orders, Appointments etc.).
    if (isPureOwner) {

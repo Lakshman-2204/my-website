@@ -515,6 +515,16 @@ window.AppDB = {
    // Bulk-fetch every patient_id row for a set of provider IDs. Used by the
    // Out-patients list to attach the hospital ID column without N round trips.
    // Returns a map keyed by `${provider_id}|${phone_normalized}|${name_normalized}`.
+   async getPatientIdsByPhone(phone) {
+      const norm = (phone || '').replace(/\D/g, '').slice(-10);
+      if (norm.length !== 10) return [];
+      const { data, error } = await _sb.from('hospital_patient_ids')
+         .select('provider_id, patient_id')
+         .eq('phone_normalized', norm);
+      if (error) { console.error('getPatientIdsByPhone:', error.message); return []; }
+      return data || [];
+   },
+
    async getHospitalPatientIdMap(providerIds) {
       if (!providerIds || !providerIds.length) return {};
       const { data, error } = await _sb.from('hospital_patient_ids')

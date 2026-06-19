@@ -6358,6 +6358,7 @@ async function checkShopOwnerLogin() {
    var docTab    = document.getElementById('shop-tab-doctors');
    var patTab    = document.getElementById('shop-tab-patients');
    var admTab    = document.getElementById('shop-tab-admissions');
+   var revenueTab= document.getElementById('shop-tab-revenue');
    var bedsTab   = document.getElementById('shop-tab-beds');
    var staffTab  = document.getElementById('shop-tab-staff');
    var schedTab  = document.getElementById('shop-tab-schedule');
@@ -6369,6 +6370,7 @@ async function checkShopOwnerLogin() {
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
    if (patTab)    patTab.classList.toggle('hidden',    !ownsHospital);
    if (admTab)    admTab.classList.toggle('hidden',    !ownsHospital);
+   if (revenueTab) revenueTab.classList.toggle('hidden', !ownsHospital);
    if (bedsTab)   bedsTab.classList.toggle('hidden',   !ownsHospital);
    if (staffTab)  staffTab.classList.toggle('hidden',  !ownsHospital);
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
@@ -8822,7 +8824,7 @@ function switchShopTab(tab) {
    if (tab === 'patients-out') { patientsSub = 'out'; tab = 'patients'; }
    else if (tab === 'patients-in') { patientsSub = 'in';  tab = 'patients'; }
 
-   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'admissions', 'beds', 'staff', 'schedule', 'products'].forEach(function(t) {
+   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'admissions', 'revenue', 'beds', 'staff', 'schedule', 'products'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
@@ -8849,7 +8851,7 @@ function switchShopTab(tab) {
    var titleEl = document.getElementById('shopTopbarTitle');
    if (titleEl) {
       var titleMap = { dashboard: 'Dashboard', orders: 'Orders', appointments: 'Appointments',
-                       doctors: 'Doctors', admissions: 'Admissions',
+                       doctors: 'Doctors', admissions: 'Admissions', revenue: 'Revenue',
                        staff: 'Staff', schedule: 'Schedule', products: 'My Stores' };
       if (tab === 'patients') {
          titleEl.textContent = patientsSub === 'in' ? 'In-patients' : 'Out-patients';
@@ -8877,6 +8879,7 @@ function switchShopTab(tab) {
    if (tab === 'patients')     { _patientsMode = patientsSub || _patientsMode || 'out'; renderShopPatients(); }
    if (tab === 'admissions')   renderShopAdmissions();
    if (tab === 'staff')        renderShopStaff();
+   if (tab === 'revenue')      renderShopRevenue();
    if (tab === 'beds')         renderShopBeds();
    if (tab === 'schedule')     renderShopSchedule();
 }
@@ -9483,6 +9486,17 @@ async function renderShopOverview() {
          '<div class="hkpi-body"><span class="hkpi-num">' + admitted.length + '</span><span class="hkpi-badge hkpi-green">Active</span></div>' +
          '<div class="hkpi-sub">' + newToday + ' new today · ' + discharged + ' discharged · ' + admRows.length + ' total</div>';
 
+      // Re-render hospital survey with admissions data injected
+      var kpiEl = document.getElementById('hkpi-beds-' + p.id);
+      var surveyEl = kpiEl && kpiEl.closest('.shop-ov-card') && kpiEl.closest('.shop-ov-card').querySelector('.hospital-survey');
+      if (surveyEl) {
+         var provApts3 = apts.filter(function(a) { return a.provider_id === p.id; });
+         var tmp = document.createElement('div');
+         tmp.innerHTML = _renderHospitalSurvey(provApts3, admRows);
+         var newNode = tmp.firstElementChild;
+         if (newNode) surveyEl.parentNode.replaceChild(newNode, surveyEl);
+      }
+
    });
 }
 
@@ -9529,11 +9543,12 @@ function _ipStatRow(icon, value, label, color) {
 
 // ── Cliniva Hospital Survey area chart — 30-day daily appointments ──
 // "New" = regular bookings (is_followup=false). "Follow-up" = free FT* bookings.
-function _renderHospitalSurvey(apts) {
+function _renderHospitalSurvey(apts, admRows) {
    var days = 30;
    var labels = [];
    var newSeries = new Array(days).fill(0);   // regular bookings
-   var oldSeries = new Array(days).fill(0);   // follow-up bookings (FT*)
+   var oldSeries = new Array(days).fill(0);   // follow-up bookings
+   var admSeries = new Array(days).fill(0);   // new admissions
    var today = new Date(); today.setHours(0, 0, 0, 0);
    for (var i = 0; i < days; i++) {
       var d = new Date(today); d.setDate(today.getDate() - (days - 1 - i));
@@ -9549,12 +9564,19 @@ function _renderHospitalSurvey(apts) {
       if (a.is_followup) oldSeries[idx] += 1;
       else               newSeries[idx] += 1;
    });
+   (admRows || []).forEach(function(a) {
+      var d = new Date((a.admit_date || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return;
+      var diff = Math.round((today - d) / 86400000);
+      if (diff < 0 || diff >= days) return;
+      admSeries[days - 1 - diff] += 1;
+   });
 
    // SVG area chart — narrower viewBox; the CSS container caps width
    var w = 760, h = 180, padL = 32, padR = 14, padT = 14, padB = 26;
    var plotW = w - padL - padR;
    var plotH = h - padT - padB;
-   var maxVal = Math.max(1, Math.max.apply(null, newSeries.concat(oldSeries)));
+   var maxVal = Math.max(1, Math.max.apply(null, newSeries.concat(oldSeries).concat(admSeries)));
    // Round max up to nearest "nice" number
    var step = maxVal <= 5 ? 1 : maxVal <= 10 ? 2 : maxVal <= 50 ? 10 : 20;
    var ceil = Math.ceil(maxVal / step) * step;
@@ -9605,16 +9627,19 @@ function _renderHospitalSurvey(apts) {
          '<defs>' +
             '<linearGradient id="ngrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#1e88e5" stop-opacity="0.35"/><stop offset="100%" stop-color="#1e88e5" stop-opacity="0.02"/></linearGradient>' +
             '<linearGradient id="ograd" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#ef6c00" stop-opacity="0.30"/><stop offset="100%" stop-color="#ef6c00" stop-opacity="0.02"/></linearGradient>' +
+            '<linearGradient id="agrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#7c3aed" stop-opacity="0.28"/><stop offset="100%" stop-color="#7c3aed" stop-opacity="0.02"/></linearGradient>' +
          '</defs>' +
          gridLines +
          '<path d="' + toArea(oldSeries) + '" fill="url(#ograd)"/>' +
          '<path d="' + toPath(oldSeries) + '" fill="none" stroke="#ef6c00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
          '<path d="' + toArea(newSeries) + '" fill="url(#ngrad)"/>' +
          '<path d="' + toPath(newSeries) + '" fill="none" stroke="#1e88e5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
-         // Crosshair + markers (toggled by hover handler)
+         '<path d="' + toArea(admSeries) + '" fill="url(#agrad)"/>' +
+         '<path d="' + toPath(admSeries) + '" fill="none" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 3"/>' +
          '<line class="hs-crosshair" x1="0" x2="0" y1="' + padT + '" y2="' + (padT+plotH) + '" stroke="#90a4ae" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>' +
          '<circle class="hs-marker hs-marker-new" cx="0" cy="0" r="4" fill="#1e88e5" stroke="#fff" stroke-width="2" opacity="0"/>' +
          '<circle class="hs-marker hs-marker-old" cx="0" cy="0" r="4" fill="#ef6c00" stroke="#fff" stroke-width="2" opacity="0"/>' +
+         '<circle class="hs-marker hs-marker-adm" cx="0" cy="0" r="4" fill="#7c3aed" stroke="#fff" stroke-width="2" opacity="0"/>' +
          xLabels +
       '</svg>';
 
@@ -9632,6 +9657,7 @@ function _renderHospitalSurvey(apts) {
       ' data-days="' + daysIso.join(',') + '"' +
       ' data-new="' + newSeries.join(',') + '"' +
       ' data-old="' + oldSeries.join(',') + '"' +
+      ' data-adm="' + admSeries.join(',') + '"' +
       ' data-ceil="' + ceil + '"' +
       ' data-vw="' + w + '" data-vh="' + h + '"' +
       ' data-padl="' + padL + '" data-padr="' + padR + '" data-padt="' + padT + '" data-padb="' + padB + '"';
@@ -9642,6 +9668,7 @@ function _renderHospitalSurvey(apts) {
                 '<div class="hs-legend">' +
                    '<span class="hs-leg-dot" style="background:#1e88e5"></span>New Patients' +
                    '<span class="hs-leg-dot" style="background:#ef6c00;margin-left:14px"></span>Follow-up' +
+                   '<span class="hs-leg-dot" style="background:#7c3aed;margin-left:14px"></span>Admissions' +
                 '</div>' +
              '</div>' +
              '<div class="hs-chart">' + svg +
@@ -9660,12 +9687,12 @@ function _hospitalSurveyHover(e) {
    var days = d.days.split(',');
    var n    = d.new.split(',').map(Number);
    var o    = d.old.split(',').map(Number);
+   var a    = (d.adm || '').split(',').map(Number);
    var vw = +d.vw, vh = +d.vh, padL = +d.padl, padR = +d.padr, padT = +d.padt, padB = +d.padb;
    var ceil = +d.ceil;
    var plotW = vw - padL - padR;
    var plotH = vh - padT - padB;
 
-   // SVG point → viewBox coordinates
    var rect = svg.getBoundingClientRect();
    var vx = ((e.clientX - rect.left) / rect.width)  * vw;
    if (vx < padL || vx > vw - padR) { _hospitalSurveyHide(e); return; }
@@ -9674,10 +9701,10 @@ function _hospitalSurveyHover(e) {
    var idx = Math.min(days.length - 1, Math.max(0, Math.round((vx - padL) / step)));
    var snapVx = padL + idx * step;
 
-   // Move crosshair + markers
    var line = svg.querySelector('.hs-crosshair');
    var mNew = svg.querySelector('.hs-marker-new');
    var mOld = svg.querySelector('.hs-marker-old');
+   var mAdm = svg.querySelector('.hs-marker-adm');
    if (line) { line.setAttribute('x1', snapVx); line.setAttribute('x2', snapVx); line.setAttribute('opacity', '1'); }
    if (mNew) {
       var yN = padT + plotH - (n[idx] / ceil) * plotH;
@@ -9687,15 +9714,19 @@ function _hospitalSurveyHover(e) {
       var yO = padT + plotH - (o[idx] / ceil) * plotH;
       mOld.setAttribute('cx', snapVx); mOld.setAttribute('cy', yO); mOld.setAttribute('opacity', '1');
    }
+   if (mAdm) {
+      var yA = padT + plotH - ((a[idx] || 0) / ceil) * plotH;
+      mAdm.setAttribute('cx', snapVx); mAdm.setAttribute('cy', yA); mAdm.setAttribute('opacity', '1');
+   }
 
-   // Position + populate the HTML tooltip
    var tip = container.querySelector('.hs-tooltip');
    if (tip) {
       var dt = new Date(days[idx] + 'T00:00:00');
       var label = dt.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' });
       tip.innerHTML = '<div class="hs-tip-date">' + label + '</div>' +
                       '<div class="hs-tip-row"><span style="background:#1e88e5"></span>New patients: <strong>' + n[idx] + '</strong></div>' +
-                      '<div class="hs-tip-row"><span style="background:#ef6c00"></span>Follow-ups: <strong>' + o[idx] + '</strong></div>';
+                      '<div class="hs-tip-row"><span style="background:#ef6c00"></span>Follow-ups: <strong>' + o[idx] + '</strong></div>' +
+                      '<div class="hs-tip-row"><span style="background:#7c3aed"></span>Admissions: <strong>' + (a[idx] || 0) + '</strong></div>';
       // Convert snapped viewBox x back to chart-container pixels
       var px = (snapVx / vw) * rect.width;
       var chart = container.querySelector('.hs-chart');
@@ -9712,7 +9743,8 @@ function _hospitalSurveyHide(e) {
    var line = container.querySelector('.hs-crosshair');
    var mNew = container.querySelector('.hs-marker-new');
    var mOld = container.querySelector('.hs-marker-old');
-   [line, mNew, mOld].forEach(function(el) { if (el) el.setAttribute('opacity', '0'); });
+   var mAdm = container.querySelector('.hs-marker-adm');
+   [line, mNew, mOld, mAdm].forEach(function(el) { if (el) el.setAttribute('opacity', '0'); });
    var tip = container.querySelector('.hs-tooltip');
    if (tip) tip.classList.add('hidden');
 }
@@ -11743,10 +11775,10 @@ function _admFillBedOptions(cat, currentRoomBed, currentBedId) {
    if (hint) hint.textContent = availCount ? availCount + ' available' : '0 available';
    roomSel.innerHTML = '<option value="">— Select bed —</option>' +
       filtered.map(function(b) {
-         var label = 'Room ' + b.room_number + ' · Bed ' + b.bed_number + (b.floor ? ' · ' + b.floor + ' floor' : '') + (b.status !== 'Available' ? ' (' + b.status + ')' : '');
+         var label = 'Room ' + b.room_number + ' · Bed ' + b.bed_number + (b.floor ? ' · ' + b.floor + ' floor' : '') + (b.rate_per_day ? ' · ₹' + Number(b.rate_per_day).toLocaleString('en-IN') + '/day' : '') + (b.status !== 'Available' ? ' (' + b.status + ')' : '');
          var val   = b.room_number + ' · ' + b.bed_number;
          var sel   = (val === currentRoomBed || b.id === currentBedId) ? ' selected' : '';
-         return '<option value="' + val + '" data-bed-id="' + b.id + '"' + sel + '>' + label + '</option>';
+         return '<option value="' + val + '" data-bed-id="' + b.id + '" data-rate="' + (b.rate_per_day || 0) + '"' + sel + '>' + label + '</option>';
       }).join('') +
       (filtered.length === 0 && cat ? '<option disabled>No available beds in this category</option>' : '');
    // Sync hidden bed-id field
@@ -11758,6 +11790,8 @@ function _admFillBedOptions(cat, currentRoomBed, currentBedId) {
 function _admBedCatChange() {
    var cat = (document.getElementById('adm-ward') || {}).value || '';
    _admFillBedOptions(cat, '', '');
+   var rateEl = document.getElementById('adm-bed-rate-hint');
+   if (rateEl) { rateEl.textContent = ''; rateEl.style.display = 'none'; }
 }
 
 function _admRoomChange() {
@@ -11766,6 +11800,12 @@ function _admRoomChange() {
    if (!sel || !bedIdEl) return;
    var opt = sel.options[sel.selectedIndex];
    bedIdEl.value = (opt && opt.dataset.bedId) ? opt.dataset.bedId : '';
+   var rateEl = document.getElementById('adm-bed-rate-hint');
+   if (rateEl) {
+      var rate = opt && opt.dataset.rate ? Number(opt.dataset.rate) : 0;
+      rateEl.textContent = rate ? '₹' + rate.toLocaleString('en-IN') + ' / day' : '';
+      rateEl.style.display = rate ? 'inline' : 'none';
+   }
 }
 
 function openAdmissionModal(id) {
@@ -12472,6 +12512,240 @@ async function shopDeleteAdmission(id) {
 // ── BEDS MANAGEMENT (Phase 10) ──
 var BED_CATEGORIES = ['General Ward','Twin Sharing / Semi-Private','Private Room','Deluxe Room','Super Deluxe Room','ICU'];
 var BED_STATUS_COLOR = { 'Available':'#059669', 'Occupied':'#dc2626', 'Maintenance':'#d97706', 'Reserved':'#7c3aed' };
+// ── REVENUE tab ─────────────────────────────────────────────────────────────
+
+var _revSource = 'both';   // 'opd' | 'ip' | 'both'
+var _revPeriod = 'month';  // 'day' | 'week' | 'month' | 'year'
+
+async function renderShopRevenue() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var host = document.getElementById('shopRevenueContent');
+   if (!host) return;
+   host.innerHTML = '<div class="shop-empty">Loading…</div>';
+
+   await loadAptProviders(true);
+   var mine = (_aptProvidersCache || []).filter(function(p) {
+      return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   if (!mine.length) { host.innerHTML = '<div class="shop-empty">No hospital linked.</div>'; return; }
+
+   var p = mine[0];
+   var todayYmd  = _todayLocalYmd();
+   var todayDate = new Date(todayYmd + 'T00:00:00');
+
+   // Period boundaries
+   function periodStart(period) {
+      var d = new Date(todayDate);
+      if (period === 'day')   return todayYmd;
+      if (period === 'week')  { d.setDate(d.getDate() - d.getDay()); return _ymdOf(d); }
+      if (period === 'month') { d.setDate(1); return _ymdOf(d); }
+      if (period === 'year')  { d.setMonth(0, 1); return _ymdOf(d); }
+      return '2000-01-01';
+   }
+   function _ymdOf(d) {
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+   }
+   var pStart = periodStart(_revPeriod);
+
+   // Fetch data
+   var apts    = await AppDB.getAppointmentsByOwner(user.email);
+   var admRows = await AppDB.getAdmissions(p.id);
+   var ipBills = await AppDB.getIpBillsByProvider(p.id);
+
+   // OPD rows for period
+   var opdAll = (apts || []).filter(function(a) {
+      return a.provider_id === p.id && a.status === 'Completed' && (a.date || '') >= pStart;
+   });
+   // IP bill rows for period
+   var ipAll = (ipBills || []).filter(function(b) {
+      return (b.bill_date || '') >= pStart && b.status !== 'Draft';
+   });
+
+   // Merge admission patient_name into ip bills for display
+   var admMap = {};
+   (admRows || []).forEach(function(r) { admMap[r.id] = r; });
+
+   // ── Summary figures ──────────────────────────────────────────────────────
+   var opdCollected = opdAll.filter(function(a){ return a.is_paid; }).reduce(function(s,a){ return s+(a.fee||0); },0);
+   var opdPending   = opdAll.filter(function(a){ return !a.is_paid; }).reduce(function(s,a){ return s+(a.fee||0); },0);
+   var opdRefunds   = opdAll.reduce(function(s,a){ return s+Number(a.refund_amount||0); },0);
+   var opdNet       = opdCollected - opdRefunds;
+
+   var ipCollected  = ipAll.reduce(function(s,b){ return s+(b.advance_paid||0); },0);
+   var ipNet        = ipAll.reduce(function(s,b){ return s+(b.net_payable||0); },0);
+   var ipPending    = Math.max(0, ipNet - ipCollected);
+   var ipDiscount   = ipAll.reduce(function(s,b){ return s+(b.discount_amt||0); },0);
+
+   var showOpd = _revSource !== 'ip';
+   var showIp  = _revSource !== 'opd';
+   var totalCollected = (showOpd ? opdCollected : 0) + (showIp ? ipCollected : 0);
+   var totalPending   = (showOpd ? opdPending   : 0) + (showIp ? ipPending   : 0);
+   var totalRefDisc   = (showOpd ? opdRefunds   : 0) + (showIp ? ipDiscount  : 0);
+   var totalNet       = totalCollected - totalRefDisc;
+
+   function fmt(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
+
+   // ── Period label ──────────────────────────────────────────────────────────
+   var periodLabel = { day: 'Today', week: 'This Week', month: 'This Month', year: 'This Year' }[_revPeriod];
+
+   // ── Payment mode breakdown (OPD) ─────────────────────────────────────────
+   var modeMap = {};
+   if (showOpd) opdAll.filter(function(a){return a.is_paid;}).forEach(function(a){
+      var m = a.payment_mode || 'Cash'; modeMap[m] = (modeMap[m]||0) + (a.fee||0);
+   });
+   if (showIp) ipAll.forEach(function(b){
+      var m = b.payment_mode || 'Cash'; modeMap[m] = (modeMap[m]||0) + (b.advance_paid||0);
+   });
+   var modeRows = Object.keys(modeMap).sort().map(function(m){
+      return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:0.85rem">' +
+             '<span style="color:#555">' + m + '</span><strong>' + fmt(modeMap[m]) + '</strong></div>';
+   }).join('');
+
+   // ── Doctor-wise OPD breakdown ─────────────────────────────────────────────
+   var docMap = {};
+   if (showOpd) opdAll.filter(function(a){return a.is_paid;}).forEach(function(a){
+      var dn = a.doctor_name || 'Unassigned'; docMap[dn] = (docMap[dn]||0) + (a.fee||0);
+   });
+   var docRows = Object.keys(docMap).sort(function(a,b){ return docMap[b]-docMap[a]; }).slice(0,8).map(function(dn){
+      return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:0.85rem">' +
+             '<span style="color:#555">' + dn + '</span><strong>' + fmt(docMap[dn]) + '</strong></div>';
+   }).join('');
+
+   // ── Main table rows ───────────────────────────────────────────────────────
+   var tableRows = '';
+   if (showOpd) {
+      opdAll.forEach(function(a) {
+         tableRows += '<tr>' +
+            '<td>' + (a.date || '—') + '</td>' +
+            '<td><span class="rev-source-badge opd">OPD</span></td>' +
+            '<td>' + (a.patient_name || '—') + (a.patient_phone ? '<div style="font-size:0.75rem;color:#888">📞 ' + a.patient_phone + '</div>' : '') + '</td>' +
+            '<td>' + (a.doctor_name || '—') + '</td>' +
+            '<td style="text-align:right">' + fmt(a.fee||0) + '</td>' +
+            '<td><span class="rev-pay-badge ' + (a.is_paid ? 'paid' : 'pending') + '">' + (a.is_paid ? '✓ Paid' : '⏳ Pending') + '</span></td>' +
+            '<td style="text-align:right;color:#c62828">' + (a.refund_amount ? fmt(a.refund_amount) : '—') + '</td>' +
+            '<td>' + (a.payment_mode || '—') + '</td>' +
+         '</tr>';
+      });
+   }
+   if (showIp) {
+      ipAll.forEach(function(b) {
+         var adm = admMap[b.admission_id] || {};
+         var balance = Math.max(0, (b.net_payable||0) - (b.advance_paid||0));
+         tableRows += '<tr>' +
+            '<td>' + (b.bill_date || '—') + '</td>' +
+            '<td><span class="rev-source-badge ip">IP Bill</span></td>' +
+            '<td>' + (adm.patient_name || '—') + (adm.patient_phone ? '<div style="font-size:0.75rem;color:#888">📞 ' + adm.patient_phone + '</div>' : '') + '</td>' +
+            '<td>' + (b.bill_no || '—') + '</td>' +
+            '<td style="text-align:right">' + fmt(b.net_payable||0) + '</td>' +
+            '<td><span class="rev-pay-badge ' + (balance <= 0 ? 'paid' : 'pending') + '">' + (balance <= 0 ? '✓ Settled' : '⏳ Balance ' + fmt(balance)) + '</span></td>' +
+            '<td style="text-align:right;color:#c62828">' + (b.discount_amt ? fmt(b.discount_amt) : '—') + '</td>' +
+            '<td>' + (b.payment_mode || 'Cash') + '</td>' +
+         '</tr>';
+      });
+   }
+   if (!tableRows) tableRows = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#999">No records for ' + periodLabel + '</td></tr>';
+
+   // ── Stash for export ──────────────────────────────────────────────────────
+   window._revExportRows = [];
+   if (showOpd) opdAll.forEach(function(a) {
+      window._revExportRows.push({
+         'Date': a.date||'', 'Type': 'OPD', 'Patient': a.patient_name||'', 'Phone': a.patient_phone||'',
+         'Doctor / Ref': a.doctor_name||'', 'Gross (Rs)': a.fee||0,
+         'Status': a.is_paid ? 'Paid' : 'Pending', 'Refund (Rs)': a.refund_amount||0,
+         'Net (Rs)': (a.fee||0) - Number(a.refund_amount||0), 'Payment Mode': a.payment_mode||''
+      });
+   });
+   if (showIp) ipAll.forEach(function(b) {
+      var adm = admMap[b.admission_id] || {};
+      var balance = Math.max(0, (b.net_payable||0) - (b.advance_paid||0));
+      window._revExportRows.push({
+         'Date': b.bill_date||'', 'Type': 'IP Bill', 'Patient': adm.patient_name||'', 'Phone': adm.patient_phone||'',
+         'Doctor / Ref': b.bill_no||'', 'Gross (Rs)': b.net_payable||0,
+         'Status': balance <= 0 ? 'Settled' : 'Pending Balance', 'Refund (Rs)': b.discount_amt||0,
+         'Net (Rs)': (b.net_payable||0) - (b.discount_amt||0), 'Payment Mode': b.payment_mode||'Cash'
+      });
+   });
+
+   // ── Render ────────────────────────────────────────────────────────────────
+   function tabBtn(val, label) {
+      var active = _revPeriod === val;
+      return '<button onclick="_revSetPeriod(\'' + val + '\')" style="padding:6px 14px;font-size:0.82rem;font-weight:600;border:1.5px solid ' + (active ? '#1565c0' : '#ddd') + ';border-radius:6px;background:' + (active ? '#1565c0' : '#fff') + ';color:' + (active ? '#fff' : '#555') + ';cursor:pointer">' + label + '</button>';
+   }
+   function srcBtn(val, label) {
+      var active = _revSource === val;
+      return '<button onclick="_revSetSource(\'' + val + '\')" style="padding:6px 14px;font-size:0.82rem;font-weight:600;border:1.5px solid ' + (active ? '#7c3aed' : '#ddd') + ';border-radius:6px;background:' + (active ? '#7c3aed' : '#fff') + ';color:' + (active ? '#fff' : '#555') + ';cursor:pointer">' + label + '</button>';
+   }
+
+   host.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">' +
+         '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+            tabBtn('day','Today') + tabBtn('week','Week') + tabBtn('month','Month') + tabBtn('year','Year') +
+         '</div>' +
+         '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+            srcBtn('both','OPD + Admissions') + srcBtn('opd','OPD Only') + srcBtn('ip','Admissions Only') +
+         '</div>' +
+      '</div>' +
+
+      // KPI summary cards
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px">' +
+         _revKpi('💰', 'Collected', fmt(totalCollected), '#1565c0') +
+         _revKpi('⏳', 'Pending', fmt(totalPending), '#e65100') +
+         _revKpi('↩️', 'Refunds / Discount', fmt(totalRefDisc), '#c62828') +
+         _revKpi('✅', 'Net Revenue', fmt(totalNet), '#2e7d32') +
+      '</div>' +
+
+      // Breakdown panels
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">' +
+         '<div style="background:#fff;border:1.5px solid #eee;border-radius:10px;padding:14px">' +
+            '<div style="font-weight:700;font-size:0.88rem;margin-bottom:8px;color:#1a1a2e">💳 Payment Mode</div>' +
+            (modeRows || '<div style="color:#aaa;font-size:0.83rem">No data</div>') +
+         '</div>' +
+         (showOpd && Object.keys(docMap).length ? (
+            '<div style="background:#fff;border:1.5px solid #eee;border-radius:10px;padding:14px">' +
+               '<div style="font-weight:700;font-size:0.88rem;margin-bottom:8px;color:#1a1a2e">👨‍⚕️ Doctor-wise OPD Revenue</div>' +
+               docRows +
+            '</div>'
+         ) : '<div></div>') +
+      '</div>' +
+
+      // Detail table
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">' +
+         '<div style="font-weight:700;font-size:0.9rem;color:#1a1a2e">📋 Transaction Detail — ' + periodLabel + '</div>' +
+         '<div style="display:flex;gap:8px">' +
+            '<button class="apt-view-btn" style="background:#2e7d32;padding:7px 14px" onclick="_revExportCsv()">⬇ CSV</button>' +
+            '<button class="apt-view-btn" style="background:#1565c0;padding:7px 14px" onclick="_revExportXls()">⬇ XLS</button>' +
+         '</div>' +
+      '</div>' +
+      '<div class="apt-tbl-wrap"><table class="apt-tbl">' +
+         '<thead><tr>' +
+            '<th>Date</th><th>Type</th><th>Patient</th><th>Doctor / Bill No</th>' +
+            '<th style="text-align:right">Gross</th><th>Status</th>' +
+            '<th style="text-align:right">Refund/Disc</th><th>Mode</th>' +
+         '</tr></thead>' +
+         '<tbody>' + tableRows + '</tbody>' +
+      '</table></div>';
+}
+
+function _revKpi(icon, label, value, color) {
+   return '<div style="background:#fff;border:1.5px solid #eee;border-radius:10px;padding:14px 16px">' +
+             '<div style="font-size:1.1rem;margin-bottom:4px">' + icon + '</div>' +
+             '<div style="font-size:1.4rem;font-weight:800;color:' + color + '">' + value + '</div>' +
+             '<div style="font-size:0.75rem;color:#888;margin-top:2px">' + label + '</div>' +
+          '</div>';
+}
+function _revSetPeriod(p) { _revPeriod = p; renderShopRevenue(); }
+function _revSetSource(s) { _revSource = s; renderShopRevenue(); }
+function _revExportCsv() {
+   if (!window._revExportRows || !window._revExportRows.length) { alert('No data to export.'); return; }
+   var today = _todayLocalYmd();
+   _downloadCsv('revenue_' + _revPeriod + '_' + today + '.csv', window._revExportRows);
+}
+async function _revExportXls() {
+   if (!window._revExportRows || !window._revExportRows.length) { alert('No data to export.'); return; }
+   var today = _todayLocalYmd();
+   await _downloadXls('revenue_' + _revPeriod + '_' + today + '.xlsx', window._revExportRows);
+}
+
 var BED_CAT_ICON = { 'General Ward':'🏨', 'Twin Sharing / Semi-Private':'🛏️', 'Private Room':'🚪', 'Deluxe Room':'⭐', 'Super Deluxe Room':'👑', 'ICU':'🏥' };
 
 async function renderShopBeds() {
@@ -12530,6 +12804,7 @@ async function renderShopBeds() {
                         '</div>' +
                         (b.floor ? '<div class="bed-floor">Floor ' + b.floor + '</div>' : '') +
                         '<div class="bed-status-text" style="color:' + sc + '">' + b.status + '</div>' +
+                        (b.rate_per_day ? '<div style="font-size:0.72rem;color:#1565c0;font-weight:600;margin-top:2px">₹' + Number(b.rate_per_day).toLocaleString('en-IN') + '/day</div>' : '') +
                         '<div class="bed-card-actions">' +
                            '<button onclick="openBedModal(\'' + bid + '\')" class="bed-btn-edit">✏️</button>' +
                            '<button onclick="deleteBedItem(\'' + bid + '\')" class="bed-btn-del">🗑</button>' +
@@ -12578,13 +12853,14 @@ function openBedModal(id, defaultCat) {
          get('bed-num').value      = b.bed_number;
          get('bed-floor').value    = b.floor || '';
          get('bed-status').value   = b.status;
+         get('bed-rate').value     = b.rate_per_day || '';
          get('bed-notes').value    = b.notes || '';
          get('bed-active').checked = b.active !== false;
          document.getElementById('bedModalTitle').textContent = '✏️ Edit Bed';
          modal.classList.remove('hidden');
       });
    } else {
-      ['bed-id','bed-room','bed-num','bed-floor','bed-notes'].forEach(function(f){ var el=get(f); if(el) el.value=''; });
+      ['bed-id','bed-room','bed-num','bed-floor','bed-rate','bed-notes'].forEach(function(f){ var el=get(f); if(el) el.value=''; });
       if (get('bed-category') && defaultCat) get('bed-category').value = defaultCat;
       if (get('bed-status')) get('bed-status').value = 'Available';
       var ac = get('bed-active'); if (ac) ac.checked = true;
@@ -12610,6 +12886,7 @@ function _buildBedModal() {
                '<div class="sp-field"><label>Room Number *</label><input type="text" id="bed-room" placeholder="e.g. 101, A-12"/></div>' +
                '<div class="sp-field"><label>Bed Number *</label><input type="text" id="bed-num" placeholder="e.g. B1, Left, Window"/></div>' +
                '<div class="sp-field"><label>Floor</label><input type="text" id="bed-floor" placeholder="e.g. Ground, 1st, 2nd"/></div>' +
+               '<div class="sp-field"><label>Rate / Day (₹)</label><input type="number" id="bed-rate" min="0" placeholder="e.g. 1500"/></div>' +
                '<div class="sp-field"><label>Status</label><select id="bed-status"><option>Available</option><option>Occupied</option><option>Maintenance</option><option>Reserved</option></select></div>' +
                '<div class="sp-field" style="grid-column:1/-1"><label>Notes</label><textarea id="bed-notes" rows="2" placeholder="Any special notes…"></textarea></div>' +
                '<div class="sp-field" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0"><input type="checkbox" id="bed-active" checked style="width:auto"/> Active</label></div>' +
@@ -12645,6 +12922,7 @@ async function saveBedItem() {
       id: id, provider_id: provId,
       category: category, room_number: room, bed_number: bedNum,
       floor: get('bed-floor'), status: get('bed-status'),
+      rate_per_day: parseFloat(document.getElementById('bed-rate').value) || 0,
       notes: get('bed-notes'),
       active: document.getElementById('bed-active').checked
    });
@@ -12708,6 +12986,10 @@ function _buildBulkBedModal() {
                      '<option value="named">Left, Right (twin only)</option>' +
                   '</select>' +
                '</div>' +
+               '<div class="sp-field">' +
+                  '<label>Rate / Day (₹)</label>' +
+                  '<input type="number" id="bulk-rate" min="0" placeholder="e.g. 1500 (applied to all beds)"/>' +
+               '</div>' +
                '<div class="sp-field" style="grid-column:1/-1">' +
                   '<label>Preview</label>' +
                   '<div id="bulk-preview" style="background:#f8fafc;border:1px solid #e8ecf0;border-radius:8px;padding:10px;font-size:0.78rem;color:#5f6473;max-height:120px;overflow-y:auto;font-family:monospace;line-height:1.6"></div>' +
@@ -12745,6 +13027,7 @@ function _bulkBedPreview() {
 async function saveBulkBeds() {
    var cat    = (document.getElementById('bulk-category') || {}).value || '';
    var floor  = (document.getElementById('bulk-floor') || {}).value || '';
+   var rate   = parseFloat((document.getElementById('bulk-rate') || {}).value) || 0;
    var start  = parseInt(document.getElementById('bulk-room-start').value) || 101;
    var count  = Math.min(parseInt(document.getElementById('bulk-room-count').value) || 10, 100);
    var bpr    = Math.min(parseInt(document.getElementById('bulk-beds-per-room').value) || 1, 10);
@@ -12773,7 +13056,8 @@ async function saveBulkBeds() {
             category: cat,
             room_number: String(start + r),
             bed_number: String(labels[b] || (b + 1)),
-            floor: floor
+            floor: floor,
+            rate_per_day: rate
          });
       }
    }

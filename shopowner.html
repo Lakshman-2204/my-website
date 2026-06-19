@@ -43,6 +43,7 @@
             </button>
          </div>
          <button class="shop-side-item hidden" id="shop-tab-admissions"   onclick="switchShopTab('admissions')"><span class="ssi-icon">📋</span><span>Admissions</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-revenue"       onclick="switchShopTab('revenue')"><span class="ssi-icon">💰</span><span>Revenue</span></button>
          <button class="shop-side-item hidden" id="shop-tab-beds"         onclick="switchShopTab('beds')"><span class="ssi-icon">🛏️</span><span>Beds</span></button>
          <button class="shop-side-item hidden" id="shop-tab-staff"        onclick="switchShopTab('staff')"><span class="ssi-icon">👥</span><span>Staff</span></button>
          <button class="shop-side-item hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')"><span class="ssi-icon">📞</span><span>Schedule</span></button>
@@ -371,6 +372,7 @@
                      <option value="">— Select bed —</option>
                   </select>
                   <input type="hidden" id="adm-bed-id"/>
+                  <small id="adm-bed-rate-hint" style="display:none;margin-top:5px;font-weight:700;color:#1565c0;font-size:0.82rem;background:#eff6ff;padding:3px 8px;border-radius:5px;border:1px solid #bfdbfe"></small>
                </div>
                <div class="sp-field" style="grid-column:1/-1">
                   <label>Patient Ref / Chart No <small style="color:#888;font-weight:400">(auto-filled on phone blur)</small></label>
@@ -944,6 +946,14 @@
          <div class="sp-modal-footer">
             <button class="sp-btn-cancel" onclick="closeDischargeModal()">Cancel</button>
             <button class="sp-btn-save" style="background:#0d47a1" onclick="saveDischargeAndPrint()">💾 Discharge &amp; Print Summary</button>
+         </div>
+      </div>
+   </div>
+
+   <div id="shop-panel-revenue" class="hidden">
+      <div style="padding:18px 22px">
+         <div id="shopRevenueContent">
+            <div class="shop-empty">Loading…</div>
          </div>
       </div>
    </div>

@@ -7590,3 +7590,17 @@ body.profile-page { background: #f5f7fb; }
    font-size: 0.9rem;
    padding: 40px 20px;
 }
+
+/* ── Revenue tab badges ── */
+.rev-source-badge {
+   font-size: 0.68rem; font-weight: 700; padding: 2px 7px;
+   border-radius: 5px; white-space: nowrap;
+}
+.rev-source-badge.opd { background: #dbeafe; color: #1e40af; }
+.rev-source-badge.ip  { background: #f3e8ff; color: #6b21a8; }
+.rev-pay-badge {
+   font-size: 0.75rem; font-weight: 600; padding: 2px 8px;
+   border-radius: 5px; white-space: nowrap;
+}
+.rev-pay-badge.paid    { background: #dcfce7; color: #166534; }
+.rev-pay-badge.pending { background: #fef9c3; color: #92400e; }

@@ -840,3 +840,32 @@ DO $$ BEGIN
    ALTER PUBLICATION supabase_realtime ADD TABLE public.ip_bill_items;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- Phase 10 — Hospital Beds
+CREATE TABLE IF NOT EXISTS public.hospital_beds (
+   id              text        PRIMARY KEY,
+   provider_id     text        NOT NULL,
+   category        text        NOT NULL DEFAULT '',   -- General Ward / Twin Sharing / Private Room / Deluxe Room / Super Deluxe Room / ICU
+   room_number     text        NOT NULL DEFAULT '',
+   bed_number      text        NOT NULL DEFAULT '',
+   floor           text        DEFAULT '',
+   status          text        NOT NULL DEFAULT 'Available',  -- Available / Occupied / Maintenance / Reserved
+   notes           text        DEFAULT '',
+   active          boolean     DEFAULT true,
+   created_at      timestamptz DEFAULT now(),
+   updated_at      timestamptz DEFAULT now()
+);
+ALTER TABLE public.hospital_beds DISABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS hospital_beds_provider_idx ON public.hospital_beds(provider_id);
+DO $$ BEGIN
+   ALTER PUBLICATION supabase_realtime ADD TABLE public.hospital_beds;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Phase 10b — link admission to bed
+ALTER TABLE public.admissions
+   ADD COLUMN IF NOT EXISTS bed_id text DEFAULT '';
+
+-- Phase 10c — rate per day on beds
+ALTER TABLE public.hospital_beds
+   ADD COLUMN IF NOT EXISTS rate_per_day numeric DEFAULT 0;

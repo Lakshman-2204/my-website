@@ -692,6 +692,13 @@ window.AppDB = {
    //    pattern as admission_payments. Items are replaced on every save
    //    (delete-then-insert) so the doctor can freely add/remove lines
    //    without us tracking individual diffs.
+   async getIpBillsByProvider(providerId) {
+      const { data, error } = await _sb.from('ip_bills').select('*')
+         .eq('provider_id', providerId)
+         .order('bill_date', { ascending: false });
+      if (error) { console.error('getIpBillsByProvider:', error.message); return []; }
+      return data || [];
+   },
    async getIpBill(admissionId) {
       const { data, error } = await _sb.from('ip_bills').select('*')
          .eq('admission_id', admissionId).maybeSingle();
@@ -1581,6 +1588,7 @@ window.AppDB = {
         category: b.category || '', room_number: b.room_number || '',
         bed_number: b.bed_number || '', floor: b.floor || '',
         status: b.status || 'Available', notes: b.notes || '',
+        rate_per_day: Number(b.rate_per_day || 0),
         active: b.active !== false,
         updated_at: new Date().toISOString()
      };
@@ -1601,6 +1609,7 @@ window.AppDB = {
            category: b.category || '', room_number: b.room_number || '',
            bed_number: b.bed_number || '', floor: b.floor || '',
            status: b.status || 'Available', notes: b.notes || '',
+           rate_per_day: Number(b.rate_per_day || 0),
            active: true, updated_at: now
         };
      });

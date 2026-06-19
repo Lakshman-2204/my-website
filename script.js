@@ -8877,7 +8877,7 @@ function switchShopTab(tab) {
    }
    if (tab === 'doctors')      renderShopDoctors();
    if (tab === 'patients')     { _patientsMode = patientsSub || _patientsMode || 'out'; renderShopPatients(); }
-   if (tab === 'admissions')   renderShopAdmissions();
+   if (tab === 'admissions')   { window._admTabActive = 'admitted'; renderShopAdmissions(); }
    if (tab === 'staff')        renderShopStaff();
    if (tab === 'revenue')      renderShopRevenue();
    if (tab === 'beds')         renderShopBeds();
@@ -12642,7 +12642,7 @@ async function renderShopRevenue() {
             '<td><span class="rev-source-badge ip">IP Bill</span></td>' +
             '<td>' + (adm.patient_name || '—') + (adm.patient_phone ? '<div style="font-size:0.75rem;color:#888">📞 ' + adm.patient_phone + '</div>' : '') + '</td>' +
             '<td>' + (b.bill_no || '—') + '</td>' +
-            '<td style="text-align:right">' + fmt(b.net_payable||0) + '</td>' +
+            '<td style="text-align:right">' + fmt(Math.max(b.net_payable||0, b.advance_paid||0)) + '</td>' +
             '<td><span class="rev-pay-badge ' + (balance <= 0 ? 'paid' : 'pending') + '">' + (balance <= 0 ? '✓ Settled' : '⏳ Balance ' + fmt(balance)) + '</span></td>' +
             '<td style="text-align:right;color:#c62828">' + (b.discount_amt ? fmt(b.discount_amt) : '—') + '</td>' +
             '<td>' + (b.payment_mode || 'Cash') + '</td>' +
@@ -12666,7 +12666,7 @@ async function renderShopRevenue() {
       var balance = Math.max(0, (b.net_payable||0) - (b.advance_paid||0));
       window._revExportRows.push({
          'Date': b.bill_date||'', 'Type': 'IP Bill', 'Patient': adm.patient_name||'', 'Phone': adm.patient_phone||'',
-         'Doctor / Ref': b.bill_no||'', 'Gross (Rs)': b.net_payable||0,
+         'Doctor / Ref': b.bill_no||'', 'Gross (Rs)': Math.max(b.net_payable||0, b.advance_paid||0),
          'Status': balance <= 0 ? 'Settled' : 'Pending Balance', 'Refund (Rs)': b.discount_amt||0,
          'Net (Rs)': (b.net_payable||0) - (b.discount_amt||0), 'Payment Mode': b.payment_mode||'Cash'
       });

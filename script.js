@@ -11711,7 +11711,7 @@ async function renderShopAdmissions() {
    var tableRows, thead;
 
    if (activeTab === 'admitted') {
-      thead = '<tr><th>Location / Bed</th><th>Patient</th><th>Length of Stay</th><th>Admit Date</th><th>Target Discharge</th><th>Vitals</th><th style="text-align:right">Actions</th></tr>';
+      thead = '<tr><th>Location / Bed</th><th>Patient</th><th>Length of Stay</th><th>Admit Date</th><th>Target Discharge</th><th>Doctor</th><th style="text-align:right">Actions</th></tr>';
       var admSearchVal = (window._admAdmSearchVal || '').toLowerCase();
       var admFiltered = admitted.filter(function(r) {
          if (!admSearchVal) return true;
@@ -11753,12 +11753,7 @@ async function renderShopAdmissions() {
                       '<td><span class="apt-status confirmed">🗓️ ' + los + ' day' + (los === 1 ? '' : 's') + '</span></td>' +
                       '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
                       '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
-                      '<td style="font-size:0.75rem;color:#5f6473;white-space:nowrap">' +
-                         (r.bp_systolic ? '<div>BP ' + r.bp_systolic + '/' + (r.bp_diastolic||'—') + '</div>' : '') +
-                         (r.pulse_bpm   ? '<div>♥ ' + r.pulse_bpm + ' bpm</div>' : '') +
-                         (r.spo2        ? '<div>SpO₂ ' + r.spo2 + '%</div>' : '') +
-                         (!r.bp_systolic && !r.pulse_bpm ? '<span style="color:#ccc">—</span>' : '') +
-                      '</td>' +
+                      '<td><div class="apt-tbl-name">' + (r.doctor_name || '—') + '</div></td>' +
                       '<td style="text-align:right">' +
                          '<div class="adm-act-row">' +
                             '<button class="adm-act-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button>' +

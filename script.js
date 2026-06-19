@@ -10265,43 +10265,59 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
       '</div>';
 
    // ── Visit timeline ──
+   // Build a map of prescription by appointment_id for quick lookup
+   var rxByAptId = {};
+   rxRows.forEach(function(r) { if (r.appointment_id) rxByAptId[r.appointment_id] = r; });
+
+   // Use aptRows as the authoritative visit list; fall back to rxRows if no appointment data
+   var timelineEntries = aptRows.length ? aptRows : rxRows.map(function(r) {
+      return { id: r.appointment_id, created_at: r.created_at, doctor_name: r.doctor_name, _rx: r };
+   });
+
    var timelineHtml;
-   if (!rxRows.length) {
-      timelineHtml = '<div style="color:#9ca3af;font-style:italic;font-size:0.85rem;padding:6px 0">No prescription history at this hospital yet.</div>';
+   if (!timelineEntries.length) {
+      timelineHtml = '<div style="color:#9ca3af;font-style:italic;font-size:0.85rem;padding:6px 0">No visit history at this hospital yet.</div>';
    } else {
-      timelineHtml = '<div class="ph-tl-wrap">' + rxRows.map(function(r, idx) {
-         var d = new Date(r.created_at);
+      timelineHtml = '<div class="ph-tl-wrap">' + timelineEntries.map(function(apt, idx) {
+         var r = apt._rx || rxByAptId[apt.id] || null;
+         var d = new Date(apt.created_at);
          var when = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
          var time = isNaN(d.getTime()) ? '' : ' · ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
          var isLatest = idx === 0;
-         var meds = (r.medicines || []).map(function(m) {
+         var docName = (r && r.doctor_name) || apt.doctor_name || '—';
+         var docSpec  = (r && r.doctor_speciality) || '';
+         var meds = r ? (r.medicines || []).map(function(m) {
             return '<li><b>' + _esc(m.name||'—') + '</b>' +
                (m.type    ? ' <span style="color:#6b7280">(' + _esc(m.type) + ')</span>' : '') +
                (m.dosage  ? ' · ' + _esc(m.dosage)   : '') +
                (m.duration? ' · ' + _esc(m.duration)  : '') + '</li>';
-         }).join('');
+         }).join('') : '';
          var vitals = [];
-         if (r.weight_kg)   vitals.push('Wt ' + r.weight_kg + 'kg');
-         if (r.bp_systolic) vitals.push('BP ' + r.bp_systolic + '/' + (r.bp_diastolic||'—'));
-         if (r.pulse_bpm)   vitals.push('Pulse ' + r.pulse_bpm);
-         if (r.temp_f)      vitals.push('Temp ' + r.temp_f + '°F');
-         if (r.spo2)        vitals.push('SpO₂ ' + r.spo2 + '%');
+         if (r) {
+            if (r.weight_kg)   vitals.push('Wt ' + r.weight_kg + 'kg');
+            if (r.bp_systolic) vitals.push('BP ' + r.bp_systolic + '/' + (r.bp_diastolic||'—'));
+            if (r.pulse_bpm)   vitals.push('Pulse ' + r.pulse_bpm);
+            if (r.temp_f)      vitals.push('Temp ' + r.temp_f + '°F');
+            if (r.spo2)        vitals.push('SpO₂ ' + r.spo2 + '%');
+         }
          var fuLbl = '';
-         if (r.follow_up_date) { var fd=new Date(r.follow_up_date+'T00:00:00'); if(!isNaN(fd.getTime())) fuLbl=fd.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+         if (r && r.follow_up_date) { var fd=new Date(r.follow_up_date+'T00:00:00'); if(!isNaN(fd.getTime())) fuLbl=fd.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+         var noPrescription = !r;
          return '<div class="ph-tl-entry">' +
                    '<div class="ph-tl-dot' + (isLatest?' ph-tl-latest':'') + '"></div>' +
                    '<div class="ph-tl-head">' +
                       '<div>' +
                          '<span class="ph-tl-date">' + when + time + '</span>' +
-                         '<span class="ph-tl-doc"> · ' + _esc(r.doctor_name||'—') + (r.doctor_speciality?' <span style="color:#9ca3af">· '+_esc(r.doctor_speciality)+'</span>':'') + '</span>' +
+                         '<span class="ph-tl-doc"> · ' + _esc(docName) + (docSpec?' <span style="color:#9ca3af">· '+_esc(docSpec)+'</span>':'') + '</span>' +
                       '</div>' +
                       '<span class="ph-tl-badge ' + (isLatest?'ph-tl-badge-latest':'ph-tl-badge-past') + '">' + (isLatest?'Latest':'Visit') + '</span>' +
                    '</div>' +
                    (vitals.length ? '<div class="ph-tl-vitals">' + vitals.join(' · ') + '</div>' : '') +
-                   (r.diagnosis   ? '<div class="ph-tl-dx">Dx: ' + _esc(r.diagnosis) + '</div>' : '') +
-                   (meds          ? '<ul class="ph-tl-meds">' + meds + '</ul>' : '') +
-                   (r.advice      ? '<div class="ph-tl-advice">Advice: ' + _esc(r.advice) + '</div>' : '') +
-                   (fuLbl         ? '<div class="ph-tl-fu">📅 Follow-up: ' + fuLbl + '</div>' : '') +
+                   (r && r.diagnosis ? '<div class="ph-tl-dx">Dx: ' + _esc(r.diagnosis) + '</div>' : '') +
+                   (meds             ? '<ul class="ph-tl-meds">' + meds + '</ul>' : '') +
+                   (r && r.advice    ? '<div class="ph-tl-advice">Advice: ' + _esc(r.advice) + '</div>' : '') +
+                   (fuLbl            ? '<div class="ph-tl-fu">📅 Follow-up: ' + fuLbl + '</div>' : '') +
+                   (noPrescription   ? '<div style="font-size:0.78rem;color:#9ca3af;font-style:italic;margin-top:4px">Consultation completed · no prescription recorded</div>' : '') +
                 '</div>';
       }).join('') + '</div>';
    }
@@ -12625,9 +12641,12 @@ async function renderShopRevenue() {
    var pStart = periodStart(_revPeriod);
 
    // Fetch data
-   var apts    = await AppDB.getAppointmentsByOwner(user.email);
-   var admRows = await AppDB.getAdmissions(p.id);
-   var ipBills = await AppDB.getIpBillsByProvider(p.id);
+   var [apts, admRows, ipBills, admPayments] = await Promise.all([
+      AppDB.getAppointmentsByOwner(user.email),
+      AppDB.getAdmissions(p.id),
+      AppDB.getIpBillsByProvider(p.id),
+      AppDB.getAdmissionPaymentsByProvider(p.id)
+   ]);
 
    // OPD rows for period
    var opdAll = (apts || []).filter(function(a) {
@@ -12642,13 +12661,23 @@ async function renderShopRevenue() {
    var admMap = {};
    (admRows || []).forEach(function(r) { admMap[r.id] = r; });
 
+   // Admissions that have a finalized (non-Draft) ip_bill — deposits already captured in ip_bills.advance_paid
+   var billedAdmIds = new Set(ipBills.filter(function(b){ return b.status !== 'Draft'; }).map(function(b){ return b.admission_id; }));
+
+   // Deposits for admissions with NO finalized bill — these are missing from ipAll
+   var unbilledDeposits = (admPayments || []).filter(function(dp) {
+      var paidDate = (dp.paid_at || '').slice(0, 10);
+      return !billedAdmIds.has(dp.admission_id) && paidDate >= pStart;
+   });
+   var unbilledDepositTotal = unbilledDeposits.reduce(function(s, dp){ return s + Number(dp.amount || 0); }, 0);
+
    // ── Summary figures ──────────────────────────────────────────────────────
    var opdCollected = opdAll.filter(function(a){ return a.is_paid; }).reduce(function(s,a){ return s+(a.fee||0); },0);
    var opdPending   = opdAll.filter(function(a){ return !a.is_paid; }).reduce(function(s,a){ return s+(a.fee||0); },0);
    var opdRefunds   = opdAll.reduce(function(s,a){ return s+Number(a.refund_amount||0); },0);
    var opdNet       = opdCollected - opdRefunds;
 
-   var ipCollected  = ipAll.reduce(function(s,b){ return s+(b.advance_paid||0); },0);
+   var ipCollected  = ipAll.reduce(function(s,b){ return s+(b.advance_paid||0); },0) + unbilledDepositTotal;
    var ipNet        = ipAll.reduce(function(s,b){ return s+(b.net_payable||0); },0);
    var ipPending    = Math.max(0, ipNet - ipCollected);
    var ipDiscount   = ipAll.reduce(function(s,b){ return s+(b.discount_amt||0); },0);
@@ -12670,9 +12699,14 @@ async function renderShopRevenue() {
    if (showOpd) opdAll.filter(function(a){return a.is_paid;}).forEach(function(a){
       var m = a.payment_mode || 'Cash'; modeMap[m] = (modeMap[m]||0) + (a.fee||0);
    });
-   if (showIp) ipAll.forEach(function(b){
-      var m = b.payment_mode || 'Cash'; modeMap[m] = (modeMap[m]||0) + (b.advance_paid||0);
-   });
+   if (showIp) {
+      ipAll.forEach(function(b){
+         var m = b.payment_mode || 'Cash'; modeMap[m] = (modeMap[m]||0) + (b.advance_paid||0);
+      });
+      unbilledDeposits.forEach(function(dp){
+         var m = dp.payment_mode || 'Cash'; modeMap[m] = (modeMap[m]||0) + Number(dp.amount||0);
+      });
+   }
    var modeRows = Object.keys(modeMap).sort().map(function(m){
       return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:0.85rem">' +
              '<span style="color:#555">' + m + '</span><strong>' + fmt(modeMap[m]) + '</strong></div>';
@@ -12717,6 +12751,20 @@ async function renderShopRevenue() {
             '<td><span class="rev-pay-badge ' + (balance <= 0 ? 'paid' : 'pending') + '">' + (balance <= 0 ? '✓ Settled' : '⏳ Balance ' + fmt(balance)) + '</span></td>' +
             '<td style="text-align:right;color:#c62828">' + (b.discount_amt ? fmt(b.discount_amt) : '—') + '</td>' +
             '<td>' + (b.payment_mode || 'Cash') + '</td>' +
+         '</tr>';
+      });
+      unbilledDeposits.forEach(function(dp) {
+         var adm = admMap[dp.admission_id] || {};
+         var paidDate = (dp.paid_at || '').slice(0, 10);
+         tableRows += '<tr>' +
+            '<td>' + paidDate + '</td>' +
+            '<td><span class="rev-source-badge ip" style="background:#fff3e0;color:#e65100;border-color:#f59e0b">Deposit</span></td>' +
+            '<td>' + (adm.patient_name || '—') + (adm.patient_phone ? '<div style="font-size:0.75rem;color:#888">📞 ' + adm.patient_phone + '</div>' : '') + '</td>' +
+            '<td>' + (dp.receipt_no || '—') + '</td>' +
+            '<td style="text-align:right">' + fmt(dp.amount||0) + '</td>' +
+            '<td><span class="rev-pay-badge paid">✓ Collected</span></td>' +
+            '<td style="text-align:right;color:#c62828">—</td>' +
+            '<td>' + (dp.payment_mode || 'Cash') + '</td>' +
          '</tr>';
       });
    }

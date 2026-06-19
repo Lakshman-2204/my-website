@@ -702,6 +702,15 @@ window.AppDB = {
       console.error('addAdmissionPayment: too many races minting receipt no.');
       return null;
    },
+   async getAdmissionPaymentsByProvider(providerId) {
+      if (!providerId) return [];
+      const { data, error } = await _sb.from('admission_payments').select('*')
+         .eq('provider_id', providerId)
+         .order('paid_at', { ascending: false });
+      if (error) { console.error('getAdmissionPaymentsByProvider:', error.message); return []; }
+      return data || [];
+   },
+
    async getAdmissionPayments(admissionId) {
       const { data, error } = await _sb.from('admission_payments').select('*')
          .eq('admission_id', admissionId)

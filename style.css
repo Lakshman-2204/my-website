@@ -2382,6 +2382,21 @@ body.guest .store-section-divider {
 .adm-rounds-pill.pending { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
 .adm-rounds-pill.done    { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; pointer-events: none; }
 
+.adm-act-row { display: flex; gap: 3px; justify-content: flex-end; flex-wrap: nowrap; }
+.adm-act-btn {
+	padding: 3px 7px;
+	font-size: 0.71rem;
+	font-weight: 600;
+	color: #fff;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	white-space: nowrap;
+	opacity: 0.92;
+	transition: opacity 0.12s;
+}
+.adm-act-btn:hover { opacity: 1; }
+
 /* Admission modal — section headings (mirror the reference admission form) */
 .adm-section-head {
 	margin: 0 0 8px;

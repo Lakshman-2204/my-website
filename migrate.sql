@@ -775,6 +775,9 @@ ALTER TABLE public.discharge_summaries
    ADD COLUMN IF NOT EXISTS dama_risks_explained text DEFAULT '',
    ADD COLUMN IF NOT EXISTS dama_reason_given    text DEFAULT '';
 
+ALTER TABLE public.discharge_summaries
+   ADD COLUMN IF NOT EXISTS daily_notes jsonb DEFAULT '[]'::jsonb;
+
 -- 31. IP_BILLS — final itemized in-patient bill issued at discharge. One
 --     bill per admission (UNIQUE admission_id). Bill numbers are sequential
 --     per hospital so the printed bill carries an audit-friendly reference.
@@ -871,3 +874,8 @@ ALTER TABLE public.hospital_beds
    ADD COLUMN IF NOT EXISTS rate_per_day numeric DEFAULT 0;
 ALTER TABLE public.hospital_beds
    ADD COLUMN IF NOT EXISTS gst_pct numeric DEFAULT 0;
+
+
+-- Phase 11 — Rounds date tracking for daily auto-reset
+ALTER TABLE public.admissions
+   ADD COLUMN IF NOT EXISTS rounds_date date DEFAULT NULL;  -- date when rounds was last marked complete

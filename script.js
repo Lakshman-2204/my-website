@@ -9430,11 +9430,7 @@ async function renderShopOverview() {
                '<div id="hkpi-beds-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🛏️</span><span>Total Beds</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
                _hkpi('👨‍⚕️', 'Doctors', docCount - (p.doctors||[]).filter(function(d){return d.on_leave;}).length, 'Active', (p.doctors||[]).filter(function(d){return d.on_leave;}).length + ' on leave', 'hkpi-color-amber') +
                '<div id="hkpi-pts-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>👥</span><span>Patients</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
-               (function(){
-                  var todayCollected = todayApts.filter(function(a){return a.status==='Completed';}).reduce(function(s,a){return s+(a.fee||0);},0);
-                  var todayPending   = todayApts.filter(function(a){return a.status==='Confirmed';}).reduce(function(s,a){return s+(a.fee||0);},0);
-                  return _hkpi('💰', 'Revenue', '₹' + todayCollected.toLocaleString('en-IN'), 'Today', '₹' + todayPending.toLocaleString('en-IN') + ' pending · Month: ₹' + monthRevenue.toLocaleString('en-IN'), 'hkpi-color-emerald');
-               })() +
+               '<div id="hkpi-rev-' + p.id + '" class="hosp-kpi-card hkpi-color-emerald"><div class="hkpi-head"><span>💰</span><span>Revenue</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
                '<div id="hkpi-adm-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🏥</span><span>Admissions</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
             '</div>' +
             '<div class="shop-ov-layout">' +
@@ -9464,8 +9460,12 @@ async function renderShopOverview() {
    // Async: fill admission-dependent KPI cards
    mine.forEach(async function(p) {
       var provApts2 = apts.filter(function(a) { return a.provider_id === p.id; });
-      var admRows   = await AppDB.getAdmissions(p.id);
-      var bedRows   = await AppDB.getBeds(p.id);
+      var [admRows, bedRows, ipBills, admPayments] = await Promise.all([
+         AppDB.getAdmissions(p.id),
+         AppDB.getBeds(p.id),
+         AppDB.getIpBillsByProvider(p.id),
+         AppDB.getAdmissionPaymentsByProvider(p.id)
+      ]);
       var admitted  = admRows.filter(function(r) { return r.status === 'Admitted'; });
       var discharged= admRows.filter(function(r) { return r.status === 'Discharged'; }).length;
       var todayDisch= admitted.filter(function(r) { return r.target_discharge === todayYmd; }).length;
@@ -9489,6 +9489,26 @@ async function renderShopOverview() {
          '<div class="hkpi-head"><span>👥</span><span>Patients</span></div>' +
          '<div class="hkpi-body"><span class="hkpi-num">' + uniquePts + '</span><span class="hkpi-badge hkpi-blue">Total</span></div>' +
          '<div class="hkpi-sub">Unique via appointments · ' + admitted.length + ' admitted</div>';
+
+      // ── Revenue KPI (OPD + IP bills + unbilled deposits) ──
+      var todayOpdCollected = provApts2.filter(function(a){ return a.date === todayYmd && a.status === 'Completed' && a.is_paid; }).reduce(function(s,a){ return s+(a.fee||0); },0);
+      var todayOpdPending   = provApts2.filter(function(a){ return a.date === todayYmd && a.status === 'Confirmed'; }).reduce(function(s,a){ return s+(a.fee||0); },0);
+      var monthOpdCollected = provApts2.filter(function(a){ var d=new Date(a.date+'T00:00:00'); return !isNaN(d)&&d>=monthStart&&a.status==='Completed'&&a.is_paid; }).reduce(function(s,a){ return s+(a.fee||0); },0);
+      var billedAdmIds = new Set((ipBills||[]).filter(function(b){ return b.status!=='Draft'; }).map(function(b){ return b.admission_id; }));
+      var todayIpBills = (ipBills||[]).filter(function(b){ return b.bill_date===todayYmd && b.status!=='Draft'; });
+      var todayIpCollected = todayIpBills.reduce(function(s,b){ return s+(b.advance_paid||0); },0);
+      var todayDeposits = (admPayments||[]).filter(function(dp){ return !billedAdmIds.has(dp.admission_id) && (dp.paid_at||'').slice(0,10)===todayYmd; }).reduce(function(s,dp){ return s+Number(dp.amount||0); },0);
+      var monthStartYmd = monthStart.getFullYear() + '-' + String(monthStart.getMonth()+1).padStart(2,'0') + '-01';
+      var monthIpBills = (ipBills||[]).filter(function(b){ return (b.bill_date||'')>=monthStartYmd && b.status!=='Draft'; });
+      var monthIpCollected = monthIpBills.reduce(function(s,b){ return s+(b.advance_paid||0); },0);
+      var monthDeposits = (admPayments||[]).filter(function(dp){ return !billedAdmIds.has(dp.admission_id) && (dp.paid_at||'').slice(0,10)>=monthStartYmd; }).reduce(function(s,dp){ return s+Number(dp.amount||0); },0);
+      var todayTotal = todayOpdCollected + todayIpCollected + todayDeposits;
+      var monthTotal = monthOpdCollected + monthIpCollected + monthDeposits;
+      var revEl = document.getElementById('hkpi-rev-' + p.id);
+      if (revEl) revEl.innerHTML =
+         '<div class="hkpi-head"><span>💰</span><span>Revenue</span></div>' +
+         '<div class="hkpi-body"><span class="hkpi-num">₹' + todayTotal.toLocaleString('en-IN') + '</span><span class="hkpi-badge hkpi-green">Today</span></div>' +
+         '<div class="hkpi-sub">₹' + todayOpdPending.toLocaleString('en-IN') + ' OPD pending · Month: ₹' + monthTotal.toLocaleString('en-IN') + '</div>';
 
       var roundsPending = admitted.filter(function(r) {
          return !(r.rounds_status === 'complete' && r.rounds_date === todayYmd);
@@ -10233,6 +10253,12 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
       AppDB.getHospitalPatientId(providerId, phone, name),
       AppDB.getPatientAdmissions(providerId, phone, name)
    ]);
+   // Fetch discharge summaries (for daily progress notes) for each admission
+   var dsSummaries = {};
+   if (admRows && admRows.length) {
+      var dsResults = await Promise.all(admRows.map(function(a){ return AppDB.getDischargeSummary(a.id); }));
+      admRows.forEach(function(a, i){ if (dsResults[i]) dsSummaries[a.id] = dsResults[i]; });
+   }
 
    // ── Allergy banner ──
    var allergyBanner = '';
@@ -10358,6 +10384,23 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
                '<div style="font-weight:600;font-size:0.88rem;color:#1e293b">' + _esc(loc) + statusBadge + '</div>' +
                '<div style="font-size:0.8rem;color:#64748b;margin-top:2px">Admitted ' + admLbl + (disLbl ? ' → ' + disLbl : '') + (los !== null ? ' (' + los + 'd stay)' : '') + '</div>' +
                (a.notes ? '<div style="font-size:0.78rem;color:#64748b;margin-top:3px;font-style:italic">' + _esc(a.notes.slice(0, 120)) + (a.notes.length > 120 ? '…' : '') + '</div>' : '') +
+               (function() {
+                  var ds = dsSummaries[a.id];
+                  var notes = (ds && Array.isArray(ds.daily_notes) && ds.daily_notes.length) ? ds.daily_notes : [];
+                  if (!notes.length) return '';
+                  var rows = notes.map(function(n) {
+                     var vitals = [n.bp&&'BP '+n.bp, n.pulse&&'Pulse '+n.pulse, n.temp&&'Temp '+n.temp+'°F', n.spo2&&'SpO₂ '+n.spo2+'%'].filter(Boolean).join(' · ');
+                     return '<div style="padding:5px 0;border-bottom:1px solid #ede9fe;font-size:0.78rem">' +
+                        '<span style="font-weight:600;color:#6d28d9">' + _esc(n.date) + (n.doctor?' · '+_esc(n.doctor):'') + '</span>' +
+                        (vitals ? ' <span style="color:#64748b">— ' + vitals + '</span>' : '') +
+                        (n.findings ? '<div style="color:#1e293b;margin-top:2px">' + _esc(n.findings) + '</div>' : '') +
+                        (n.procedures ? '<div style="color:#475569;font-style:italic">' + _esc(n.procedures) + '</div>' : '') +
+                     '</div>';
+                  }).join('');
+                  return '<div style="margin-top:8px;background:#f5f3ff;border-radius:6px;padding:4px 10px">' +
+                     '<div style="font-size:0.75rem;font-weight:700;color:#6d28d9;margin-bottom:2px">📋 Progress Notes (' + notes.length + ' days)</div>' +
+                     rows + '</div>';
+               })() +
             '</div>' +
          '</div>';
       }).join('');
@@ -11727,13 +11770,17 @@ async function renderShopAdmissions() {
                          (!r.bp_systolic && !r.pulse_bpm ? '<span style="color:#ccc">—</span>' : '') +
                       '</td>' +
                       '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" ' + (roundsDone ? '' : 'onclick="toggleAdmissionRounds(\'' + rid + '\')"') + ' style="' + (roundsDone ? 'cursor:default' : 'cursor:pointer') + '">' + (roundsDone ? '✓ Done' : '⏳ Pending') + '</span></td>' +
-                      '<td style="text-align:right;white-space:nowrap">' +
-                         '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
-                         '<button class="apt-view-btn" style="background:#6a1b9a" onclick="printAdmissionConsent(\'' + rid + '\')">📄 Consent</button> ' +
-                         '<button class="apt-view-btn" style="background:#00796b" onclick="openDepositModal(\'' + rid + '\')">💰 Deposit</button> ' +
-                         '<button class="apt-view-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button> ' +
-                         '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button> ' +
-                         '<button class="apt-view-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
+                      '<td style="text-align:right">' +
+                         '<div class="adm-act-row">' +
+                            '<button class="adm-act-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button>' +
+                            '<button class="adm-act-btn" style="background:#6a1b9a" onclick="printAdmissionConsent(\'' + rid + '\')">📄 Consent</button>' +
+                            '<button class="adm-act-btn" style="background:#00796b" onclick="openDepositModal(\'' + rid + '\')">💰 Deposit</button>' +
+                         '</div>' +
+                         '<div class="adm-act-row" style="margin-top:4px">' +
+                            '<button class="adm-act-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button>' +
+                            '<button class="adm-act-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button>' +
+                            '<button class="adm-act-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Del</button>' +
+                         '</div>' +
                       '</td>' +
                    '</tr>';
          }).join('');
@@ -11777,11 +11824,15 @@ async function renderShopAdmissions() {
                       '<td><strong style="color:#2e7d32">' + disLbl + '</strong></td>' +
                       '<td><span class="apt-status confirmed">' + (typeof los === 'number' ? los + ' day' + (los === 1 ? '' : 's') : '—') + '</span></td>' +
                       '<td style="color:#555;font-size:0.85rem">' + (r.doctor_name || '—') + '</td>' +
-                      '<td style="text-align:right;white-space:nowrap">' +
-                         '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
-                         '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">📋 Summary</button> ' +
-                         '<button class="apt-view-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button> ' +
-                         '<button class="apt-view-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
+                      '<td style="text-align:right">' +
+                         '<div class="adm-act-row">' +
+                            '<button class="adm-act-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button>' +
+                            '<button class="adm-act-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">📋 Summary</button>' +
+                         '</div>' +
+                         '<div class="adm-act-row" style="margin-top:4px">' +
+                            '<button class="adm-act-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button>' +
+                            '<button class="adm-act-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Del</button>' +
+                         '</div>' +
                       '</td>' +
                    '</tr>';
          }).join('');
@@ -12222,10 +12273,16 @@ async function toggleAdmissionRounds(id) {
    var r = (rows || []).find(function(x) { return x.id === id; });
    if (!r) return;
    var todayYmd = _todayLocalYmd();
-   if (r.rounds_status === 'complete' && r.rounds_date === todayYmd) return; // already done today, nothing to do
-   if (!confirm('Has the doctor completed rounds for ' + (r.patient_name || 'this patient') + ' today?')) return;
-   await AppDB.patchAdmission(id, { rounds_status: 'complete', rounds_date: todayYmd });
-   renderShopAdmissions();
+   if (r.rounds_status === 'complete' && r.rounds_date === todayYmd) return; // already done today
+   _dsRoundsMode = true;
+   await dischargeAdmission(id);
+   // Scroll to progress notes section and focus findings
+   setTimeout(function() {
+      var heading = document.getElementById('ds-progress-heading');
+      if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      var findings = document.getElementById('dpn-findings');
+      if (findings) findings.focus();
+   }, 300);
 }
 
 // Open the discharge summary modal for an admission. Loads any existing
@@ -12233,6 +12290,89 @@ async function toggleAdmissionRounds(id) {
 // doctor name + speciality from the admission row, and offers a one-click
 // "pull from latest prescription" to populate the discharge meds field.
 var _dsAdmission = null;
+var _dsDailyNotes = [];   // in-memory array of progress note objects
+var _dsRoundsMode = false; // true when opened from rounds button
+
+function _dsRenderProgressNotes() {
+   var host = document.getElementById('ds-progress-list');
+   if (!host) return;
+   if (!_dsDailyNotes.length) {
+      host.innerHTML = '<div style="color:#9ca3af;font-style:italic;font-size:0.82rem;padding:6px 2px">No progress notes yet.</div>';
+      return;
+   }
+   var _esc = function(s){ return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
+   host.innerHTML = _dsDailyNotes.map(function(n, i) {
+      var vitals = [];
+      if (n.bp)     vitals.push('BP ' + n.bp);
+      if (n.pulse)  vitals.push('Pulse ' + n.pulse);
+      if (n.temp)   vitals.push('Temp ' + n.temp + '°F');
+      if (n.spo2)   vitals.push('SpO₂ ' + n.spo2 + '%');
+      if (n.weight) vitals.push('Wt ' + n.weight + 'kg');
+      return '<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #1b5e20;border-radius:8px;padding:10px 14px;margin-bottom:8px">' +
+         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+            '<span style="font-weight:700;font-size:0.85rem;color:#1b5e20">' + _esc(n.date) + (n.doctor ? ' · ' + _esc(n.doctor) : '') + '</span>' +
+            '<button onclick="_dsRemoveProgressNote(' + i + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.8rem;padding:0 4px" title="Remove">✕</button>' +
+         '</div>' +
+         (vitals.length ? '<div style="font-size:0.78rem;color:#475569;margin-bottom:4px">' + vitals.join(' · ') + '</div>' : '') +
+         (n.findings   ? '<div style="font-size:0.82rem;color:#1e293b;margin-bottom:2px"><b>Findings:</b> ' + _esc(n.findings) + '</div>' : '') +
+         (n.procedures ? '<div style="font-size:0.82rem;color:#1e293b"><b>Procedures:</b> ' + _esc(n.procedures) + '</div>' : '') +
+      '</div>';
+   }).join('');
+}
+
+function _dsAddProgressNote() {
+   var g = function(id){ return (document.getElementById(id)||{}).value||''; };
+   var date = g('dpn-date') || _todayLocalYmd();
+   var entry = {
+      date: date, doctor: g('dpn-doctor').trim(),
+      bp: g('dpn-bp').trim(), pulse: g('dpn-pulse').trim(),
+      temp: g('dpn-temp').trim(), spo2: g('dpn-spo2').trim(), weight: g('dpn-weight').trim(),
+      findings: g('dpn-findings').trim(), procedures: g('dpn-procedures').trim()
+   };
+   if (!entry.findings && !entry.procedures && !entry.bp && !entry.pulse) {
+      alert('Add at least vitals or findings before saving the entry.'); return;
+   }
+   var existing = _dsDailyNotes.findIndex(function(n){ return n.date === entry.date; });
+   if (existing !== -1) {
+      if (!confirm('An entry for ' + entry.date + ' already exists. Replace it?')) return;
+      _dsDailyNotes[existing] = entry;
+   } else {
+      _dsDailyNotes.unshift(entry); // newest first
+   }
+   _dsRenderProgressNotes();
+   // Clear form fields (keep doctor name for convenience)
+   ['dpn-bp','dpn-pulse','dpn-temp','dpn-spo2','dpn-weight','dpn-findings','dpn-procedures']
+      .forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+}
+
+function _dsRemoveProgressNote(idx) {
+   _dsDailyNotes.splice(idx, 1);
+   _dsRenderProgressNotes();
+}
+
+async function saveProgressNote() {
+   if (!_dsAdmission) return;
+   var btn = document.getElementById('ds-save-progress-btn');
+   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+   // Collect existing summary fields without requiring final diagnosis
+   var get = function(id){ return (document.getElementById(id)||{value:''}).value||''; };
+   var existing = await AppDB.getDischargeSummary(_dsAdmission.id);
+   var saved = await AppDB.upsertDischargeSummary(Object.assign(existing || {}, {
+      provider_id:  _dsAdmission.provider_id,
+      admission_id: _dsAdmission.id,
+      discharge_date: get('ds-discharge-date') || _todayLocalYmd(),
+      daily_notes:  _dsDailyNotes,
+      final_diagnosis: get('ds-final-dx') || (existing && existing.final_diagnosis) || ''
+   }));
+   if (!saved) { alert('Failed to save progress notes.'); if(btn){btn.disabled=false;btn.textContent='💾 Save Progress Note';} return; }
+   // Mark rounds done for today
+   var todayYmd = _todayLocalYmd();
+   await AppDB.patchAdmission(_dsAdmission.id, { rounds_status: 'complete', rounds_date: todayYmd });
+   if (btn) { btn.disabled = false; btn.textContent = '💾 Save Progress Note'; }
+   closeDischargeModal();
+   renderShopAdmissions();
+}
+
 async function dischargeAdmission(id) {
    var rows = await AppDB.getAdmissions(_admHospitalChoice);
    var r = (rows || []).find(function(x) { return x.id === id; });
@@ -12269,6 +12409,12 @@ async function dischargeAdmission(id) {
 
    // Load any existing summary for edit; otherwise blank with today's date.
    var existing = await AppDB.getDischargeSummary(r.id);
+   _dsDailyNotes = (existing && Array.isArray(existing.daily_notes)) ? existing.daily_notes : [];
+   _dsRenderProgressNotes();
+   // Pre-fill today's progress note form
+   var todayYmd = _todayLocalYmd();
+   var dpnDate = document.getElementById('dpn-date'); if (dpnDate) dpnDate.value = todayYmd;
+   var dpnDoc = document.getElementById('dpn-doctor'); if (dpnDoc && !dpnDoc.value) dpnDoc.value = r.doctor_name || '';
    var titleEl = document.getElementById('dischargeModalTitle');
    if (existing) {
       if (titleEl) titleEl.textContent = '✏️ Edit Discharge Summary';
@@ -12301,6 +12447,8 @@ async function dischargeAdmission(id) {
 function closeDischargeModal() {
    document.getElementById('dischargeModal').classList.add('hidden');
    _dsAdmission = null;
+   _dsDailyNotes = [];
+   _dsRoundsMode = false;
 }
 
 // Show / hide the DAMA acknowledgement section based on the condition pick.
@@ -12369,7 +12517,8 @@ async function saveDischargeAndPrint() {
       doctor_speciality:      get('ds-doc-spec'),
       doctor_reg_no:          get('ds-doc-reg'),
       dama_risks_explained:   damaRisks,
-      dama_reason_given:      damaReason
+      dama_reason_given:      damaReason,
+      daily_notes:            _dsDailyNotes
    });
    if (!saved) { alert('Failed to save discharge summary.'); return; }
 

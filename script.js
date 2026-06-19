@@ -11471,19 +11471,19 @@ async function renderShopAdmissions() {
    _admHospitalChoice = chosen.id;
 
    var rows = await AppDB.getAdmissions(chosen.id);
-   var admitted = rows.filter(function(r) { return r.status === 'Admitted'; });
-   var todayYmd = _todayLocalYmd();
+   var admitted   = rows.filter(function(r) { return r.status === 'Admitted'; });
+   var discharged = rows.filter(function(r) { return r.status === 'Discharged'; });
+   var todayYmd   = _todayLocalYmd();
+   var activeTab  = window._admTab || 'admitted';
 
    // Stats
    var totalOccupied = admitted.length;
-   // Avg LOS for currently-admitted (days from admit_date to today)
    var losDays = admitted.map(function(r) {
       var d = new Date((r.admit_date || '') + 'T00:00:00');
       if (isNaN(d.getTime())) return 0;
-      var today = new Date(todayYmd + 'T00:00:00');
-      return Math.max(0, Math.round((today - d) / 86400000));
+      return Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
    });
-   var avgLos = losDays.length ? Math.round(losDays.reduce(function(s, n) { return s + n; }, 0) / losDays.length * 10) / 10 : 0;
+   var avgLos   = losDays.length ? Math.round(losDays.reduce(function(s, n) { return s + n; }, 0) / losDays.length * 10) / 10 : 0;
    var dueToday = admitted.filter(function(r) { return r.target_discharge === todayYmd; }).length;
 
    var hospitalPicker = mine.length === 1 ? '' :
@@ -11493,94 +11493,124 @@ async function renderShopAdmissions() {
 
    var statCards =
       '<div class="shop-ov-kpis" style="padding:0;margin-bottom:14px">' +
-         _kpiCard('blue',   '🛏️', totalOccupied,            'Occupied Beds') +
-         _kpiCard('orange', '🗓️', avgLos + ' days',         'Avg Length of Stay') +
-         _kpiCard('red',    '⚠️',  dueToday,                'Pending Discharges Today') +
+         _kpiCard('blue',   '🛏️', totalOccupied,    'Occupied Beds') +
+         _kpiCard('orange', '🗓️', avgLos + ' days', 'Avg Length of Stay') +
+         _kpiCard('red',    '⚠️',  dueToday,         'Pending Discharges Today') +
+         _kpiCard('green',  '✅',  discharged.length, 'Total Discharged') +
       '</div>';
 
-   var tableRows;
-   if (admitted.length === 0) {
-      tableRows = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#888">No admitted patients. Click <strong>+ Admit Patient</strong> to add one.</td></tr>';
-   } else {
-      tableRows = admitted.map(function(r) {
-         var d = new Date((r.admit_date || '') + 'T00:00:00');
-         var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
-         var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-         var targetLbl = '—', isDueToday = false;
-         if (r.target_discharge) {
-            isDueToday = r.target_discharge === todayYmd;
-            var td = new Date(r.target_discharge + 'T00:00:00');
-            targetLbl = isDueToday ? 'TODAY' : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-         }
-         var roundsDone = r.rounds_status === 'complete';
-         var roundsLbl  = roundsDone ? '✓ Done' : '⏳ Pending';
-         var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
-         var rid = r.id.replace(/'/g, "\\'");
-         var rowCls = isDueToday ? ' style="background:#fff8e1"' : '';
-         return '<tr' + rowCls + '>' +
-                   '<td>' +
-                      '<div class="apt-tbl-name">' + loc + '</div>' +
-                      (r.admission_type && r.admission_type !== 'Planned' ? '<div class="apt-tbl-sub"><span class="adm-type-badge adm-type-' + r.admission_type.toLowerCase().replace(/[^a-z]/g,'') + '">' + r.admission_type + '</span></div>' : '') +
-                   '</td>' +
-                   '<td>' +
-                      '<div class="apt-tbl-name">' + (r.patient_name || '—') +
+   var tabBar =
+      '<div style="display:flex;gap:0;margin-bottom:14px;border:1.5px solid #e0e0e0;border-radius:8px;overflow:hidden;width:fit-content">' +
+         '<button onclick="_admTab(\'admitted\')" style="padding:7px 20px;font-size:0.85rem;font-weight:600;border:none;cursor:pointer;' + (activeTab==='admitted' ? 'background:#1565c0;color:#fff' : 'background:#fff;color:#555') + '">🛏️ Admitted (' + admitted.length + ')</button>' +
+         '<button onclick="_admTab(\'discharged\')" style="padding:7px 20px;font-size:0.85rem;font-weight:600;border:none;cursor:pointer;border-left:1.5px solid #e0e0e0;' + (activeTab==='discharged' ? 'background:#2e7d32;color:#fff' : 'background:#fff;color:#555') + '">✅ Discharged (' + discharged.length + ')</button>' +
+      '</div>';
+
+   var tableRows, thead;
+
+   if (activeTab === 'admitted') {
+      thead = '<tr><th>Location / Bed</th><th>Patient</th><th>Length of Stay</th><th>Admit Date</th><th>Target Discharge</th><th>Vitals</th><th>Rounds</th><th style="text-align:right">Actions</th></tr>';
+      if (!admitted.length) {
+         tableRows = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#888">No admitted patients. Click <strong>+ Admit Patient</strong> to add one.</td></tr>';
+      } else {
+         tableRows = admitted.map(function(r) {
+            var d = new Date((r.admit_date || '') + 'T00:00:00');
+            var los = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((new Date(todayYmd + 'T00:00:00') - d) / 86400000));
+            var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            var targetLbl = '—', isDueToday = false;
+            if (r.target_discharge) {
+               isDueToday = r.target_discharge === todayYmd;
+               var td2 = new Date(r.target_discharge + 'T00:00:00');
+               targetLbl = isDueToday ? 'TODAY' : td2.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            }
+            var roundsDone = r.rounds_status === 'complete';
+            var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
+            var rid = r.id.replace(/'/g, "\\'");
+            return '<tr' + (isDueToday ? ' style="background:#fff8e1"' : '') + '>' +
+                      '<td><div class="apt-tbl-name">' + loc + '</div>' +
+                         (r.admission_type && r.admission_type !== 'Planned' ? '<div class="apt-tbl-sub"><span class="adm-type-badge adm-type-' + r.admission_type.toLowerCase().replace(/[^a-z]/g,'') + '">' + r.admission_type + '</span></div>' : '') +
+                      '</td>' +
+                      '<td><div class="apt-tbl-name">' + (r.patient_name || '—') +
                          (r.blood_group ? ' <span class="adm-bg-badge adm-bg-' + (r.blood_group.replace('+','pos').replace('-','neg')) + '">' + r.blood_group + '</span>' : '') +
                       '</div>' +
-                      (r.patient_ref    ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
-                      (r.patient_phone  ? '<div class="apt-tbl-sub">📞 ' + r.patient_phone + '</div>' : '') +
-                      (r.provisional_diagnosis ? '<div class="apt-tbl-sub" style="color:#7c3aed;font-style:italic">Dx: ' + r.provisional_diagnosis + '</div>' : '') +
-                   '</td>' +
-                   '<td><span class="apt-status confirmed">🗓️ ' + losDays + ' day' + (losDays === 1 ? '' : 's') + '</span></td>' +
-                   '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
-                   '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
-                   '<td style="font-size:0.75rem;color:#5f6473;white-space:nowrap">' +
-                      (r.bp_systolic ? '<div>BP ' + r.bp_systolic + '/' + (r.bp_diastolic||'—') + '</div>' : '') +
-                      (r.pulse_bpm   ? '<div>♥ ' + r.pulse_bpm + ' bpm</div>' : '') +
-                      (r.spo2        ? '<div>SpO₂ ' + r.spo2 + '%</div>' : '') +
-                      (!r.bp_systolic && !r.pulse_bpm ? '<span style="color:#ccc">—</span>' : '') +
-                   '</td>' +
-                   '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" ' +
-                          'title="Click to toggle — doctor uses this for morning rounds checklist" ' +
-                          'onclick="toggleAdmissionRounds(\'' + rid + '\')">' + roundsLbl + '</span></td>' +
-                   '<td style="text-align:right;white-space:nowrap">' +
-                      '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
-                      '<button class="apt-view-btn" style="background:#6a1b9a" title="Print general consent form" onclick="printAdmissionConsent(\'' + rid + '\')">📄 Consent</button> ' +
-                      '<button class="apt-view-btn" style="background:#00796b" title="Collect deposit / advance" onclick="openDepositModal(\'' + rid + '\')">💰 Deposit</button> ' +
-                      '<button class="apt-view-btn" style="background:#00695c" title="Itemized bill" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button> ' +
-                      '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button> ' +
-                      '<button class="apt-view-btn" style="background:#c62828" title="Permanently delete this admission record" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
-                   '</td>' +
-                '</tr>';
-      }).join('');
+                         (r.patient_ref   ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
+                         (r.patient_phone ? '<div class="apt-tbl-sub">📞 ' + r.patient_phone + '</div>' : '') +
+                         (r.provisional_diagnosis ? '<div class="apt-tbl-sub" style="color:#7c3aed;font-style:italic">Dx: ' + r.provisional_diagnosis + '</div>' : '') +
+                      '</td>' +
+                      '<td><span class="apt-status confirmed">🗓️ ' + los + ' day' + (los === 1 ? '' : 's') + '</span></td>' +
+                      '<td><div class="apt-tbl-name">' + admitLbl + '</div></td>' +
+                      '<td><div class="apt-tbl-name"' + (isDueToday ? ' style="color:#e65100;font-weight:700"' : '') + '>' + targetLbl + '</div></td>' +
+                      '<td style="font-size:0.75rem;color:#5f6473;white-space:nowrap">' +
+                         (r.bp_systolic ? '<div>BP ' + r.bp_systolic + '/' + (r.bp_diastolic||'—') + '</div>' : '') +
+                         (r.pulse_bpm   ? '<div>♥ ' + r.pulse_bpm + ' bpm</div>' : '') +
+                         (r.spo2        ? '<div>SpO₂ ' + r.spo2 + '%</div>' : '') +
+                         (!r.bp_systolic && !r.pulse_bpm ? '<span style="color:#ccc">—</span>' : '') +
+                      '</td>' +
+                      '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" onclick="toggleAdmissionRounds(\'' + rid + '\')">' + (roundsDone ? '✓ Done' : '⏳ Pending') + '</span></td>' +
+                      '<td style="text-align:right;white-space:nowrap">' +
+                         '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
+                         '<button class="apt-view-btn" style="background:#6a1b9a" onclick="printAdmissionConsent(\'' + rid + '\')">📄 Consent</button> ' +
+                         '<button class="apt-view-btn" style="background:#00796b" onclick="openDepositModal(\'' + rid + '\')">💰 Deposit</button> ' +
+                         '<button class="apt-view-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button> ' +
+                         '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button> ' +
+                         '<button class="apt-view-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
+                      '</td>' +
+                   '</tr>';
+         }).join('');
+      }
+   } else {
+      thead = '<tr><th>Patient</th><th>Ward / Bed</th><th>Admit Date</th><th>Discharge Date</th><th>Length of Stay</th><th>Doctor</th><th style="text-align:right">Actions</th></tr>';
+      if (!discharged.length) {
+         tableRows = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#888">No discharged patients yet.</td></tr>';
+      } else {
+         var sorted = discharged.slice().sort(function(a, b) { return (b.discharge_date || b.admit_date || '') > (a.discharge_date || a.admit_date || '') ? 1 : -1; });
+         tableRows = sorted.map(function(r) {
+            var admD  = new Date((r.admit_date || '') + 'T00:00:00');
+            var disD  = new Date((r.discharge_date || '') + 'T00:00:00');
+            var admLbl = isNaN(admD.getTime()) ? '—' : admD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            var disLbl = isNaN(disD.getTime()) ? '—' : disD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            var los = (!isNaN(admD.getTime()) && !isNaN(disD.getTime())) ? Math.max(0, Math.round((disD - admD) / 86400000)) : '—';
+            var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
+            var rid = r.id.replace(/'/g, "\\'");
+            return '<tr>' +
+                      '<td><div class="apt-tbl-name">' + (r.patient_name || '—') +
+                         (r.blood_group ? ' <span class="adm-bg-badge adm-bg-' + (r.blood_group.replace('+','pos').replace('-','neg')) + '">' + r.blood_group + '</span>' : '') +
+                      '</div>' +
+                         (r.patient_ref   ? '<div class="apt-tbl-sub" style="font-family:monospace">#' + r.patient_ref + '</div>' : '') +
+                         (r.patient_phone ? '<div class="apt-tbl-sub">📞 ' + r.patient_phone + '</div>' : '') +
+                         (r.provisional_diagnosis ? '<div class="apt-tbl-sub" style="color:#7c3aed;font-style:italic">Dx: ' + r.provisional_diagnosis + '</div>' : '') +
+                      '</td>' +
+                      '<td><div class="apt-tbl-name">' + loc + '</div></td>' +
+                      '<td>' + admLbl + '</td>' +
+                      '<td><strong style="color:#2e7d32">' + disLbl + '</strong></td>' +
+                      '<td><span class="apt-status confirmed">' + (typeof los === 'number' ? los + ' day' + (los === 1 ? '' : 's') : '—') + '</span></td>' +
+                      '<td style="color:#555;font-size:0.85rem">' + (r.doctor_name || '—') + '</td>' +
+                      '<td style="text-align:right;white-space:nowrap">' +
+                         '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
+                         '<button class="apt-view-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button> ' +
+                         '<button class="apt-view-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
+                      '</td>' +
+                   '</tr>';
+         }).join('');
+      }
    }
 
-   // Stash the currently-displayed admissions so bulk delete can target them
-   window._shopAdmFiltered = admitted;
+   window._shopAdmFiltered = activeTab === 'admitted' ? admitted : discharged;
 
    host.innerHTML =
       hospitalPicker +
       statCards +
+      tabBar +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">' +
-         '<h3 style="margin:0;color:#1a1a2e;font-size:1rem">Currently Admitted</h3>' +
+         '<div></div>' +
          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-            (admitted.length ? '<button class="apt-view-btn" style="background:#c62828;padding:8px 14px;font-size:0.85rem" onclick="shopDeleteAllAdmissions()">🗑 Delete All Shown</button>' : '') +
-            '<button class="apt-view-btn" style="background:#1565c0;padding:8px 14px;font-size:0.85rem" onclick="openAdmissionModal()">+ Admit Patient</button>' +
+            (window._shopAdmFiltered.length ? '<button class="apt-view-btn" style="background:#c62828;padding:8px 14px;font-size:0.85rem" onclick="shopDeleteAllAdmissions()">🗑 Delete All Shown</button>' : '') +
+            (activeTab === 'admitted' ? '<button class="apt-view-btn" style="background:#1565c0;padding:8px 14px;font-size:0.85rem" onclick="openAdmissionModal()">+ Admit Patient</button>' : '') +
          '</div>' +
       '</div>' +
-      '<div class="apt-tbl-wrap"><table class="apt-tbl">' +
-         '<thead><tr>' +
-            '<th>Location / Bed</th>' +
-            '<th>Patient</th>' +
-            '<th>Length of Stay</th>' +
-            '<th>Admit Date</th>' +
-            '<th>Target Discharge</th>' +
-            '<th>Vitals</th>' +
-            '<th>Rounds</th>' +
-            '<th style="text-align:right">Actions</th>' +
-         '</tr></thead>' +
-         '<tbody>' + tableRows + '</tbody>' +
-      '</table></div>';
+      '<div class="apt-tbl-wrap"><table class="apt-tbl"><thead>' + thead + '</thead><tbody>' + tableRows + '</tbody></table></div>';
 }
+
+function _admTab(tab) { window._admTab = tab; renderShopAdmissions(); }
 
 function _admPickHospital(id) { _admHospitalChoice = id; renderShopAdmissions(); }
 

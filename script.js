@@ -16114,13 +16114,14 @@ async function initProfile() {
             idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs yet. Your ID is created automatically after your first completed appointment.</div>';
             return;
          }
+         var esc = function(s) { return String(s || '').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
          idsBody.innerHTML =
             '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">' +
             allRows.map(function(r) {
                var hospName = providerMap[r.provider_id] || r.provider_id;
                return '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:4px">' +
-                  '<div style="font-size:0.78rem;color:#15803d;font-weight:600">🏥 ' + _esc(hospName) + '</div>' +
-                  '<div style="font-family:ui-monospace,monospace;font-size:1.05rem;font-weight:800;color:#14532d;letter-spacing:0.06em">' + _esc(r.patient_id) + '</div>' +
+                  '<div style="font-size:0.78rem;color:#15803d;font-weight:600">🏥 ' + esc(hospName) + '</div>' +
+                  '<div style="font-family:ui-monospace,monospace;font-size:1.05rem;font-weight:800;color:#14532d;letter-spacing:0.06em">' + esc(r.patient_id) + '</div>' +
                   '<div style="font-size:0.7rem;color:#6b7280">Use this ID to book appointments instantly</div>' +
                '</div>';
             }).join('') +

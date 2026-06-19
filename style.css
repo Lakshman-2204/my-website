@@ -1898,7 +1898,7 @@ body.guest .store-section-divider {
 	background: transparent;
 	border: none;
 	box-shadow: none;
-	margin: 4px 22px 22px;
+	margin: 0;
 	overflow: visible;
 	display: flex;
 	flex-direction: column;
@@ -5929,8 +5929,8 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
    ────────────────────────────────────────────────────────────────── */
 body.shopowner-page { background: #f5f7fb; }
 /* ── APP SHELL ────────────────────────────────────────────── */
-.shopowner-page { background: #f0f4f8; }
-body.profile-page { background: #f0f4f8; }
+.shopowner-page { background: #e8edf5; }
+body.profile-page { background: #e8edf5; }
 
 .shop-app-layout {
 	display: grid;
@@ -6020,8 +6020,8 @@ body.profile-page { background: #f0f4f8; }
 	margin-top: 4px;
 }
 .shop-side-item-cta:hover { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #fff; }
-.shop-side-item-foot { font-weight: 500; color: #475569; font-size: 0.78rem; }
-.shop-side-item-foot:hover { color: #94a3b8; }
+.shop-side-item-foot { font-weight: 500; color: #94a3b8; font-size: 0.78rem; }
+.shop-side-item-foot:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
 
 .shop-side-item-parent .ssi-chev {
 	margin-left: auto;
@@ -6053,7 +6053,7 @@ body.profile-page { background: #f0f4f8; }
 .shop-side-subitem.active { background: rgba(16,185,129,0.12); color: #34d399; font-weight: 600; }
 
 /* ── TOPBAR ───────────────────────────────────────────────── */
-.shop-main-area { display: flex; flex-direction: column; min-width: 0; background: #f0f4f8; }
+.shop-main-area { display: flex; flex-direction: column; min-width: 0; background: #e8edf5; }
 .shop-topbar {
 	background: #ffffff;
 	border-bottom: 1px solid #e8ecf2;

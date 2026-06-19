@@ -5304,8 +5304,7 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 .profile-tab.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
 
 .profile-content {
-	max-width: 1200px;
-	margin: 0 auto;
+	max-width: 100%;
 	padding: 0 20px 60px;
 }
 

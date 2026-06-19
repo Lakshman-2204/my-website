@@ -519,7 +519,7 @@ window.AppDB = {
       const norm = (phone || '').replace(/\D/g, '').slice(-10);
       if (norm.length !== 10) return [];
       const { data, error } = await _sb.from('hospital_patient_ids')
-         .select('provider_id, patient_id')
+         .select('provider_id, patient_id, sample_name')
          .eq('phone_normalized', norm);
       if (error) { console.error('getPatientIdsByPhone:', error.message); return []; }
       return data || [];

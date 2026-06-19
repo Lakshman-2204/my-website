@@ -11653,6 +11653,7 @@ async function renderShopAdmissions() {
                       '<td style="color:#555;font-size:0.85rem">' + (r.doctor_name || '—') + '</td>' +
                       '<td style="text-align:right;white-space:nowrap">' +
                          '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
+                         '<button class="apt-view-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">📋 Summary</button> ' +
                          '<button class="apt-view-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button> ' +
                          '<button class="apt-view-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Delete</button>' +
                       '</td>' +

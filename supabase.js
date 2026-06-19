@@ -274,6 +274,24 @@ window.AppDB = {
       if (!nameNorm) return rows;
       return rows.filter(r => this._normalizeName(r.patient_name) === nameNorm);
    },
+
+   async getPatientCompletedAppointments(providerId, phone, name) {
+      const norm = (phone || '').replace(/\D/g, '').slice(-10);
+      if (!providerId || norm.length !== 10) return [];
+      const { data, error } = await _sb.from('appointments').select('id, date, slot, created_at, status, doctor_name, patient_phone, patient_name')
+         .eq('provider_id', providerId)
+         .eq('status', 'Completed')
+         .order('created_at', { ascending: false });
+      if (error) { console.error('getPatientCompletedAppointments:', error.message); return []; }
+      const rows = data || [];
+      const nameNorm = this._normalizeName(name);
+      return rows.filter(r => {
+         const phoneMatch = (r.patient_phone || '').replace(/\D/g, '').slice(-10) === norm;
+         const nameMatch = !nameNorm || this._normalizeName(r.patient_name) === nameNorm;
+         return phoneMatch && nameMatch;
+      });
+   },
+
    // Look up the prescription linked to one appointment, if it exists.
    // Used by the prescription modal so re-opening an already-written Rx
    // pre-fills the form for editing instead of starting blank.

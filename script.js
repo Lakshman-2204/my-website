@@ -10215,10 +10215,12 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
    var _esc = function(s) { return String(s || '').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
    var _initials = function(n) { return (n || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2); };
 
-   var [rxRows, notes, allergy] = await Promise.all([
+   var [rxRows, notes, allergy, aptRows, patientId] = await Promise.all([
       AppDB.getPatientPrescriptionHistory(providerId, phone, name),
       AppDB.getPatientNotes(providerId, phone, name),
-      AppDB.getPatientAllergies(providerId, phone, name)
+      AppDB.getPatientAllergies(providerId, phone, name),
+      AppDB.getPatientCompletedAppointments(providerId, phone, name),
+      AppDB.getHospitalPatientId(providerId, phone, name)
    ]);
 
    // ── Allergy banner ──
@@ -10234,9 +10236,10 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
    var inits = _initials(name);
    var isIp = rowKey.indexOf('ip') === 0;
    var avClass = isIp ? 'ph-profile-bigav ph-av-ip' : 'ph-profile-bigav';
-   var visitCount = rxRows.length;
-   var firstD = visitCount ? new Date(rxRows[rxRows.length-1].created_at) : null;
-   var lastD  = visitCount ? new Date(rxRows[0].created_at) : null;
+   var visitCount = aptRows.length || rxRows.length;
+   var aptSorted = aptRows.length ? aptRows : rxRows;
+   var firstD = visitCount ? new Date(aptSorted[aptSorted.length-1].created_at) : null;
+   var lastD  = visitCount ? new Date(aptSorted[0].created_at) : null;
    var firstLbl = (firstD && !isNaN(firstD)) ? firstD.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
    var lastLbl  = (lastD  && !isNaN(lastD))  ? lastD.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : '—';
 
@@ -10250,6 +10253,7 @@ async function _renderPatientHistoryPanel(rowKey, providerId, phone, name) {
          '<div>' +
             '<div class="ph-profile-title">' + _esc(name) + '</div>' +
             '<div class="ph-profile-subtitle">' + _esc(phone || '—') + '</div>' +
+            (patientId ? '<div style="font-size:0.75rem;color:#6366f1;font-weight:600;margin-top:3px;letter-spacing:0.04em"># ' + _esc(patientId) + '</div>' : '') +
          '</div>' +
       '</div>' +
       '<div class="ph-meta-grid">' +

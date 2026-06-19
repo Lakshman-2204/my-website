@@ -327,6 +327,14 @@
                </div>
                <div class="apt-form-label" style="margin-top:14px">Patient Details</div>
                <div class="apt-field">
+                  <label>Patient ID <small style="font-weight:400;color:#aaa">(optional — auto-fills name &amp; phone)</small></label>
+                  <div style="display:flex;gap:6px;align-items:center">
+                     <input type="text" id="aptPatientIdLookup" placeholder="e.g. RK-25-06-00001" style="flex:1;font-family:ui-monospace,monospace;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
+                     <button type="button" onclick="_aptLookupByPatientId()" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap">🔍 Lookup</button>
+                  </div>
+                  <p id="aptPatientIdMsg" style="font-size:0.78rem;margin:4px 0 0;color:#c62828"></p>
+               </div>
+               <div class="apt-field">
                   <label>Full Name</label>
                   <input type="text" id="aptPatientName" placeholder="Patient's full name"/>
                </div>

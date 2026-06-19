@@ -489,6 +489,16 @@ window.AppDB = {
 
    // Read-only lookup — used by the Admit modal blur pre-fill. Requires
    // BOTH phone and name now (since IDs are keyed per person, not per phone).
+   async getPatientByPatientId(providerId, patientId) {
+      if (!providerId || !patientId) return null;
+      const { data } = await _sb.from('hospital_patient_ids')
+         .select('phone_normalized, name_normalized')
+         .eq('provider_id', providerId)
+         .eq('patient_id', patientId.trim().toUpperCase())
+         .maybeSingle();
+      return data || null;
+   },
+
    async getHospitalPatientId(providerId, phone, name) {
       const norm = (phone || '').replace(/\D/g, '').slice(-10);
       const nameNorm = this._normalizeName(name);

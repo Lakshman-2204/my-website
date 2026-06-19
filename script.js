@@ -1861,6 +1861,29 @@ function openAptBookModalFollowup(catKey, providerId, doctorId, originalAptId, d
    });
 })();
 
+async function _aptLookupByPatientId() {
+   var pid   = (document.getElementById('aptPatientIdLookup').value || '').trim().toUpperCase();
+   var msgEl = document.getElementById('aptPatientIdMsg');
+   if (!pid) { msgEl.textContent = 'Enter a Patient ID first.'; return; }
+   if (!_aptBookCtx || !_aptBookCtx.providerId) { msgEl.style.color = '#c62828'; msgEl.textContent = 'No hospital context. Please try again.'; return; }
+   msgEl.style.color = '#888';
+   msgEl.textContent = 'Looking up…';
+   var result = await AppDB.getPatientByPatientId(_aptBookCtx.providerId, pid);
+   if (!result) {
+      msgEl.style.color = '#c62828';
+      msgEl.textContent = 'Patient ID not found. Please fill name and phone manually.';
+      return;
+   }
+   var phone = result.phone_normalized || '';
+   var name  = (result.name_normalized || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+   var nameEl  = document.getElementById('aptPatientName');
+   var phoneEl = document.getElementById('aptPatientPhone');
+   if (nameEl)  nameEl.value  = name;
+   if (phoneEl) phoneEl.value = phone;
+   msgEl.style.color = '#2e7d32';
+   msgEl.textContent = '✓ Found: ' + name + ' · ' + phone;
+}
+
 async function openAptBookModal(catKey, providerId, doctorId, followupOfAptId, followupDeadline) {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { promptAuth('Please log in or sign up to book an appointment.'); return; }
@@ -2474,6 +2497,8 @@ function showAptDone(apt) {
 function closeAptBookModal() {
    document.getElementById('aptBookModal').classList.add('hidden');
    _aptBookCtx = null;
+   var pidEl  = document.getElementById('aptPatientIdLookup'); if (pidEl)  pidEl.value = '';
+   var pidMsg = document.getElementById('aptPatientIdMsg');    if (pidMsg) pidMsg.textContent = '';
 }
 
 function closeAptDoneModal() {
@@ -11314,10 +11339,15 @@ async function openIpBillModal(admId) {
             var endTime       = dischargeTime || new Date().toTimeString().slice(0, 5);
             var endMs         = new Date(endDate + 'T' + endTime).getTime();
             var totalHours    = (endMs - admitMs) / 3600000;
-            var fullDays      = Math.floor(totalHours / 24);
-            var remainHours   = totalHours % 24;
-            // Count partial day only if remaining hours > 6
-            var days          = Math.max(1, fullDays + (remainHours > 6 ? 1 : 0));
+            var days;
+            if (isNaN(totalHours) || totalHours <= 0) {
+               days = 1;
+            } else {
+               var fullDays   = Math.floor(totalHours / 24);
+               var remainHrs  = totalHours % 24;
+               days = fullDays + (remainHrs > 6 ? 1 : 0);
+               if (days < 1) days = 1;
+            }
             var rate      = Number(matchedBed.rate_per_day);
             var gstPct    = Number(matchedBed.gst_pct || 0);
             var amount    = days * rate;
@@ -13824,15 +13854,41 @@ async function renderShopSchedule() {
    resetShopSchedule();
 }
 
+async function _schedLookupByPatientId() {
+   var pid   = (document.getElementById('schedPatientIdLookup').value || '').trim().toUpperCase();
+   var msgEl = document.getElementById('schedPatientIdMsg');
+   if (!pid) { msgEl.textContent = 'Enter a Patient ID first.'; return; }
+   msgEl.style.color = '#888';
+   msgEl.textContent = 'Looking up…';
+   var providerId = _admHospitalChoice;
+   if (!providerId) { msgEl.style.color = '#c62828'; msgEl.textContent = 'No hospital selected.'; return; }
+   var result = await AppDB.getPatientByPatientId(providerId, pid);
+   if (!result) {
+      msgEl.style.color = '#c62828';
+      msgEl.textContent = 'Patient ID not found. Please fill name and phone manually.';
+      return;
+   }
+   // phone_normalized is 10-digit; name_normalized is lowercase — restore display form
+   var phone = result.phone_normalized || '';
+   var name  = (result.name_normalized || '').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+   var nameEl  = document.getElementById('schedPatientName');
+   var phoneEl = document.getElementById('schedPatientPhone');
+   if (nameEl)  nameEl.value  = name;
+   if (phoneEl) phoneEl.value = phone;
+   msgEl.style.color = '#2e7d32';
+   msgEl.textContent = '✓ Found: ' + name + ' · ' + phone;
+}
+
 function resetShopSchedule() {
    _schedCtx = null;
    var sel = document.getElementById('schedDoctor'); if (sel) sel.value = '';
    ['schedDateSection', 'schedSlotSection', 'schedPatientSection'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.classList.add('hidden');
    });
-   ['schedPatientName', 'schedPatientPhone', 'schedPatientEmail', 'schedPatientAge', 'schedPatientAddress', 'schedPatientReason', 'schedFollowupOf'].forEach(function(id) {
+   ['schedPatientName', 'schedPatientPhone', 'schedPatientEmail', 'schedPatientAge', 'schedPatientAddress', 'schedPatientReason', 'schedFollowupOf', 'schedPatientIdLookup'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = '';
    });
+   var pidMsg = document.getElementById('schedPatientIdMsg'); if (pidMsg) pidMsg.textContent = '';
    var fuC = document.getElementById('schedIsFollowup');
    if (fuC) fuC.checked = false;
    var fuR = document.getElementById('schedFollowupOfRow');

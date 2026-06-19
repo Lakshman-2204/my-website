@@ -1589,6 +1589,7 @@ window.AppDB = {
         bed_number: b.bed_number || '', floor: b.floor || '',
         status: b.status || 'Available', notes: b.notes || '',
         rate_per_day: Number(b.rate_per_day || 0),
+        gst_pct:      Number(b.gst_pct || 0),
         active: b.active !== false,
         updated_at: new Date().toISOString()
      };
@@ -1610,6 +1611,7 @@ window.AppDB = {
            bed_number: b.bed_number || '', floor: b.floor || '',
            status: b.status || 'Available', notes: b.notes || '',
            rate_per_day: Number(b.rate_per_day || 0),
+           gst_pct:      Number(b.gst_pct || 0),
            active: true, updated_at: now
         };
      });

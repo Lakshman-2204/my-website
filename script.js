@@ -11775,10 +11775,12 @@ function _admFillBedOptions(cat, currentRoomBed, currentBedId) {
    if (hint) hint.textContent = availCount ? availCount + ' available' : '0 available';
    roomSel.innerHTML = '<option value="">— Select bed —</option>' +
       filtered.map(function(b) {
-         var label = 'Room ' + b.room_number + ' · Bed ' + b.bed_number + (b.floor ? ' · ' + b.floor + ' floor' : '') + (b.rate_per_day ? ' · ₹' + Number(b.rate_per_day).toLocaleString('en-IN') + '/day' : '') + (b.status !== 'Available' ? ' (' + b.status + ')' : '');
+         var base = Number(b.rate_per_day || 0), gst = Number(b.gst_pct || 0);
+         var totalRate = base + Math.round(base * gst / 100);
+         var label = 'Room ' + b.room_number + ' · Bed ' + b.bed_number + (b.floor ? ' · ' + b.floor + ' floor' : '') + (totalRate ? ' · ₹' + totalRate.toLocaleString('en-IN') + '/day' : '') + (b.status !== 'Available' ? ' (' + b.status + ')' : '');
          var val   = b.room_number + ' · ' + b.bed_number;
          var sel   = (val === currentRoomBed || b.id === currentBedId) ? ' selected' : '';
-         return '<option value="' + val + '" data-bed-id="' + b.id + '" data-rate="' + (b.rate_per_day || 0) + '"' + sel + '>' + label + '</option>';
+         return '<option value="' + val + '" data-bed-id="' + b.id + '" data-rate="' + totalRate + '" data-base="' + base + '" data-gst="' + gst + '"' + sel + '>' + label + '</option>';
       }).join('') +
       (filtered.length === 0 && cat ? '<option disabled>No available beds in this category</option>' : '');
    // Sync hidden bed-id field
@@ -11801,10 +11803,14 @@ function _admRoomChange() {
    var opt = sel.options[sel.selectedIndex];
    bedIdEl.value = (opt && opt.dataset.bedId) ? opt.dataset.bedId : '';
    var rateEl = document.getElementById('adm-bed-rate-hint');
-   if (rateEl) {
-      var rate = opt && opt.dataset.rate ? Number(opt.dataset.rate) : 0;
-      rateEl.textContent = rate ? '₹' + rate.toLocaleString('en-IN') + ' / day' : '';
-      rateEl.style.display = rate ? 'inline' : 'none';
+   if (rateEl && opt) {
+      var base = Number(opt.dataset.base || 0), gst = Number(opt.dataset.gst || 0), total = Number(opt.dataset.rate || 0);
+      if (total) {
+         rateEl.innerHTML = '₹' + total.toLocaleString('en-IN') + ' / day' + (gst ? ' <span style="color:#7c3aed">(₹' + base.toLocaleString('en-IN') + ' + ' + gst + '% GST)</span>' : '');
+         rateEl.style.display = 'inline';
+      } else {
+         rateEl.textContent = ''; rateEl.style.display = 'none';
+      }
    }
 }
 
@@ -12759,6 +12765,7 @@ async function renderShopBeds() {
    });
    if (!mine.length) { host.innerHTML = '<div class="shop-empty">No hospital linked to your account.</div>'; return; }
    var chosen = _admHospitalChoice && mine.find(function(p) { return p.id === _admHospitalChoice; }); if (!chosen) chosen = mine[0];
+   _admHospitalChoice = chosen.id;
 
    var beds = await AppDB.getBeds(chosen.id);
    console.log('[Beds] provider:', chosen.id, '| fetched:', beds.length, beds);
@@ -12804,7 +12811,11 @@ async function renderShopBeds() {
                         '</div>' +
                         (b.floor ? '<div class="bed-floor">Floor ' + b.floor + '</div>' : '') +
                         '<div class="bed-status-text" style="color:' + sc + '">' + b.status + '</div>' +
-                        (b.rate_per_day ? '<div style="font-size:0.72rem;color:#1565c0;font-weight:600;margin-top:2px">₹' + Number(b.rate_per_day).toLocaleString('en-IN') + '/day</div>' : '') +
+                        (b.rate_per_day ? (function() {
+                           var base = Number(b.rate_per_day), gst = Number(b.gst_pct || 0);
+                           var total = base + Math.round(base * gst / 100);
+                           return '<div style="font-size:0.72rem;color:#1565c0;font-weight:600;margin-top:2px">₹' + total.toLocaleString('en-IN') + '/day' + (gst ? ' <span style="color:#7c3aed;font-weight:400">(incl. ' + gst + '% GST)</span>' : '') + '</div>';
+                        })() : '') +
                         '<div class="bed-card-actions">' +
                            '<button onclick="openBedModal(\'' + bid + '\')" class="bed-btn-edit">✏️</button>' +
                            '<button onclick="deleteBedItem(\'' + bid + '\')" class="bed-btn-del">🗑</button>' +
@@ -12844,9 +12855,10 @@ function openBedModal(id, defaultCat) {
    if (!modal) { _buildBedModal(); modal = document.getElementById('bedModal'); }
    var get = function(eid) { return document.getElementById(eid); };
    if (id) {
-      AppDB.getBeds(_admHospitalChoice || '').then(function(beds) {
-         var b = beds.find(function(x) { return x.id === id; });
-         if (!b) return;
+      var _doOpen = function(provId) {
+         AppDB.getBeds(provId).then(function(beds) {
+            var b = beds.find(function(x) { return x.id === id; });
+            if (!b) { alert('Bed not found.'); return; }
          get('bed-id').value       = b.id;
          get('bed-category').value = b.category;
          get('bed-room').value     = b.room_number;
@@ -12854,13 +12866,29 @@ function openBedModal(id, defaultCat) {
          get('bed-floor').value    = b.floor || '';
          get('bed-status').value   = b.status;
          get('bed-rate').value     = b.rate_per_day || '';
+         get('bed-gst').value      = String(b.gst_pct || 0);
          get('bed-notes').value    = b.notes || '';
+         _bedRateCalc();
          get('bed-active').checked = b.active !== false;
-         document.getElementById('bedModalTitle').textContent = '✏️ Edit Bed';
-         modal.classList.remove('hidden');
-      });
+            document.getElementById('bedModalTitle').textContent = '✏️ Edit Bed';
+            modal.classList.remove('hidden');
+         });
+      };
+      if (_admHospitalChoice) {
+         _doOpen(_admHospitalChoice);
+      } else {
+         loadAptProviders(true).then(function() {
+            var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+            var mine = (_aptProvidersCache || []).filter(function(p) {
+               return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+            });
+            if (mine[0]) { _admHospitalChoice = mine[0].id; _doOpen(mine[0].id); }
+         });
+      }
    } else {
       ['bed-id','bed-room','bed-num','bed-floor','bed-rate','bed-notes'].forEach(function(f){ var el=get(f); if(el) el.value=''; });
+      var gstEl = get('bed-gst'); if (gstEl) gstEl.value = '0';
+      var sumEl = document.getElementById('bed-rate-summary'); if (sumEl) sumEl.style.display = 'none';
       if (get('bed-category') && defaultCat) get('bed-category').value = defaultCat;
       if (get('bed-status')) get('bed-status').value = 'Available';
       var ac = get('bed-active'); if (ac) ac.checked = true;
@@ -12886,7 +12914,18 @@ function _buildBedModal() {
                '<div class="sp-field"><label>Room Number *</label><input type="text" id="bed-room" placeholder="e.g. 101, A-12"/></div>' +
                '<div class="sp-field"><label>Bed Number *</label><input type="text" id="bed-num" placeholder="e.g. B1, Left, Window"/></div>' +
                '<div class="sp-field"><label>Floor</label><input type="text" id="bed-floor" placeholder="e.g. Ground, 1st, 2nd"/></div>' +
-               '<div class="sp-field"><label>Rate / Day (₹)</label><input type="number" id="bed-rate" min="0" placeholder="e.g. 1500"/></div>' +
+               '<div class="sp-field"><label>Rate / Day (₹)</label><input type="number" id="bed-rate" min="0" placeholder="e.g. 1500" oninput="_bedRateCalc()"/></div>' +
+               '<div class="sp-field"><label>GST %</label>' +
+                  '<select id="bed-gst" onchange="_bedRateCalc()">' +
+                     '<option value="0">0% — Exempt</option>' +
+                     '<option value="5">5%</option>' +
+                     '<option value="12">12%</option>' +
+                     '<option value="18">18%</option>' +
+                  '</select>' +
+               '</div>' +
+               '<div class="sp-field" style="grid-column:1/-1" id="bed-rate-summary-wrap" style="display:none">' +
+                  '<div id="bed-rate-summary" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 12px;font-size:0.82rem;color:#166534;display:none"></div>' +
+               '</div>' +
                '<div class="sp-field"><label>Status</label><select id="bed-status"><option>Available</option><option>Occupied</option><option>Maintenance</option><option>Reserved</option></select></div>' +
                '<div class="sp-field" style="grid-column:1/-1"><label>Notes</label><textarea id="bed-notes" rows="2" placeholder="Any special notes…"></textarea></div>' +
                '<div class="sp-field" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0"><input type="checkbox" id="bed-active" checked style="width:auto"/> Active</label></div>' +
@@ -12901,6 +12940,19 @@ function _buildBedModal() {
 }
 
 function closeBedModal() { var m = document.getElementById('bedModal'); if (m) m.classList.add('hidden'); }
+
+function _bedRateCalc() {
+   var rate = parseFloat(document.getElementById('bed-rate').value) || 0;
+   var gst  = parseFloat(document.getElementById('bed-gst').value)  || 0;
+   var sumEl = document.getElementById('bed-rate-summary');
+   if (!sumEl) return;
+   if (!rate) { sumEl.style.display = 'none'; return; }
+   var gstAmt  = Math.round(rate * gst / 100);
+   var total   = rate + gstAmt;
+   sumEl.style.display = 'block';
+   sumEl.innerHTML = '₹' + rate.toLocaleString('en-IN') + ' base' +
+      (gst ? ' + ₹' + gstAmt.toLocaleString('en-IN') + ' GST (' + gst + '%) = <strong>₹' + total.toLocaleString('en-IN') + ' / day</strong>' : ' <strong>(GST exempt)</strong>');
+}
 
 async function saveBedItem() {
    var get = function(id) { var el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
@@ -12923,6 +12975,7 @@ async function saveBedItem() {
       category: category, room_number: room, bed_number: bedNum,
       floor: get('bed-floor'), status: get('bed-status'),
       rate_per_day: parseFloat(document.getElementById('bed-rate').value) || 0,
+      gst_pct:      parseFloat(document.getElementById('bed-gst').value) || 0,
       notes: get('bed-notes'),
       active: document.getElementById('bed-active').checked
    });
@@ -12988,7 +13041,16 @@ function _buildBulkBedModal() {
                '</div>' +
                '<div class="sp-field">' +
                   '<label>Rate / Day (₹)</label>' +
-                  '<input type="number" id="bulk-rate" min="0" placeholder="e.g. 1500 (applied to all beds)"/>' +
+                  '<input type="number" id="bulk-rate" min="0" placeholder="e.g. 1500"/>' +
+               '</div>' +
+               '<div class="sp-field">' +
+                  '<label>GST %</label>' +
+                  '<select id="bulk-gst">' +
+                     '<option value="0">0% — Exempt</option>' +
+                     '<option value="5">5%</option>' +
+                     '<option value="12">12%</option>' +
+                     '<option value="18">18%</option>' +
+                  '</select>' +
                '</div>' +
                '<div class="sp-field" style="grid-column:1/-1">' +
                   '<label>Preview</label>' +
@@ -13028,6 +13090,7 @@ async function saveBulkBeds() {
    var cat    = (document.getElementById('bulk-category') || {}).value || '';
    var floor  = (document.getElementById('bulk-floor') || {}).value || '';
    var rate   = parseFloat((document.getElementById('bulk-rate') || {}).value) || 0;
+   var gstPct = parseFloat((document.getElementById('bulk-gst')  || {}).value) || 0;
    var start  = parseInt(document.getElementById('bulk-room-start').value) || 101;
    var count  = Math.min(parseInt(document.getElementById('bulk-room-count').value) || 10, 100);
    var bpr    = Math.min(parseInt(document.getElementById('bulk-beds-per-room').value) || 1, 10);
@@ -13057,7 +13120,8 @@ async function saveBulkBeds() {
             room_number: String(start + r),
             bed_number: String(labels[b] || (b + 1)),
             floor: floor,
-            rate_per_day: rate
+            rate_per_day: rate,
+            gst_pct: gstPct
          });
       }
    }

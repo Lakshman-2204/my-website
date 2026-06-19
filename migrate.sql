@@ -866,6 +866,8 @@ END $$;
 ALTER TABLE public.admissions
    ADD COLUMN IF NOT EXISTS bed_id text DEFAULT '';
 
--- Phase 10c — rate per day on beds
+-- Phase 10c — rate per day + GST on beds
 ALTER TABLE public.hospital_beds
    ADD COLUMN IF NOT EXISTS rate_per_day numeric DEFAULT 0;
+ALTER TABLE public.hospital_beds
+   ADD COLUMN IF NOT EXISTS gst_pct numeric DEFAULT 0;

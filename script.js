@@ -11298,6 +11298,35 @@ async function openIpBillModal(admId) {
       get('bill-discount-amt').value = '';
       get('bill-round-off').value    = '';
       get('bill-notes').value        = '';
+
+      // Auto-add room rent line item for new bills
+      if (r.room_bed && r.admit_date) {
+         var beds = await AppDB.getBeds(_admHospitalChoice);
+         var parts = r.room_bed.split(' · ');
+         var matchedBed = beds.find(function(b) {
+            return String(b.room_number) === String(parts[0]) && String(b.bed_number) === String(parts[1]);
+         });
+         if (matchedBed && matchedBed.rate_per_day) {
+            var admitMs   = new Date(r.admit_date + 'T00:00:00').getTime();
+            var todayMs   = new Date(_todayLocalYmd() + 'T00:00:00').getTime();
+            var days      = Math.max(1, Math.round((todayMs - admitMs) / 86400000));
+            var rate      = Number(matchedBed.rate_per_day);
+            var gstPct    = Number(matchedBed.gst_pct || 0);
+            var amount    = days * rate;
+            var gstAmt    = Math.round(amount * gstPct / 100 * 100) / 100;
+            _billItems.push({
+               category:    'Room',
+               description: 'Room ' + r.room_bed + ' · ' + days + ' day' + (days !== 1 ? 's' : ''),
+               hsn_sac:     '996311',
+               qty:         days,
+               rate:        rate,
+               gst_pct:     gstPct,
+               amount:      amount,
+               gst_amt:     gstAmt,
+               total:       amount + gstAmt
+            });
+         }
+      }
    }
 
    _billRenderItems();
@@ -12516,6 +12545,37 @@ async function dischargeAdmission(id) {
    // Load any existing summary for edit; otherwise blank with today's date.
    var existing = await AppDB.getDischargeSummary(r.id);
    _dsDailyNotes = (existing && Array.isArray(existing.daily_notes)) ? existing.daily_notes : [];
+
+   // Show daily notes read-only in discharge modal for doctor reference
+   var dnView = document.getElementById('ds-daily-notes-view');
+   if (dnView) {
+      if (_dsDailyNotes.length) {
+         dnView.style.display = 'block';
+         dnView.innerHTML = '<div style="font-size:0.82rem;font-weight:700;color:#1e40af;margin-bottom:8px;border-bottom:1px solid #bfdbfe;padding-bottom:4px">📋 Daily Progress Notes (' + _dsDailyNotes.length + ' entries)</div>' +
+            _dsDailyNotes.map(function(n) {
+               var vitals = [
+                  n.bp        ? 'BP: ' + n.bp           : '',
+                  n.pulse     ? 'Pulse: ' + n.pulse      : '',
+                  n.temp      ? 'Temp: ' + n.temp        : '',
+                  n.spo2      ? 'SpO₂: ' + n.spo2       : '',
+                  n.weight    ? 'Wt: ' + n.weight        : ''
+               ].filter(Boolean).join(' · ');
+               return '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:8px 10px;margin-bottom:6px">' +
+                  '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+                     '<span style="font-size:0.78rem;font-weight:700;color:#0369a1">' + _esc(n.date || '') + (n.time ? ' ' + _esc(n.time) : '') + '</span>' +
+                     (n.doctor ? '<span style="font-size:0.75rem;color:#475569">Dr. ' + _esc(n.doctor) + '</span>' : '') +
+                  '</div>' +
+                  (vitals ? '<div style="font-size:0.76rem;color:#374151;margin-bottom:3px">' + _esc(vitals) + '</div>' : '') +
+                  (n.findings ? '<div style="font-size:0.77rem;color:#1e293b"><b>Findings:</b> ' + _esc(n.findings) + '</div>' : '') +
+                  (n.procedures ? '<div style="font-size:0.77rem;color:#1e293b"><b>Procedures:</b> ' + _esc(n.procedures) + '</div>' : '') +
+               '</div>';
+            }).join('');
+      } else {
+         dnView.style.display = 'none';
+         dnView.innerHTML = '';
+      }
+   }
+
    var titleEl = document.getElementById('dischargeModalTitle');
    if (existing) {
       if (titleEl) titleEl.textContent = '✏️ Edit Discharge Summary';

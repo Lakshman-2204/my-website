@@ -9490,11 +9490,21 @@ async function renderShopOverview() {
          '<div class="hkpi-body"><span class="hkpi-num">' + uniquePts + '</span><span class="hkpi-badge hkpi-blue">Total</span></div>' +
          '<div class="hkpi-sub">Unique via appointments · ' + admitted.length + ' admitted</div>';
 
+      var roundsPending = admitted.filter(function(r) {
+         return !(r.rounds_status === 'complete' && r.rounds_date === todayYmd);
+      }).length;
+      var roundsDone = admitted.length - roundsPending;
       var admEl = document.getElementById('hkpi-adm-' + p.id);
       if (admEl) admEl.innerHTML =
          '<div class="hkpi-head"><span>🏥</span><span>Admissions</span></div>' +
          '<div class="hkpi-body"><span class="hkpi-num">' + admitted.length + '</span><span class="hkpi-badge hkpi-green">Active</span></div>' +
-         '<div class="hkpi-sub">' + newToday + ' new today · ' + discharged + ' discharged · ' + admRows.length + ' total</div>';
+         '<div class="hkpi-sub">' + newToday + ' new today · ' + discharged + ' discharged</div>' +
+         '<div class="hkpi-sub" style="margin-top:3px">' +
+            (roundsPending > 0
+               ? '<span style="color:#e65100;font-weight:600">⏳ ' + roundsPending + ' rounds pending</span>'
+               : '<span style="color:#2e7d32;font-weight:600">✅ All rounds done</span>') +
+            ' · ' + roundsDone + '/' + admitted.length + ' complete' +
+         '</div>';
 
       // Re-render hospital survey with admissions data injected
       var kpiEl = document.getElementById('hkpi-beds-' + p.id);
@@ -11693,7 +11703,7 @@ async function renderShopAdmissions() {
                var td2 = new Date(r.target_discharge + 'T00:00:00');
                targetLbl = isDueToday ? 'TODAY' : td2.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             }
-            var roundsDone = r.rounds_status === 'complete';
+            var roundsDone = r.rounds_status === 'complete' && r.rounds_date === todayYmd;
             var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
             var rid = r.id.replace(/'/g, "\\'");
             return '<tr' + (isDueToday ? ' style="background:#fff8e1"' : '') + '>' +
@@ -12207,16 +12217,20 @@ async function saveAdmission() {
    renderShopAdmissions();
 }
 
-// Click the Rounds pill → flip pending ⟷ complete. No confirm dialog —
-// rounds is a fast morning action and clicks must be friction-free. The
-// realtime subscription on `admissions` re-renders this row + the dashboard
-// KPI counts within ~300ms.
 async function toggleAdmissionRounds(id) {
    var rows = await AppDB.getAdmissions(_admHospitalChoice);
    var r = (rows || []).find(function(x) { return x.id === id; });
    if (!r) return;
-   var next = r.rounds_status === 'complete' ? 'pending' : 'complete';
-   await AppDB.patchAdmission(id, { rounds_status: next });
+   var todayYmd = _todayLocalYmd();
+   var effectiveStatus = (r.rounds_status === 'complete' && r.rounds_date === todayYmd) ? 'complete' : 'pending';
+   if (effectiveStatus === 'complete') {
+      // Mark back to pending — no confirm needed
+      await AppDB.patchAdmission(id, { rounds_status: 'pending', rounds_date: null });
+   } else {
+      // Ask confirmation before marking done
+      if (!confirm('Has the doctor completed rounds for ' + (r.patient_name || 'this patient') + ' today?')) return;
+      await AppDB.patchAdmission(id, { rounds_status: 'complete', rounds_date: todayYmd });
+   }
    renderShopAdmissions();
 }
 

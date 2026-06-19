@@ -9510,21 +9510,11 @@ async function renderShopOverview() {
          '<div class="hkpi-body"><span class="hkpi-num">₹' + todayTotal.toLocaleString('en-IN') + '</span><span class="hkpi-badge hkpi-green">Today</span></div>' +
          '<div class="hkpi-sub">₹' + todayOpdPending.toLocaleString('en-IN') + ' OPD pending · Month: ₹' + monthTotal.toLocaleString('en-IN') + '</div>';
 
-      var roundsPending = admitted.filter(function(r) {
-         return !(r.rounds_status === 'complete' && r.rounds_date === todayYmd);
-      }).length;
-      var roundsDone = admitted.length - roundsPending;
       var admEl = document.getElementById('hkpi-adm-' + p.id);
       if (admEl) admEl.innerHTML =
          '<div class="hkpi-head"><span>🏥</span><span>Admissions</span></div>' +
          '<div class="hkpi-body"><span class="hkpi-num">' + admitted.length + '</span><span class="hkpi-badge hkpi-green">Active</span></div>' +
-         '<div class="hkpi-sub">' + newToday + ' new today · ' + discharged + ' discharged</div>' +
-         '<div class="hkpi-sub" style="margin-top:3px">' +
-            (roundsPending > 0
-               ? '<span style="color:#e65100;font-weight:600">⏳ ' + roundsPending + ' rounds pending</span>'
-               : '<span style="color:#2e7d32;font-weight:600">✅ All rounds done</span>') +
-            ' · ' + roundsDone + '/' + admitted.length + ' complete' +
-         '</div>';
+         '<div class="hkpi-sub">' + newToday + ' new today · ' + discharged + ' discharged · ' + todayDisch + ' due today</div>';
 
       // Re-render hospital survey with admissions data injected
       var kpiEl = document.getElementById('hkpi-beds-' + p.id);
@@ -11720,7 +11710,7 @@ async function renderShopAdmissions() {
    var tableRows, thead;
 
    if (activeTab === 'admitted') {
-      thead = '<tr><th>Location / Bed</th><th>Patient</th><th>Length of Stay</th><th>Admit Date</th><th>Target Discharge</th><th>Vitals</th><th>Rounds</th><th style="text-align:right">Actions</th></tr>';
+      thead = '<tr><th>Location / Bed</th><th>Patient</th><th>Length of Stay</th><th>Admit Date</th><th>Target Discharge</th><th>Vitals</th><th style="text-align:right">Actions</th></tr>';
       var admSearchVal = (window._admAdmSearchVal || '').toLowerCase();
       var admFiltered = admitted.filter(function(r) {
          if (!admSearchVal) return true;
@@ -11746,7 +11736,6 @@ async function renderShopAdmissions() {
                var td2 = new Date(r.target_discharge + 'T00:00:00');
                targetLbl = isDueToday ? 'TODAY' : td2.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             }
-            var roundsDone = r.rounds_status === 'complete' && r.rounds_date === todayYmd;
             var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
             var rid = r.id.replace(/'/g, "\\'");
             return '<tr' + (isDueToday ? ' style="background:#fff8e1"' : '') + '>' +
@@ -11769,7 +11758,6 @@ async function renderShopAdmissions() {
                          (r.spo2        ? '<div>SpO₂ ' + r.spo2 + '%</div>' : '') +
                          (!r.bp_systolic && !r.pulse_bpm ? '<span style="color:#ccc">—</span>' : '') +
                       '</td>' +
-                      '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" ' + (roundsDone ? '' : 'onclick="toggleAdmissionRounds(\'' + rid + '\')"') + ' style="' + (roundsDone ? 'cursor:default' : 'cursor:pointer') + '">' + (roundsDone ? '✓ Done' : '⏳ Pending') + '</span></td>' +
                       '<td style="text-align:right">' +
                          '<div class="adm-act-row">' +
                             '<button class="adm-act-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button>' +
@@ -11777,6 +11765,7 @@ async function renderShopAdmissions() {
                             '<button class="adm-act-btn" style="background:#00796b" onclick="openDepositModal(\'' + rid + '\')">💰 Deposit</button>' +
                          '</div>' +
                          '<div class="adm-act-row" style="margin-top:4px">' +
+                            '<button class="adm-act-btn" style="background:#1b5e20" onclick="openDailyNotesModal(\'' + rid + '\')">📋 Daily Notes</button>' +
                             '<button class="adm-act-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button>' +
                             '<button class="adm-act-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button>' +
                             '<button class="adm-act-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Del</button>' +
@@ -12279,7 +12268,7 @@ function _rnRenderPriorNotes() {
    var rows = _rnDailyNotes.map(function(n) {
       var vitals = [n.bp&&'BP '+n.bp, n.pulse&&'Pulse '+n.pulse, n.temp&&'Temp '+n.temp+'°F', n.spo2&&'SpO₂ '+n.spo2+'%', n.weight&&'Wt '+n.weight+'kg'].filter(Boolean).join(' · ');
       return '<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid #1b5e20;border-radius:7px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem">' +
-         '<div style="font-weight:700;color:#1b5e20">' + _esc(n.date) + (n.doctor?' · '+_esc(n.doctor):'') + '</div>' +
+         '<div style="font-weight:700;color:#1b5e20">' + _esc(n.date) + (n.time?' · '+_esc(n.time):'') + (n.doctor?' · '+_esc(n.doctor):'') + '</div>' +
          (vitals ? '<div style="color:#64748b;margin-top:2px">' + vitals + '</div>' : '') +
          (n.findings ? '<div style="color:#1e293b;margin-top:3px"><b>Findings:</b> ' + _esc(n.findings) + '</div>' : '') +
          (n.procedures ? '<div style="color:#475569"><b>Procedures:</b> ' + _esc(n.procedures) + '</div>' : '') +
@@ -12289,12 +12278,10 @@ function _rnRenderPriorNotes() {
       '<div style="font-size:0.8rem;font-weight:700;color:#64748b;margin-bottom:6px">Previous entries (' + _rnDailyNotes.length + ')</div>' + rows;
 }
 
-async function toggleAdmissionRounds(id) {
+async function openDailyNotesModal(id) {
    var rows = await AppDB.getAdmissions(_admHospitalChoice);
    var r = (rows || []).find(function(x) { return x.id === id; });
    if (!r) return;
-   var todayYmd = _todayLocalYmd();
-   if (r.rounds_status === 'complete' && r.rounds_date === todayYmd) return;
    _rnAdmission = r;
    // Load existing daily notes from discharge summary
    var ds = await AppDB.getDischargeSummary(r.id);
@@ -12310,8 +12297,10 @@ async function toggleAdmissionRounds(id) {
          (r.ward||'—') + (r.room_bed?' · '+r.room_bed:'') + ' · Admitted ' + (r.admit_date||'—') +
       '</span>';
    // Pre-fill form
+   var todayYmd = _todayLocalYmd();
+   var nowTime = (function(){ var d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); })();
    var g = function(id, val){ var el=document.getElementById(id); if(el) el.value=val||''; };
-   g('rn-date', todayYmd);
+   g('rn-date', todayYmd); g('rn-time', nowTime);
    g('rn-doctor', r.doctor_name || '');
    g('rn-bp',''); g('rn-pulse',''); g('rn-temp',''); g('rn-spo2',''); g('rn-weight','');
    g('rn-findings',''); g('rn-procedures','');
@@ -12323,6 +12312,7 @@ function closeRoundsModal() {
    document.getElementById('roundsModal').classList.add('hidden');
    _rnAdmission = null;
    _rnDailyNotes = [];
+   renderShopAdmissions();
 }
 
 async function saveRoundsNote() {
@@ -12330,6 +12320,7 @@ async function saveRoundsNote() {
    var g = function(id){ return ((document.getElementById(id)||{}).value||'').trim(); };
    var entry = {
       date: g('rn-date') || _todayLocalYmd(),
+      time: g('rn-time') || '',
       doctor: g('rn-doctor'), bp: g('rn-bp'), pulse: g('rn-pulse'),
       temp: g('rn-temp'), spo2: g('rn-spo2'), weight: g('rn-weight'),
       findings: g('rn-findings'), procedures: g('rn-procedures')
@@ -12337,31 +12328,34 @@ async function saveRoundsNote() {
    if (!entry.findings && !entry.procedures && !entry.bp && !entry.pulse) {
       alert('Please fill at least vitals (BP / Pulse) or Findings before saving.'); return;
    }
-   var existingIdx = _rnDailyNotes.findIndex(function(n){ return n.date === entry.date; });
-   if (existingIdx !== -1) {
-      if (!confirm('An entry for ' + entry.date + ' already exists. Replace it?')) return;
-      _rnDailyNotes[existingIdx] = entry;
-   } else {
-      _rnDailyNotes.unshift(entry);
-   }
-   var btn = document.querySelector('#roundsModal .sp-btn-save');
-   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+   _rnDailyNotes.unshift(entry); // always append — multiple entries per day allowed
+   var btns = document.querySelectorAll('#roundsModal .sp-btn-save');
+   btns.forEach(function(b){ b.disabled = true; });
    var existing = await AppDB.getDischargeSummary(_rnAdmission.id);
    var saved = await AppDB.upsertDischargeSummary(Object.assign(existing || {}, {
-      provider_id:   _rnAdmission.provider_id,
-      admission_id:  _rnAdmission.id,
-      discharge_date: (existing && existing.discharge_date) || _todayLocalYmd(),
+      provider_id:     _rnAdmission.provider_id,
+      admission_id:    _rnAdmission.id,
+      discharge_date:  (existing && existing.discharge_date) || _todayLocalYmd(),
       final_diagnosis: (existing && existing.final_diagnosis) || '',
-      daily_notes:   _rnDailyNotes
+      daily_notes:     _rnDailyNotes
    }));
    if (!saved) {
-      alert('Failed to save progress note.');
-      if (btn) { btn.disabled = false; btn.textContent = '💾 Save & Mark Rounds Done'; }
+      alert('Failed to save note.');
+      btns.forEach(function(b){ b.disabled = false; });
+      _rnDailyNotes.shift(); // revert optimistic add
       return;
    }
-   await AppDB.patchAdmission(_rnAdmission.id, { rounds_status: 'complete', rounds_date: _todayLocalYmd() });
-   closeRoundsModal();
-   renderShopAdmissions();
+   _rnRenderPriorNotes();
+   // Clear form for next entry (keep date, time, doctor)
+   ['rn-bp','rn-pulse','rn-temp','rn-spo2','rn-weight','rn-findings','rn-procedures']
+      .forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+   btns.forEach(function(b){ b.disabled = false; });
+   // Update time to now for convenience
+   var nowTime = (function(){ var d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); })();
+   var tEl = document.getElementById('rn-time'); if (tEl) tEl.value = nowTime;
+   // Brief flash on button
+   var saveBtn = document.querySelector('#roundsModal .sp-btn-save');
+   if (saveBtn) { var orig=saveBtn.textContent; saveBtn.textContent='✓ Saved!'; setTimeout(function(){ saveBtn.textContent=orig; },1200); }
 }
 
 // Open the discharge summary modal for an admission. Loads any existing

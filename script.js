@@ -9428,12 +9428,12 @@ async function renderShopOverview() {
          '<div class="shop-ov-card">' +
             '<div class="hosp-kpi-grid">' +
                '<div id="hkpi-beds-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🛏️</span><span>Total Beds</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
-               _hkpi('👨‍⚕️', 'Doctors', docCount - (p.doctors||[]).filter(function(d){return d.on_leave;}).length, 'Active', (p.doctors||[]).filter(function(d){return d.on_leave;}).length + ' on leave') +
+               _hkpi('👨‍⚕️', 'Doctors', docCount - (p.doctors||[]).filter(function(d){return d.on_leave;}).length, 'Active', (p.doctors||[]).filter(function(d){return d.on_leave;}).length + ' on leave', 'hkpi-color-amber') +
                '<div id="hkpi-pts-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>👥</span><span>Patients</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
                (function(){
                   var todayCollected = todayApts.filter(function(a){return a.status==='Completed';}).reduce(function(s,a){return s+(a.fee||0);},0);
                   var todayPending   = todayApts.filter(function(a){return a.status==='Confirmed';}).reduce(function(s,a){return s+(a.fee||0);},0);
-                  return _hkpi('💰', 'Revenue', '₹' + todayCollected.toLocaleString('en-IN'), 'Today', '₹' + todayPending.toLocaleString('en-IN') + ' pending · Month: ₹' + monthRevenue.toLocaleString('en-IN'));
+                  return _hkpi('💰', 'Revenue', '₹' + todayCollected.toLocaleString('en-IN'), 'Today', '₹' + todayPending.toLocaleString('en-IN') + ' pending · Month: ₹' + monthRevenue.toLocaleString('en-IN'), 'hkpi-color-emerald');
                })() +
                '<div id="hkpi-adm-' + p.id + '" class="hosp-kpi-card"><div class="hkpi-head"><span>🏥</span><span>Admissions</span></div><div class="hkpi-body"><span class="hkpi-num">—</span></div><div class="hkpi-sub">Loading…</div></div>' +
             '</div>' +
@@ -9450,6 +9450,16 @@ async function renderShopOverview() {
    });
 
    container.innerHTML = html;
+
+   // Topbar: date + hospital name
+   var _tbDate = document.getElementById('shopTopbarDate');
+   var _tbSub  = document.getElementById('shopTopbarSub');
+   if (_tbDate) {
+      var _d = new Date(); var _days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      var _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      _tbDate.textContent = _days[_d.getDay()] + ', ' + _d.getDate() + ' ' + _months[_d.getMonth()] + ' ' + _d.getFullYear();
+   }
+   if (_tbSub && mine[0]) _tbSub.textContent = mine[0].name || '';
 
    // Async: fill admission-dependent KPI cards
    mine.forEach(async function(p) {
@@ -9514,9 +9524,10 @@ function _kpiCard(color, icon, value, label, trend) {
           '</div>';
 }
 
-function _hkpi(icon, title, num, badge, sub) {
+function _hkpi(icon, title, num, badge, sub, colorClass) {
    var badgeHtml = badge ? '<span class="hkpi-badge hkpi-green">' + badge + '</span>' : '';
-   return '<div class="hosp-kpi-card">' +
+   var cls = 'hosp-kpi-card' + (colorClass ? ' ' + colorClass : '');
+   return '<div class="' + cls + '">' +
              '<div class="hkpi-head"><span>' + icon + '</span><span>' + title + '</span></div>' +
              '<div class="hkpi-body"><span class="hkpi-num">' + num + '</span>' + badgeHtml + '</div>' +
              '<div class="hkpi-sub">' + sub + '</div>' +
@@ -11575,9 +11586,9 @@ async function renderShopAdmissions() {
       '</div>';
 
    var tabBar =
-      '<div style="display:flex;gap:0;margin-bottom:14px;border:1.5px solid #e0e0e0;border-radius:8px;overflow:hidden;width:fit-content">' +
-         '<button onclick="_admTab(\'admitted\')" style="padding:7px 20px;font-size:0.85rem;font-weight:600;border:none;cursor:pointer;' + (activeTab==='admitted' ? 'background:#1565c0;color:#fff' : 'background:#fff;color:#555') + '">🛏️ Admitted (' + admitted.length + ')</button>' +
-         '<button onclick="_admTab(\'discharged\')" style="padding:7px 20px;font-size:0.85rem;font-weight:600;border:none;cursor:pointer;border-left:1.5px solid #e0e0e0;' + (activeTab==='discharged' ? 'background:#2e7d32;color:#fff' : 'background:#fff;color:#555') + '">✅ Discharged (' + discharged.length + ')</button>' +
+      '<div class="adm-tab-bar">' +
+         '<button onclick="_admTab(\'admitted\')" class="adm-tab-btn' + (activeTab==='admitted' ? ' active-admitted' : '') + '">🛏️ Admitted (' + admitted.length + ')</button>' +
+         '<button onclick="_admTab(\'discharged\')" class="adm-tab-btn' + (activeTab==='discharged' ? ' active-discharged' : '') + '">✅ Discharged (' + discharged.length + ')</button>' +
       '</div>';
 
    var tableRows, thead;
@@ -11697,16 +11708,19 @@ async function renderShopAdmissions() {
    window._shopAdmFiltered = activeTab === 'admitted' ? admitted : discharged;
 
    host.innerHTML =
-      hospitalPicker +
-      statCards +
-      tabBar +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">' +
-         '<div></div>' +
+      '<div class="panel-hdr">' +
+         '<div class="panel-hdr-left">' +
+            '<h3 class="panel-hdr-title">📋 Admissions</h3>' +
+            '<div class="panel-hdr-sub">' + admitted.length + ' admitted · ' + discharged.length + ' discharged</div>' +
+         '</div>' +
          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-            (window._shopAdmFiltered.length ? '<button class="apt-view-btn" style="background:#c62828;padding:8px 14px;font-size:0.85rem" onclick="shopDeleteAllAdmissions()">🗑 Delete All Shown</button>' : '') +
-            (activeTab === 'admitted' ? '<button class="apt-view-btn" style="background:#1565c0;padding:8px 14px;font-size:0.85rem" onclick="openAdmissionModal()">+ Admit Patient</button>' : '') +
+            (window._shopAdmFiltered && window._shopAdmFiltered.length ? '<button class="apt-view-btn" style="background:#dc2626;padding:8px 14px;font-size:0.84rem" onclick="shopDeleteAllAdmissions()">🗑 Delete All Shown</button>' : '') +
+            (activeTab === 'admitted' ? '<button class="apt-view-btn" style="background:#0f172a;padding:8px 14px;font-size:0.84rem" onclick="openAdmissionModal()">+ Admit Patient</button>' : '') +
          '</div>' +
       '</div>' +
+      (hospitalPicker ? '<div style="margin-bottom:12px">' + hospitalPicker + '</div>' : '') +
+      statCards +
+      tabBar +
       (activeTab === 'admitted'   ? (window._admAdmSearchBar || '') : '') +
       (activeTab === 'discharged' ? (window._admDisSearchBar || '') : '') +
       '<div class="apt-tbl-wrap"><table class="apt-tbl"><thead>' + thead + '</thead><tbody>' + tableRows + '</tbody></table></div>';
@@ -12683,12 +12697,14 @@ async function renderShopRevenue() {
    }
 
    host.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">' +
-         '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-            tabBtn('day','Today') + tabBtn('week','Week') + tabBtn('month','Month') + tabBtn('year','Year') +
+      '<div class="panel-hdr">' +
+         '<div class="panel-hdr-left">' +
+            '<h3 class="panel-hdr-title">💰 Revenue</h3>' +
+            '<div class="panel-hdr-sub">' + periodLabel + ' · ' + (showOpd && showIp ? 'OPD + Admissions' : showOpd ? 'OPD only' : 'Admissions only') + '</div>' +
          '</div>' +
-         '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-            srcBtn('both','OPD + Admissions') + srcBtn('opd','OPD Only') + srcBtn('ip','Admissions Only') +
+         '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+            '<div style="display:flex;gap:4px">' + tabBtn('day','Today') + tabBtn('week','Week') + tabBtn('month','Month') + tabBtn('year','Year') + '</div>' +
+            '<div style="display:flex;gap:4px">' + srcBtn('both','OPD + Admissions') + srcBtn('opd','OPD Only') + srcBtn('ip','Admissions Only') + '</div>' +
          '</div>' +
       '</div>' +
 
@@ -12702,24 +12718,24 @@ async function renderShopRevenue() {
 
       // Breakdown panels
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">' +
-         '<div style="background:#fff;border:1.5px solid #eee;border-radius:10px;padding:14px">' +
-            '<div style="font-weight:700;font-size:0.88rem;margin-bottom:8px;color:#1a1a2e">💳 Payment Mode</div>' +
+         '<div style="background:#fff;border:1px solid #e8ecf2;border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(15,23,42,0.05)">' +
+            '<div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:#0f172a;padding-bottom:8px;border-bottom:1px solid #f0f4f8">💳 Payment Mode</div>' +
             (modeRows || '<div style="color:#aaa;font-size:0.83rem">No data</div>') +
          '</div>' +
          (showOpd && Object.keys(docMap).length ? (
-            '<div style="background:#fff;border:1.5px solid #eee;border-radius:10px;padding:14px">' +
-               '<div style="font-weight:700;font-size:0.88rem;margin-bottom:8px;color:#1a1a2e">👨‍⚕️ Doctor-wise OPD Revenue</div>' +
+            '<div style="background:#fff;border:1px solid #e8ecf2;border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(15,23,42,0.05)">' +
+               '<div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:#0f172a;padding-bottom:8px;border-bottom:1px solid #f0f4f8">👨‍⚕️ Doctor-wise OPD Revenue</div>' +
                docRows +
             '</div>'
          ) : '<div></div>') +
       '</div>' +
 
       // Detail table
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">' +
-         '<div style="font-weight:700;font-size:0.9rem;color:#1a1a2e">📋 Transaction Detail — ' + periodLabel + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">' +
+         '<div style="font-weight:700;font-size:0.88rem;color:#0f172a">📋 Transaction Detail — ' + periodLabel + '</div>' +
          '<div style="display:flex;gap:8px">' +
-            '<button class="apt-view-btn" style="background:#2e7d32;padding:7px 14px" onclick="_revExportCsv()">⬇ CSV</button>' +
-            '<button class="apt-view-btn" style="background:#1565c0;padding:7px 14px" onclick="_revExportXls()">⬇ XLS</button>' +
+            '<button class="apt-view-btn" style="background:#059669;padding:7px 14px" onclick="_revExportCsv()">⬇ CSV</button>' +
+            '<button class="apt-view-btn" style="background:#0f172a;padding:7px 14px" onclick="_revExportXls()">⬇ XLS</button>' +
          '</div>' +
       '</div>' +
       '<div class="apt-tbl-wrap"><table class="apt-tbl">' +
@@ -12733,10 +12749,10 @@ async function renderShopRevenue() {
 }
 
 function _revKpi(icon, label, value, color) {
-   return '<div style="background:#fff;border:1.5px solid #eee;border-radius:10px;padding:14px 16px">' +
-             '<div style="font-size:1.1rem;margin-bottom:4px">' + icon + '</div>' +
-             '<div style="font-size:1.4rem;font-weight:800;color:' + color + '">' + value + '</div>' +
-             '<div style="font-size:0.75rem;color:#888;margin-top:2px">' + label + '</div>' +
+   return '<div style="background:#fff;border:1px solid #e8ecf2;border-radius:12px;padding:16px 18px;box-shadow:0 2px 8px rgba(15,23,42,0.06);transition:transform 0.18s" onmouseenter="this.style.transform=\'translateY(-2px)\'" onmouseleave="this.style.transform=\'\'">' +
+             '<div style="font-size:1.15rem;margin-bottom:6px">' + icon + '</div>' +
+             '<div style="font-size:1.5rem;font-weight:800;color:' + color + ';line-height:1">' + value + '</div>' +
+             '<div style="font-size:0.73rem;color:#8a93a7;margin-top:4px;text-transform:uppercase;letter-spacing:0.04em;font-weight:600">' + label + '</div>' +
           '</div>';
 }
 function _revSetPeriod(p) { _revPeriod = p; renderShopRevenue(); }
@@ -12841,10 +12857,10 @@ async function renderShopBeds() {
    });
 
    host.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">' +
-         '<div>' +
-            '<h3 style="margin:0;color:#1a1a2e;font-size:1rem">Bed Management</h3>' +
-            '<div style="font-size:0.8rem;color:#8a93a7;margin-top:2px">' + active.length + ' beds across ' + BED_CATEGORIES.length + ' categories</div>' +
+      '<div class="panel-hdr">' +
+         '<div class="panel-hdr-left">' +
+            '<h3 class="panel-hdr-title">🛏️ Bed Management</h3>' +
+            '<div class="panel-hdr-sub">' + active.length + ' beds across ' + BED_CATEGORIES.length + ' categories</div>' +
          '</div>' +
          '<div style="display:flex;gap:8px">' +
             '<button onclick="openBulkBedModal()" style="background:#f0fdf4;color:#059669;border:1px solid #6ee7b7;border-radius:10px;padding:9px 16px;font-size:0.85rem;font-weight:600;cursor:pointer">⚡ Bulk Add</button>' +
@@ -13221,12 +13237,12 @@ async function renderShopStaff() {
         }).join('');
 
    host.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">' +
-         '<div>' +
-            '<h3 style="margin:0;color:#1a1a2e;font-size:1rem">Staff Directory</h3>' +
-            '<div style="font-size:0.8rem;color:#8a93a7;margin-top:2px">' + active.length + ' active' + (inactive.length ? ' · ' + inactive.length + ' inactive' : '') + '</div>' +
+      '<div class="panel-hdr">' +
+         '<div class="panel-hdr-left">' +
+            '<h3 class="panel-hdr-title">👥 Staff Directory</h3>' +
+            '<div class="panel-hdr-sub">' + active.length + ' active' + (inactive.length ? ' · ' + inactive.length + ' inactive' : '') + '</div>' +
          '</div>' +
-         '<button onclick="openStaffModal()" style="background:#10b981;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:0.85rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">+ Add Staff</button>' +
+         '<button onclick="openStaffModal()" style="background:#10b981;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:0.85rem;font-weight:600;cursor:pointer">+ Add Staff</button>' +
       '</div>' +
       '<div class="staff-grid">' + cards + '</div>';
    _liveSubscribe('shopStaff', 'hospital_staff', renderShopStaff);

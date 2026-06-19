@@ -59,8 +59,12 @@
 
          <!-- TOPBAR — breadcrumb / page title + actions -->
          <header class="shop-topbar">
-            <div class="shop-topbar-title" id="shopTopbarTitle">Dashboard</div>
+            <div>
+               <div class="shop-topbar-title" id="shopTopbarTitle">Dashboard</div>
+               <div class="shop-topbar-sub" id="shopTopbarSub"></div>
+            </div>
             <div class="shop-topbar-actions">
+               <div class="shop-topbar-date" id="shopTopbarDate"></div>
                <span class="shop-topbar-bell" title="Notifications">🔔</span>
                <button class="shop-topbar-user" onclick="window.location='profile.html'"><span>👤</span></button>
             </div>
@@ -977,12 +981,15 @@
 
    <!-- SCHEDULE PANEL — owner books on behalf of phone/walk-in customers -->
    <div id="shop-panel-schedule" class="hidden">
-      <div style="max-width:680px;margin:1rem auto;padding:1.5rem;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.07)">
-         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:0.4rem">
-            <h3 style="margin:0;color:#1a1a2e;font-size:1.1rem">📞 Schedule for Offline Customer</h3>
-            <button type="button" onclick="openFollowupBookingModal()" style="background:#00897b;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:0.85rem;font-weight:600;cursor:pointer">🔁 Free Follow-up Booking</button>
+      <div style="max-width:680px;margin:22px auto;padding:0;background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(15,23,42,0.07);border:1px solid #e8ecf2;overflow:hidden">
+         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:16px 22px;background:linear-gradient(135deg,#f8fafc,#f0f4f8);border-bottom:1px solid #e8ecf2">
+            <div>
+               <h3 style="margin:0;color:#0f172a;font-size:1rem;font-weight:700">📞 Schedule for Offline Customer</h3>
+               <p style="color:#64748b;font-size:0.8rem;margin:3px 0 0">Walk-in / phone-in bookings made on the patient's behalf.</p>
+            </div>
+            <button type="button" onclick="openFollowupBookingModal()" style="background:#0f172a;color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:0.83rem;font-weight:600;cursor:pointer;white-space:nowrap">🔁 Free Follow-up</button>
          </div>
-         <p style="color:#666;font-size:0.85rem;margin:0 0 1.2rem">Walk-in / phone-in bookings made on the patient's behalf. Standard slot capacity &amp; token rules apply.</p>
+         <div style="padding:20px 22px">
 
          <div class="modal-field">
             <label>Doctor</label>
@@ -1034,12 +1041,13 @@
             <button class="addr-cancel-btn"   onclick="resetShopSchedule()">Reset</button>
          </div>
          <p id="schedMsg" style="margin:0.8rem 0 0;font-size:0.85rem"></p>
+         </div><!-- /inner padding -->
       </div>
    </div>
 
    <!-- DOCTORS PANEL -->
    <div id="shop-panel-doctors" class="hidden">
-      <div id="shopDoctorsContent">
+      <div style="padding:18px 22px" id="shopDoctorsContent">
          <div class="shop-empty">Loading…</div>
       </div>
    </div>

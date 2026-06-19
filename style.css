@@ -1735,9 +1735,9 @@ body.guest .store-section-divider {
 
 .apt-tbl-wrap {
 	background: #fff;
-	border: 1px solid #eef0f5;
+	border: 1px solid #e8ecf2;
 	border-radius: 14px;
-	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+	box-shadow: 0 2px 8px rgba(15,23,42,0.06);
 	overflow-x: auto;
 	margin-top: 4px;
 }
@@ -1748,25 +1748,25 @@ body.guest .store-section-divider {
 	font-size: 0.88rem;
 }
 .apt-tbl thead th {
-	background: #f7f9fc;
-	color: #8a93a7;
-	font-size: 0.72rem;
+	background: linear-gradient(180deg, #f8fafc, #f0f4f8);
+	color: #64748b;
+	font-size: 0.7rem;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	padding: 14px 14px;
+	letter-spacing: 0.06em;
+	padding: 13px 14px;
 	text-align: left;
 	border: none;
-	border-bottom: 1px solid #eef0f5;
+	border-bottom: 1px solid #e8ecf2;
 	white-space: nowrap;
 }
 .apt-tbl tbody td {
-	padding: 14px;
+	padding: 13px 14px;
 	border: none;
-	border-bottom: 1px solid #f2f4f8;
+	border-bottom: 1px solid #f0f4f8;
 	vertical-align: middle;
 }
-.apt-tbl tbody tr:hover { background: #fafbfd; }
+.apt-tbl tbody tr:hover { background: #f8fafc; }
 .apt-tbl tbody tr:last-child td { border-bottom: none; }
 
 .apt-tbl-date    { font-weight: 600; color: #1a1a2e; }
@@ -1824,17 +1824,18 @@ body.guest .store-section-divider {
 }
 .apt-doc-card {
 	background: #fff;
-	border: 1px solid #e8e8ec;
+	border: 1px solid #e8ecf2;
 	border-radius: 14px;
-	box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+	box-shadow: 0 2px 8px rgba(15,23,42,0.06);
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	transition: transform 0.15s, box-shadow 0.15s;
+	transition: transform 0.18s, box-shadow 0.18s;
 }
 .apt-doc-card:hover {
 	transform: translateY(-3px);
-	box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+	box-shadow: 0 8px 24px rgba(15,23,42,0.12);
+	border-color: #c7d2e8;
 }
 .apt-doc-photo {
 	width: 100%;
@@ -1897,11 +1898,11 @@ body.guest .store-section-divider {
 	background: transparent;
 	border: none;
 	box-shadow: none;
-	margin: 4px 18px 18px;
+	margin: 4px 22px 22px;
 	overflow: visible;
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: 14px;
 }
 .shop-ov-header {
 	display: flex;
@@ -1966,20 +1967,27 @@ body.guest .store-section-divider {
 .hosp-kpi-grid {
    display: grid;
    grid-template-columns: repeat(5, 1fr);
-   gap: 12px;
-   margin-bottom: 4px;
+   gap: 14px;
+   margin-bottom: 0;
 }
 .hosp-kpi-card {
    background: #fff;
-   border: 1px solid #e8ecf0;
+   border: 1px solid #e8ecf2;
    border-radius: 14px;
    padding: 16px 18px;
    display: flex;
    flex-direction: column;
    gap: 6px;
-   transition: box-shadow 0.15s;
+   transition: box-shadow 0.18s, transform 0.18s;
+   box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+   border-top: 3px solid #e2e8f0;
 }
-.hosp-kpi-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+.hosp-kpi-card:hover { box-shadow: 0 6px 20px rgba(15,23,42,0.10); transform: translateY(-1px); }
+[id^="hkpi-beds-"] { border-top-color: #3b82f6; }
+[id^="hkpi-pts-"]  { border-top-color: #6366f1; }
+[id^="hkpi-adm-"]  { border-top-color: #8b5cf6; }
+.hkpi-color-amber  { border-top-color: #f59e0b !important; }
+.hkpi-color-emerald { border-top-color: #10b981 !important; }
 .hkpi-head {
    display: flex;
    align-items: center;
@@ -2020,13 +2028,21 @@ body.guest .store-section-divider {
 /* Hospital Survey area chart card — matches queue width (full column) */
 .hospital-survey {
 	background: #fff;
-	border: 1px solid #eef0f5;
+	border: 1px solid #e8ecf2;
 	border-radius: 14px;
-	padding: 12px 16px;
-	box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+	padding: 0;
+	box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+	overflow: hidden;
 }
-.hospital-survey .hs-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
-.hospital-survey .hs-title { font-weight: 700; color: #1a1a2e; font-size: 1rem; }
+.hospital-survey .hs-head {
+	display: flex; justify-content: space-between; align-items: center;
+	flex-wrap: wrap; gap: 8px;
+	padding: 14px 18px 12px;
+	background: linear-gradient(135deg, #f8fafc, #f0f4f8);
+	border-bottom: 1px solid #e8ecf2;
+}
+.hospital-survey .hs-chart { padding: 12px 16px 10px; }
+.hospital-survey .hs-title { font-weight: 700; color: #0f172a; font-size: 0.95rem; }
 .hospital-survey .hs-legend { font-size: 0.78rem; color: #5f6473; display: flex; align-items: center; }
 .hospital-survey .hs-leg-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
 .hospital-survey .hs-chart   { overflow: hidden; position: relative; }
@@ -2289,14 +2305,39 @@ body.guest .store-section-divider {
 }
 .bed-btn-del:hover { background: #fee2e2; }
 
+/* ── Shared panel header row ── */
+.panel-hdr {
+   display: flex; justify-content: space-between; align-items: center;
+   margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+   padding-bottom: 14px; border-bottom: 1px solid #e8ecf2;
+}
+.panel-hdr-left {}
+.panel-hdr-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 0; }
+.panel-hdr-sub   { font-size: 0.78rem; color: #8a93a7; margin-top: 3px; }
+
+/* ── Admissions / IP tab toggle ── */
+.adm-tab-bar {
+   display: flex; gap: 4px; margin-bottom: 16px;
+}
+.adm-tab-btn {
+   padding: 8px 20px; font-size: 0.84rem; font-weight: 600;
+   border-radius: 9px; border: 1.5px solid #e2e8f0;
+   background: #f8fafc; color: #64748b; cursor: pointer;
+   transition: all 0.16s;
+}
+.adm-tab-btn:hover { background: #f0f4f8; color: #0f172a; }
+.adm-tab-btn.active-admitted  { background: #0f172a; color: #fff; border-color: #0f172a; }
+.adm-tab-btn.active-discharged { background: #059669; color: #fff; border-color: #059669; }
+
 /* ── Staff directory ── */
 .staff-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
 .staff-card {
-   background:#fff; border:1.5px solid #e8ecf0; border-radius:14px;
+   background:#fff; border:1px solid #e8ecf2; border-radius:14px;
    padding:16px; display:flex; flex-direction:column; gap:12px;
    transition: border-color 0.18s, box-shadow 0.18s;
+   box-shadow: 0 2px 6px rgba(15,23,42,0.05);
 }
-.staff-card:hover { border-color:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,0.07); }
+.staff-card:hover { border-color:#10b981; box-shadow:0 6px 20px rgba(15,23,42,0.10); transform: translateY(-1px); }
 .staff-card-head { display:flex; align-items:center; gap:12px; }
 .staff-avatar {
    width:44px; height:44px; border-radius:12px; font-weight:700;
@@ -2440,12 +2481,13 @@ body.guest .store-section-divider {
 }
 .shop-queue-head {
 	display: flex; justify-content: space-between; align-items: center;
-	background: #fff;
-	color: #1a1a2e;
+	background: linear-gradient(135deg, #f8fafc, #f0f4f8);
+	color: #0f172a;
 	padding: 14px 18px;
 	font-weight: 700;
-	font-size: 0.95rem;
-	border-bottom: 1px solid #f2f4f8;
+	font-size: 0.92rem;
+	border-bottom: 1px solid #e8ecf2;
+	border-radius: 14px 14px 0 0;
 }
 .shop-queue-more   { font-weight: 400; font-size: 0.78rem; opacity: 0.9; }
 .shop-queue-empty  { color: #999; padding: 28px 14px; text-align: center; font-style: italic; }
@@ -5254,19 +5296,20 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 
 .profile-card {
 	background: #fff;
-	border-radius: 12px;
-	box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+	border-radius: 14px;
+	box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+	border: 1px solid #e8ecf2;
 	overflow: hidden;
 	margin-bottom: 20px;
 }
 
 .profile-card-header {
-	background: #f5f5f5;
-	padding: 13px 20px;
-	font-size: 0.92rem;
+	background: linear-gradient(135deg, #f8fafc, #f0f4f8);
+	padding: 14px 20px;
+	font-size: 0.9rem;
 	font-weight: 700;
-	color: #333;
-	border-bottom: 1px solid #e0e0e0;
+	color: #0f172a;
+	border-bottom: 1px solid #e8ecf2;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -6020,6 +6063,12 @@ body.profile-page { background: #f0f4f8; }
 	box-shadow: 0 1px 8px rgba(15,23,42,0.06);
 }
 .shop-topbar-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; letter-spacing: -0.01em; }
+.shop-topbar-sub { font-size: 0.72rem; color: #8a93a7; margin-top: 1px; }
+.shop-topbar-date {
+	font-size: 0.78rem; font-weight: 600; color: #64748b;
+	background: #f0f4f8; border: 1px solid #e2e8f0;
+	padding: 5px 12px; border-radius: 20px;
+}
 .shop-topbar-actions { display: flex; align-items: center; gap: 10px; }
 .shop-topbar-bell {
 	font-size: 1.1rem; cursor: pointer; padding: 7px 9px;
@@ -6972,9 +7021,11 @@ body.profile-page { background: #f0f4f8; }
    background: #fff;
    border-radius: 14px;
    padding: 1.1rem;
-   box-shadow: 0 2px 10px rgba(0,0,0,0.07);
-   border: 1.5px solid #ebebeb;
+   box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+   border: 1px solid #e8ecf2;
+   transition: box-shadow 0.18s;
 }
+.apt-provider-card:hover { box-shadow: 0 6px 20px rgba(15,23,42,0.10); }
 .apt-provider-top {
    display: flex;
    gap: 10px;
@@ -7123,18 +7174,19 @@ body.profile-page { background: #f0f4f8; }
 .apt-modal-footer  { padding: 0.8rem 1.2rem 1.2rem; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; }
 
 .apt-form-label {
-   font-size: 0.75rem;
+   font-size: 0.7rem;
    font-weight: 700;
-   color: #888;
+   color: #64748b;
    text-transform: uppercase;
-   letter-spacing: 0.05em;
+   letter-spacing: 0.07em;
    margin-bottom: 8px;
+   display: block;
 }
 
 /* Date buttons */
 .apt-date-scroll {
    display: flex;
-   gap: 7px;
+   gap: 8px;
    overflow-x: auto;
    padding-bottom: 4px;
    scrollbar-width: none;
@@ -7144,34 +7196,35 @@ body.profile-page { background: #f0f4f8; }
    display: flex;
    flex-direction: column;
    align-items: center;
-   padding: 8px 10px;
-   border: 1.5px solid #ddd;
-   border-radius: 10px;
-   background: #fff;
+   padding: 9px 12px;
+   border: 1.5px solid #e2e8f0;
+   border-radius: 11px;
+   background: #f8fafc;
    cursor: pointer;
-   min-width: 58px;
+   min-width: 60px;
    flex-shrink: 0;
-   transition: all 0.15s;
+   transition: all 0.16s;
    gap: 2px;
 }
-.apt-date-btn:hover  { border-color: #1a1a2e; }
-.apt-date-btn.active { background: #1a1a2e; border-color: #1a1a2e; color: #fff; }
-.apt-date-day { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
-.apt-date-num { font-size: 0.8rem; font-weight: 500; }
+.apt-date-btn:hover  { border-color: #0f172a; background: #fff; }
+.apt-date-btn.active { background: #0f172a; border-color: #0f172a; color: #fff; box-shadow: 0 2px 8px rgba(15,23,42,0.2); }
+.apt-date-day { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.apt-date-num { font-size: 0.82rem; font-weight: 600; }
 
 /* Slot buttons */
 .apt-slots-grid { display: flex; flex-wrap: wrap; gap: 7px; }
 .apt-slot-btn {
-   padding: 6px 12px;
-   border: 1.5px solid #ddd;
+   padding: 6px 13px;
+   border: 1.5px solid #e2e8f0;
    border-radius: 8px;
-   background: #fff;
+   background: #f8fafc;
    font-size: 0.8rem;
    cursor: pointer;
-   transition: all 0.15s;
+   transition: all 0.16s;
+   font-weight: 500;
 }
-.apt-slot-btn:hover  { border-color: #1a73e8; color: #1a73e8; }
-.apt-slot-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 600; }
+.apt-slot-btn:hover  { border-color: #1a73e8; color: #1a73e8; background: #eff6ff; }
+.apt-slot-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 600; box-shadow: 0 2px 6px rgba(26,115,232,0.3); }
 
 /* Availability state colors — applied via class on .apt-slot-btn */
 .apt-slot-btn.slot-available {
@@ -7211,22 +7264,23 @@ body.profile-page { background: #f0f4f8; }
 .apt-slot-btn.slot-past.active { background: #616161; border-color: #616161; color: #fff; }
 
 /* Patient fields */
-.apt-field            { margin-bottom: 10px; }
-.apt-field label      { display: block; font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 4px; }
+.apt-field            { margin-bottom: 12px; }
+.apt-field label      { display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 5px; }
 .apt-field input,
 .apt-field textarea   {
    width: 100%;
-   padding: 9px 11px;
-   border: 1.5px solid #ddd;
-   border-radius: 8px;
+   padding: 9px 12px;
+   border: 1.5px solid #e2e8f0;
+   border-radius: 9px;
    font-size: 0.87rem;
-   color: #333;
+   color: #1e293b;
    box-sizing: border-box;
    outline: none;
-   background: #fafafa;
+   background: #f8fafc;
+   transition: border-color 0.16s, background 0.16s;
 }
 .apt-field input:focus,
-.apt-field textarea:focus { border-color: #1a1a2e; background: #fff; }
+.apt-field textarea:focus { border-color: #0f172a; background: #fff; box-shadow: 0 0 0 3px rgba(15,23,42,0.06); }
 .apt-field textarea { resize: vertical; min-height: 56px; }
 
 /* Booking action buttons */

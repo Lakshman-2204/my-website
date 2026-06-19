@@ -16072,22 +16072,44 @@ async function initProfile() {
       });
       _renderMyStoresInProfile(ownedStores);
    }
-   // Load Hospital Patient IDs for this user by phone
+   // Load Hospital Patient IDs — derive phones from the user's own appointments
+   // so the lookup works even if user.phone is empty or in a different format.
    (async function() {
       var idsBody = document.getElementById('prof-hospital-ids-body');
       if (!idsBody) return;
-      var phone = user.phone || '';
-      if (!phone) { idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">Add a phone number to your profile to see your hospital IDs.</div>'; return; }
       try {
          await loadAptProviders(true);
-         var rows = await AppDB.getPatientIdsByPhone(phone);
-         if (!rows.length) {
-            idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs found. Your ID is created automatically when you first visit a hospital on this platform.</div>';
+         // Collect all unique phones this user has ever booked with
+         var apts = await AppDB.getAppointments(user.email);
+         var phones = new Set();
+         if (user.phone) phones.add((user.phone).replace(/\D/g, '').slice(-10));
+         (apts || []).forEach(function(a) {
+            var n = (a.patient_phone || '').replace(/\D/g, '').slice(-10);
+            if (n.length === 10) phones.add(n);
+         });
+         if (!phones.size) {
+            idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs found. Your ID is created automatically after your first completed appointment.</div>';
+            return;
+         }
+         // Fetch patient IDs for all known phones
+         var allRows = [];
+         await Promise.all(Array.from(phones).map(async function(ph) {
+            var rows = await AppDB.getPatientIdsByPhone(ph);
+            allRows = allRows.concat(rows || []);
+         }));
+         // Dedupe by patient_id
+         var seen = new Set();
+         allRows = allRows.filter(function(r) {
+            if (seen.has(r.patient_id)) return false;
+            seen.add(r.patient_id); return true;
+         });
+         if (!allRows.length) {
+            idsBody.innerHTML = '<div style="color:#888;font-size:0.85rem">No hospital IDs found. Your ID is created automatically after your first completed appointment.</div>';
             return;
          }
          var providerMap = {};
          (_aptProvidersCache || []).forEach(function(p) { providerMap[p.id] = p.name; });
-         idsBody.innerHTML = rows.map(function(r) {
+         idsBody.innerHTML = allRows.map(function(r) {
             var hospName = providerMap[r.provider_id] || r.provider_id;
             return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0">' +
                '<div style="font-size:0.85rem;color:#444">🏥 ' + _esc(hospName) + '</div>' +
@@ -16706,6 +16728,16 @@ async function renderMyAppointments() {
       return;
    }
 
+   // Fetch patient IDs for completed appointments
+   var pidMap = {};
+   var completedApts = apts.filter(function(a) { return (a.status || '') === 'Completed'; });
+   if (completedApts.length) {
+      var pidResults = await Promise.all(completedApts.map(function(a) {
+         return AppDB.getHospitalPatientId(a.provider_id, a.patient_phone, a.patient_name);
+      }));
+      completedApts.forEach(function(a, i) { if (pidResults[i]) pidMap[a.apt_id] = pidResults[i]; });
+   }
+
    var rows = apts.map(function(a) {
       var status = a.status || 'Confirmed';
       var cls    = status === 'Cancelled' ? 'cancelled'
@@ -16800,7 +16832,7 @@ async function renderMyAppointments() {
                 '<td><div class="apt-tbl-date">' + (a.date || '') + '</div><div class="apt-tbl-slot">' + slotCell + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.doctor_name || '') + '</div><div class="apt-tbl-sub">' + (a.speciality || '') + '</div></td>' +
                 '<td><div class="apt-tbl-name">' + (a.provider_name || '') + '</div><div class="apt-tbl-sub">' + (meta.icon || '') + ' ' + (meta.label || a.category || '') + '</div>' + hospitalPhoneLine + '</td>' +
-                '<td><div class="apt-tbl-name">' + (a.patient_name || '—') + '</div>' + (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + '</td>' +
+                '<td><div class="apt-tbl-name">' + (a.patient_name || '—') + '</div>' + (a.patient_phone ? '<div class="apt-tbl-sub">' + a.patient_phone + '</div>' : '') + (pidMap[a.apt_id] ? '<div style="font-size:0.7rem;font-family:ui-monospace,monospace;color:#2e7d32;font-weight:700;margin-top:2px">🪪 ' + pidMap[a.apt_id] + '</div>' : '') + '</td>' +
                 '<td class="apt-tbl-symptom" title="' + (a.patient_reason || '').replace(/"/g,'&quot;') + '">' + (a.patient_reason || '<span style="color:#bbb">—</span>') + '</td>' +
                 '<td style="text-align:right">' + feeHtml + '</td>' +
                 '<td><span class="order-badge ' + cls + '">' + statusLabel + '</span></td>' +

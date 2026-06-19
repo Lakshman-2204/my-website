@@ -2377,10 +2377,10 @@ body.guest .store-section-divider {
 	transition: transform 0.12s, box-shadow 0.12s;
 	border: 1px solid transparent;
 }
-.adm-rounds-pill:hover  { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(15,23,42,0.10); }
-.adm-rounds-pill:active { transform: translateY(0); }
+.adm-rounds-pill.pending:hover  { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(15,23,42,0.10); }
+.adm-rounds-pill.pending:active { transform: translateY(0); }
 .adm-rounds-pill.pending { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
-.adm-rounds-pill.done    { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; }
+.adm-rounds-pill.done    { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; pointer-events: none; }
 
 /* Admission modal — section headings (mirror the reference admission form) */
 .adm-section-head {

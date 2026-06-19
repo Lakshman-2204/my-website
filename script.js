@@ -11726,7 +11726,7 @@ async function renderShopAdmissions() {
                          (r.spo2        ? '<div>SpO₂ ' + r.spo2 + '%</div>' : '') +
                          (!r.bp_systolic && !r.pulse_bpm ? '<span style="color:#ccc">—</span>' : '') +
                       '</td>' +
-                      '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" onclick="toggleAdmissionRounds(\'' + rid + '\')">' + (roundsDone ? '✓ Done' : '⏳ Pending') + '</span></td>' +
+                      '<td><span class="adm-rounds-pill ' + (roundsDone ? 'done' : 'pending') + '" ' + (roundsDone ? '' : 'onclick="toggleAdmissionRounds(\'' + rid + '\')"') + ' style="' + (roundsDone ? 'cursor:default' : 'cursor:pointer') + '">' + (roundsDone ? '✓ Done' : '⏳ Pending') + '</span></td>' +
                       '<td style="text-align:right;white-space:nowrap">' +
                          '<button class="apt-view-btn" style="background:#1565c0" onclick="openAdmissionModal(\'' + rid + '\')">✏️ Edit</button> ' +
                          '<button class="apt-view-btn" style="background:#6a1b9a" onclick="printAdmissionConsent(\'' + rid + '\')">📄 Consent</button> ' +
@@ -12222,15 +12222,9 @@ async function toggleAdmissionRounds(id) {
    var r = (rows || []).find(function(x) { return x.id === id; });
    if (!r) return;
    var todayYmd = _todayLocalYmd();
-   var effectiveStatus = (r.rounds_status === 'complete' && r.rounds_date === todayYmd) ? 'complete' : 'pending';
-   if (effectiveStatus === 'complete') {
-      // Mark back to pending — no confirm needed
-      await AppDB.patchAdmission(id, { rounds_status: 'pending', rounds_date: null });
-   } else {
-      // Ask confirmation before marking done
-      if (!confirm('Has the doctor completed rounds for ' + (r.patient_name || 'this patient') + ' today?')) return;
-      await AppDB.patchAdmission(id, { rounds_status: 'complete', rounds_date: todayYmd });
-   }
+   if (r.rounds_status === 'complete' && r.rounds_date === todayYmd) return; // already done today, nothing to do
+   if (!confirm('Has the doctor completed rounds for ' + (r.patient_name || 'this patient') + ' today?')) return;
+   await AppDB.patchAdmission(id, { rounds_status: 'complete', rounds_date: todayYmd });
    renderShopAdmissions();
 }
 

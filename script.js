@@ -4792,6 +4792,28 @@ async function showStoresList() {
 }
 
 // Step 2: list of stores within a chosen category
+function toggleSidebar(open) {
+   var drawer = document.getElementById('sidebarDrawer');
+   var overlay = document.getElementById('drawerOverlay');
+   if (!drawer) return;
+   if (open) {
+      drawer.classList.remove('-translate-x-full');
+      if (overlay) overlay.classList.remove('hidden');
+   } else {
+      drawer.classList.add('-translate-x-full');
+      if (overlay) overlay.classList.add('hidden');
+   }
+}
+
+async function goMedicalShops() {
+   await loadStoreCategories();
+   if (STORE_CAT_META['medical']) {
+      showStoreCategory('medical');
+   } else {
+      showStoresList();
+   }
+}
+
 async function showStoreCategory(catKey) {
    await loadStoreCategories();
    var meta = STORE_CAT_META[catKey];

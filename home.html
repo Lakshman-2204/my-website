@@ -256,7 +256,7 @@
                           class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
                      <span data-i18n="hero_med_btn2">Browse Medicines</span> →
                   </button>
-                  <button onclick="showStoreCategory('medical')"
+                  <button onclick="goMedicalShops()"
                           class="bg-amber-700 hover:bg-amber-800 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
                      <span data-i18n="hero_med_btn">Browse Medical Shops</span> →
                   </button>
@@ -822,7 +822,7 @@
             <button onclick="toggleSidebar(false); catClick('stores')" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 transition">🏪 Stores</button>
             <button onclick="toggleSidebar(false); showBookAppointment()" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 text-cyan-300 transition">📅 Book Appointments</button>
             <button onclick="toggleSidebar(false); catClick('health')" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 text-amber-300 transition">💊 Buy Medicines</button>
-            <button onclick="toggleSidebar(false); showStoreCategory('medical')" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 text-indigo-300 transition">🏬 Medical Shops</button>
+            <button onclick="toggleSidebar(false); goMedicalShops()" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 text-indigo-300 transition">🏬 Medical Shops</button>
          </div>
          <!-- Departments -->
          <div class="space-y-0.5">
@@ -848,18 +848,5 @@
    </div>
    <div id="drawerOverlay" onclick="toggleSidebar(false)" class="fixed inset-0 bg-slate-900/40 z-[190] hidden transition-opacity duration-300"></div>
 
-   <script>
-      function toggleSidebar(open) {
-         const drawer = document.getElementById('sidebarDrawer');
-         const overlay = document.getElementById('drawerOverlay');
-         if (open) {
-            drawer.classList.remove('-translate-x-full');
-            overlay.classList.remove('hidden');
-         } else {
-            drawer.classList.add('-translate-x-full');
-            overlay.classList.add('hidden');
-         }
-      }
-   </script>
 </body>
 </html>

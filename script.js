@@ -4793,6 +4793,7 @@ async function showStoresList() {
 
 // Step 2: list of stores within a chosen category
 async function showStoreCategory(catKey) {
+   await loadStoreCategories();
    var meta = STORE_CAT_META[catKey];
    if (!meta) return;
    document.getElementById('heroSection').classList.add('hidden');

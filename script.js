@@ -4796,6 +4796,109 @@ async function showStoresList() {
 }
 
 // Step 2: list of stores within a chosen category
+// ── FEATURED INFINITE TICKER SLIDERS ──────────────────────────────────────
+function _setupInfiniteSlider(viewportId) {
+   var viewport = document.getElementById(viewportId);
+   if (!viewport) return;
+   var track = viewport.querySelector('.slider-track');
+   if (!track || !track.children.length) return;
+
+   var original = track.innerHTML;
+   track.innerHTML = original + original + original;
+
+   var speed = 0.8;
+   var isInteracting = false;
+   var resumeTimer;
+   var singleWidth = track.scrollWidth / 3;
+   viewport.scrollLeft = singleWidth;
+
+   function autoScroll() {
+      if (!isInteracting) {
+         viewport.scrollLeft += speed;
+         if (viewport.scrollLeft >= singleWidth * 2) viewport.scrollLeft = singleWidth;
+         else if (viewport.scrollLeft <= 0) viewport.scrollLeft = singleWidth;
+      }
+      requestAnimationFrame(autoScroll);
+   }
+   requestAnimationFrame(autoScroll);
+
+   function startInteraction() { isInteracting = true; clearTimeout(resumeTimer); }
+   function stopInteraction() {
+      clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(function() {
+         if (!viewport.matches(':hover')) isInteracting = false;
+      }, 2000);
+   }
+
+   viewport.addEventListener('mouseenter', startInteraction);
+   viewport.addEventListener('mouseleave', stopInteraction);
+   viewport.addEventListener('touchstart', startInteraction, { passive: true });
+   viewport.addEventListener('touchend', stopInteraction);
+   viewport.addEventListener('scroll', function() {
+      if (viewport.scrollLeft >= singleWidth * 2) viewport.scrollLeft -= singleWidth;
+      else if (viewport.scrollLeft <= 0) viewport.scrollLeft += singleWidth;
+   });
+
+   var isDragging = false, startX, startScrollLeft;
+   viewport.addEventListener('mousedown', function(e) {
+      isDragging = true; startInteraction();
+      startX = e.pageX - viewport.offsetLeft;
+      startScrollLeft = viewport.scrollLeft;
+   });
+   viewport.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      var x = e.pageX - viewport.offsetLeft;
+      viewport.scrollLeft = startScrollLeft - (x - startX) * 1.5;
+   });
+   window.addEventListener('mouseup', function() {
+      if (isDragging) { isDragging = false; stopInteraction(); }
+   });
+}
+
+async function renderFeaturedTickers() {
+   await Promise.all([loadStoreProviders(), loadAptProviders()]);
+
+   // Medical shops
+   var medStores = (_storeProvidersCache || []).filter(function(p) { return p.category === 'medical'; });
+   var medTrack = document.getElementById('medShopsTrack');
+   if (medTrack) {
+      if (!medStores.length) {
+         medTrack.innerHTML = '<div class="text-xs text-slate-400 px-6 py-8">No medical shops listed yet.</div>';
+      } else {
+         medTrack.innerHTML = medStores.map(function(p) {
+            return '<div class="ticker-card" onclick="goMedicalShops()">' +
+               '<div class="ticker-card-icon">' + (p.icon || '💊') + '</div>' +
+               '<div class="ticker-card-info">' +
+                  '<h4>' + p.name + '</h4>' +
+                  '<p>' + (p.door_delivery && !p.delivery_paused ? '🚚 Home Delivery' : (p.tagline || 'Visit In-Store')) + '</p>' +
+               '</div></div>';
+         }).join('');
+         _setupInfiniteSlider('medShopsViewport');
+      }
+   }
+
+   // Hospitals & clinics (all apt providers)
+   var hospitals = (_aptProvidersCache || []);
+   var hospTrack = document.getElementById('hospitalsTrack');
+   if (hospTrack) {
+      if (!hospitals.length) {
+         hospTrack.innerHTML = '<div class="text-xs text-slate-400 px-6 py-8">No hospitals or clinics listed yet.</div>';
+      } else {
+         hospTrack.innerHTML = hospitals.map(function(p) {
+            var docCount = (p.doctors || []).length;
+            return '<div class="ticker-card" onclick="showBookAppointment()">' +
+               '<div class="ticker-card-icon">' + (p.icon || '🏥') + '</div>' +
+               '<div class="ticker-card-info">' +
+                  '<h4>' + p.name + '</h4>' +
+                  '<p>' + (docCount ? docCount + ' doctor' + (docCount === 1 ? '' : 's') : (p.tagline || 'Book Appointment')) + '</p>' +
+               '</div></div>';
+         }).join('');
+         _setupInfiniteSlider('hospitalsViewport');
+      }
+   }
+}
+
 function toggleSidebar(open) {
    var drawer = document.getElementById('sidebarDrawer');
    var overlay = document.getElementById('drawerOverlay');

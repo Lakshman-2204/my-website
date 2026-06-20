@@ -330,11 +330,91 @@
             </div>
          </div>
 
+         <!-- FEATURED TICKERS -->
+         <div id="featuredTickers" class="space-y-6">
+
+            <!-- Medical Shops Ticker -->
+            <section class="ticker-section pharmacy-section">
+               <div class="flex items-center justify-between mb-3 px-1">
+                  <div>
+                     <h2 class="text-base font-black text-slate-900">💊 Featured Partner Medical Shops</h2>
+                     <p class="text-[11px] text-slate-400 mt-0.5">Hover or swipe to browse · Resumes in 2s</p>
+                  </div>
+                  <button onclick="goMedicalShops()" class="text-xs font-bold text-amber-600 hover:text-amber-700 transition">View All →</button>
+               </div>
+               <div class="slider-viewport" id="medShopsViewport">
+                  <div class="slider-track" id="medShopsTrack">
+                     <div class="ticker-placeholder text-xs text-slate-400 px-6 py-8">Loading medical shops…</div>
+                  </div>
+               </div>
+            </section>
+
+            <!-- Hospitals & Clinics Ticker -->
+            <section class="ticker-section hospital-section">
+               <div class="flex items-center justify-between mb-3 px-1">
+                  <div>
+                     <h2 class="text-base font-black text-slate-900">🏥 Featured Hospitals &amp; Clinics</h2>
+                     <p class="text-[11px] text-slate-400 mt-0.5">Hover or swipe to browse · Resumes in 2s</p>
+                  </div>
+                  <button onclick="showBookAppointment()" class="text-xs font-bold text-cyan-600 hover:text-cyan-700 transition">View All →</button>
+               </div>
+               <div class="slider-viewport" id="hospitalsViewport">
+                  <div class="slider-track" id="hospitalsTrack">
+                     <div class="ticker-placeholder text-xs text-slate-400 px-6 py-8">Loading hospitals &amp; clinics…</div>
+                  </div>
+               </div>
+            </section>
+
+         </div>
+
       </div>
    </div>
    <style>
       .hero-ad-slide { transition: opacity 0.4s ease; }
       .hero-ad-slide.hidden { display: none; }
+
+      /* ── FEATURED TICKER SLIDERS ── */
+      .slider-viewport {
+         width: 100%; overflow-x: auto; background: #fff;
+         padding: 20px 0; border-radius: 16px;
+         box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+         position: relative; cursor: grab;
+         -webkit-overflow-scrolling: touch;
+         scrollbar-width: none;
+      }
+      .slider-viewport::-webkit-scrollbar { display: none; }
+      .slider-viewport:active { cursor: grabbing; }
+      .slider-viewport::before, .slider-viewport::after {
+         content: ""; height: 100%; width: 60px;
+         position: absolute; z-index: 2; top: 0; pointer-events: none;
+      }
+      .slider-viewport::before { left: 0; background: linear-gradient(to right, #fff, transparent); }
+      .slider-viewport::after  { right: 0; background: linear-gradient(to left,  #fff, transparent); }
+      .slider-track { display: flex; width: max-content; }
+      .ticker-card {
+         width: 240px; background: #f8fafc; border: 1px solid #e2e8f0;
+         border-radius: 12px; padding: 14px; margin: 0 10px;
+         display: flex; align-items: center; gap: 12px;
+         box-sizing: border-box; user-select: none;
+         transition: border-color 0.2s, background 0.2s, transform 0.2s;
+         cursor: pointer;
+      }
+      .ticker-card:hover { transform: translateY(-3px); }
+      .pharmacy-section .ticker-card:hover { border-color: #f59e0b; background: #fffbeb; }
+      .hospital-section  .ticker-card:hover { border-color: #06b6d4;  background: #ecfeff; }
+      .ticker-card-icon {
+         font-size: 26px; background: #fff; width: 50px; height: 50px;
+         display: flex; align-items: center; justify-content: center;
+         border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); flex-shrink: 0;
+      }
+      .ticker-card-info { overflow: hidden; }
+      .ticker-card-info h4 {
+         margin: 0 0 3px 0; font-size: 13px; font-weight: 800; color: #1a202c;
+         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .ticker-card-info p { margin: 0; font-size: 11px; font-weight: 600; }
+      .pharmacy-section .ticker-card-info p { color: #b45309; }
+      .hospital-section  .ticker-card-info p { color: #0e7490;  }
    </style>
    <script>
       var _heroSlideIdx = 0;
@@ -776,6 +856,7 @@
                showAllProducts();
             }
          }
+         if (typeof renderFeaturedTickers === 'function') renderFeaturedTickers();
       });
    </script>
 

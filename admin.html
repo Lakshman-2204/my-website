@@ -22,6 +22,14 @@
             cursor: pointer !important;
          }
          .admin-header-right span { color: rgba(255,255,255,0.8) !important; font-size: 0.82rem !important; }
+         .admin-lang-select {
+            background: rgba(255,255,255,0.15) !important; color: #fff !important;
+            border: 1px solid rgba(255,255,255,0.2) !important; border-radius: 8px !important;
+            font-size: 0.78rem !important; font-weight: 700 !important;
+            padding: 6px 10px !important; cursor: pointer !important;
+            outline: none !important;
+         }
+         .admin-lang-select option { background: #1e293b; color: #fff; }
          .admin-store-btn {
             background: rgba(255,255,255,0.15) !important; color: #fff !important;
             border: 1px solid rgba(255,255,255,0.2) !important; border-radius: 8px !important;
@@ -59,6 +67,10 @@
          <div class="admin-brand" onclick="window.location='home.html'">🛍️ MyStore Admin</div>
          <div class="admin-header-right">
             <span id="adminUserName"></span>
+            <select class="admin-lang-select" id="adminLangSelect" onchange="adminChangeLanguage(this.value)">
+               <option value="en">🌐 EN</option>
+               <option value="te">తె TE</option>
+            </select>
             <button class="admin-store-btn" onclick="window.location='home.html'">← View Store</button>
             <button class="admin-logout-btn" onclick="logout()">Logout</button>
          </div>
@@ -1222,5 +1234,44 @@
 
       <script src="script.js"></script>
       <script>initAdmin();</script>
+      <script>
+         var _adminI18n = {
+            en: { 'Products': '🛍️ Products', 'Stores': '🏪 Stores', 'Catalogue': '🧬 Catalogue',
+                  'Orders': '📦 Orders', 'Appointments': '🏥 Appointments', 'Billing': '💰 Billing',
+                  'Settings': '⚙️ Settings', 'Users': '👥 Users', 'admin_brand': '🛍️ MyStore Admin',
+                  'admin_view_store': '← View Store', 'admin_logout': 'Logout' },
+            te: { 'Products': '🛍️ ఉత్పత్తులు', 'Stores': '🏪 దుకాణాలు', 'Catalogue': '🧬 కేటలాగ్',
+                  'Orders': '📦 ఆర్డర్లు', 'Appointments': '🏥 అపాయింట్‌మెంట్‌లు', 'Billing': '💰 బిల్లింగ్',
+                  'Settings': '⚙️ సెట్టింగ్స్', 'Users': '👥 వినియోగదారులు', 'admin_brand': '🛍️ మై స్టోర్ అడ్మిన్',
+                  'admin_view_store': '← స్టోర్ చూడండి', 'admin_logout': 'లాగ్‌అవుట్' }
+         };
+         function adminChangeLanguage(lang) {
+            localStorage.setItem('preferredLanguage', lang);
+            var t = _adminI18n[lang] || _adminI18n['en'];
+            var sel = document.getElementById('adminLangSelect');
+            if (sel) sel.value = lang;
+            // Translate tab labels
+            var tabMap = { 'tab-products-btn': 'Products', 'tab-stores-btn': 'Stores',
+               'tab-catalog-btn': 'Catalogue', 'tab-orders-btn': 'Orders',
+               'tab-appointments-btn': 'Appointments', 'tab-billing-btn': 'Billing',
+               'tab-settings-btn': 'Settings', 'tab-users-btn': 'Users' };
+            Object.keys(tabMap).forEach(function(id) {
+               var el = document.getElementById(id);
+               if (el) el.textContent = t[tabMap[id]] || el.textContent;
+            });
+            // Translate header buttons
+            var brand = document.querySelector('.admin-brand');
+            if (brand) brand.textContent = t['admin_brand'];
+            var storeBtn = document.querySelector('.admin-store-btn');
+            if (storeBtn) storeBtn.textContent = t['admin_view_store'];
+            var logoutBtn = document.querySelector('.admin-logout-btn');
+            if (logoutBtn) logoutBtn.textContent = t['admin_logout'];
+         }
+         // Restore saved language on load
+         (function() {
+            var saved = localStorage.getItem('preferredLanguage');
+            if (saved && saved !== 'en') adminChangeLanguage(saved);
+         })();
+      </script>
    </body>
 </html>

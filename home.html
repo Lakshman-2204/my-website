@@ -5,6 +5,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
    <title>MyStore</title>
    <script src="https://cdn.tailwindcss.com"></script>
+   <script src="https://unpkg.com/lucide@latest"></script>
    <link rel="stylesheet" href="style.css"/>
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    <script src="supabase.js"></script>
@@ -41,7 +42,7 @@
          border: 1px solid #e2e8f0;
       }
       .user-dropdown.open { display: block; }
-      .user-dropdown-header { padding: 12px 16px; font-weight: 700; font-size: 0.88rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+      .user-dropdown-header { padding: 12px 16px; font-weight: 700; font-size: 0.88rem; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); }
       .user-dropdown-item { padding: 10px 16px; font-size: 0.85rem; color: #374151; cursor: pointer; transition: background 0.15s; }
       .user-dropdown-item:hover { background: #f8fafc; }
       .user-dropdown-item.hidden { display: none !important; }
@@ -244,10 +245,16 @@
                   <h2 class="text-2xl font-black text-amber-950 mt-3 mb-1 tracking-tight" data-i18n="hero_med_title">Buy Medicines</h2>
                   <p class="text-slate-600 text-xs max-w-sm leading-relaxed" data-i18n="hero_med_desc">Directly fulfill pharmacy items from authenticated physical medical shops listed on our platform.</p>
                </div>
-               <button onclick="catClick('health')"
-                       class="mt-4 w-fit bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
-                  <span data-i18n="hero_med_btn">Browse Medical Shops</span> →
-               </button>
+               <div class="mt-4 flex flex-wrap gap-2">
+                  <button onclick="catClick('health')"
+                          class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
+                     <span data-i18n="hero_med_btn2">Browse Medicines</span> →
+                  </button>
+                  <button onclick="showStoresList()"
+                          class="bg-amber-700 hover:bg-amber-800 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
+                     <span data-i18n="hero_med_btn">Browse Medical Shops</span> →
+                  </button>
+               </div>
             </div>
          </div>
 
@@ -676,7 +683,7 @@
             hero_apt_btn: 'Book Appointment',
             hero_med_badge: 'Prescription Orders', hero_med_title: 'Buy Medicines',
             hero_med_desc: 'Directly fulfill pharmacy items from authenticated medical shops on our platform.',
-            hero_med_btn: 'Browse Medical Shops',
+            hero_med_btn2: 'Browse Medicines', hero_med_btn: 'Browse Medical Shops',
             ad1_badge: 'Mega Deals', ad1_title: 'Weekend Marketplace Super Sale!',
             ad1_desc: 'Get up to 30% Off on fresh produce, bakery treats, and kitchen electronics today.',
             ad2_badge: 'Health Alert', ad2_title: 'Free Diagnostic Screenings',
@@ -702,7 +709,7 @@
             hero_apt_btn: 'అపాయింట్‌మెంట్ బుక్ చేయండి',
             hero_med_badge: 'ప్రిస్క్రిప్షన్ ఆర్డర్లు', hero_med_title: 'మందులు కొనండి',
             hero_med_desc: 'మా ప్లాట్‌ఫారమ్‌లో జాబితా చేయబడిన ధృవీకరించబడిన వైద్య దుకాణాల నుండి నేరుగా ఫార్మసీ వస్తువులను పొందండి.',
-            hero_med_btn: 'మెడికల్ షాపులను చూడండి',
+            hero_med_btn2: 'మందులను చూడండి', hero_med_btn: 'మెడికల్ షాపులను చూడండి',
             ad1_badge: 'మెగా డీల్స్', ad1_title: 'వీకెండ్ మార్కెట్‌ప్లేస్ సూపర్ సేల్!',
             ad1_desc: 'ఈ రోజు తాజా ఉత్పత్తులు, బేకరీ వస్తువులు మరియు వంటగది ఎలక్ట్రానిక్స్‌పై 30% వరకు తగ్గింపు పొందండి.',
             ad2_badge: 'హెల్త్ అలర్ట్', ad2_title: 'ఉచిత ఆరోగ్య పరీక్షలు',

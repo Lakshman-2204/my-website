@@ -711,6 +711,20 @@ function updateCartUI() {
    document.getElementById('cartTotalItems').textContent = totalItems;
    document.getElementById('cartTotalCost').textContent  = '₹' + totalCost.toLocaleString('en-IN');
 
+   // Sync hero cart sidebar
+   var heroSub = document.getElementById('heroCartSubtotal');
+   var heroTot = document.getElementById('heroCartTotal');
+   var heroTray = document.getElementById('heroCartTray');
+   if (heroSub) heroSub.textContent = '₹' + totalCost.toLocaleString('en-IN');
+   if (heroTot) heroTot.textContent = '₹' + totalCost.toLocaleString('en-IN');
+   if (heroTray) {
+      heroTray.innerHTML = cart.length === 0
+         ? '<span class="italic text-slate-400">No items in basket.</span>'
+         : cart.map(function(c) {
+            return '<div class="flex justify-between py-1"><span class="truncate max-w-[120px]">' + c.name + ' \xd7' + c.qty + '</span><span class="font-semibold">₹' + (c.price * c.qty).toLocaleString('en-IN') + '</span></div>';
+         }).join('');
+   }
+
    var el = document.getElementById('cartItems');
    if (!el) return;
    el.innerHTML = '';
@@ -6037,7 +6051,7 @@ function checkLogin() {
    if (!user) {
       document.body.classList.add('guest');
       const addrEl = document.getElementById('headerAddress');
-      if (addrEl) addrEl.innerHTML = '📍 <span>Login to set address</span>';
+      if (addrEl) addrEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> <span>Login to set address</span>';
       return;
    }
 
@@ -6124,14 +6138,14 @@ function updateAddressDisplay(email) {
    // Use _db.addresses if already loaded (profile page), else fetch async
    if (_db.addresses.length) {
       const def = _db.addresses.find(a => a.isDefault) || _db.addresses[0];
-      el.innerHTML = `🏠 <strong>HOME</strong> ${def.city || def.line} ›`;
+      el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> <strong>HOME</strong> ' + (def.city || def.line) + ' ›';
    } else {
       AppDB.getAddresses(email).then(function(data) {
-         if (!data || !data.length) { el.innerHTML = '📍 <span>Add Address</span>'; return; }
+         if (!data || !data.length) { el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> <span>Add Address</span>'; return; }
          const def = data.find(a => a.is_default) || data[0];
-         el.innerHTML = `🏠 <strong>HOME</strong> ${def.city || def.line} ›`;
+         el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> <strong>HOME</strong> ' + (def.city || def.line) + ' ›';
       });
-      el.innerHTML = '📍 <span>Add Address</span>';
+      el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> <span>Add Address</span>';
    }
 }
 

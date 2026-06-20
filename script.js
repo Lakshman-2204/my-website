@@ -1,4 +1,6 @@
-let cart = [];
+let cart = (function() {
+   try { return JSON.parse(localStorage.getItem('mystore_cart')) || []; } catch(e) { return []; }
+})();
 const pageQty     = {};
 const pageVariant = {}; // itemId -> selected variant index
 
@@ -704,6 +706,7 @@ function closeStorePicker() {
 
 // ── CART UI ──
 function updateCartUI() {
+   try { localStorage.setItem('mystore_cart', JSON.stringify(cart)); } catch(e) {}
    var totalItems = cart.reduce(function(s, c) { return s + c.qty; }, 0);
    var totalCost  = cart.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
 

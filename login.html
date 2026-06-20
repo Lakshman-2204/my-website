@@ -1,143 +1,144 @@
 <!DOCTYPE html>
 <html lang="en">
-   <head>
-      <meta charset="UTF-8"/>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-      <title>Login</title>
-      <link rel="stylesheet" href="style.css"/>
-      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-      <script src="supabase.js"></script>
-      <style>
-         /* Video-bg + frosted-glass card with animated gradient border */
-         body.auth-page { background: #1a1a2e; }
-         .auth-bg-video {
-            position: fixed; inset: 0; z-index: -2;
-            width: 100vw; height: 100vh;
-            object-fit: cover;
-            pointer-events: none;
-            background: linear-gradient(180deg, #1e3a5f 0%, #0a1929 100%);
-         }
-         @media (prefers-reduced-motion: reduce) {
-            .auth-bg-video { display: none; }
-            .auth-box::before { animation: none; }
-            body.auth-page {
-               background: linear-gradient(135deg, #1a2a5e 0%, #1a1a2e 100%);
-            }
-         }
-         .auth-bg-overlay {
-            position: fixed; inset: 0; z-index: -1;
-            background: rgba(0, 0, 0, 0.30);
-            pointer-events: none;
-         }
-         .auth-box {
-            position: relative;
-            background: rgba(255, 255, 255, 0.14) !important;
-            backdrop-filter: blur(28px) saturate(180%);
-            -webkit-backdrop-filter: blur(28px) saturate(180%);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.20);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35), 0 0 40px rgba(74, 144, 226, 0.10);
-            color: #fff;
-            overflow: visible;
-         }
-         .auth-box::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 22px;
-            padding: 2px;
-            background: linear-gradient(135deg, #4a90e2 0%, #9b59de 35%, #4adcd1 70%, #4a90e2 100%);
-            background-size: 300% 300%;
-            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-            -webkit-mask-composite: xor;
-                    mask-composite: exclude;
-            pointer-events: none;
-            animation: gradBorderShift 6s linear infinite;
-         }
-         @keyframes gradBorderShift {
-            0%   { background-position: 0% 50%; }
-            50%  { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-         }
-         .auth-box h1 { color: #fff; }
-         .auth-box .subtitle { color: rgba(255,255,255,0.78); }
-         .auth-box label { color: rgba(255,255,255,0.92); }
-         .auth-box .switch-link { color: rgba(255,255,255,0.78); }
-         .auth-box .switch-link a { color: #7dd3fc; }
-         .auth-box .switch-link a:hover { color: #bae6fd; }
-         .auth-box input[type="email"],
-         .auth-box input[type="password"],
-         .auth-box input[type="text"],
-         .auth-box input[type="tel"] {
-            background: rgba(255, 255, 255, 0.88);
-            border: 1px solid rgba(255, 255, 255, 0.35);
-            color: #1a1a2e;
-         }
-         .auth-box input::placeholder { color: rgba(26, 26, 46, 0.5); }
-         .auth-box .btn-primary {
-            background: rgba(26, 26, 46, 0.85);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-         }
-         .auth-box .btn-primary:hover { background: rgba(26, 26, 46, 0.95); }
-      </style>
-   </head>
-   <body class="auth-page">
-      <video class="auth-bg-video" autoplay muted loop playsinline preload="auto">
-         <source src="Dolphins_playing_in_sea_202605311737.mp4" type="video/mp4"/>
-      </video>
-      <div class="auth-bg-overlay"></div>
+<head>
+   <meta charset="UTF-8"/>
+   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+   <title>Login — MyStore</title>
+   <script src="https://cdn.tailwindcss.com"></script>
+   <link rel="stylesheet" href="style.css"/>
+   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+   <script src="supabase.js"></script>
+   <style>
+      html, body { height: 100%; margin: 0; padding: 0; }
+      .auth-bg-video {
+         position: fixed; inset: 0; z-index: -2;
+         width: 100vw; height: 100vh;
+         object-fit: cover; pointer-events: none;
+      }
+      .auth-bg-overlay {
+         position: fixed; inset: 0; z-index: -1;
+         background: rgba(0,0,0,0.55); pointer-events: none;
+      }
+      @keyframes gradBorderShift {
+         0%   { background-position: 0% 50%; }
+         50%  { background-position: 100% 50%; }
+         100% { background-position: 0% 50%; }
+      }
+      .animated-border::before {
+         content: '';
+         position: absolute; inset: -2px; border-radius: 1.25rem;
+         padding: 2px;
+         background: linear-gradient(135deg, #06b6d4 0%, #6366f1 40%, #06b6d4 100%);
+         background-size: 300% 300%;
+         -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+         -webkit-mask-composite: xor; mask-composite: exclude;
+         pointer-events: none;
+         animation: gradBorderShift 5s linear infinite;
+      }
+      /* override style.css btn-primary for auth */
+      body .auth-card .btn-primary {
+         width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 0.95rem;
+         font-weight: 700; cursor: pointer; transition: all 0.2s;
+         background: linear-gradient(135deg, #0891b2, #4f46e5);
+         color: #fff; box-shadow: 0 4px 16px rgba(6,182,212,0.35);
+      }
+      body .auth-card .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+      body .auth-card input[type="email"],
+      body .auth-card input[type="password"],
+      body .auth-card input[type="text"] {
+         width: 100%; padding: 11px 14px; border: 1px solid rgba(255,255,255,0.2);
+         border-radius: 9px; font-size: 0.92rem; outline: none;
+         background: rgba(255,255,255,0.9); color: #1e293b;
+         box-sizing: border-box; transition: border-color 0.2s;
+      }
+      body .auth-card input:focus { border-color: #06b6d4; box-shadow: 0 0 0 3px rgba(6,182,212,0.15); }
+      body .auth-card .pw-wrap { position: relative; }
+      body .auth-card .pw-toggle {
+         position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+         background: none; border: none; cursor: pointer; font-size: 1rem;
+      }
+      body .auth-card .error-msg { color: #fca5a5; font-size: 0.82rem; margin: 4px 0 0; }
+      body .auth-card .error-msg.hidden { display: none; }
+   </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4" style="background:#0f172a">
+   <video class="auth-bg-video" autoplay muted loop playsinline preload="auto">
+      <source src="Dolphins_playing_in_sea_202605311737.mp4" type="video/mp4"/>
+   </video>
+   <div class="auth-bg-overlay"></div>
 
-      <div class="auth-box">
-         <h1>Welcome Back</h1>
-         <p class="subtitle">Login to your account</p>
-         <div class="form-group">
-            <label>Email</label>
-            <input type="email" id="loginEmail" placeholder="gajula@example.com"/>
+   <!-- Login Card -->
+   <div class="auth-card animated-border relative w-full max-w-sm rounded-2xl p-8 shadow-2xl"
+        style="background:rgba(15,23,42,0.75);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12)">
+      <div class="text-center mb-6">
+         <div class="inline-flex items-center gap-1.5 bg-slate-800 text-white px-4 py-1.5 rounded-xl font-black text-lg mb-4">
+            MyStore<span class="text-cyan-400 text-xl">+</span>
          </div>
-         <div class="form-group">
-            <label>Password</label>
+         <h1 class="text-2xl font-black text-white tracking-tight">Welcome Back</h1>
+         <p class="text-slate-400 text-sm mt-1">Sign in to your account</p>
+      </div>
+
+      <div class="space-y-4">
+         <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Email</label>
+            <input type="email" id="loginEmail" placeholder="you@example.com"/>
+         </div>
+         <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Password</label>
             <div class="pw-wrap">
                <input type="password" id="loginPassword" placeholder="Your password"/>
                <button type="button" class="pw-toggle" onclick="togglePassword('loginPassword', this)" title="Show password">👁</button>
             </div>
          </div>
-         <div id="loginError" class="error-msg hidden">
-            Invalid email or password.
-         </div>
-         <button class="btn-primary" onclick="login()">Login</button>
-         <p class="switch-link" style="margin-top:0.6rem">
-            <a href="#" onclick="showForgotPassword(event)">Forgot password?</a>
-         </p>
-         <p class="switch-link">
-            No account yet? <a href="signup.html">Sign up here</a>
-         </p>
+         <p id="loginError" class="error-msg hidden">Invalid email or password.</p>
+         <button class="btn-primary" onclick="login()">Sign In</button>
       </div>
 
-      <!-- Forgot password panel (hidden by default) -->
-      <div class="auth-box" id="forgotBox" style="display:none">
-         <h1>Reset Password</h1>
-         <p class="subtitle">We'll email you a link to set a new password.</p>
-         <div class="form-group">
-            <label>Email</label>
+      <div class="mt-4 text-center space-y-2">
+         <p class="text-slate-400 text-sm">
+            <a href="#" onclick="showForgotPassword(event)" class="text-cyan-400 hover:text-cyan-300 font-semibold transition">Forgot password?</a>
+         </p>
+         <p class="text-slate-400 text-sm">
+            No account? <a href="signup.html" class="text-cyan-400 hover:text-cyan-300 font-semibold transition">Sign up here</a>
+         </p>
+      </div>
+   </div>
+
+   <!-- Forgot Password Card -->
+   <div class="auth-card animated-border relative w-full max-w-sm rounded-2xl p-8 shadow-2xl"
+        id="forgotBox" style="display:none;background:rgba(15,23,42,0.75);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12)">
+      <div class="text-center mb-6">
+         <div class="inline-flex items-center gap-1.5 bg-slate-800 text-white px-4 py-1.5 rounded-xl font-black text-lg mb-4">
+            MyStore<span class="text-cyan-400 text-xl">+</span>
+         </div>
+         <h1 class="text-2xl font-black text-white tracking-tight">Reset Password</h1>
+         <p class="text-slate-400 text-sm mt-1">We'll email you a reset link.</p>
+      </div>
+
+      <div class="space-y-4">
+         <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Email</label>
             <input type="email" id="forgotEmail" placeholder="your@email.com"/>
          </div>
          <p id="forgotMsg" class="error-msg hidden"></p>
          <button class="btn-primary" onclick="sendPasswordReset()">📧 Send Reset Link</button>
-         <p class="switch-link">
-            <a href="#" onclick="hideForgotPassword(event)">← Back to login</a>
-         </p>
       </div>
-      <script src="script.js"></script>
-      <script>
-         /* Pause the background video when the tab is hidden — saves battery on mobile */
-         (function() {
-            var v = document.querySelector('.auth-bg-video');
-            if (!v) return;
-            document.addEventListener('visibilitychange', function() {
-               if (document.hidden) v.pause();
-               else v.play().catch(function(){});
-            });
-         })();
-      </script>
-   </body>
+
+      <div class="mt-4 text-center">
+         <a href="#" onclick="hideForgotPassword(event)" class="text-cyan-400 hover:text-cyan-300 text-sm font-semibold transition">← Back to login</a>
+      </div>
+   </div>
+
+   <script src="script.js"></script>
+   <script>
+      (function() {
+         var v = document.querySelector('.auth-bg-video');
+         if (!v) return;
+         document.addEventListener('visibilitychange', function() {
+            if (document.hidden) v.pause();
+            else v.play().catch(function(){});
+         });
+      })();
+   </script>
+</body>
 </html>

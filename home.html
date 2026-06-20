@@ -1,486 +1,557 @@
 <!DOCTYPE html>
 <html lang="en">
-   <head>
-      <meta charset="UTF-8"/>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-      <title>MyStore</title>
-      <link rel="stylesheet" href="style.css"/>
-      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-      <script src="supabase.js"></script>
-   </head>
-   <body>
-      <!-- 3-ROW HEADER -->
-      <header class="site-header">
-         <!-- ROW 1: Brand + Scrolling Announcement + Address -->
-         <div class="header-top">
-            <div class="header-brand-tabs">
-               <div class="brand-tab" onclick="goHome()">
+<head>
+   <meta charset="UTF-8"/>
+   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+   <title>MyStore</title>
+   <script src="https://cdn.tailwindcss.com"></script>
+   <link rel="stylesheet" href="style.css"/>
+   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+   <script src="supabase.js"></script>
+   <style>
+      /* Reset site-header so Tailwind controls it */
+      .site-header { position: sticky; top: 0; z-index: 100; box-shadow: none; background: transparent; padding: 0; }
+      .header-top { all: unset; display: flex; }
+      .header-middle { all: unset; display: flex; }
+      .header-categories { all: unset; display: flex; }
+      .header-brand-tabs, .header-top-right, .header-actions { all: unset; display: flex; }
+
+      /* Marquee */
+      #headerMarquee { overflow: hidden; flex: 1; }
+      #headerMarquee.hidden { display: none !important; }
+      .header-marquee-track {
+         display: inline-block; white-space: nowrap;
+         animation: marqueeScroll 30s linear infinite;
+         font-size: 0.75rem; color: rgba(255,255,255,0.85);
+      }
+      @keyframes marqueeScroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
+
+      /* Search dropdown */
+      .search-dropdown {
+         position: absolute; top: 100%; left: 0; right: 0;
+         background: #fff; border-radius: 0 0 12px 12px;
+         box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+         z-index: 200; max-height: 320px; overflow-y: auto;
+      }
+      /* User dropdown */
+      .user-dropdown {
+         display: none; position: absolute; top: calc(100% + 8px); right: 0;
+         background: #fff; border-radius: 12px; min-width: 200px;
+         box-shadow: 0 8px 32px rgba(0,0,0,0.15); z-index: 300; overflow: hidden;
+         border: 1px solid #e2e8f0;
+      }
+      .user-dropdown.open { display: block; }
+      .user-dropdown-header { padding: 12px 16px; font-weight: 700; font-size: 0.88rem; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
+      .user-dropdown-item { padding: 10px 16px; font-size: 0.85rem; color: #374151; cursor: pointer; transition: background 0.15s; }
+      .user-dropdown-item:hover { background: #f8fafc; }
+      .user-dropdown-item.hidden { display: none !important; }
+      .user-dropdown-divider { height: 1px; background: #f1f5f9; }
+      .user-dropdown-logout { color: #dc2626; }
+
+      /* Category items */
+      .cat-item {
+         display: flex; flex-direction: column; align-items: center; gap: 4px;
+         padding: 8px 14px; cursor: pointer; border-radius: 12px;
+         transition: all 0.15s; white-space: nowrap; font-size: 0.72rem;
+         font-weight: 600; color: #475569; flex-shrink: 0;
+      }
+      .cat-item:hover { background: #f0f9ff; color: #0891b2; }
+      .cat-item.active { background: #f59e0b; color: #fff; }
+      .cat-icon { font-size: 1.4rem; }
+
+      /* Hero section */
+      .hero {
+         background: linear-gradient(135deg, #0c4a6e 0%, #0e7490 50%, #1d4ed8 100%);
+         padding: 60px 24px; text-align: center; color: #fff;
+      }
+      .hero h1 { font-size: 2.2rem; font-weight: 900; margin: 0 0 10px; letter-spacing: -0.02em; }
+      .hero p { color: rgba(255,255,255,0.8); font-size: 1rem; margin: 0 0 24px; }
+      .btn-shop {
+         background: #f59e0b; color: #1e293b; font-weight: 800; font-size: 0.9rem;
+         padding: 12px 28px; border: none; border-radius: 12px; cursor: pointer;
+         transition: all 0.2s; box-shadow: 0 4px 16px rgba(245,158,11,0.4);
+      }
+      .btn-shop:hover { background: #fbbf24; transform: translateY(-2px); }
+
+      /* Cart badge */
+      .cart-badge {
+         background: #f59e0b; color: #1e293b; font-size: 0.65rem; font-weight: 800;
+         padding: 1px 6px; border-radius: 999px; margin-left: 4px; vertical-align: middle;
+      }
+
+      /* Header stores/appointments buttons - override any style.css defaults */
+      .header-stores-btn, .header-apt-btn {
+         border: none; cursor: pointer; border-radius: 10px; font-weight: 700; transition: all 0.2s;
+      }
+   </style>
+</head>
+<body class="bg-slate-100">
+
+   <!-- ═══════════════════════════════════════════════════════
+        SITE HEADER
+   ═══════════════════════════════════════════════════════ -->
+   <header class="site-header">
+
+      <!-- ROW 1: Utility bar — brand + marquee + address -->
+      <div class="header-top bg-white px-4 lg:px-8 py-2.5 flex justify-between items-center text-xs border-b border-slate-200">
+         <div class="header-brand-tabs">
+            <div class="brand-tab flex items-center gap-1.5 cursor-pointer" onclick="goHome()">
+               <div class="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-4 py-1.5 rounded-xl font-black text-base shadow-sm flex items-center gap-1">
                   <span class="brand-emoji">🛍️</span>
-                  <span class="brand-name">MyStore</span>
-               </div>
-            </div>
-            <!-- Scrolling announcement marquee — populated by loadSiteSettings -->
-            <div class="header-marquee hidden" id="headerMarquee">
-               <div class="header-marquee-track" id="headerMarqueeTrack"></div>
-            </div>
-            <div class="header-top-right">
-               <div class="header-address" id="headerAddress" onclick="window.location='profile.html?tab=addresses'">
+                  <span class="brand-name">MyStore</span><span class="text-amber-300">+</span>
                </div>
             </div>
          </div>
-         <!-- ROW 2: Search + Account + Cart -->
-         <div class="header-middle">
-            <div class="search-box-wide">
-               <span class="search-icon-sym">🔍</span>
-               <input type="search" id="searchInput" placeholder="Search products, brands..."
-                  oninput="liveSearch()" onkeydown="if(event.key==='Enter') doSearch()" autocomplete="off" name="store-search"/>
-               <div class="search-dropdown" id="searchDropdown"></div>
-            </div>
-            <button class="header-stores-btn" onclick="catClick('stores')">🏪 Stores</button>
-            <button class="header-apt-btn" onclick="showBookAppointment()">📅 <span class="apt-btn-stacked"><span>Book</span><span>Appointments</span></span></button>
-            <div class="header-actions">
-               <button class="header-dashboard-btn" id="headerDashboardBtn" onclick="goDashboard()" title="My Dashboard">🏠</button>
-               <div class="header-user" onclick="toggleUserMenu(event)">
-                  👤 <span id="welcomeUser">Account</span> ▾
-                  <div class="user-dropdown" id="userDropdown">
-                     <div class="user-dropdown-header" id="userDropdownName"></div>
-                     <div id="dynamicMenuItems"></div>
-                     <div class="user-dropdown-item hidden" id="adminPanelLink" onclick="window.location='admin.html'">⚙️ Admin Panel</div>
-                     <div class="user-dropdown-item hidden" id="shopOwnerLink" onclick="window.location='shopowner.html'">🏪 Shop Dashboard</div>
-                     <div class="user-dropdown-divider"></div>
-                     <div class="user-dropdown-item user-dropdown-logout" onclick="logout()">🚪 Logout</div>
-                  </div>
-               </div>
-               <div class="header-cart" onclick="showCart()">
-                  🛒 Cart
-                  <span class="cart-badge" id="cartBadge">0</span>
-               </div>
+         <div class="header-marquee hidden" id="headerMarquee">
+            <div class="header-marquee-track" id="headerMarqueeTrack"></div>
+         </div>
+         <div class="header-top-right">
+            <div class="header-address flex items-center gap-1 text-slate-500 hover:text-cyan-600 cursor-pointer transition font-medium"
+                 id="headerAddress" onclick="window.location='profile.html?tab=addresses'">
             </div>
          </div>
-         <!-- ROW 3: Category Icons -->
-         <div class="header-categories">
-            <div class="cat-item active" id="cat-all" onclick="catClick('all')">
-               <div class="cat-icon">🛍️</div>
-               <span>For You</span>
-            </div>
-            <div class="cat-item" id="cat-dailyneeds" onclick="catClick('dailyneeds')">
-               <div class="cat-icon">🛒</div>
-               <span>Daily Needs</span>
-            </div>
-            <div class="cat-item" id="cat-flowers" onclick="catClick('flowers')">
-               <div class="cat-icon">🌸</div>
-               <span>Flowers</span>
-            </div>
-            <div class="cat-item" id="cat-home" onclick="catClick('home')">
-               <div class="cat-icon">🏠</div>
-               <span>Home & Living</span>
-            </div>
-            <div class="cat-item" id="cat-construction" onclick="catClick('construction')">
-               <div class="cat-icon">🏗️</div>
-               <span>Construction</span>
-            </div>
-            <div class="cat-item" id="cat-clothing" onclick="catClick('clothing')">
-               <div class="cat-icon">👕</div>
-               <span>Clothing</span>
-            </div>
-            <div class="cat-item" id="cat-agriculture" onclick="catClick('agriculture')">
-               <div class="cat-icon">🌾</div>
-               <span>Agriculture</span>
-            </div>
-            <div class="cat-item" id="cat-kitchen" onclick="catClick('kitchen')">
-               <div class="cat-icon">🍳</div>
-               <span>Kitchen</span>
-            </div>
-            <div class="cat-item" id="cat-electronics" onclick="catClick('electronics')">
-               <div class="cat-icon">💡</div>
-               <span>Electronics</span>
-            </div>
-            <div class="cat-item" id="cat-health" onclick="catClick('health')">
-               <div class="cat-icon">💊</div>
-               <span>Health</span>
-            </div>
-            <div class="cat-item" id="cat-stationery" onclick="catClick('stationery')">
-               <div class="cat-icon">📚</div>
-               <span>Stationery</span>
-            </div>
-            <div class="cat-item" id="cat-entertainment" onclick="catClick('entertainment')">
-               <div class="cat-icon">🎮</div>
-               <span>Entertainment</span>
-            </div>
-            <div class="cat-item" id="cat-contact" onclick="catClick('contact')">
-               <div class="cat-icon">📞</div>
-               <span>Contact</span>
-            </div>
-         </div>
-      </header>
-      <!-- ANNOUNCEMENT BAR (controlled from Admin → Settings) -->
+      </div>
 
-      <!-- HERO -->
-      <div class="hero" id="heroSection">
-         <h1 id="heroGreeting">Welcome!</h1>
-         <p>Furniture · Marbles · Drinks · Bricks · Toys · Fancy Items & More</p>
-         <button class="btn-shop" onclick="showAllProducts()"> Shop Now — View All Products</button>
-      </div>
-      <!-- PRODUCTS SECTION -->
-      <div class="products-section hidden" id="productsSection">
-         <div class="products-header">
-            <h2 id="productTitle">Products</h2>
-            <div style="display:flex;gap:10px;align-items:center">
-               <button class="btn-back" onclick="goHome()"> Back to Home</button>
-            </div>
+      <!-- ROW 2: Main nav — search + stores + appointments + user + cart -->
+      <div class="header-middle bg-gradient-to-r from-cyan-500 via-cyan-600 to-blue-600 px-4 lg:px-8 py-3.5 flex items-center gap-3 flex-wrap">
+         <!-- Search -->
+         <div class="flex-1 max-w-xl relative">
+            <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+               <span class="search-icon-sym text-cyan-700 text-sm">🔍</span>
+            </span>
+            <input type="search" id="searchInput"
+                   class="w-full bg-white/95 text-slate-900 placeholder-slate-500 pl-9 pr-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-400 shadow-inner font-medium"
+                   placeholder="Search products, brands..."
+                   oninput="liveSearch()" onkeydown="if(event.key==='Enter') doSearch()"
+                   autocomplete="off" name="store-search"/>
+            <div class="search-dropdown" id="searchDropdown"></div>
          </div>
-         <div class="products-grid" id="productsGrid"></div>
-      </div>
-      <!-- CART SIDEBAR -->
-      <div class="cart-overlay hidden" id="cartOverlay" onclick="closeCart()"></div>
-      <div class="cart-sidebar hidden" id="cartSidebar">
-         <div class="cart-header">
-            <h3> Your Cart</h3>
-            <button class="cart-close" onclick="closeCart()">✕</button>
-         </div>
-         <div class="cart-items" id="cartItems"></div>
-         <div class="cart-footer">
-            <div class="cart-summary">
-               <div class="summary-row">
-                  <span>Total Items:</span>
-                  <span id="cartTotalItems">0</span>
-               </div>
-               <div class="summary-row total-row">
-                  <span>Total Cost:</span>
-                  <span id="cartTotalCost">₹0</span>
-               </div>
-            </div>
-            <button class="btn-makeorder" onclick="makeOrder()">📋 Make Order</button>
-            <button class="btn-checkout disabled" disabled title="Online payment coming soon">🔒 Pay Online — Coming Soon</button>
-            <button class="btn-clear" onclick="clearCart()">🗑️ Clear Cart</button>
-         </div>
-      </div>
-      <!-- RAZORPAY MODAL -->
-      <div class="rp-overlay hidden" id="rpOverlay">
-         <div class="rp-modal">
-            <div class="rp-header">
-               <span> Secure Payment</span>
-               <button onclick="closePayment()">✕</button>
-            </div>
-            <div class="rp-body">
-               <div class="rp-logo"> MyStore</div>
-               <div class="rp-amount" id="rpAmount">₹0</div>
-               <p style="color:#888;font-size:0.82rem;text-align:center;margin-bottom:1.2rem">Secure payment powered by Razorpay</p>
-               <div class="rp-tabs">
-                  <button class="rp-tab active" onclick="switchTab('upi',this)">UPI</button>
-                  <button class="rp-tab" onclick="switchTab('card',this)">Card</button>
-                  <button class="rp-tab" onclick="switchTab('netbanking',this)">Net Banking</button>
-                  <button class="rp-tab" onclick="switchTab('wallet',this)">Wallet</button>
-               </div>
-               <!-- UPI -->
-               <div class="rp-panel" id="tab-upi">
-                  <label class="rp-label">UPI ID</label>
-                  <input class="rp-input" id="upiId" placeholder="yourname@upi"/>
-                  <button class="rp-pay-btn" onclick="processPayment('UPI')">Pay Now</button>
-               </div>
-               <!-- CARD -->
-               <div class="rp-panel hidden" id="tab-card">
-                  <!-- Saved cards injected here by JS -->
-                  <div id="savedCardsInPayment"></div>
-                  <!-- New card form -->
-                  <div id="newCardForm">
-                     <label class="rp-label">Card Number</label>
-                     <input class="rp-input" id="cardNum" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)"/>
-                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-                        <div>
-                           <label class="rp-label">Expiry</label>
-                           <input class="rp-input" id="cardExpiry" placeholder="MM/YY" maxlength="5" oninput="formatExpiry(this)"/>
-                        </div>
-                        <div>
-                           <label class="rp-label">CVV</label>
-                           <input class="rp-input" id="cardCvv" placeholder="•••" maxlength="4" type="password"/>
-                        </div>
+
+         <!-- Action buttons -->
+         <div class="header-actions flex items-center gap-2.5 flex-wrap">
+            <button class="header-stores-btn bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm tracking-wide"
+                    onclick="catClick('stores')">🏪 Stores</button>
+
+            <button class="header-apt-btn bg-slate-900/40 hover:bg-slate-900/60 text-white text-xs font-black px-4 py-2.5 rounded-xl border border-white/20 flex items-center gap-1.5 shadow-sm backdrop-blur-sm"
+                    onclick="showBookAppointment()">📅 Book Appointments</button>
+
+            <div class="flex items-center gap-2.5 pl-2.5 border-l border-white/25">
+               <button class="header-dashboard-btn bg-white/20 hover:bg-white/30 p-2.5 rounded-xl text-white transition"
+                       id="headerDashboardBtn" onclick="goDashboard()" title="My Dashboard">🏠</button>
+
+               <div class="relative">
+                  <div class="header-user flex items-center gap-1 text-white text-xs font-bold cursor-pointer hover:text-amber-200 transition py-2 px-1"
+                       onclick="toggleUserMenu(event)">
+                     👤 <span id="welcomeUser">Account</span> ▾
+                     <div class="user-dropdown" id="userDropdown">
+                        <div class="user-dropdown-header" id="userDropdownName"></div>
+                        <div id="dynamicMenuItems"></div>
+                        <div class="user-dropdown-item hidden" id="adminPanelLink" onclick="window.location='admin.html'">⚙️ Admin Panel</div>
+                        <div class="user-dropdown-item hidden" id="shopOwnerLink" onclick="window.location='shopowner.html'">🏪 Shop Dashboard</div>
+                        <div class="user-dropdown-divider"></div>
+                        <div class="user-dropdown-item user-dropdown-logout" onclick="logout()">🚪 Logout</div>
                      </div>
-                     <label class="rp-label" style="margin-top:10px">Name on Card</label>
-                     <input class="rp-input" id="cardHolder" placeholder="Your Full Name"/>
-                     <label class="rp-save-card-row">
-                        <input type="checkbox" id="saveCardCheck"/> Save this card for future payments
-                     </label>
-                     <p class="rp-cvv-note">⚠️ CVV is never saved — you'll be asked every time.</p>
-                     <button class="rp-pay-btn" onclick="processPayment('Card')">Pay Now</button>
                   </div>
                </div>
-               <!-- NET BANKING -->
-               <div class="rp-panel hidden" id="tab-netbanking">
-                  <label class="rp-label">Select Bank</label>
-                  <select class="rp-input">
-                     <option>State Bank of India</option>
-                     <option>HDFC Bank</option>
-                     <option>ICICI Bank</option>
-                     <option>Axis Bank</option>
-                     <option>Kotak Mahindra Bank</option>
-                     <option>Punjab National Bank</option>
-                     <option>Bank of Baroda</option>
-                     <option>Canara Bank</option>
-                  </select>
-                  <button class="rp-pay-btn" onclick="processPayment('Net Banking')">Pay Now</button>
-               </div>
-               <!-- WALLET -->
-               <div class="rp-panel hidden" id="tab-wallet">
-                  <div class="wallet-grid">
-                     <div class="wallet-opt selected" onclick="selectWallet(this)"> PhonePe</div>
-                     <div class="wallet-opt" onclick="selectWallet(this)"> GPay</div>
-                     <div class="wallet-opt" onclick="selectWallet(this)"> Paytm</div>
-                     <div class="wallet-opt" onclick="selectWallet(this)"> Amazon Pay</div>
-                  </div>
-                  <button class="rp-pay-btn" onclick="processPayment('Wallet')">Pay Now</button>
-               </div>
-               <!-- SUCCESS -->
-               <div class="rp-panel hidden" id="tab-success">
-                  <div class="rp-success">
-                     <div class="success-icon"> </div>
-                     <h3>Payment Successful!</h3>
-                     <p id="successMsg"></p>
-                     <button class="rp-pay-btn" onclick="paymentDone()">Continue Shopping</button>
-                  </div>
-               </div>
+
+               <button class="header-cart bg-white text-slate-900 text-xs font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm hover:bg-slate-50 transition"
+                       onclick="showCart()">
+                  🛒 Cart <span class="cart-badge" id="cartBadge">0</span>
+               </button>
             </div>
-         </div>
-      </div>
-      <!-- ROLE SETUP MODAL (one-time, for accounts created before role system) -->
-      <div class="role-setup-overlay hidden" id="roleSetupOverlay">
-         <div class="role-setup-modal">
-            <h2>👋 One quick thing...</h2>
-            <p>Tell us who you are so we can show the right page.</p>
-            <div class="role-setup-cards">
-               <div class="role-setup-card" onclick="confirmRole('customer')">
-                  <div class="role-setup-icon">🛍️</div>
-                  <div class="role-setup-name">Customer</div>
-                  <div class="role-setup-desc">Browse & order products</div>
-               </div>
-               <div class="role-setup-card" onclick="confirmRole('storeowner')">
-                  <div class="role-setup-icon">🏪</div>
-                  <div class="role-setup-name">Business Partner</div>
-                  <div class="role-setup-desc">Sell products or manage appointments</div>
-               </div>
-            </div>
-         </div>
-      </div>
-      <!-- ORDER CONFIRMATION MODAL -->
-      <div class="order-overlay hidden" id="orderOverlay">
-         <div class="order-modal">
-            <div class="order-modal-top">
-               <div class="order-success-icon">✅</div>
-               <h2>Order Placed!</h2>
-               <p class="order-subtitle" id="orderSubtitle">Show this Order ID at the shop to collect your items.</p>
-            </div>
-            <div id="ordersConfirmList"></div>
-            <div class="order-total-row">
-               <span>Grand Total</span>
-               <span id="orderTotalDisplay"></span>
-            </div>
-            <div class="order-actions">
-               <button class="order-btn-whatsapp hidden" id="orderWhatsappBtn">📲 Share on WhatsApp</button>
-               <button class="order-btn-view" onclick="window.location='profile.html?tab=orders'">📦 View My Orders</button>
-               <button class="order-btn-continue" onclick="closeOrderModal()">🛍️ Continue Shopping</button>
-            </div>
-         </div>
-      </div>
-      <!-- STORE PICKER MODAL -->
-      <div class="stp-overlay hidden" id="storePickerOverlay" onclick="if(event.target===this)closeStorePicker()">
-         <div class="stp-modal">
-            <div class="stp-header">
-               <div class="stp-title">
-                  <img id="spItemImg" src="" onerror="this.style.display='none'"/>
-                  <div>
-                     <div style="font-size:0.78rem;color:#888;margin-bottom:2px">Available in multiple stores</div>
-                     <div id="spItemName" style="font-weight:700;font-size:1rem;color:#1a1a2e"></div>
-                  </div>
-               </div>
-               <button onclick="closeStorePicker()">✕</button>
-            </div>
-            <div class="stp-body" id="spStoresList"></div>
          </div>
       </div>
 
-      <!-- APPOINTMENT SECTION -->
-      <div class="apt-section hidden" id="appointmentSection">
-         <div class="apt-section-header">
-            <h2 id="aptSectionTitle">Book Appointment</h2>
+      <!-- ROW 3: Category icons -->
+      <div class="header-categories bg-white border-b border-slate-200 py-3 px-4 lg:px-8 overflow-x-auto no-scrollbar flex gap-1 items-center shadow-sm"
+           style="-ms-overflow-style:none;scrollbar-width:none">
+         <div class="cat-item active" id="cat-all" onclick="catClick('all')">
+            <div class="cat-icon">🛍️</div><span>For You</span>
+         </div>
+         <div class="cat-item" id="cat-dailyneeds" onclick="catClick('dailyneeds')">
+            <div class="cat-icon">🛒</div><span>Daily Needs</span>
+         </div>
+         <div class="cat-item" id="cat-flowers" onclick="catClick('flowers')">
+            <div class="cat-icon">🌸</div><span>Flowers</span>
+         </div>
+         <div class="cat-item" id="cat-home" onclick="catClick('home')">
+            <div class="cat-icon">🏠</div><span>Home &amp; Living</span>
+         </div>
+         <div class="cat-item" id="cat-construction" onclick="catClick('construction')">
+            <div class="cat-icon">🏗️</div><span>Construction</span>
+         </div>
+         <div class="cat-item" id="cat-clothing" onclick="catClick('clothing')">
+            <div class="cat-icon">👕</div><span>Clothing</span>
+         </div>
+         <div class="cat-item" id="cat-agriculture" onclick="catClick('agriculture')">
+            <div class="cat-icon">🌾</div><span>Agriculture</span>
+         </div>
+         <div class="cat-item" id="cat-kitchen" onclick="catClick('kitchen')">
+            <div class="cat-icon">🍳</div><span>Kitchen</span>
+         </div>
+         <div class="cat-item" id="cat-electronics" onclick="catClick('electronics')">
+            <div class="cat-icon">💡</div><span>Electronics</span>
+         </div>
+         <div class="cat-item" id="cat-health" onclick="catClick('health')">
+            <div class="cat-icon">💊</div><span>Health</span>
+         </div>
+         <div class="cat-item" id="cat-stationery" onclick="catClick('stationery')">
+            <div class="cat-icon">📚</div><span>Stationery</span>
+         </div>
+         <div class="cat-item" id="cat-entertainment" onclick="catClick('entertainment')">
+            <div class="cat-icon">🎮</div><span>Entertainment</span>
+         </div>
+         <div class="cat-item" id="cat-contact" onclick="catClick('contact')">
+            <div class="cat-icon">📞</div><span>Contact</span>
+         </div>
+      </div>
+   </header>
+
+   <!-- HERO -->
+   <div class="hero" id="heroSection">
+      <h1 id="heroGreeting">Welcome!</h1>
+      <p>Furniture · Marbles · Drinks · Bricks · Toys · Fancy Items &amp; More</p>
+      <button class="btn-shop" onclick="showAllProducts()">Shop Now — View All Products</button>
+   </div>
+
+   <!-- PRODUCTS SECTION -->
+   <div class="products-section hidden" id="productsSection">
+      <div class="products-header">
+         <h2 id="productTitle">Products</h2>
+         <div style="display:flex;gap:10px;align-items:center">
             <button class="btn-back" onclick="goHome()">← Back to Home</button>
          </div>
-         <div id="aptContent"></div>
       </div>
+      <div class="products-grid" id="productsGrid"></div>
+   </div>
 
-      <!-- APPOINTMENT BOOKING MODAL -->
-      <div class="apt-modal-overlay hidden" id="aptBookModal" onclick="handleAptOverlayClick(event)">
-         <div class="apt-modal">
-            <div class="apt-modal-header">
-               <div>
-                  <div id="aptBookModalDoc" style="font-weight:700;font-size:1rem;color:#1a1a2e"></div>
-                  <div id="aptBookModalSpec" style="font-size:0.82rem;color:#555;margin-top:2px"></div>
-                  <div id="aptBookModalFee" style="font-size:0.82rem;color:#1a73e8;font-weight:600;margin-top:2px"></div>
-               </div>
-               <button onclick="closeAptBookModal()">✕</button>
+   <!-- CART SIDEBAR -->
+   <div class="cart-overlay hidden" id="cartOverlay" onclick="closeCart()"></div>
+   <div class="cart-sidebar hidden" id="cartSidebar">
+      <div class="cart-header">
+         <h3>🛒 Your Cart</h3>
+         <button class="cart-close" onclick="closeCart()">✕</button>
+      </div>
+      <div class="cart-items" id="cartItems"></div>
+      <div class="cart-footer">
+         <div class="cart-summary">
+            <div class="summary-row"><span>Total Items:</span><span id="cartTotalItems">0</span></div>
+            <div class="summary-row total-row"><span>Total Cost:</span><span id="cartTotalCost">₹0</span></div>
+         </div>
+         <button class="btn-makeorder" onclick="makeOrder()">📋 Make Order</button>
+         <button class="btn-checkout disabled" disabled title="Online payment coming soon">🔒 Pay Online — Coming Soon</button>
+         <button class="btn-clear" onclick="clearCart()">🗑️ Clear Cart</button>
+      </div>
+   </div>
+
+   <!-- RAZORPAY MODAL -->
+   <div class="rp-overlay hidden" id="rpOverlay">
+      <div class="rp-modal">
+         <div class="rp-header">
+            <span>🔒 Secure Payment</span>
+            <button onclick="closePayment()">✕</button>
+         </div>
+         <div class="rp-body">
+            <div class="rp-logo">🛍️ MyStore</div>
+            <div class="rp-amount" id="rpAmount">₹0</div>
+            <p style="color:#888;font-size:0.82rem;text-align:center;margin-bottom:1.2rem">Secure payment powered by Razorpay</p>
+            <div class="rp-tabs">
+               <button class="rp-tab active" onclick="switchTab('upi',this)">UPI</button>
+               <button class="rp-tab" onclick="switchTab('card',this)">Card</button>
+               <button class="rp-tab" onclick="switchTab('netbanking',this)">Net Banking</button>
+               <button class="rp-tab" onclick="switchTab('wallet',this)">Wallet</button>
             </div>
-            <div class="apt-modal-body">
-               <div class="apt-form-label">Select Date</div>
-               <div class="apt-date-scroll" id="aptDateButtons"></div>
-               <div class="hidden" id="aptSlotSection">
-                  <div class="apt-form-label" style="margin-top:14px">Select Time Slot</div>
-                  <div class="apt-slots-grid" id="aptSlotButtons"></div>
-               </div>
-               <div class="apt-form-label" style="margin-top:14px">Patient Details</div>
-               <div class="apt-field">
-                  <label>Patient ID <small style="font-weight:400;color:#aaa">(optional — auto-fills name &amp; phone)</small></label>
-                  <div style="display:flex;gap:6px;align-items:center">
-                     <input type="text" id="aptPatientIdLookup" placeholder="e.g. RK-25-06-00001" style="flex:1;font-family:ui-monospace,monospace;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
-                     <button type="button" onclick="_aptLookupByPatientId()" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap">🔍 Lookup</button>
+            <div class="rp-panel" id="tab-upi">
+               <label class="rp-label">UPI ID</label>
+               <input class="rp-input" id="upiId" placeholder="yourname@upi"/>
+               <button class="rp-pay-btn" onclick="processPayment('UPI')">Pay Now</button>
+            </div>
+            <div class="rp-panel hidden" id="tab-card">
+               <div id="savedCardsInPayment"></div>
+               <div id="newCardForm">
+                  <label class="rp-label">Card Number</label>
+                  <input class="rp-input" id="cardNum" placeholder="1234 5678 9012 3456" maxlength="19" oninput="formatCard(this)"/>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+                     <div>
+                        <label class="rp-label">Expiry</label>
+                        <input class="rp-input" id="cardExpiry" placeholder="MM/YY" maxlength="5" oninput="formatExpiry(this)"/>
+                     </div>
+                     <div>
+                        <label class="rp-label">CVV</label>
+                        <input class="rp-input" id="cardCvv" placeholder="•••" maxlength="4" type="password"/>
+                     </div>
                   </div>
-                  <p id="aptPatientIdMsg" style="font-size:0.78rem;margin:4px 0 0;color:#c62828"></p>
-               </div>
-               <div class="apt-field">
-                  <label>Full Name</label>
-                  <input type="text" id="aptPatientName" placeholder="Patient's full name"/>
-               </div>
-               <div class="apt-field">
-                  <label>Phone Number</label>
-                  <input type="tel" id="aptPatientPhone" placeholder="+91 98765 43210"/>
-               </div>
-               <div class="apt-field">
-                  <label>Age <small style="font-weight:400;color:#aaa">(optional)</small></label>
-                  <input type="number" id="aptPatientAge" min="0" max="120" placeholder="e.g. 42"/>
-               </div>
-               <div class="apt-field">
-                  <label>Address <small style="font-weight:400;color:#aaa">(optional)</small></label>
-                  <input type="text" id="aptPatientAddress" placeholder="House no, area, city"/>
-               </div>
-               <div class="apt-field">
-                  <label>Reason / Symptoms <small style="font-weight:400;color:#aaa">(optional)</small></label>
-                  <textarea id="aptPatientReason" rows="2" placeholder="e.g. Fever, follow-up, routine check-up…"></textarea>
+                  <label class="rp-label" style="margin-top:10px">Name on Card</label>
+                  <input class="rp-input" id="cardHolder" placeholder="Your Full Name"/>
+                  <label class="rp-save-card-row">
+                     <input type="checkbox" id="saveCardCheck"/> Save this card for future payments
+                  </label>
+                  <p class="rp-cvv-note">⚠️ CVV is never saved — you'll be asked every time.</p>
+                  <button class="rp-pay-btn" onclick="processPayment('Card')">Pay Now</button>
                </div>
             </div>
-            <div class="apt-modal-footer">
-               <button class="apt-confirm-btn" id="aptConfirmBtn" onclick="confirmAptBooking()" disabled>✅ Confirm Appointment</button>
-               <button class="apt-cancel-btn" onclick="closeAptBookModal()">Cancel</button>
+            <div class="rp-panel hidden" id="tab-netbanking">
+               <label class="rp-label">Select Bank</label>
+               <select class="rp-input">
+                  <option>State Bank of India</option><option>HDFC Bank</option>
+                  <option>ICICI Bank</option><option>Axis Bank</option>
+                  <option>Kotak Mahindra Bank</option><option>Punjab National Bank</option>
+                  <option>Bank of Baroda</option><option>Canara Bank</option>
+               </select>
+               <button class="rp-pay-btn" onclick="processPayment('Net Banking')">Pay Now</button>
+            </div>
+            <div class="rp-panel hidden" id="tab-wallet">
+               <div class="wallet-grid">
+                  <div class="wallet-opt selected" onclick="selectWallet(this)">📱 PhonePe</div>
+                  <div class="wallet-opt" onclick="selectWallet(this)">💳 GPay</div>
+                  <div class="wallet-opt" onclick="selectWallet(this)">💰 Paytm</div>
+                  <div class="wallet-opt" onclick="selectWallet(this)">🛒 Amazon Pay</div>
+               </div>
+               <button class="rp-pay-btn" onclick="processPayment('Wallet')">Pay Now</button>
+            </div>
+            <div class="rp-panel hidden" id="tab-success">
+               <div class="rp-success">
+                  <div class="success-icon">✅</div>
+                  <h3>Payment Successful!</h3>
+                  <p id="successMsg"></p>
+                  <button class="rp-pay-btn" onclick="paymentDone()">Continue Shopping</button>
+               </div>
             </div>
          </div>
       </div>
+   </div>
 
-      <!-- Rx UPLOAD MODAL — shown when customer adds an Rx-required medicine -->
-      <div class="rx-overlay hidden" id="rxOverlay" onclick="if(event.target===this)closeRxUploadModal()">
-         <div class="rx-modal">
-            <div class="rx-modal-header">
-               <h3>⚠️ Prescription Required</h3>
-               <button class="rx-modal-close" onclick="closeRxUploadModal()">✕</button>
+   <!-- ROLE SETUP MODAL -->
+   <div class="role-setup-overlay hidden" id="roleSetupOverlay">
+      <div class="role-setup-modal">
+         <h2>👋 One quick thing...</h2>
+         <p>Tell us who you are so we can show the right page.</p>
+         <div class="role-setup-cards">
+            <div class="role-setup-card" onclick="confirmRole('customer')">
+               <div class="role-setup-icon">🛍️</div>
+               <div class="role-setup-name">Customer</div>
+               <div class="role-setup-desc">Browse &amp; order products</div>
             </div>
-            <div class="rx-modal-body">
-               <p id="rxModalMsg" style="color:#555;font-size:0.95rem;margin:0 0 12px"></p>
-               <p style="color:#888;font-size:0.85rem;margin:0 0 12px">
-                  Upload a clear photo of your doctor's prescription. The same prescription will be used for all
-                  prescription-required items you add to this cart.
-               </p>
-               <input type="file" id="rxFileInput" accept="image/*" capture="environment"
-                      style="width:100%;padding:10px;border:2px dashed #1a73e8;border-radius:8px;background:#f5fafe"/>
-               <div id="rxPreview" class="rx-preview hidden"></div>
-               <div id="rxUploadStatus" style="margin-top:10px;font-size:0.88rem;text-align:center"></div>
-            </div>
-            <div class="rx-modal-footer">
-               <button class="rx-btn-save" id="rxUploadBtn" onclick="confirmRxUpload()">📤 Upload &amp; Add to Cart</button>
-               <button class="rx-btn-cancel" onclick="closeRxUploadModal()">Cancel</button>
+            <div class="role-setup-card" onclick="confirmRole('storeowner')">
+               <div class="role-setup-icon">🏪</div>
+               <div class="role-setup-name">Business Partner</div>
+               <div class="role-setup-desc">Sell products or manage appointments</div>
             </div>
          </div>
       </div>
+   </div>
 
-      <!-- PRESCRIPTION-ONLY ORDER MODAL — customer uploads Rx, pharmacist fills the items.
-           Useful for non-English-speaking customers who can't search drug names. -->
-      <div class="rx-overlay hidden" id="rxOnlyOverlay" onclick="if(event.target===this)closeRxOnlyOrderModal()">
-         <div class="rx-modal" style="max-width:520px">
-            <div class="rx-modal-header" style="background:#1a73e8">
-               <h3>📋 Order via Prescription</h3>
-               <button class="rx-modal-close" onclick="closeRxOnlyOrderModal()">✕</button>
-            </div>
-            <div class="rx-modal-body">
-               <p style="color:#555;font-size:0.92rem;margin:0 0 10px">
-                  Upload a clear photo of your doctor's prescription. The pharmacist will read it,
-                  pack the medicines, and contact you.
-               </p>
-               <input type="file" id="rxOnlyFileInput" accept="image/*" capture="environment"
-                      style="width:100%;padding:10px;border:2px dashed #1a73e8;border-radius:8px;background:#f5fafe"/>
-               <div id="rxOnlyPreview" class="rx-preview hidden"></div>
-               <div class="sp-field" style="margin-top:10px">
-                  <label>Notes for pharmacist <small style="color:#888;font-weight:400">(optional)</small></label>
-                  <input type="text" id="rxOnlyNotes" placeholder="e.g. for fever · generic OK · child age 5"/>
+   <!-- ORDER CONFIRMATION MODAL -->
+   <div class="order-overlay hidden" id="orderOverlay">
+      <div class="order-modal">
+         <div class="order-modal-top">
+            <div class="order-success-icon">✅</div>
+            <h2>Order Placed!</h2>
+            <p class="order-subtitle" id="orderSubtitle">Show this Order ID at the shop to collect your items.</p>
+         </div>
+         <div id="ordersConfirmList"></div>
+         <div class="order-total-row">
+            <span>Grand Total</span>
+            <span id="orderTotalDisplay"></span>
+         </div>
+         <div class="order-actions">
+            <button class="order-btn-whatsapp hidden" id="orderWhatsappBtn">📲 Share on WhatsApp</button>
+            <button class="order-btn-view" onclick="window.location='profile.html?tab=orders'">📦 View My Orders</button>
+            <button class="order-btn-continue" onclick="closeOrderModal()">🛍️ Continue Shopping</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- STORE PICKER MODAL -->
+   <div class="stp-overlay hidden" id="storePickerOverlay" onclick="if(event.target===this)closeStorePicker()">
+      <div class="stp-modal">
+         <div class="stp-header">
+            <div class="stp-title">
+               <img id="spItemImg" src="" onerror="this.style.display='none'"/>
+               <div>
+                  <div style="font-size:0.78rem;color:#888;margin-bottom:2px">Available in multiple stores</div>
+                  <div id="spItemName" style="font-weight:700;font-size:1rem;color:#1a1a2e"></div>
                </div>
-               <div id="rxOnlyAddrSection"></div>
-               <div id="rxOnlyStatus" style="margin-top:10px;font-size:0.88rem;text-align:center"></div>
             </div>
-            <div class="rx-modal-footer">
-               <button class="rx-btn-save" id="rxOnlySubmitBtn" onclick="submitRxOnlyOrder()">📤 Send to Pharmacist</button>
-               <button class="rx-btn-cancel" onclick="closeRxOnlyOrderModal()">Cancel</button>
+            <button onclick="closeStorePicker()">✕</button>
+         </div>
+         <div class="stp-body" id="spStoresList"></div>
+      </div>
+   </div>
+
+   <!-- APPOINTMENT SECTION -->
+   <div class="apt-section hidden" id="appointmentSection">
+      <div class="apt-section-header">
+         <h2 id="aptSectionTitle">Book Appointment</h2>
+         <button class="btn-back" onclick="goHome()">← Back to Home</button>
+      </div>
+      <div id="aptContent"></div>
+   </div>
+
+   <!-- APPOINTMENT BOOKING MODAL -->
+   <div class="apt-modal-overlay hidden" id="aptBookModal" onclick="handleAptOverlayClick(event)">
+      <div class="apt-modal">
+         <div class="apt-modal-header">
+            <div>
+               <div id="aptBookModalDoc" style="font-weight:700;font-size:1rem;color:#1a1a2e"></div>
+               <div id="aptBookModalSpec" style="font-size:0.82rem;color:#555;margin-top:2px"></div>
+               <div id="aptBookModalFee" style="font-size:0.82rem;color:#1a73e8;font-weight:600;margin-top:2px"></div>
+            </div>
+            <button onclick="closeAptBookModal()">✕</button>
+         </div>
+         <div class="apt-modal-body">
+            <div class="apt-form-label">Select Date</div>
+            <div class="apt-date-scroll" id="aptDateButtons"></div>
+            <div class="hidden" id="aptSlotSection">
+               <div class="apt-form-label" style="margin-top:14px">Select Time Slot</div>
+               <div class="apt-slots-grid" id="aptSlotButtons"></div>
+            </div>
+            <div class="apt-form-label" style="margin-top:14px">Patient Details</div>
+            <div class="apt-field">
+               <label>Patient ID <small style="font-weight:400;color:#aaa">(optional — auto-fills name &amp; phone)</small></label>
+               <div style="display:flex;gap:6px;align-items:center">
+                  <input type="text" id="aptPatientIdLookup" placeholder="e.g. RK-25-06-00001"
+                         style="flex:1;font-family:ui-monospace,monospace;text-transform:uppercase"
+                         oninput="this.value=this.value.toUpperCase()"/>
+                  <button type="button" onclick="_aptLookupByPatientId()"
+                          style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap">🔍 Lookup</button>
+               </div>
+               <p id="aptPatientIdMsg" style="font-size:0.78rem;margin:4px 0 0;color:#c62828"></p>
+            </div>
+            <div class="apt-field">
+               <label>Full Name</label>
+               <input type="text" id="aptPatientName" placeholder="Patient's full name"/>
+            </div>
+            <div class="apt-field">
+               <label>Phone Number</label>
+               <input type="tel" id="aptPatientPhone" placeholder="+91 98765 43210"/>
+            </div>
+            <div class="apt-field">
+               <label>Age <small style="font-weight:400;color:#aaa">(optional)</small></label>
+               <input type="number" id="aptPatientAge" min="0" max="120" placeholder="e.g. 42"/>
+            </div>
+            <div class="apt-field">
+               <label>Address <small style="font-weight:400;color:#aaa">(optional)</small></label>
+               <input type="text" id="aptPatientAddress" placeholder="House no, area, city"/>
+            </div>
+            <div class="apt-field">
+               <label>Reason / Symptoms <small style="font-weight:400;color:#aaa">(optional)</small></label>
+               <textarea id="aptPatientReason" rows="2" placeholder="e.g. Fever, follow-up, routine check-up…"></textarea>
             </div>
          </div>
-      </div>
-
-      <!-- MEDICAL CHECKOUT MODAL — separate from the generic payment modal:
-           address picker (required if store delivers), prescription preview, COD confirm -->
-      <div class="rx-overlay hidden" id="medCheckoutOverlay" onclick="if(event.target===this)closeMedCheckout()">
-         <div class="rx-modal" style="max-width:560px">
-            <div class="rx-modal-header" style="background:#1a73e8">
-               <h3>🛒 Confirm Order</h3>
-               <button class="rx-modal-close" onclick="closeMedCheckout()">✕</button>
-            </div>
-            <div class="rx-modal-body" id="medCheckoutBody">
-               <p style="color:#888;text-align:center;padding:30px">Loading…</p>
-            </div>
-            <div class="rx-modal-footer">
-               <button class="rx-btn-save" id="medCheckoutPlaceBtn" onclick="placeMedicalOrder()">✅ Place Order (Cash / UPI on Delivery)</button>
-               <button class="rx-btn-cancel" onclick="closeMedCheckout()">Cancel</button>
-            </div>
+         <div class="apt-modal-footer">
+            <button class="apt-confirm-btn" id="aptConfirmBtn" onclick="confirmAptBooking()" disabled>✅ Confirm Appointment</button>
+            <button class="apt-cancel-btn" onclick="closeAptBookModal()">Cancel</button>
          </div>
       </div>
+   </div>
 
-      <!-- APPOINTMENT CONFIRMATION MODAL -->
-      <div class="apt-done-overlay hidden" id="aptDoneOverlay">
-         <div class="apt-done-modal">
-            <div class="apt-done-top">
-               <div class="apt-done-icon">📅</div>
-               <h2>Appointment Confirmed!</h2>
-               <p>Your appointment has been booked successfully.</p>
-            </div>
-            <div id="aptDoneDetails"></div>
-            <div class="apt-done-actions">
-               <button class="apt-done-close-btn" onclick="closeAptDoneModal()">✅ Done</button>
-            </div>
+   <!-- Rx UPLOAD MODAL -->
+   <div class="rx-overlay hidden" id="rxOverlay" onclick="if(event.target===this)closeRxUploadModal()">
+      <div class="rx-modal">
+         <div class="rx-modal-header">
+            <h3>⚠️ Prescription Required</h3>
+            <button class="rx-modal-close" onclick="closeRxUploadModal()">✕</button>
+         </div>
+         <div class="rx-modal-body">
+            <p id="rxModalMsg" style="color:#555;font-size:0.95rem;margin:0 0 12px"></p>
+            <p style="color:#888;font-size:0.85rem;margin:0 0 12px">Upload a clear photo of your doctor's prescription.</p>
+            <input type="file" id="rxFileInput" accept="image/*" capture="environment"
+                   style="width:100%;padding:10px;border:2px dashed #1a73e8;border-radius:8px;background:#f5fafe"/>
+            <div id="rxPreview" class="rx-preview hidden"></div>
+            <div id="rxUploadStatus" style="margin-top:10px;font-size:0.88rem;text-align:center"></div>
+         </div>
+         <div class="rx-modal-footer">
+            <button class="rx-btn-save" id="rxUploadBtn" onclick="confirmRxUpload()">📤 Upload &amp; Add to Cart</button>
+            <button class="rx-btn-cancel" onclick="closeRxUploadModal()">Cancel</button>
          </div>
       </div>
+   </div>
 
-      <!-- TOAST -->
-      <div class="toast hidden" id="toast"></div>
-      <script src="script.js"></script>
-      <script>
-         initDB().then(function() {
-            _checkMaintenanceMode();   // shows overlay for non-admins if maintenance is ON
-            loadSiteSettings();
-            // Auto-refresh marquee + maintenance overlay when admin changes settings
-            if (typeof _liveSubscribe === 'function') _liveSubscribe('siteSettings', 'settings', _refreshLiveSettings);
-            if (typeof _startSettingsPolling === 'function') _startSettingsPolling();
-            var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
-            if (_u) AppDB.getWishlist(_u.email).then(function(ids) { _db.wishlist = ids || []; });
-            // Live-token pill: floats on every customer page when they have a today appointment
-            if (_u && typeof _initLiveTokenPill === 'function') _initLiveTokenPill();
-            // Re-render current view now that products are loaded.
-            // IMPORTANT: don't clobber the Stores view if the user clicked it
-            // before products finished loading — Stores button isn't a .cat-item,
-            // so the old code defaulted to 'all' and overwrote the stores list.
-            var storesBtn = document.querySelector('.header-stores-btn');
-            if (storesBtn && storesBtn.classList.contains('active')) {
-               /* user is viewing Stores — let showStoresList() finish, do nothing */
-            } else {
-               var activeEl = document.querySelector('.cat-item.active');
-               var activeCat = activeEl ? activeEl.id.replace('cat-','') : 'all';
-               if (activeCat && activeCat !== 'all') catClick(activeCat);
-               else if (document.getElementById('productsSection') &&
-                        !document.getElementById('productsSection').classList.contains('hidden')) {
-                  showAllProducts();
-               }
+   <!-- PRESCRIPTION-ONLY ORDER MODAL -->
+   <div class="rx-overlay hidden" id="rxOnlyOverlay" onclick="if(event.target===this)closeRxOnlyOrderModal()">
+      <div class="rx-modal" style="max-width:520px">
+         <div class="rx-modal-header" style="background:#1a73e8">
+            <h3>📋 Order via Prescription</h3>
+            <button class="rx-modal-close" onclick="closeRxOnlyOrderModal()">✕</button>
+         </div>
+         <div class="rx-modal-body">
+            <p style="color:#555;font-size:0.92rem;margin:0 0 10px">Upload a clear photo of your doctor's prescription. The pharmacist will read it, pack the medicines, and contact you.</p>
+            <input type="file" id="rxOnlyFileInput" accept="image/*" capture="environment"
+                   style="width:100%;padding:10px;border:2px dashed #1a73e8;border-radius:8px;background:#f5fafe"/>
+            <div id="rxOnlyPreview" class="rx-preview hidden"></div>
+            <div class="sp-field" style="margin-top:10px">
+               <label>Notes for pharmacist <small style="color:#888;font-weight:400">(optional)</small></label>
+               <input type="text" id="rxOnlyNotes" placeholder="e.g. for fever · generic OK · child age 5"/>
+            </div>
+            <div id="rxOnlyAddrSection"></div>
+            <div id="rxOnlyStatus" style="margin-top:10px;font-size:0.88rem;text-align:center"></div>
+         </div>
+         <div class="rx-modal-footer">
+            <button class="rx-btn-save" id="rxOnlySubmitBtn" onclick="submitRxOnlyOrder()">📤 Send to Pharmacist</button>
+            <button class="rx-btn-cancel" onclick="closeRxOnlyOrderModal()">Cancel</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- MEDICAL CHECKOUT MODAL -->
+   <div class="rx-overlay hidden" id="medCheckoutOverlay" onclick="if(event.target===this)closeMedCheckout()">
+      <div class="rx-modal" style="max-width:560px">
+         <div class="rx-modal-header" style="background:#1a73e8">
+            <h3>🛒 Confirm Order</h3>
+            <button class="rx-modal-close" onclick="closeMedCheckout()">✕</button>
+         </div>
+         <div class="rx-modal-body" id="medCheckoutBody">
+            <p style="color:#888;text-align:center;padding:30px">Loading…</p>
+         </div>
+         <div class="rx-modal-footer">
+            <button class="rx-btn-save" id="medCheckoutPlaceBtn" onclick="placeMedicalOrder()">✅ Place Order (Cash / UPI on Delivery)</button>
+            <button class="rx-btn-cancel" onclick="closeMedCheckout()">Cancel</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- APPOINTMENT CONFIRMATION MODAL -->
+   <div class="apt-done-overlay hidden" id="aptDoneOverlay">
+      <div class="apt-done-modal">
+         <div class="apt-done-top">
+            <div class="apt-done-icon">📅</div>
+            <h2>Appointment Confirmed!</h2>
+            <p>Your appointment has been booked successfully.</p>
+         </div>
+         <div id="aptDoneDetails"></div>
+         <div class="apt-done-actions">
+            <button class="apt-done-close-btn" onclick="closeAptDoneModal()">✅ Done</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- TOAST -->
+   <div class="toast hidden" id="toast"></div>
+
+   <script src="script.js"></script>
+   <script>
+      initDB().then(function() {
+         _checkMaintenanceMode();
+         loadSiteSettings();
+         if (typeof _liveSubscribe === 'function') _liveSubscribe('siteSettings', 'settings', _refreshLiveSettings);
+         if (typeof _startSettingsPolling === 'function') _startSettingsPolling();
+         var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
+         if (_u) AppDB.getWishlist(_u.email).then(function(ids) { _db.wishlist = ids || []; });
+         if (_u && typeof _initLiveTokenPill === 'function') _initLiveTokenPill();
+         var storesBtn = document.querySelector('.header-stores-btn');
+         if (storesBtn && storesBtn.classList.contains('active')) {
+            /* user is viewing Stores — do nothing */
+         } else {
+            var activeEl = document.querySelector('.cat-item.active');
+            var activeCat = activeEl ? activeEl.id.replace('cat-','') : 'all';
+            if (activeCat && activeCat !== 'all') catClick(activeCat);
+            else if (document.getElementById('productsSection') &&
+                     !document.getElementById('productsSection').classList.contains('hidden')) {
+               showAllProducts();
             }
-         });
-      </script>
-   </body>
+         }
+      });
+   </script>
+</body>
 </html>

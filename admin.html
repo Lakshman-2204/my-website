@@ -4,9 +4,54 @@
       <meta charset="UTF-8"/>
       <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
       <title>Admin Panel — MyStore</title>
+      <script src="https://cdn.tailwindcss.com"></script>
       <link rel="stylesheet" href="style.css"/>
       <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
       <script src="supabase.js"></script>
+      <style>
+         .admin-header {
+            background: linear-gradient(135deg, #0891b2 0%, #4f46e5 100%) !important;
+            border-bottom: none !important;
+            box-shadow: 0 2px 12px rgba(8,145,178,0.25) !important;
+            padding: 0 24px !important;
+            height: 56px !important;
+         }
+         .admin-brand {
+            font-size: 1.05rem !important; font-weight: 900 !important;
+            color: #fff !important; letter-spacing: -0.01em !important;
+            cursor: pointer !important;
+         }
+         .admin-header-right span { color: rgba(255,255,255,0.8) !important; font-size: 0.82rem !important; }
+         .admin-store-btn {
+            background: rgba(255,255,255,0.15) !important; color: #fff !important;
+            border: 1px solid rgba(255,255,255,0.2) !important; border-radius: 8px !important;
+            font-size: 0.78rem !important; font-weight: 700 !important;
+            padding: 6px 14px !important; cursor: pointer !important;
+            transition: background 0.15s !important;
+         }
+         .admin-store-btn:hover { background: rgba(255,255,255,0.25) !important; }
+         .admin-logout-btn {
+            background: rgba(239,68,68,0.2) !important; color: #fca5a5 !important;
+            border: 1px solid rgba(239,68,68,0.3) !important; border-radius: 8px !important;
+            font-size: 0.78rem !important; font-weight: 700 !important;
+            padding: 6px 14px !important; cursor: pointer !important;
+         }
+         .admin-logout-btn:hover { background: rgba(239,68,68,0.35) !important; }
+         .admin-tabs {
+            background: #0f172a !important;
+            border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+            padding: 0 16px !important;
+            overflow-x: auto !important;
+         }
+         .admin-tab {
+            color: #64748b !important; font-size: 0.8rem !important; font-weight: 700 !important;
+            padding: 13px 16px !important; border: none !important; background: none !important;
+            cursor: pointer !important; border-bottom: 2px solid transparent !important;
+            white-space: nowrap !important; transition: all 0.15s !important;
+         }
+         .admin-tab:hover { color: #cbd5e1 !important; background: rgba(255,255,255,0.05) !important; }
+         .admin-tab.active { color: #22d3ee !important; border-bottom-color: #22d3ee !important; }
+      </style>
    </head>
    <body class="admin-page">
       <!-- ADMIN HEADER -->

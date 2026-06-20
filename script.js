@@ -1451,6 +1451,7 @@ function goHome() {
    if (storesBtn) storesBtn.classList.remove('active');
    var aptBtn = document.querySelector('.header-apt-btn');
    if (aptBtn) aptBtn.classList.remove('active');
+   updateCartUI();
    window.scrollTo({
       top: 0,
       behavior: 'smooth'

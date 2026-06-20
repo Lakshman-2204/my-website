@@ -128,7 +128,14 @@
          </div>
 
          <!-- Action buttons -->
-         <div class="header-actions flex items-center gap-2.5 flex-wrap">
+         <div class="header-actions flex items-center gap-2.5 flex-wrap ml-auto">
+            <!-- Language selector -->
+            <select id="languageSelect" onchange="changeLanguage(this.value)"
+                    class="bg-slate-900/40 text-white font-bold text-xs px-3 py-2.5 rounded-xl border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer backdrop-blur-sm transition">
+               <option value="en" class="text-slate-900">🌐 English</option>
+               <option value="te" class="text-slate-900">🌐 తెలుగు</option>
+            </select>
+
             <button class="header-stores-btn bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm tracking-wide"
                     onclick="catClick('stores')">🏪 Stores</button>
 
@@ -531,6 +538,16 @@
 
    <script src="script.js"></script>
    <script>
+      function changeLanguage(lang) {
+         localStorage.setItem('preferredLanguage', lang);
+         // Full translation support coming soon
+      }
+      // Restore saved language preference
+      (function() {
+         var saved = localStorage.getItem('preferredLanguage');
+         if (saved) { var el = document.getElementById('languageSelect'); if (el) el.value = saved; }
+      })();
+
       initDB().then(function() {
          _checkMaintenanceMode();
          loadSiteSettings();

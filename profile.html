@@ -23,6 +23,7 @@
             // Hide customer-only tabs ONLY for pure store-owners (not admins).
             // Also REVEAL the "Contact Admin" tab (hidden by default in HTML).
             if (isPureOwner) {
+               document.documentElement.classList.add('storeowner-profile');
                var s = document.createElement('style');
                s.textContent =
                   '#ptab-addresses-btn,' +
@@ -30,7 +31,8 @@
                   '#ptab-appointments-btn,' +
                   '#ptab-wishlist-btn,' +
                   '#ptab-cards-btn { display: none !important; }' +
-                  '#ptab-contact-btn { display: inline-flex !important; }';
+                  '#ptab-contact-btn { display: inline-flex !important; }' +
+                  '#prof-hospital-ids-card { display: none !important; }';
                document.head.appendChild(s);
             }
 
@@ -120,6 +122,9 @@
 
          /* ── Main area ── */
          .shop-main-area { background: #f1f5f9 !important; }
+
+         /* Hide hospital patient IDs card for storeowners (not a customer feature) */
+         body.storeowner-profile #prof-hospital-ids-card { display: none !important; }
       </style>
    </head>
    <body class="profile-page">

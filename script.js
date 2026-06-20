@@ -4803,12 +4803,21 @@ function _setupInfiniteSlider(viewportId) {
    var track = viewport.querySelector('.slider-track');
    if (!track || !track.children.length) return;
 
+   // Pad to at least 8 cards so clones never appear visually adjacent
    var original = track.innerHTML;
-   track.innerHTML = original + original + original;
+   var cardCount = track.children.length;
+   var padded = original;
+   if (cardCount < 8) {
+      var repeats = Math.ceil(8 / cardCount);
+      padded = '';
+      for (var i = 0; i < repeats; i++) padded += original;
+   }
+   track.innerHTML = padded + padded + padded;
 
    var speed = 0.8;
    var isInteracting = false;
    var resumeTimer;
+   // Recalculate after DOM settles so scrollWidth is accurate
    var singleWidth = track.scrollWidth / 3;
    viewport.scrollLeft = singleWidth;
 

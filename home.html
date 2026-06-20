@@ -755,31 +755,6 @@
          }
       })();
 
-      // Patch updateCartUI to also keep the hero sidebar in sync
-      document.addEventListener('DOMContentLoaded', function() {
-         var _origUpdateCartUI = window.updateCartUI;
-         if (typeof _origUpdateCartUI === 'function') {
-            window.updateCartUI = function() {
-               _origUpdateCartUI.apply(this, arguments);
-               var totalCost  = (window.cart || []).reduce(function(s,c){return s+c.price*c.qty;},0);
-               var totalItems = (window.cart || []).reduce(function(s,c){return s+c.qty;},0);
-               var sub = document.getElementById('heroCartSubtotal');
-               var tot = document.getElementById('heroCartTotal');
-               var tray = document.getElementById('heroCartTray');
-               if (sub) sub.textContent = '₹' + totalCost.toLocaleString('en-IN');
-               if (tot) tot.textContent = '₹' + totalCost.toLocaleString('en-IN');
-               if (tray) {
-                  if (!window.cart || !window.cart.length) {
-                     tray.innerHTML = '<span class="italic text-slate-400">No items in basket.</span>';
-                  } else {
-                     tray.innerHTML = window.cart.map(function(c) {
-                        return '<div class="flex justify-between py-1"><span class="truncate max-w-[120px]">' + c.name + ' ×' + c.qty + '</span><span class="font-semibold text-slate-700">₹' + (c.price*c.qty).toLocaleString('en-IN') + '</span></div>';
-                     }).join('');
-                  }
-               }
-            };
-         }
-      });
 
       initDB().then(function() {
          _checkMaintenanceMode();

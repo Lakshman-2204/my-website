@@ -173,6 +173,12 @@
       <!-- ROW 3: Category icons -->
       <div class="header-categories bg-white border-b border-slate-200 py-3 px-4 lg:px-8 overflow-x-auto no-scrollbar flex gap-1 items-center shadow-sm"
            style="-ms-overflow-style:none;scrollbar-width:none">
+         <!-- All Menu trigger -->
+         <button onclick="toggleSidebar(true)" class="flex-shrink-0 bg-slate-900 text-white rounded-2xl py-2 px-3 text-center flex flex-col items-center justify-center min-w-[56px] hover:bg-amber-500 transition shadow-sm mr-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mb-0.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <span class="text-[9px] font-black uppercase tracking-wider" data-i18n="menu_all">All Menu</span>
+         </button>
+         <div class="h-8 w-px bg-slate-200 mx-1 flex-shrink-0"></div>
          <div class="cat-item active" id="cat-all" onclick="catClick('all')">
             <div class="cat-icon">🛍️</div><span data-i18n="cat_all">For You</span>
          </div>
@@ -672,6 +678,7 @@
       // ── TRANSLATION ENGINE ──────────────────────────────────────
       var _i18n = {
          en: {
+            menu_all: 'All Menu',
             nav_stores: 'Stores', nav_appointments: 'Book Appointments',
             cat_all: 'For You', cat_dailyneeds: 'Daily Needs', cat_flowers: 'Flowers',
             cat_home: 'Home & Living', cat_construction: 'Construction', cat_clothing: 'Clothing',
@@ -698,6 +705,7 @@
             search_placeholder: 'Search products, brands...'
          },
          te: {
+            menu_all: 'మెనూ',
             nav_stores: 'దుకాణాలు', nav_appointments: 'అపాయింట్‌మెంట్ బుక్ చేయండి',
             cat_all: 'మీ కోసం', cat_dailyneeds: 'రోజువారీ అవసరాలు', cat_flowers: 'పూలు',
             cat_home: 'ఇల్లు & జీవనం', cat_construction: 'నిర్మాణం', cat_clothing: 'దుస్తులు',
@@ -794,6 +802,64 @@
             }
          }
       });
+   </script>
+
+   <!-- ALL MENU SIDEBAR DRAWER -->
+   <div id="sidebarDrawer" class="fixed inset-y-0 left-0 w-72 bg-slate-900 text-white z-[200] transform -translate-x-full transition-transform duration-300 shadow-2xl flex flex-col justify-between">
+      <div class="p-5 space-y-5 overflow-y-auto flex-1" style="-ms-overflow-style:none;scrollbar-width:none">
+         <!-- Header -->
+         <div class="flex justify-between items-center pb-4 border-b border-slate-800">
+            <div class="bg-slate-800 text-white px-4 py-1.5 rounded-xl font-black text-base tracking-tight flex items-center gap-1">
+               Mystore<span class="text-amber-400 text-lg">+</span> Menu
+            </div>
+            <button onclick="toggleSidebar(false)" class="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+         </div>
+         <!-- Quick Links -->
+         <div class="space-y-1.5">
+            <p class="text-[10px] uppercase tracking-wider text-amber-400 font-black mb-2">Quick Access</p>
+            <button onclick="toggleSidebar(false); catClick('stores')" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 transition">🏪 Stores</button>
+            <button onclick="toggleSidebar(false); showBookAppointment()" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 text-cyan-300 transition">📅 Book Appointments</button>
+            <button onclick="toggleSidebar(false); catClick('health')" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 text-amber-300 transition">💊 Buy Medicines</button>
+            <button onclick="toggleSidebar(false); showStoresList()" class="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-800 text-xs font-bold flex items-center gap-2 text-indigo-300 transition">🏬 Medical Shops</button>
+         </div>
+         <!-- Departments -->
+         <div class="space-y-0.5">
+            <p class="text-[10px] uppercase tracking-wider text-gray-400 font-black mb-2">Shop Departments</p>
+            <button onclick="toggleSidebar(false); catClick('all')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">🛍️ For You</button>
+            <button onclick="toggleSidebar(false); catClick('dailyneeds')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">🛒 Daily Needs</button>
+            <button onclick="toggleSidebar(false); catClick('flowers')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">🌸 Flowers</button>
+            <button onclick="toggleSidebar(false); catClick('home')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">🏠 Home &amp; Living</button>
+            <button onclick="toggleSidebar(false); catClick('construction')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">🏗️ Construction</button>
+            <button onclick="toggleSidebar(false); catClick('clothing')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">👕 Clothing</button>
+            <button onclick="toggleSidebar(false); catClick('agriculture')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">🌾 Agriculture</button>
+            <button onclick="toggleSidebar(false); catClick('kitchen')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">🍳 Kitchen</button>
+            <button onclick="toggleSidebar(false); catClick('electronics')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">💡 Electronics</button>
+            <button onclick="toggleSidebar(false); catClick('health')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">💊 Health</button>
+            <button onclick="toggleSidebar(false); catClick('stationery')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">📚 Stationery</button>
+            <button onclick="toggleSidebar(false); catClick('entertainment')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">🎮 Entertainment</button>
+            <button onclick="toggleSidebar(false); catClick('contact')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs text-gray-300 hover:bg-slate-800 flex items-center gap-2 transition">📞 Contact</button>
+         </div>
+      </div>
+      <div class="p-4 bg-slate-950 text-[11px] text-gray-500 text-center border-t border-slate-900">
+         Mystore Engine v6.1
+      </div>
+   </div>
+   <div id="drawerOverlay" onclick="toggleSidebar(false)" class="fixed inset-0 bg-slate-900/40 z-[190] hidden transition-opacity duration-300"></div>
+
+   <script>
+      function toggleSidebar(open) {
+         const drawer = document.getElementById('sidebarDrawer');
+         const overlay = document.getElementById('drawerOverlay');
+         if (open) {
+            drawer.classList.remove('-translate-x-full');
+            overlay.classList.remove('hidden');
+         } else {
+            drawer.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+         }
+      }
    </script>
 </body>
 </html>

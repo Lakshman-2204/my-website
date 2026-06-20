@@ -137,10 +137,10 @@
             </select>
 
             <button class="header-stores-btn bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm tracking-wide"
-                    onclick="catClick('stores')">🏪 Stores</button>
+                    onclick="catClick('stores')">🏪 <span data-i18n="nav_stores">Stores</span></button>
 
             <button class="header-apt-btn bg-slate-900/40 hover:bg-slate-900/60 text-white text-xs font-black px-4 py-2.5 rounded-xl border border-white/20 flex items-center gap-1.5 shadow-sm backdrop-blur-sm"
-                    onclick="showBookAppointment()">📅 Book Appointments</button>
+                    onclick="showBookAppointment()">📅 <span data-i18n="nav_appointments">Book Appointments</span></button>
 
             <div class="flex items-center gap-2.5 pl-2.5 border-l border-white/25">
                <button class="header-dashboard-btn bg-white/20 hover:bg-white/30 p-2.5 rounded-xl text-white transition"
@@ -173,43 +173,43 @@
       <div class="header-categories bg-white border-b border-slate-200 py-3 px-4 lg:px-8 overflow-x-auto no-scrollbar flex gap-1 items-center shadow-sm"
            style="-ms-overflow-style:none;scrollbar-width:none">
          <div class="cat-item active" id="cat-all" onclick="catClick('all')">
-            <div class="cat-icon">🛍️</div><span>For You</span>
+            <div class="cat-icon">🛍️</div><span data-i18n="cat_all">For You</span>
          </div>
          <div class="cat-item" id="cat-dailyneeds" onclick="catClick('dailyneeds')">
-            <div class="cat-icon">🛒</div><span>Daily Needs</span>
+            <div class="cat-icon">🛒</div><span data-i18n="cat_dailyneeds">Daily Needs</span>
          </div>
          <div class="cat-item" id="cat-flowers" onclick="catClick('flowers')">
-            <div class="cat-icon">🌸</div><span>Flowers</span>
+            <div class="cat-icon">🌸</div><span data-i18n="cat_flowers">Flowers</span>
          </div>
          <div class="cat-item" id="cat-home" onclick="catClick('home')">
-            <div class="cat-icon">🏠</div><span>Home &amp; Living</span>
+            <div class="cat-icon">🏠</div><span data-i18n="cat_home">Home &amp; Living</span>
          </div>
          <div class="cat-item" id="cat-construction" onclick="catClick('construction')">
-            <div class="cat-icon">🏗️</div><span>Construction</span>
+            <div class="cat-icon">🏗️</div><span data-i18n="cat_construction">Construction</span>
          </div>
          <div class="cat-item" id="cat-clothing" onclick="catClick('clothing')">
-            <div class="cat-icon">👕</div><span>Clothing</span>
+            <div class="cat-icon">👕</div><span data-i18n="cat_clothing">Clothing</span>
          </div>
          <div class="cat-item" id="cat-agriculture" onclick="catClick('agriculture')">
-            <div class="cat-icon">🌾</div><span>Agriculture</span>
+            <div class="cat-icon">🌾</div><span data-i18n="cat_agriculture">Agriculture</span>
          </div>
          <div class="cat-item" id="cat-kitchen" onclick="catClick('kitchen')">
-            <div class="cat-icon">🍳</div><span>Kitchen</span>
+            <div class="cat-icon">🍳</div><span data-i18n="cat_kitchen">Kitchen</span>
          </div>
          <div class="cat-item" id="cat-electronics" onclick="catClick('electronics')">
-            <div class="cat-icon">💡</div><span>Electronics</span>
+            <div class="cat-icon">💡</div><span data-i18n="cat_electronics">Electronics</span>
          </div>
          <div class="cat-item" id="cat-health" onclick="catClick('health')">
-            <div class="cat-icon">💊</div><span>Health</span>
+            <div class="cat-icon">💊</div><span data-i18n="cat_health">Health</span>
          </div>
          <div class="cat-item" id="cat-stationery" onclick="catClick('stationery')">
-            <div class="cat-icon">📚</div><span>Stationery</span>
+            <div class="cat-icon">📚</div><span data-i18n="cat_stationery">Stationery</span>
          </div>
          <div class="cat-item" id="cat-entertainment" onclick="catClick('entertainment')">
-            <div class="cat-icon">🎮</div><span>Entertainment</span>
+            <div class="cat-icon">🎮</div><span data-i18n="cat_entertainment">Entertainment</span>
          </div>
          <div class="cat-item" id="cat-contact" onclick="catClick('contact')">
-            <div class="cat-icon">📞</div><span>Contact</span>
+            <div class="cat-icon">📞</div><span data-i18n="cat_contact">Contact</span>
          </div>
       </div>
    </header>
@@ -228,25 +228,25 @@
             <!-- Appointments card -->
             <div class="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-3xl p-6 border border-cyan-200 flex flex-col justify-between min-h-[200px] shadow-sm relative overflow-hidden">
                <div>
-                  <span class="bg-cyan-600 text-white text-[9px] uppercase px-2.5 py-0.5 rounded-full font-black tracking-wider shadow-sm">Medical Appointments</span>
-                  <h2 class="text-2xl font-black text-cyan-950 mt-3 mb-1 tracking-tight">Hospitals &amp; Clinics Hub</h2>
-                  <p class="text-slate-600 text-xs max-w-sm leading-relaxed">Schedule outpatient checkups and manage clinical physician care smoothly.</p>
+                  <span class="bg-cyan-600 text-white text-[9px] uppercase px-2.5 py-0.5 rounded-full font-black tracking-wider shadow-sm" data-i18n="hero_apt_badge">Medical Appointments</span>
+                  <h2 class="text-2xl font-black text-cyan-950 mt-3 mb-1 tracking-tight" data-i18n="hero_apt_title">Hospitals &amp; Clinics Hub</h2>
+                  <p class="text-slate-600 text-xs max-w-sm leading-relaxed" data-i18n="hero_apt_desc">Schedule outpatient checkups and manage clinical physician care smoothly.</p>
                </div>
                <button onclick="showBookAppointment()"
                        class="mt-4 w-fit bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
-                  Book Appointment →
+                  <span data-i18n="hero_apt_btn">Book Appointment</span> →
                </button>
             </div>
             <!-- Buy Medicines card -->
             <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-3xl p-6 border border-amber-200 flex flex-col justify-between min-h-[200px] shadow-sm relative overflow-hidden">
                <div>
-                  <span class="bg-amber-500 text-white text-[9px] uppercase px-2.5 py-0.5 rounded-full font-black tracking-wider shadow-sm">Prescription Orders</span>
-                  <h2 class="text-2xl font-black text-amber-950 mt-3 mb-1 tracking-tight">Buy Medicines</h2>
-                  <p class="text-slate-600 text-xs max-w-sm leading-relaxed">Directly fulfill pharmacy items from authenticated physical medical shops listed on our platform.</p>
+                  <span class="bg-amber-500 text-white text-[9px] uppercase px-2.5 py-0.5 rounded-full font-black tracking-wider shadow-sm" data-i18n="hero_med_badge">Prescription Orders</span>
+                  <h2 class="text-2xl font-black text-amber-950 mt-3 mb-1 tracking-tight" data-i18n="hero_med_title">Buy Medicines</h2>
+                  <p class="text-slate-600 text-xs max-w-sm leading-relaxed" data-i18n="hero_med_desc">Directly fulfill pharmacy items from authenticated physical medical shops listed on our platform.</p>
                </div>
                <button onclick="catClick('health')"
                        class="mt-4 w-fit bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
-                  Browse Medical Shops →
+                  <span data-i18n="hero_med_btn">Browse Medical Shops</span> →
                </button>
             </div>
          </div>
@@ -259,19 +259,19 @@
                <div class="relative bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-8 overflow-hidden shadow-lg border border-slate-700 min-h-[200px] flex flex-col justify-center">
                   <div id="heroAdSlider">
                      <div class="hero-ad-slide block">
-                        <span class="bg-amber-500 text-slate-900 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider">Mega Deals</span>
-                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight">Weekend Marketplace Super Sale!</h3>
-                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed">Get up to 30% Off on fresh produce, bakery treats, and kitchen electronics essentials today.</p>
+                        <span class="bg-amber-500 text-slate-900 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider" data-i18n="ad1_badge">Mega Deals</span>
+                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight" data-i18n="ad1_title">Weekend Marketplace Super Sale!</h3>
+                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed" data-i18n="ad1_desc">Get up to 30% Off on fresh produce, bakery treats, and kitchen electronics essentials today.</p>
                      </div>
                      <div class="hero-ad-slide hidden">
-                        <span class="bg-cyan-500 text-slate-900 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider">Health Alert</span>
-                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight">Free Diagnostic Screenings</h3>
-                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed">Book an appointment at any partner clinic this week and receive a complimentary wellness assessment.</p>
+                        <span class="bg-cyan-500 text-slate-900 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider" data-i18n="ad2_badge">Health Alert</span>
+                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight" data-i18n="ad2_title">Free Diagnostic Screenings</h3>
+                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed" data-i18n="ad2_desc">Book an appointment at any partner clinic this week and receive a complimentary wellness assessment.</p>
                      </div>
                      <div class="hero-ad-slide hidden">
-                        <span class="bg-indigo-500 text-white text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider">Express Dispatch</span>
-                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight">Zero Delivery Fees on Medicines</h3>
-                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed">Fulfill your prescriptions through MyStore with guaranteed instant doorstep delivery.</p>
+                        <span class="bg-indigo-500 text-white text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider" data-i18n="ad3_badge">Express Dispatch</span>
+                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight" data-i18n="ad3_title">Zero Delivery Fees on Medicines</h3>
+                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed" data-i18n="ad3_desc">Fulfill your prescriptions through MyStore with guaranteed instant doorstep delivery.</p>
                      </div>
                   </div>
                   <!-- Dots -->
@@ -285,9 +285,9 @@
                <div class="mt-4 flex items-center gap-3">
                   <button onclick="showAllProducts()"
                           class="bg-slate-900 hover:bg-slate-700 text-white font-black text-sm px-6 py-3 rounded-xl transition shadow-md tracking-wide">
-                     🛍️ Shop All Products
+                     🛍️ <span data-i18n="btn_shop_all">Shop All Products</span>
                   </button>
-                  <span class="text-slate-400 text-xs">Furniture · Marbles · Drinks · Bricks · Toys &amp; More</span>
+                  <span class="text-slate-400 text-xs" data-i18n="hero_tagline">Furniture · Marbles · Drinks · Bricks · Toys &amp; More</span>
                </div>
             </div>
 
@@ -295,23 +295,23 @@
             <div class="lg:col-span-1">
                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm sticky top-24 space-y-5">
                   <h3 class="text-sm font-black text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
-                     <span class="text-cyan-500">📊</span> Active Operations Hub
+                     <span class="text-cyan-500">📊</span> <span data-i18n="cart_hub">Active Operations Hub</span>
                   </h3>
                   <div>
-                     <p class="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wider">Your Basket</p>
+                     <p class="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wider" data-i18n="cart_basket_title">Your Basket</p>
                      <div id="heroCartTray" class="space-y-1.5 max-h-40 overflow-y-auto text-xs text-slate-400 italic">
-                        No items in basket.
+                        <span data-i18n="cart_empty">No items in basket.</span>
                      </div>
                   </div>
                   <div class="border-t border-slate-100 pt-3 space-y-1.5 text-xs text-slate-600">
-                     <div class="flex justify-between"><span>Subtotal</span><span id="heroCartSubtotal">₹0</span></div>
+                     <div class="flex justify-between"><span data-i18n="cart_subtotal">Subtotal</span><span id="heroCartSubtotal">₹0</span></div>
                      <div class="flex justify-between font-bold text-slate-900 text-sm pt-1.5 border-t border-dashed border-slate-200">
-                        <span>Total</span><span id="heroCartTotal">₹0</span>
+                        <span data-i18n="cart_total">Total</span><span id="heroCartTotal">₹0</span>
                      </div>
                   </div>
                   <button onclick="showCart()"
                           class="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-3 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-md">
-                     🛒 View Cart
+                     🛒 <span data-i18n="cart_view_btn">View Cart</span>
                   </button>
                </div>
             </div>
@@ -662,12 +662,82 @@
 
    <script src="script.js"></script>
    <script>
+      // ── TRANSLATION ENGINE ──────────────────────────────────────
+      var _i18n = {
+         en: {
+            nav_stores: 'Stores', nav_appointments: 'Book Appointments',
+            cat_all: 'For You', cat_dailyneeds: 'Daily Needs', cat_flowers: 'Flowers',
+            cat_home: 'Home & Living', cat_construction: 'Construction', cat_clothing: 'Clothing',
+            cat_agriculture: 'Agriculture', cat_kitchen: 'Kitchen', cat_electronics: 'Electronics',
+            cat_health: 'Health', cat_stationery: 'Stationery', cat_entertainment: 'Entertainment',
+            cat_contact: 'Contact',
+            hero_apt_badge: 'Medical Appointments', hero_apt_title: 'Hospitals & Clinics Hub',
+            hero_apt_desc: 'Schedule outpatient checkups and manage clinical physician care smoothly.',
+            hero_apt_btn: 'Book Appointment',
+            hero_med_badge: 'Prescription Orders', hero_med_title: 'Buy Medicines',
+            hero_med_desc: 'Directly fulfill pharmacy items from authenticated medical shops on our platform.',
+            hero_med_btn: 'Browse Medical Shops',
+            ad1_badge: 'Mega Deals', ad1_title: 'Weekend Marketplace Super Sale!',
+            ad1_desc: 'Get up to 30% Off on fresh produce, bakery treats, and kitchen electronics today.',
+            ad2_badge: 'Health Alert', ad2_title: 'Free Diagnostic Screenings',
+            ad2_desc: 'Book an appointment at any partner clinic this week and receive a complimentary wellness assessment.',
+            ad3_badge: 'Express Dispatch', ad3_title: 'Zero Delivery Fees on Medicines',
+            ad3_desc: 'Fulfill your prescriptions through MyStore with guaranteed instant doorstep delivery.',
+            cart_hub: 'Active Operations Hub', cart_basket_title: 'Your Basket',
+            cart_empty: 'No items in basket.', cart_subtotal: 'Subtotal',
+            cart_total: 'Total', cart_view_btn: 'View Cart',
+            btn_shop_all: 'Shop All Products',
+            hero_tagline: 'Furniture · Marbles · Drinks · Bricks · Toys & More',
+            search_placeholder: 'Search products, brands...'
+         },
+         te: {
+            nav_stores: 'దుకాణాలు', nav_appointments: 'అపాయింట్‌మెంట్ బుక్ చేయండి',
+            cat_all: 'మీ కోసం', cat_dailyneeds: 'రోజువారీ అవసరాలు', cat_flowers: 'పూలు',
+            cat_home: 'ఇల్లు & జీవనం', cat_construction: 'నిర్మాణం', cat_clothing: 'దుస్తులు',
+            cat_agriculture: 'వ్యవసాయం', cat_kitchen: 'వంటగది', cat_electronics: 'ఎలక్ట్రానిక్స్',
+            cat_health: 'ఆరోగ్యం', cat_stationery: 'స్టేషనరీ', cat_entertainment: 'వినోదం',
+            cat_contact: 'సంప్రదించండి',
+            hero_apt_badge: 'వైద్య అపాయింట్‌మెంట్‌లు', hero_apt_title: 'హాస్పిటల్స్ & క్లినిక్స్ హబ్',
+            hero_apt_desc: 'అవుట్‌పేషెంట్ తనిఖీలను షెడ్యూల్ చేయండి మరియు క్లినికల్ వైద్యుల సంరక్షణను సులభంగా నిర్వహించండి.',
+            hero_apt_btn: 'అపాయింట్‌మెంట్ బుక్ చేయండి',
+            hero_med_badge: 'ప్రిస్క్రిప్షన్ ఆర్డర్లు', hero_med_title: 'మందులు కొనండి',
+            hero_med_desc: 'మా ప్లాట్‌ఫారమ్‌లో జాబితా చేయబడిన ధృవీకరించబడిన వైద్య దుకాణాల నుండి నేరుగా ఫార్మసీ వస్తువులను పొందండి.',
+            hero_med_btn: 'మెడికల్ షాపులను చూడండి',
+            ad1_badge: 'మెగా డీల్స్', ad1_title: 'వీకెండ్ మార్కెట్‌ప్లేస్ సూపర్ సేల్!',
+            ad1_desc: 'ఈ రోజు తాజా ఉత్పత్తులు, బేకరీ వస్తువులు మరియు వంటగది ఎలక్ట్రానిక్స్‌పై 30% వరకు తగ్గింపు పొందండి.',
+            ad2_badge: 'హెల్త్ అలర్ట్', ad2_title: 'ఉచిత ఆరోగ్య పరీక్షలు',
+            ad2_desc: 'ఈ వారం మా భాగస్వామ్య క్లినిక్‌లలో అపాయింట్‌మెంట్ బుక్ చేసుకోండి మరియు ఉచిత సమగ్ర వెల్‌నెస్ నివేదికను పొందండి.',
+            ad3_badge: 'ఎక్స్‌ప్రెస్ డెలివరీ', ad3_title: 'మందులపై జీరో డెలివరీ ఛార్జీలు',
+            ad3_desc: 'ఖచ్చితమైన వేగవంతమైన డెలివరీతో MyStore ద్వారా మీ డిజిటల్ ప్రిస్క్రిప్షన్లను పొందండి.',
+            cart_hub: 'యాక్టివ్ ఆపరేషన్స్ హబ్', cart_basket_title: 'మీ బుట్ట',
+            cart_empty: 'బుట్టలో ఏ వస్తువులూ లేవు.', cart_subtotal: 'ఉపమొత్తం',
+            cart_total: 'మొత్తం', cart_view_btn: 'కార్ట్ చూడండి',
+            btn_shop_all: 'అన్ని ఉత్పత్తులు చూడండి',
+            hero_tagline: 'ఫర్నీచర్ · మార్బుల్స్ · పానీయాలు · ఇటుకలు · బొమ్మలు & మరిన్ని',
+            search_placeholder: 'ఉత్పత్తులు, బ్రాండ్లు వెతకండి...'
+         }
+      };
+
       function changeLanguage(lang) {
          localStorage.setItem('preferredLanguage', lang);
+         var t = _i18n[lang] || _i18n['en'];
+         // Update all data-i18n elements
+         document.querySelectorAll('[data-i18n]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n');
+            if (t[key] !== undefined) el.textContent = t[key];
+         });
+         // Update search placeholder
+         var si = document.getElementById('searchInput');
+         if (si && t.search_placeholder) si.placeholder = t.search_placeholder;
       }
+
+      // Restore saved language on load
       (function() {
          var saved = localStorage.getItem('preferredLanguage');
-         if (saved) { var el = document.getElementById('languageSelect'); if (el) el.value = saved; }
+         if (saved && saved !== 'en') {
+            var el = document.getElementById('languageSelect');
+            if (el) { el.value = saved; changeLanguage(saved); }
+         }
       })();
 
       // Patch updateCartUI to also keep the hero sidebar in sync

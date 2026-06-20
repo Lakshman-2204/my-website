@@ -214,12 +214,136 @@
       </div>
    </header>
 
-   <!-- HERO -->
-   <div class="hero" id="heroSection">
-      <h1 id="heroGreeting">Welcome!</h1>
-      <p>Furniture · Marbles · Drinks · Bricks · Toys · Fancy Items &amp; More</p>
-      <button class="btn-shop" onclick="showAllProducts()">Shop Now — View All Products</button>
+   <!-- HERO / LANDING DASHBOARD -->
+   <div id="heroSection" class="bg-slate-100 min-h-screen">
+      <div class="container mx-auto px-4 lg:px-8 pt-6 pb-10 space-y-6">
+
+         <!-- Greeting -->
+         <div class="text-slate-900 font-black text-lg tracking-tight">
+            👋 <span id="heroGreeting">Welcome!</span>
+         </div>
+
+         <!-- TWO HERO CARDS -->
+         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- Appointments card -->
+            <div class="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-3xl p-6 border border-cyan-200 flex flex-col justify-between min-h-[200px] shadow-sm relative overflow-hidden">
+               <div>
+                  <span class="bg-cyan-600 text-white text-[9px] uppercase px-2.5 py-0.5 rounded-full font-black tracking-wider shadow-sm">Medical Appointments</span>
+                  <h2 class="text-2xl font-black text-cyan-950 mt-3 mb-1 tracking-tight">Hospitals &amp; Clinics Hub</h2>
+                  <p class="text-slate-600 text-xs max-w-sm leading-relaxed">Schedule outpatient checkups and manage clinical physician care smoothly.</p>
+               </div>
+               <button onclick="showBookAppointment()"
+                       class="mt-4 w-fit bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
+                  Book Appointment →
+               </button>
+            </div>
+            <!-- Buy Medicines card -->
+            <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-3xl p-6 border border-amber-200 flex flex-col justify-between min-h-[200px] shadow-sm relative overflow-hidden">
+               <div>
+                  <span class="bg-amber-500 text-white text-[9px] uppercase px-2.5 py-0.5 rounded-full font-black tracking-wider shadow-sm">Prescription Orders</span>
+                  <h2 class="text-2xl font-black text-amber-950 mt-3 mb-1 tracking-tight">Buy Medicines</h2>
+                  <p class="text-slate-600 text-xs max-w-sm leading-relaxed">Directly fulfill pharmacy items from authenticated physical medical shops listed on our platform.</p>
+               </div>
+               <button onclick="catClick('health')"
+                       class="mt-4 w-fit bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1.5">
+                  Browse Medical Shops →
+               </button>
+            </div>
+         </div>
+
+         <!-- AD SLIDER + CART SIDEBAR -->
+         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- AD SLIDER (2/3) -->
+            <div class="lg:col-span-2">
+               <div class="relative bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-8 overflow-hidden shadow-lg border border-slate-700 min-h-[200px] flex flex-col justify-center">
+                  <div id="heroAdSlider">
+                     <div class="hero-ad-slide block">
+                        <span class="bg-amber-500 text-slate-900 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider">Mega Deals</span>
+                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight">Weekend Marketplace Super Sale!</h3>
+                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed">Get up to 30% Off on fresh produce, bakery treats, and kitchen electronics essentials today.</p>
+                     </div>
+                     <div class="hero-ad-slide hidden">
+                        <span class="bg-cyan-500 text-slate-900 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider">Health Alert</span>
+                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight">Free Diagnostic Screenings</h3>
+                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed">Book an appointment at any partner clinic this week and receive a complimentary wellness assessment.</p>
+                     </div>
+                     <div class="hero-ad-slide hidden">
+                        <span class="bg-indigo-500 text-white text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider">Express Dispatch</span>
+                        <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight">Zero Delivery Fees on Medicines</h3>
+                        <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed">Fulfill your prescriptions through MyStore with guaranteed instant doorstep delivery.</p>
+                     </div>
+                  </div>
+                  <!-- Dots -->
+                  <div class="absolute bottom-5 right-7 flex items-center gap-1.5">
+                     <span onclick="goToHeroSlide(0)" class="hero-ad-dot w-4 h-2 rounded-full bg-white cursor-pointer transition-all"></span>
+                     <span onclick="goToHeroSlide(1)" class="hero-ad-dot w-2 h-2 rounded-full bg-white/40 cursor-pointer transition-all"></span>
+                     <span onclick="goToHeroSlide(2)" class="hero-ad-dot w-2 h-2 rounded-full bg-white/40 cursor-pointer transition-all"></span>
+                  </div>
+               </div>
+               <!-- Shop Now CTA -->
+               <div class="mt-4 flex items-center gap-3">
+                  <button onclick="showAllProducts()"
+                          class="bg-slate-900 hover:bg-slate-700 text-white font-black text-sm px-6 py-3 rounded-xl transition shadow-md tracking-wide">
+                     🛍️ Shop All Products
+                  </button>
+                  <span class="text-slate-400 text-xs">Furniture · Marbles · Drinks · Bricks · Toys &amp; More</span>
+               </div>
+            </div>
+
+            <!-- CART SUMMARY SIDEBAR (1/3) -->
+            <div class="lg:col-span-1">
+               <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm sticky top-24 space-y-5">
+                  <h3 class="text-sm font-black text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
+                     <span class="text-cyan-500">📊</span> Active Operations Hub
+                  </h3>
+                  <div>
+                     <p class="text-[10px] font-bold uppercase text-slate-400 mb-2 tracking-wider">Your Basket</p>
+                     <div id="heroCartTray" class="space-y-1.5 max-h-40 overflow-y-auto text-xs text-slate-400 italic">
+                        No items in basket.
+                     </div>
+                  </div>
+                  <div class="border-t border-slate-100 pt-3 space-y-1.5 text-xs text-slate-600">
+                     <div class="flex justify-between"><span>Subtotal</span><span id="heroCartSubtotal">₹0</span></div>
+                     <div class="flex justify-between font-bold text-slate-900 text-sm pt-1.5 border-t border-dashed border-slate-200">
+                        <span>Total</span><span id="heroCartTotal">₹0</span>
+                     </div>
+                  </div>
+                  <button onclick="showCart()"
+                          class="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-3 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-md">
+                     🛒 View Cart
+                  </button>
+               </div>
+            </div>
+         </div>
+
+      </div>
    </div>
+   <style>
+      .hero-ad-slide { transition: opacity 0.4s ease; }
+      .hero-ad-slide.hidden { display: none; }
+   </style>
+   <script>
+      var _heroSlideIdx = 0;
+      var _heroSlideTimer = setInterval(function() {
+         _heroSlideIdx = (_heroSlideIdx + 1) % 3;
+         _updateHeroSlider();
+      }, 3500);
+      function goToHeroSlide(i) {
+         clearInterval(_heroSlideTimer);
+         _heroSlideIdx = i; _updateHeroSlider();
+         _heroSlideTimer = setInterval(function() { _heroSlideIdx = (_heroSlideIdx + 1) % 3; _updateHeroSlider(); }, 3500);
+      }
+      function _updateHeroSlider() {
+         var slides = document.querySelectorAll('.hero-ad-slide');
+         var dots   = document.querySelectorAll('.hero-ad-dot');
+         slides.forEach(function(s, i) { s.classList.toggle('hidden', i !== _heroSlideIdx); });
+         dots.forEach(function(d, i) {
+            if (i === _heroSlideIdx) { d.classList.add('w-4', 'bg-white'); d.classList.remove('bg-white/40', 'w-2'); }
+            else { d.classList.remove('w-4', 'bg-white'); d.classList.add('bg-white/40', 'w-2'); }
+         });
+      }
+   </script>
 
    <!-- PRODUCTS SECTION -->
    <div class="products-section hidden" id="productsSection">
@@ -540,13 +664,37 @@
    <script>
       function changeLanguage(lang) {
          localStorage.setItem('preferredLanguage', lang);
-         // Full translation support coming soon
       }
-      // Restore saved language preference
       (function() {
          var saved = localStorage.getItem('preferredLanguage');
          if (saved) { var el = document.getElementById('languageSelect'); if (el) el.value = saved; }
       })();
+
+      // Patch updateCartUI to also keep the hero sidebar in sync
+      document.addEventListener('DOMContentLoaded', function() {
+         var _origUpdateCartUI = window.updateCartUI;
+         if (typeof _origUpdateCartUI === 'function') {
+            window.updateCartUI = function() {
+               _origUpdateCartUI.apply(this, arguments);
+               var totalCost  = (window.cart || []).reduce(function(s,c){return s+c.price*c.qty;},0);
+               var totalItems = (window.cart || []).reduce(function(s,c){return s+c.qty;},0);
+               var sub = document.getElementById('heroCartSubtotal');
+               var tot = document.getElementById('heroCartTotal');
+               var tray = document.getElementById('heroCartTray');
+               if (sub) sub.textContent = '₹' + totalCost.toLocaleString('en-IN');
+               if (tot) tot.textContent = '₹' + totalCost.toLocaleString('en-IN');
+               if (tray) {
+                  if (!window.cart || !window.cart.length) {
+                     tray.innerHTML = '<span class="italic text-slate-400">No items in basket.</span>';
+                  } else {
+                     tray.innerHTML = window.cart.map(function(c) {
+                        return '<div class="flex justify-between py-1"><span class="truncate max-w-[120px]">' + c.name + ' ×' + c.qty + '</span><span class="font-semibold text-slate-700">₹' + (c.price*c.qty).toLocaleString('en-IN') + '</span></div>';
+                     }).join('');
+                  }
+               }
+            };
+         }
+      });
 
       initDB().then(function() {
          _checkMaintenanceMode();

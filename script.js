@@ -13069,11 +13069,18 @@ async function printDischargeSummary(admId) {
    };
    var admit = fmt(r.admit_date);
    var disch = fmt(summary.discharge_date);
+   var admitTime    = r.admit_time    || '';
+   var dischargeTime = r.discharge_time || '';
    var followUp = summary.follow_up_date ? fmt(summary.follow_up_date) : '';
    var losDays = '—';
    if (r.admit_date && summary.discharge_date) {
-      var a = new Date(r.admit_date + 'T00:00:00'), b = new Date(summary.discharge_date + 'T00:00:00');
-      if (!isNaN(a.getTime()) && !isNaN(b.getTime())) losDays = Math.max(0, Math.round((b - a) / 86400000)) + ' day(s)';
+      var admitDt    = new Date(r.admit_date + 'T' + (admitTime || '00:00'));
+      var dischargeDt = new Date(summary.discharge_date + 'T' + (dischargeTime || '23:59'));
+      if (!isNaN(admitDt.getTime()) && !isNaN(dischargeDt.getTime())) {
+         var diffMs = Math.max(0, dischargeDt - admitDt);
+         var days = Math.ceil(diffMs / 86400000);
+         losDays = days + ' day(s)';
+      }
    }
    var ageSex = '';
    if (r.dob) {
@@ -13131,8 +13138,8 @@ async function printDischargeSummary(admId) {
          '<div><b>UHID:</b> ' + esc(r.patient_ref || '—') + '</div>' +
          '<div><b>Phone:</b> ' + esc(r.patient_phone || '—') + '</div>' +
          '<div><b>Ward / Bed:</b> ' + esc((r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '')) + '</div>' +
-         '<div><b>Admit Date:</b> ' + esc(admit) + '</div>' +
-         '<div><b>Discharge Date:</b> ' + esc(disch) + '</div>' +
+         '<div><b>Admit Date:</b> ' + esc(admit) + (admitTime ? ' · ' + esc(admitTime) : '') + '</div>' +
+         '<div><b>Discharge Date:</b> ' + esc(disch) + (dischargeTime ? ' · ' + esc(dischargeTime) : '') + '</div>' +
          '<div><b>Length of Stay:</b> ' + esc(losDays) + '</div>' +
          '<div><b>Condition at Discharge:</b> <span class="cond-pill' + (summary.condition_at_discharge === 'Expired' || summary.condition_at_discharge === 'DAMA' ? ' danger' : '') + '">' + esc(summary.condition_at_discharge) + '</span></div>' +
          '<div style="grid-column:1/-1"><b>Treating Doctor:</b> ' + esc(summary.doctor_name || '—') + (summary.doctor_speciality ? ' · ' + esc(summary.doctor_speciality) : '') + (summary.doctor_reg_no ? ' · Reg No. ' + esc(summary.doctor_reg_no) : '') + '</div>' +

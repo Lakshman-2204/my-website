@@ -780,10 +780,23 @@ window.AppDB = {
       if (!bill) return null;
       const newAdvance = Number(bill.advance_paid || 0) + Number(extraAmount);
       const newNetPayable = Math.max(0, Number(bill.net_payable || 0) - Number(extraAmount));
-      const patch = { advance_paid: newAdvance, net_payable: newNetPayable, payment_mode: paymentMode, status: 'Issued' };
-      if (txnRef) patch.txn_ref = txnRef;
+      const patch = {
+         advance_paid: newAdvance,
+         net_payable:  newNetPayable,
+         status:       'Issued',
+         updated_at:   new Date().toISOString()
+      };
       const { data, error } = await _sb.from('ip_bills').update(patch).eq('id', billId).select().maybeSingle();
       if (error) { console.error('settleIpBill:', error.message); return null; }
+      // Record as a payment entry so it appears in receipt history
+      await this.addAdmissionPayment({
+         provider_id:  bill.provider_id,
+         admission_id: bill.admission_id,
+         amount:       extraAmount,
+         payment_mode: paymentMode,
+         txn_ref:      txnRef || '',
+         notes:        'Balance payment against bill ' + (bill.bill_no || billId)
+      });
       return data;
    },
    async getIpBillItems(billId) {

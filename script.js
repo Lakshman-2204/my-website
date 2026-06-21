@@ -9693,18 +9693,21 @@ async function renderShopOverview() {
       var billedAdmIds = new Set((ipBills||[]).filter(function(b){ return b.status!=='Draft'; }).map(function(b){ return b.admission_id; }));
       var todayIpBills = (ipBills||[]).filter(function(b){ return b.bill_date===todayYmd && b.status!=='Draft'; });
       var todayIpCollected = todayIpBills.reduce(function(s,b){ return s+(b.advance_paid||0); },0);
+      var todayIpPending   = todayIpBills.reduce(function(s,b){ return s+Number(b.net_payable||0); },0);
       var todayDeposits = (admPayments||[]).filter(function(dp){ return !billedAdmIds.has(dp.admission_id) && (dp.paid_at||'').slice(0,10)===todayYmd; }).reduce(function(s,dp){ return s+Number(dp.amount||0); },0);
       var monthStartYmd = monthStart.getFullYear() + '-' + String(monthStart.getMonth()+1).padStart(2,'0') + '-01';
       var monthIpBills = (ipBills||[]).filter(function(b){ return (b.bill_date||'')>=monthStartYmd && b.status!=='Draft'; });
       var monthIpCollected = monthIpBills.reduce(function(s,b){ return s+(b.advance_paid||0); },0);
+      var monthIpPending   = monthIpBills.reduce(function(s,b){ return s+Number(b.net_payable||0); },0);
       var monthDeposits = (admPayments||[]).filter(function(dp){ return !billedAdmIds.has(dp.admission_id) && (dp.paid_at||'').slice(0,10)>=monthStartYmd; }).reduce(function(s,dp){ return s+Number(dp.amount||0); },0);
-      var todayTotal = todayOpdCollected + todayIpCollected + todayDeposits;
-      var monthTotal = monthOpdCollected + monthIpCollected + monthDeposits;
+      var todayTotal   = todayOpdCollected + todayIpCollected + todayDeposits;
+      var monthTotal   = monthOpdCollected + monthIpCollected + monthDeposits;
+      var totalPending = todayOpdPending + todayIpPending;
       var revEl = document.getElementById('hkpi-rev-' + p.id);
       if (revEl) revEl.innerHTML =
          '<div class="hkpi-head"><span>💰</span><span>Revenue</span></div>' +
          '<div class="hkpi-body"><span class="hkpi-num">₹' + todayTotal.toLocaleString('en-IN') + '</span><span class="hkpi-badge hkpi-green">Today</span></div>' +
-         '<div class="hkpi-sub">₹' + todayOpdPending.toLocaleString('en-IN') + ' OPD pending · Month: ₹' + monthTotal.toLocaleString('en-IN') + '</div>';
+         '<div class="hkpi-sub">' + (totalPending > 0 ? '⏳ ₹' + totalPending.toLocaleString('en-IN') + ' pending · ' : '') + 'Month: ₹' + monthTotal.toLocaleString('en-IN') + (monthIpPending > 0 ? ' (₹' + monthIpPending.toLocaleString('en-IN') + ' unsettled)' : '') + '</div>';
 
       var admEl = document.getElementById('hkpi-adm-' + p.id);
       if (admEl) admEl.innerHTML =
@@ -11283,12 +11286,17 @@ async function openDepositModal(admId) {
    } else {
       var total = prior.reduce(function(s, p) { return s + Number(p.amount || 0); }, 0);
       priorEl.innerHTML =
-         '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:8px 12px;font-size:0.82rem">' +
-            '<strong>Prior receipts:</strong> ' +
+         '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:10px 12px;font-size:0.82rem">' +
+            '<strong>Prior receipts:</strong>' +
+            '<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">' +
             prior.map(function(p) {
-               return p.receipt_no + ' · ₹' + Number(p.amount).toLocaleString('en-IN') + ' (' + p.payment_mode + ')';
-            }).join(' · ') +
-            '<br/><strong style="color:#065f46">Running total: ₹' + total.toLocaleString('en-IN') + '</strong>' +
+               return '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                  '<span>' + p.receipt_no + ' · ₹' + Number(p.amount).toLocaleString('en-IN') + ' (' + p.payment_mode + ')</span>' +
+                  '<button onclick="printDepositReceipt(\'' + p.id + '\')" style="font-size:0.75rem;padding:2px 8px;background:#1565c0;color:#fff;border:none;border-radius:5px;cursor:pointer">🖨 Reprint</button>' +
+               '</div>';
+            }).join('') +
+            '</div>' +
+            '<strong style="color:#065f46;display:block;margin-top:6px">Running total: ₹' + total.toLocaleString('en-IN') + '</strong>' +
          '</div>';
    }
 
@@ -11582,8 +11590,16 @@ async function saveCollectBalance() {
    if (!updated) { alert('Failed to record payment. Please try again.'); return; }
 
    closeCollectBalanceModal();
-   showToast('Payment of ₹' + amount.toLocaleString('en-IN') + ' recorded. Bill ' +
-      (Math.max(0, (updated.net_payable || 0) - (updated.advance_paid || 0)) <= 0 ? '✓ Settled!' : 'updated.'));
+   var settled = (updated.net_payable || 0) <= 0;
+   showToast('Payment of ₹' + amount.toLocaleString('en-IN') + ' recorded. Bill ' + (settled ? '✓ Settled!' : 'updated.'));
+   // Find the newly inserted admission_payment and print its receipt
+   try {
+      var payments = await AppDB.getAdmissionPayments(updated.admission_id);
+      if (payments && payments.length) {
+         var latest = payments[payments.length - 1];
+         printDepositReceipt(latest.id);
+      }
+   } catch(e) {}
    renderShopAdmissions();
    if (typeof renderShopRevenue === 'function') renderShopRevenue();
 }

@@ -6296,7 +6296,17 @@ function toggleUserMenu(e) {
    e.stopPropagation();
    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
-   document.getElementById('userDropdown').classList.toggle('open');
+   const dd = document.getElementById('userDropdown');
+   if (!dd) return;
+   // Position fixed below the trigger button on both desktop and mobile
+   const btn = e.currentTarget || e.target;
+   const rect = btn.getBoundingClientRect();
+   if (window.innerWidth > 600) {
+      dd.style.top    = (rect.bottom + 8) + 'px';
+      dd.style.right  = (window.innerWidth - rect.right) + 'px';
+      dd.style.bottom = 'auto';
+   }
+   dd.classList.toggle('open');
 }
 
 function promptAuth(message) {
@@ -15339,6 +15349,8 @@ async function initAdmin() {
    if (!user || !isAdmin(user.email)) { window.location.href = 'login.html'; return; }
    await initDB();
    document.getElementById('adminUserName').textContent = user.name;
+   var audEl = document.getElementById('audName');
+   if (audEl) audEl.textContent = '👤 ' + user.name;
    populateAdminFilterDropdowns();
    renderAdminGrid();
    // sync color pickers when user types in hex fields

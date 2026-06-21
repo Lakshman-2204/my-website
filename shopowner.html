@@ -657,7 +657,7 @@
                   </select>
                </div>
                <div id="adm-referral-wrap" style="display:none;grid-column:1/-1">
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px">
                      <div class="sp-field">
                         <label>Referring Doctor</label>
                         <input type="text" id="adm-ref-doctor" placeholder="Dr. Name"/>
@@ -929,7 +929,7 @@
                   </select>
                </div>
                <div id="adm-tpa-wrap" style="display:none;grid-column:1/-1">
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px">
                      <div class="sp-field">
                         <label>TPA / Insurer Name</label>
                         <input type="text" id="adm-tpa-name" placeholder="e.g. Star Health / Bajaj Allianz"/>
@@ -1436,12 +1436,12 @@
             </div>
             <div class="modal-field" id="aptDocCapacityRow">
                <label>Patients per slot <small style="font-weight:400;color:#aaa">(split between online + offline)</small></label>
-               <div style="display:flex;gap:10px">
-                  <div style="flex:1">
+               <div style="display:flex;gap:10px;flex-wrap:wrap">
+                  <div style="flex:1;min-width:120px">
                      <small style="display:block;color:#666;margin-bottom:3px">🌐 Online (website)</small>
                      <input type="number" id="aptDocCapacityOnline" min="0" step="1" value="5"/>
                   </div>
-                  <div style="flex:1">
+                  <div style="flex:1;min-width:120px">
                      <small style="display:block;color:#666;margin-bottom:3px">📞 Offline (phone / walk-in)</small>
                      <input type="number" id="aptDocCapacityOffline" min="0" step="1" value="5"/>
                   </div>
@@ -1449,12 +1449,12 @@
             </div>
             <div class="modal-field" id="aptDocDailyCapRow" style="display:none">
                <label>Daily Token Caps <small style="font-weight:400;color:#aaa">(token mode)</small></label>
-               <div style="display:flex;gap:10px">
-                  <div style="flex:1">
+               <div style="display:flex;gap:10px;flex-wrap:wrap">
+                  <div style="flex:1;min-width:120px">
                      <small style="display:block;color:#666;margin-bottom:3px">🌐 Online</small>
                      <input type="number" id="aptDocDailyCapOnline" min="0" step="1" value="100"/>
                   </div>
-                  <div style="flex:1">
+                  <div style="flex:1;min-width:120px">
                      <small style="display:block;color:#666;margin-bottom:3px">📞 Offline</small>
                      <input type="number" id="aptDocDailyCapOffline" min="0" step="1" value="100"/>
                   </div>

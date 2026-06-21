@@ -1550,6 +1550,7 @@ body.guest .store-section-divider {
 .role-setup-cards {
 	display: flex;
 	gap: 0.85rem;
+	flex-wrap: wrap;
 }
 
 .role-setup-card {
@@ -3159,6 +3160,7 @@ body.guest .store-section-divider {
 	margin-bottom: 1.2rem;
 	border-bottom: 2px solid #eee;
 	padding-bottom: 0;
+	flex-wrap: wrap;
 }
 
 .rp-tab {
@@ -5355,7 +5357,7 @@ a.contact-val:hover { color: #2e7d32; text-decoration: underline; }
 .profile-card-body > .profile-save-btn { width: max-content; }
 /* Mobile: collapse back to a single column */
 @media (max-width: 720px) {
-	.profile-card-body { grid-template-columns: 1fr; }
+	.profile-card-body { grid-template-columns: 1fr !important; }
 }
 
 /* Contact Admin tab — vertical list of contact methods */
@@ -7819,4 +7821,182 @@ body.profile-page { background: #e8edf5; }
    .products-grid { grid-template-columns: 1fr; }
    .apt-slot-btn  { padding: 5px 8px; font-size: 0.68rem; }
    .hero h1       { font-size: 1.5rem; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   COMPREHENSIVE MOBILE FIX — all pages (≤ 600px)
+   Covers shopowner, profile, admin, home modals & forms
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+
+   /* ── sp-modal: full-width on phone ── */
+   .sp-modal-overlay { padding: 0 !important; align-items: flex-end !important; }
+   .sp-modal {
+      max-width: 100vw !important;
+      width: 100vw !important;
+      max-height: 92vh !important;
+      border-radius: 18px 18px 0 0 !important;
+      margin: 0 !important;
+   }
+
+   /* ── All grid forms inside modals → single column ── */
+   .sp-modal .profile-card-body,
+   .sp-modal-body .profile-card-body {
+      grid-template-columns: 1fr !important;
+      padding: 10px !important;
+      gap: 8px !important;
+   }
+   .sp-modal .profile-card-body .sp-field,
+   .sp-modal-body .sp-field { grid-column: 1 / -1 !important; }
+
+   /* ── Bill notes + totals: stack on mobile ── */
+   #bill-notes-totals-grid { grid-template-columns: 1fr !important; }
+
+   /* ── Discharge summary two-col layout: stack ── */
+   .ds-body-grid,
+   [id^="ds-"] > div[style*="grid-template-columns:1fr"] { grid-template-columns: 1fr !important; }
+
+   /* ── Admission form vitals grid: 2-col instead of 6 ── */
+   .profile-card-body[style*="minmax(120px"] {
+      grid-template-columns: repeat(2, 1fr) !important;
+   }
+
+   /* ── Doctor form 4-col → 1-col ── */
+   .profile-card-body[style*="repeat(4"] {
+      grid-template-columns: 1fr !important;
+   }
+
+   /* ── Any inline 2-col grid inside modal → single col ── */
+   .sp-modal-body [style*="grid-template-columns:1fr 1fr"],
+   .sp-modal-body [style*="grid-template-columns: 1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+   }
+
+   /* ── Tables: always scrollable ── */
+   .adm-table-wrap,
+   .apt-table-wrap,
+   .walkin-items-table,
+   .rev-table-wrap,
+   .admin-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+
+   /* ── Staff grid: single column ── */
+   .staff-grid { grid-template-columns: 1fr !important; }
+
+   /* ── Shop stat KPI cards: 2-col ── */
+   .shop-ov-kpis { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+   .shop-stat { min-width: 0 !important; }
+
+   /* ── Bed grid: 2-col ── */
+   .bed-grid,
+   .beds-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+   /* ── Filter bars: wrap, compact ── */
+   .admin-filter-bar { flex-wrap: wrap !important; gap: 6px !important; }
+   .admin-filter-select { flex: 1 1 120px !important; min-width: 0 !important; font-size: 0.78rem !important; }
+   .apt-search-input { max-width: 100% !important; }
+
+   /* ── Revenue summary totals strip: wrap ── */
+   .rev-totals-strip { flex-wrap: wrap !important; gap: 8px !important; }
+   .rev-total-box { flex: 1 1 130px !important; min-width: 0 !important; }
+
+   /* ── Walk-in bill modal full screen ── */
+   #walkinBillModal .sp-modal {
+      max-width: 100vw !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      border-radius: 0 !important;
+   }
+
+   /* ── Schedule slots grid: wrap ── */
+   .apt-slots-grid { gap: 6px !important; }
+   .apt-slot-btn { padding: 5px 8px !important; font-size: 0.7rem !important; }
+
+   /* ── Profile page ── */
+   .profile-card-body { grid-template-columns: 1fr !important; }
+   .profile-content { padding: 10px 8px 40px !important; }
+   .profile-save-btn { width: 100% !important; }
+   .addr-row { grid-template-columns: 1fr !important; }
+
+   /* ── Admin page grid ── */
+   .admin-providers-grid,
+   .apt-providers-grid { grid-template-columns: 1fr !important; }
+
+   /* ── Home page product cards: full text visible ── */
+   .product-card .card-body { padding: 8px !important; }
+   .product-card .card-title { font-size: 0.78rem !important; }
+   .product-card .card-price { font-size: 0.85rem !important; }
+
+   /* ── Topbar on all dashboard pages: compact ── */
+   .shop-topbar { padding: 8px 12px !important; flex-wrap: wrap !important; gap: 6px !important; }
+   .shop-topbar-title { font-size: 0.88rem !important; }
+   .shop-topbar-sub { font-size: 0.65rem !important; }
+   .shop-topbar-date { font-size: 0.62rem !important; max-width: 140px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+   .shop-topbar-actions { gap: 6px !important; }
+   .shop-topbar-btn { padding: 5px 10px !important; font-size: 0.72rem !important; }
+
+   /* ── Signup auth card: reduce padding on very small screens ── */
+   .auth-card { padding: 24px 18px !important; }
+}
+
+/* ── Very small phones (< 380px): tighten further ── */
+@media (max-width: 380px) {
+   .hosp-kpi-card { padding: 8px 8px !important; }
+   .hkpi-num { font-size: 1.2rem !important; }
+   .shop-ov-kpis { grid-template-columns: 1fr !important; }
+   .sp-modal-body .profile-card-body { gap: 6px !important; }
+}
+
+/* ── Section headers: stack on mobile so buttons don't overlap headings ── */
+@media (max-width: 600px) {
+   .apt-section-header,
+   .products-header {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 10px !important;
+      margin-bottom: 1rem !important;
+   }
+   .apt-section-header h2,
+   .products-header h2 {
+      font-size: 1.2rem !important;
+   }
+   /* Buttons row: sit below the heading, side by side */
+   .apt-section-header > *:not(h2),
+   .products-header > *:not(h2) {
+      display: flex !important;
+      gap: 8px !important;
+      flex-wrap: wrap !important;
+   }
+   .btn-back {
+      padding: 6px 14px !important;
+      font-size: 0.78rem !important;
+   }
+   /* Appointment section padding: tighter */
+   .apt-section { padding: 1rem 0.8rem 3rem !important; }
+}
+
+/* ── KPI grid: tablet (601–900px) gets 3 cols ── */
+@media (max-width: 900px) {
+   .hosp-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; }
+}
+
+/* ── Global table safety net on mobile ── */
+@media (max-width: 600px) {
+   table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+   table thead, table tbody, table tr, table th, table td { display: revert; }
+}
+
+/* ── Remaining mobile gaps ── */
+@media (max-width: 600px) {
+   /* Search dropdown: don't exceed viewport on small phones */
+   .search-box-wide .search-dropdown {
+      min-width: 0 !important;
+      width: 100% !important;
+   }
+   /* Razorpay card panel: Expiry/CVV inline 2-col grid → single col */
+   .rp-body [style*="grid-template-columns:1fr 1fr"],
+   .rp-body [style*="grid-template-columns: 1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+   }
 }

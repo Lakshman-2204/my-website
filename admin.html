@@ -70,9 +70,10 @@
                gap: 6px;
             }
             .admin-brand { font-size: 0.95rem !important; }
-            /* Right-side actions: scrollable strip */
+            /* Right-side actions: reverse order so Logout appears first/leftmost */
             .admin-header-right {
                flex-wrap: nowrap !important;
+               flex-direction: row-reverse !important;
                overflow-x: auto !important;
                scrollbar-width: none !important;
                gap: 6px !important;
@@ -88,7 +89,8 @@
                flex-shrink: 0;
             }
             /* Modals full-width */
-            .admin-modal-box {
+            .admin-modal,
+            .sp-modal {
                max-width: 96vw !important;
                width: 96vw !important;
                margin: 4vh auto !important;

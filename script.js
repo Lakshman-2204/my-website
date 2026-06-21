@@ -6298,7 +6298,26 @@ function toggleUserMenu(e) {
    if (!user) { window.location.href = 'login.html'; return; }
    const dd = document.getElementById('userDropdown');
    if (!dd) return;
-   // Position fixed below the trigger button on both desktop and mobile
+
+   // Set header name
+   const hdr = document.getElementById('userDropdownName');
+   if (hdr) hdr.textContent = '👋 Hi, ' + user.name;
+
+   // Show/hide role-specific links (safe here — DOM fully loaded on click)
+   const adminLink = document.getElementById('adminPanelLink');
+   const shopLink  = document.getElementById('shopOwnerLink');
+   if (isAdmin(user.email)) {
+      if (adminLink) adminLink.classList.remove('hidden');
+      if (shopLink)  shopLink.classList.remove('hidden');
+   } else if (user.role === 'storeowner') {
+      if (shopLink)  shopLink.classList.remove('hidden');
+      if (adminLink) adminLink.classList.add('hidden');
+   } else {
+      if (adminLink) adminLink.classList.add('hidden');
+      if (shopLink)  shopLink.classList.add('hidden');
+   }
+
+   // Position fixed below the trigger button
    const btn = e.currentTarget || e.target;
    const rect = btn.getBoundingClientRect();
    if (window.innerWidth > 600) {

@@ -2312,6 +2312,10 @@ function _todayLocalYmd() {
           String(d.getMonth() + 1).padStart(2, '0') + '-' +
           String(d.getDate()).padStart(2, '0');
 }
+function _nowLocalHHMM() {
+   var d = new Date();
+   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
 
 // Has this appointment's scheduled time come and gone?
 // Past date → true; future date → false; today → compare with slot time (token-mode
@@ -12362,6 +12366,8 @@ function openAdmissionModal(id) {
       if (lookupResults) { lookupResults.innerHTML = ''; lookupResults.classList.add('hidden'); }
       window._admLookupHits = [];
       get('adm-admit-date').value = _todayLocalYmd();
+      var admTimeEl = get('adm-admit-time'); if (admTimeEl) admTimeEl.value = _nowLocalHHMM();
+      var disTimeEl = get('adm-discharge-time'); if (disTimeEl) disTimeEl.value = '';
       _loadAdmBedDropdowns('', '', '');
       modal.classList.remove('hidden');
    }
@@ -12529,8 +12535,8 @@ async function saveAdmission() {
       mlc:                  document.getElementById('adm-mlc').checked,
       mlc_number:           get('adm-mlc-no'),
       // Phase 9 — complete form
-      admit_time:           get('adm-admit-time'),
-      discharge_time:       get('adm-discharge-time'),
+      admit_time:           get('adm-admit-time') || _nowLocalHHMM(),
+      discharge_time:       get('adm-discharge-time') || null,
       admission_source:     get('adm-source'),
       referring_doctor:     get('adm-ref-doctor'),
       referring_hospital:   get('adm-ref-hospital'),
@@ -12972,7 +12978,8 @@ async function saveDischargeAndPrint() {
    // Flip admission to Discharged so it leaves the Currently Admitted list.
    await AppDB.patchAdmission(_dsAdmission.id, {
       status: 'Discharged',
-      target_discharge: dischargeDate
+      target_discharge: dischargeDate,
+      discharge_time: _dsAdmission.discharge_time || _nowLocalHHMM()
    });
    // Free the bed back to Available
    if (_dsAdmission.bed_id) {

@@ -9647,9 +9647,17 @@ async function renderShopOverview() {
    var _tbDate = document.getElementById('shopTopbarDate');
    var _tbSub  = document.getElementById('shopTopbarSub');
    if (_tbDate) {
-      var _d = new Date(); var _days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      var _days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       var _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      _tbDate.textContent = _days[_d.getDay()] + ', ' + _d.getDate() + ' ' + _months[_d.getMonth()] + ' ' + _d.getFullYear();
+      var _updateTopbarClock = function() {
+         var _d = new Date();
+         var hh = String(_d.getHours()).padStart(2, '0');
+         var mm = String(_d.getMinutes()).padStart(2, '0');
+         _tbDate.textContent = _days[_d.getDay()] + ', ' + _d.getDate() + ' ' + _months[_d.getMonth()] + ' ' + _d.getFullYear() + '  ' + hh + ':' + mm;
+      };
+      _updateTopbarClock();
+      clearInterval(window._topbarClockInterval);
+      window._topbarClockInterval = setInterval(_updateTopbarClock, 60000);
    }
    if (_tbSub && mine[0]) _tbSub.textContent = mine[0].name || '';
 

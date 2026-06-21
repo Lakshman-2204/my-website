@@ -85,6 +85,26 @@
          border: none; cursor: pointer; border-radius: 10px; font-weight: 700; transition: all 0.2s;
       }
 
+      /* ── Ticker cards: compact on mobile ── */
+      @media (max-width: 767px) {
+         .ticker-card { width: 180px; padding: 10px; gap: 8px; margin: 0 7px; }
+         .ticker-card-icon { width: 40px; height: 40px; font-size: 20px; border-radius: 8px; }
+         .ticker-card-info h4 { font-size: 12px; }
+         .ticker-card-info p  { font-size: 10px; }
+         .ticker-section { padding: 12px 0 14px !important; }
+         .ticker-section h3 { font-size: 0.85rem !important; padding: 0 14px !important; }
+
+         /* ── Hero card buttons: stack on mobile ── */
+         .hero-apt-actions,
+         .hero-med-actions { flex-direction: column !important; gap: 8px !important; }
+         .hero h1, .hero h2 { font-size: 1.4rem !important; }
+         .hero { padding: 28px 14px !important; }
+
+         /* ── Hero grid: single column ── */
+         #heroSection .grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+         #heroSection .grid > * { min-height: auto !important; }
+      }
+
       /* ── MOBILE HEADER (< 768px) ── */
       @media (max-width: 767px) {
          /* Row 1: shrink top bar, hide address */

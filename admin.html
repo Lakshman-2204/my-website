@@ -108,8 +108,8 @@
             }
             /* Show mobile bottom nav */
             #adminMobileNav { display: flex !important; }
-            #adminMobileOverlay,
-            #adminMobileDrawer { display: block; }
+            /* Drawer: always block so transform slide works; overlay shown by JS only */
+            #adminMobileDrawer { display: block !important; }
          }
          @media (min-width: 601px) {
             #adminMobileNav,

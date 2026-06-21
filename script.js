@@ -12366,7 +12366,7 @@ function openAdmissionModal(id) {
       if (lookupResults) { lookupResults.innerHTML = ''; lookupResults.classList.add('hidden'); }
       window._admLookupHits = [];
       get('adm-admit-date').value = _todayLocalYmd();
-      var admTimeEl = get('adm-admit-time'); if (admTimeEl) admTimeEl.value = _nowLocalHHMM();
+      var admTimeEl = get('adm-admit-time'); if (admTimeEl) admTimeEl.value = '';
       var disTimeEl = get('adm-discharge-time'); if (disTimeEl) disTimeEl.value = '';
       _loadAdmBedDropdowns('', '', '');
       modal.classList.remove('hidden');

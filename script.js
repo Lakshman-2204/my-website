@@ -16573,7 +16573,7 @@ function loadSiteSettings() {
       if (sBadge) { sBadge.style.background = sc; sBadge.textContent = sBadgeTxt; }
       var sCta = document.getElementById('scrollAdCta');
       if (sCta) { sCta.textContent = sCtaTxt; sCta.style.background = sc; sCta.style.color = '#fff'; }
-      var adList = rawList.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+      var adList = rawList.split(/\r?\n/).map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
       if (!adList.length) adList = ['[ No offers configured ]'];
       if (scrollDots) {
          scrollDots.innerHTML = adList.map(function(_,i){ return '<span style="width:7px;height:7px;border-radius:50%;background:'+(i===0?sc:'#cbd5e1')+';display:inline-block;transition:background 0.3s"></span>'; }).join('');

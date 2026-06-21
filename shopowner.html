@@ -100,6 +100,44 @@
 
       /* ── Announcement bar ── */
       .announcement-bar { background: #fef3c7 !important; border-bottom: 1px solid #fde68a !important; color: #92400e !important; }
+
+      /* ── MOBILE (< 768px) ── */
+      @media (max-width: 767px) {
+         /* Topbar: compact padding, truncate long date */
+         .shop-topbar { padding: 10px 12px !important; }
+         .shop-topbar-title { font-size: 0.88rem !important; }
+         .shop-topbar-sub   { font-size: 0.65rem !important; }
+         .shop-topbar-date  {
+            font-size: 0.65rem !important;
+            padding: 3px 7px !important;
+            max-width: 110px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+         }
+
+         /* Modals: full viewport width, scrollable */
+         .sp-modal-box,
+         .admin-modal-box {
+            max-width: 96vw !important;
+            width: 96vw !important;
+            max-height: 92vh !important;
+            margin: 4vh auto !important;
+         }
+
+         /* Data tables inside panels: horizontal scroll */
+         .adm-table-wrap,
+         .profile-card-body,
+         .shop-prods-list,
+         .apt-table-wrap { overflow-x: auto !important; }
+
+         /* KPI stat cards: 2-column grid instead of 4 */
+         .shop-ov-kpis { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+
+         /* Filter bars: wrap instead of overflow */
+         .admin-filter-bar { flex-wrap: wrap !important; gap: 6px !important; }
+         .admin-filter-select { min-width: 0 !important; flex: 1 1 120px !important; }
+      }
    </style>
 </head>
 <body class="shopowner-page">

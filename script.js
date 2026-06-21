@@ -16254,12 +16254,28 @@ function loadSettingsForm() {
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
    setVal('set-fixedAdText',   s.fixedAdText   || '');
    setVal('set-scrollAdList',  s.scrollAdList  || '');
-   var fixedThemeSel  = document.getElementById('set-fixedAdTheme');
-   var fixedAnimSel   = document.getElementById('set-fixedAdAnim');
-   var scrollThemeSel = document.getElementById('set-scrollAdTheme');
-   if (fixedThemeSel)  fixedThemeSel.value  = s.fixedAdTheme  || 'blue';
-   if (fixedAnimSel)   fixedAnimSel.value   = s.fixedAdAnim   || 'pulse';
-   if (scrollThemeSel) scrollThemeSel.value = s.scrollAdTheme || 'blue';
+   var fixedThemeSel    = document.getElementById('set-fixedAdTheme');
+   var fixedAnimSel     = document.getElementById('set-fixedAdAnim');
+   var fixedFontSel     = document.getElementById('set-fixedAdFontSize');
+   var fixedBgSel       = document.getElementById('set-fixedAdBg');
+   var fixedBgCustom    = document.getElementById('set-fixedAdBgCustom');
+   var scrollThemeSel   = document.getElementById('set-scrollAdTheme');
+   var scrollFontSel    = document.getElementById('set-scrollAdFontSize');
+   var scrollBgSel      = document.getElementById('set-scrollAdBg');
+   var scrollBgCustom   = document.getElementById('set-scrollAdBgCustom');
+   if (fixedThemeSel)  fixedThemeSel.value  = s.fixedAdTheme    || 'blue';
+   if (fixedAnimSel)   fixedAnimSel.value   = s.fixedAdAnim     || 'pulse';
+   if (fixedFontSel)   fixedFontSel.value   = s.fixedAdFontSize || '1.5rem';
+   if (fixedBgSel)   { fixedBgSel.value     = s.fixedAdBg       || 'white'; if (typeof _toggleFixedCustomBg === 'function') _toggleFixedCustomBg(); }
+   if (fixedBgCustom)  fixedBgCustom.value  = s.fixedAdBgCustom || '#ffffff';
+   setVal('set-fixedAdBadge', s.fixedAdBadgeText || '');
+   setVal('set-fixedAdCta',   s.fixedAdCtaText   || '');
+   if (scrollThemeSel) scrollThemeSel.value = s.scrollAdTheme    || 'blue';
+   if (scrollFontSel)  scrollFontSel.value  = s.scrollAdFontSize || '1.4rem';
+   if (scrollBgSel)  { scrollBgSel.value    = s.scrollAdBg       || 'white'; if (typeof _toggleScrollCustomBg === 'function') _toggleScrollCustomBg(); }
+   if (scrollBgCustom) scrollBgCustom.value = s.scrollAdBgCustom || '#ffffff';
+   setVal('set-scrollAdBadge', s.scrollAdBadgeText || '');
+   setVal('set-scrollAdCta',   s.scrollAdCtaText   || '');
 }
 
 // ── MENU ITEMS MANAGER ──
@@ -16370,6 +16386,29 @@ function saveAllSettings() {
    showAdminToast('✅ Settings saved! Refresh the store to see changes.');
 }
 
+function saveAdSettings() {
+   var s = getAdminSettings();
+   function _v(id, def) { var el = document.getElementById(id); return el ? (el.value || def) : def; }
+   s.fixedAdText      = _v('set-fixedAdText', '');
+   s.fixedAdTheme     = _v('set-fixedAdTheme', 'blue');
+   s.fixedAdAnim      = _v('set-fixedAdAnim', 'pulse');
+   s.fixedAdFontSize  = _v('set-fixedAdFontSize', '1.5rem');
+   s.fixedAdBg        = _v('set-fixedAdBg', 'white');
+   s.fixedAdBgCustom  = _v('set-fixedAdBgCustom', '#ffffff');
+   s.fixedAdBadgeText = _v('set-fixedAdBadge', '');
+   s.fixedAdCtaText   = _v('set-fixedAdCta', '');
+   s.scrollAdList     = _v('set-scrollAdList', '');
+   s.scrollAdTheme    = _v('set-scrollAdTheme', 'blue');
+   s.scrollAdFontSize = _v('set-scrollAdFontSize', '1.4rem');
+   s.scrollAdBg       = _v('set-scrollAdBg', 'white');
+   s.scrollAdBgCustom = _v('set-scrollAdBgCustom', '#ffffff');
+   s.scrollAdBadgeText= _v('set-scrollAdBadge', '');
+   s.scrollAdCtaText  = _v('set-scrollAdCta', '');
+   _db.settings = s;
+   AppDB.saveSettings(s);
+   showAdminToast('✅ Ads saved! Refresh the store to see changes.');
+}
+
 // ── APPLY SITE SETTINGS (called on home.html) ──
 function loadSiteSettings() {
    const s = getAdminSettings();
@@ -16457,35 +16496,82 @@ function loadSiteSettings() {
       }
    }
 
+   // resolve a background preset key → CSS value
+   function _adBg(preset, custom) {
+      var map = {
+         white:          '#ffffff',
+         lightblue:      '#e0f2fe',
+         amber:          '#fef3c7',
+         rose:           '#ffe4e6',
+         green:          '#d1fae5',
+         navy:           '#1e3a5f',
+         'gradient-blue':'linear-gradient(135deg,#2563eb 0%,#06b6d4 100%)',
+         'gradient-rose':'linear-gradient(135deg,#f43f5e 0%,#f97316 100%)',
+         'gradient-amber':'linear-gradient(135deg,#f59e0b 0%,#fbbf24 100%)',
+         custom:          custom || '#ffffff'
+      };
+      return map[preset] || map.white;
+   }
+   // resolve accent color from theme key
+   function _adAccent(theme) {
+      var map = { blue:'#2563eb', rose:'#e11d48', amber:'#d97706', green:'#059669', purple:'#7c3aed' };
+      return map[theme] || map.blue;
+   }
+   // is bg dark (navy / gradient-dark)
+   function _adDarkBg(preset) { return preset === 'navy' || (preset||'').indexOf('gradient') !== -1; }
+
    // ── Fixed Ad ──
-   var fixedCard = document.getElementById('fixedAdCard');
-   var fixedText = document.getElementById('fixedAdText');
+   var fixedCard  = document.getElementById('fixedAdCard');
+   var fixedPanel = document.getElementById('fixedAdPanel');
+   var fixedText  = document.getElementById('fixedAdText');
    if (fixedCard && fixedText) {
-      var fText  = s.fixedAdText  || '';
-      var fTheme = s.fixedAdTheme || 'blue';
-      var fAnim  = s.fixedAdAnim  || 'pulse';
-      var fColors = { blue:'#2563eb', rose:'#e11d48', amber:'#d97706' };
-      var fc = fColors[fTheme] || fColors.blue;
-      fixedCard.style.borderLeftColor = fc;
-      var badge = document.getElementById('fixedAdBadge');
-      if (badge) badge.style.background = fc;
+      var fText      = s.fixedAdText      || '';
+      var fTheme     = s.fixedAdTheme     || 'blue';
+      var fAnim      = s.fixedAdAnim      || 'pulse';
+      var fFontSize  = s.fixedAdFontSize  || '1.5rem';
+      var fBg        = s.fixedAdBg        || 'white';
+      var fBgCustom  = s.fixedAdBgCustom  || '#ffffff';
+      var fBadgeTxt  = s.fixedAdBadgeText || 'Limited Time Offer';
+      var fCtaTxt    = s.fixedAdCtaText   || 'Claim Offer';
+      var fc = _adAccent(fTheme);
+      var fBgVal = _adBg(fBg, fBgCustom);
+      var fDark  = _adDarkBg(fBg);
+      fixedCard.style.background    = fBgVal;
+      fixedCard.style.borderLeft    = '4px solid ' + fc;
+      fixedCard.style.color         = fDark ? '#ffffff' : '';
+      fixedText.style.fontSize      = fFontSize;
+      var fBadge = document.getElementById('fixedAdBadge');
+      if (fBadge) { fBadge.style.background = fc; fBadge.textContent = fBadgeTxt; }
+      var fCta = document.getElementById('fixedAdCta');
+      if (fCta) { fCta.textContent = fCtaTxt; fCta.style.background = fc; fCta.style.color = '#fff'; }
       fixedText.textContent = fText || '[ No offer configured ]';
       fixedCard.classList.remove('ad-effect-pulse','ad-effect-shake','ad-effect-marquee');
       if (fAnim && fAnim !== 'none') fixedCard.classList.add('ad-effect-' + fAnim);
    }
 
    // ── Scrolling Ads ──
-   var scrollText = document.getElementById('scrollAdText');
-   var scrollCard = document.getElementById('scrollAdCard');
-   var scrollDots = document.getElementById('scrollAdDots');
+   var scrollText  = document.getElementById('scrollAdText');
+   var scrollCard  = document.getElementById('scrollAdCard');
+   var scrollDots  = document.getElementById('scrollAdDots');
    if (scrollText && scrollCard) {
-      var rawList = s.scrollAdList || '';
-      var sTheme  = s.scrollAdTheme || 'blue';
-      var sColors = { blue:'#2563eb', rose:'#e11d48', amber:'#d97706' };
-      var sc = sColors[sTheme] || sColors.blue;
-      scrollCard.style.borderLeftColor = sc;
+      var rawList    = s.scrollAdList     || '';
+      var sTheme     = s.scrollAdTheme    || 'blue';
+      var sFontSize  = s.scrollAdFontSize || '1.4rem';
+      var sBg        = s.scrollAdBg       || 'white';
+      var sBgCustom  = s.scrollAdBgCustom || '#ffffff';
+      var sBadgeTxt  = s.scrollAdBadgeText|| 'Campaign Spotlight';
+      var sCtaTxt    = s.scrollAdCtaText  || 'Claim Offer';
+      var sc = _adAccent(sTheme);
+      var sBgVal = _adBg(sBg, sBgCustom);
+      var sDark  = _adDarkBg(sBg);
+      scrollCard.style.background = sBgVal;
+      scrollCard.style.borderLeft = '4px solid ' + sc;
+      scrollCard.style.color      = sDark ? '#ffffff' : '';
+      scrollText.style.fontSize   = sFontSize;
       var sBadge = document.getElementById('scrollAdBadge');
-      if (sBadge) sBadge.style.background = sc;
+      if (sBadge) { sBadge.style.background = sc; sBadge.textContent = sBadgeTxt; }
+      var sCta = document.getElementById('scrollAdCta');
+      if (sCta) { sCta.textContent = sCtaTxt; sCta.style.background = sc; sCta.style.color = '#fff'; }
       var adList = rawList.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
       if (!adList.length) adList = ['[ No offers configured ]'];
       if (scrollDots) {

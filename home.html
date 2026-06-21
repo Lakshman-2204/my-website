@@ -400,58 +400,31 @@
             </div>
          </div>
 
-         <!-- AD SLIDER — full width -->
-         <div class="relative bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-8 overflow-hidden shadow-lg border border-slate-700 min-h-[200px] flex flex-col justify-center">
-            <div id="heroAdSlider">
-               <div class="hero-ad-slide block">
-                  <span class="bg-amber-500 text-slate-900 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider" data-i18n="ad1_badge">Mega Deals</span>
-                  <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight" data-i18n="ad1_title">Weekend Marketplace Super Sale!</h3>
-                  <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed" data-i18n="ad1_desc">Get up to 30% Off on fresh produce, bakery treats, and kitchen electronics essentials today.</p>
-               </div>
-               <div class="hero-ad-slide hidden">
-                  <span class="bg-cyan-500 text-slate-900 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider" data-i18n="ad2_badge">Health Alert</span>
-                  <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight" data-i18n="ad2_title">Free Diagnostic Screenings</h3>
-                  <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed" data-i18n="ad2_desc">Book an appointment at any partner clinic this week and receive a complimentary wellness assessment.</p>
-               </div>
-               <div class="hero-ad-slide hidden">
-                  <span class="bg-indigo-500 text-white text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md tracking-wider" data-i18n="ad3_badge">Express Dispatch</span>
-                  <h3 class="text-2xl lg:text-3xl font-black text-white mt-3 tracking-tight" data-i18n="ad3_title">Zero Delivery Fees on Medicines</h3>
-                  <p class="text-slate-300 text-xs lg:text-sm mt-2 max-w-xl leading-relaxed" data-i18n="ad3_desc">Fulfill your prescriptions through MyStore with guaranteed instant doorstep delivery.</p>
-               </div>
-            </div>
-            <!-- Dots -->
-            <div class="absolute bottom-5 right-7 flex items-center gap-1.5">
-               <span onclick="goToHeroSlide(0)" class="hero-ad-dot w-4 h-2 rounded-full bg-white cursor-pointer transition-all"></span>
-               <span onclick="goToHeroSlide(1)" class="hero-ad-dot w-2 h-2 rounded-full bg-white/40 cursor-pointer transition-all"></span>
-               <span onclick="goToHeroSlide(2)" class="hero-ad-dot w-2 h-2 rounded-full bg-white/40 cursor-pointer transition-all"></span>
-            </div>
-         </div>
-
          <!-- TWO AD PANELS side by side -->
-         <div id="adPanelsRow" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+         <div id="adPanelsRow" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 
             <!-- FIXED AD PANEL -->
-            <div id="fixedAdPanel" class="ad-panel-card" style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:200px;box-shadow:0 4px 16px rgba(0,0,0,0.07)">
-               <div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
-                  <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8">📌 Featured Offer</span>
+            <div id="fixedAdPanel" class="ad-panel-card" style="border-radius:16px;border:1px solid #e2e8f0;padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:220px;box-shadow:0 4px 16px rgba(0,0,0,0.07)">
+               <div style="padding:10px 14px;background:rgba(0,0,0,0.06);border-bottom:1px solid rgba(0,0,0,0.08);display:flex;align-items:center">
+                  <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:inherit;opacity:0.5">📌 Featured Offer</span>
                </div>
                <div id="fixedAdCard" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 20px;gap:12px;border-left:5px solid #2563eb;position:relative">
                   <div id="fixedAdBadge" style="background:#2563eb;color:#fff;font-size:0.7rem;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase">Limited Time Offer</div>
                   <div id="fixedAdText" style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1.3;word-break:break-word;width:100%">[ No offer configured ]</div>
-                  <div style="background:#0f172a;color:#fff;font-size:0.8rem;font-weight:700;padding:8px 22px;border-radius:30px;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Claim Offer</div>
+                  <div id="fixedAdCta" style="background:#0f172a;color:#fff;font-size:0.8rem;font-weight:700;padding:8px 22px;border-radius:30px;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;cursor:pointer">Claim Offer</div>
                </div>
             </div>
 
             <!-- SCROLLING CAROUSEL AD PANEL -->
-            <div id="scrollingAdPanel" class="ad-panel-card" style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:200px;box-shadow:0 4px 16px rgba(0,0,0,0.07)">
-               <div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
-                  <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8">🔄 Rotating Offers</span>
+            <div id="scrollingAdPanel" class="ad-panel-card" style="border-radius:16px;border:1px solid #e2e8f0;padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:220px;box-shadow:0 4px 16px rgba(0,0,0,0.07)">
+               <div style="padding:10px 14px;background:rgba(0,0,0,0.06);border-bottom:1px solid rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:space-between">
+                  <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:inherit;opacity:0.5">🔄 Rotating Offers</span>
                   <span id="scrollAdDots" style="display:flex;gap:5px;align-items:center"></span>
                </div>
                <div id="scrollAdCard" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 20px;gap:12px;border-left:5px solid #2563eb">
                   <div id="scrollAdBadge" style="background:#2563eb;color:#fff;font-size:0.7rem;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase">Campaign Spotlight</div>
                   <div id="scrollAdText" style="font-size:1.4rem;font-weight:800;color:#0f172a;line-height:1.3;word-break:break-word;width:100%;transition:opacity 0.4s,transform 0.4s">[ No offers configured ]</div>
-                  <div style="background:#0f172a;color:#fff;font-size:0.8rem;font-weight:700;padding:8px 22px;border-radius:30px;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Claim Offer</div>
+                  <div id="scrollAdCta" style="background:#0f172a;color:#fff;font-size:0.8rem;font-weight:700;padding:8px 22px;border-radius:30px;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;cursor:pointer">Claim Offer</div>
                </div>
             </div>
 

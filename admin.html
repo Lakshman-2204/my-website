@@ -218,6 +218,7 @@
          <button class="admin-tab" id="tab-appointments-btn" onclick="switchAdminTab('appointments')">🏥 Appointments</button>
          <button class="admin-tab" id="tab-billing-btn" onclick="switchAdminTab('billing')">💰 Billing</button>
          <button class="admin-tab" id="tab-settings-btn" onclick="switchAdminTab('settings')">⚙️ Settings</button>
+         <button class="admin-tab" id="tab-ads-btn"      onclick="switchAdminTab('ads')">📢 Ads</button>
          <button class="admin-tab" id="tab-users-btn"    onclick="switchAdminTab('users')">👥 Users</button>
       </div>
 
@@ -515,60 +516,206 @@
                </div>
             </div>
 
-            <!-- ADVERTISEMENT CONTROLS -->
+         </div><!-- /settings-content -->
+      </div><!-- /tab-settings -->
+
+      <!-- ADS TAB -->
+      <div id="tab-ads" class="hidden">
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>📢 Advertisement Panels</h1>
+                  <p class="admin-page-sub">Control the fixed promo and rotating carousel shown on the home page.</p>
+               </div>
+            </div>
+            <button class="admin-add-main-btn" onclick="saveAdSettings()">💾 Save Ads</button>
+         </div>
+         <div class="settings-content">
+
+            <!-- EMOJI QUICK-INSERT (shared) -->
+            <div class="settings-card" style="padding:14px 20px">
+               <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">⚡ Quick Emoji Insert — click to copy into any text field</div>
+               <div style="display:flex;flex-wrap:wrap;gap:6px" id="emojiBank">
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🎁')">🎁 Gift</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('✨')">✨ Spark</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🔥')">🔥 Hot</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🛍️')">🛍️ Bag</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🏷️')">🏷️ Tag</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('⚡')">⚡ Flash</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('💊')">💊 Medicine</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🏥')">🏥 Hospital</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🌟')">🌟 Star</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🎉')">🎉 Party</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('💯')">💯 100%</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🆓')">🆓 Free</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🎊')">🎊 Confetti</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🚀')">🚀 Rocket</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('💰')">💰 Money</button>
+                  <button class="ad-emoji-btn" onclick="_adInsertEmoji('🎯')">🎯 Target</button>
+               </div>
+               <div style="font-size:0.72rem;color:#94a3b8;margin-top:8px">Click a text field first, then click an emoji to insert it at the cursor.</div>
+            </div>
+
+            <!-- FIXED AD -->
             <div class="settings-card">
-               <div class="settings-card-header">📢 Advertisement Panels</div>
-               <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;flex-wrap:wrap">
+               <div class="settings-card-header">📌 Fixed Ad — single featured offer</div>
 
-                  <!-- Fixed Ad -->
-                  <div>
-                     <h4 style="font-size:0.88rem;font-weight:700;color:#1e293b;margin:0 0 14px">📌 Fixed Ad (single promo)</h4>
-                     <div class="sp-field">
-                        <label>Offer Headline</label>
-                        <textarea id="set-fixedAdText" rows="3" placeholder="e.g. Get 25% Off with code SAVE25 ✨" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;resize:vertical"></textarea>
-                     </div>
-                     <div class="sp-field" style="margin-top:10px">
-                        <label>Color Theme</label>
-                        <select id="set-fixedAdTheme" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
-                           <option value="blue">Corporate Blue</option>
-                           <option value="rose">Urgent Rose / Red</option>
-                           <option value="amber">Premium Amber / Gold</option>
-                        </select>
-                     </div>
-                     <div class="sp-field" style="margin-top:10px">
-                        <label>Animation Effect</label>
-                        <select id="set-fixedAdAnim" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
-                           <option value="pulse">Smooth Pulse</option>
-                           <option value="shake">Vibrate (Urgent)</option>
-                           <option value="marquee">Ticker Marquee</option>
-                           <option value="none">Static</option>
-                        </select>
-                     </div>
+               <div class="sp-field">
+                  <label>Offer Headline</label>
+                  <textarea id="set-fixedAdText" rows="3" placeholder="e.g. Get 25% Off with code SAVE25 ✨" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;resize:vertical" onfocus="_adLastFocused=this"></textarea>
+               </div>
+
+               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px">
+                  <div class="sp-field">
+                     <label>Accent Color</label>
+                     <select id="set-fixedAdTheme" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                        <option value="blue">Corporate Blue</option>
+                        <option value="rose">Urgent Red / Rose</option>
+                        <option value="amber">Premium Amber / Gold</option>
+                        <option value="green">Fresh Green</option>
+                        <option value="purple">Royal Purple</option>
+                     </select>
                   </div>
-
-                  <!-- Scrolling Ads -->
-                  <div>
-                     <h4 style="font-size:0.88rem;font-weight:700;color:#1e293b;margin:0 0 14px">🔄 Rotating Ads (one per line)</h4>
-                     <div class="sp-field">
-                        <label>Ad Copy Pool <small style="color:#94a3b8;font-weight:400">(each line = one ad, rotates every 5s)</small></label>
-                        <textarea id="set-scrollAdList" rows="6" placeholder="Get 25% Off with code SUMMER25 ✨&#10;🔥 Flash Sale: Buy 1 Get 1 Free on bags!&#10;⚡ Free delivery on orders above ₹499" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;resize:vertical;line-height:1.5"></textarea>
-                        <small style="color:#64748b;font-size:0.78rem">Each new line creates a separate rotating advertisement.</small>
-                     </div>
-                     <div class="sp-field" style="margin-top:10px">
-                        <label>Color Theme</label>
-                        <select id="set-scrollAdTheme" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
-                           <option value="blue">Corporate Blue</option>
-                           <option value="rose">Urgent Rose / Red</option>
-                           <option value="amber">Premium Amber / Gold</option>
-                        </select>
-                     </div>
+                  <div class="sp-field">
+                     <label>Animation Effect</label>
+                     <select id="set-fixedAdAnim" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                        <option value="pulse">Smooth Pulse</option>
+                        <option value="shake">Vibrate (Urgent)</option>
+                        <option value="marquee">Ticker Marquee</option>
+                        <option value="none">Static</option>
+                     </select>
                   </div>
+                  <div class="sp-field">
+                     <label>Font Size</label>
+                     <select id="set-fixedAdFontSize" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                        <option value="1.1rem">Small</option>
+                        <option value="1.5rem" selected>Medium</option>
+                        <option value="2rem">Large</option>
+                        <option value="2.6rem">Extra Large</option>
+                     </select>
+                  </div>
+               </div>
 
+               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px">
+                  <div class="sp-field">
+                     <label>Background Style</label>
+                     <select id="set-fixedAdBg" onchange="_toggleFixedCustomBg()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                        <option value="white">Clean White</option>
+                        <option value="lightblue">Light Blue</option>
+                        <option value="amber">Warm Amber</option>
+                        <option value="rose">Soft Rose</option>
+                        <option value="green">Mint Green</option>
+                        <option value="navy">Dark Navy</option>
+                        <option value="gradient-blue">Gradient Blue</option>
+                        <option value="gradient-rose">Gradient Rose</option>
+                        <option value="gradient-amber">Gradient Amber</option>
+                        <option value="custom">Custom Color…</option>
+                     </select>
+                  </div>
+                  <div class="sp-field" id="fixedCustomBgWrap" style="display:none">
+                     <label>Custom Background</label>
+                     <input type="color" id="set-fixedAdBgCustom" value="#ffffff" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;padding:2px"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>Badge Text</label>
+                     <input type="text" id="set-fixedAdBadge" placeholder="Limited Time Offer" onfocus="_adLastFocused=this" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>CTA Button Text</label>
+                     <input type="text" id="set-fixedAdCta" placeholder="Claim Offer" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem"/>
+                  </div>
                </div>
             </div>
 
-         </div><!-- /settings-content -->
-      </div><!-- /tab-settings -->
+            <!-- ROTATING ADS -->
+            <div class="settings-card">
+               <div class="settings-card-header">🔄 Rotating Ads — auto-carousel (one ad per line)</div>
+
+               <div class="sp-field">
+                  <label>Ad Copy Pool <small style="color:#94a3b8;font-weight:400">(each line = one ad, rotates every 5s)</small></label>
+                  <textarea id="set-scrollAdList" rows="7" placeholder="Get 25% Off with code SUMMER25 ✨&#10;🔥 Flash Sale: Buy 1 Get 1 Free on bags!&#10;⚡ Free delivery on orders above ₹499" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;resize:vertical;line-height:1.6" onfocus="_adLastFocused=this"></textarea>
+                  <small style="color:#64748b;font-size:0.78rem;margin-top:4px;display:block">Each new line = one rotating advertisement.</small>
+               </div>
+
+               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px">
+                  <div class="sp-field">
+                     <label>Accent Color</label>
+                     <select id="set-scrollAdTheme" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                        <option value="blue">Corporate Blue</option>
+                        <option value="rose">Urgent Red / Rose</option>
+                        <option value="amber">Premium Amber / Gold</option>
+                        <option value="green">Fresh Green</option>
+                        <option value="purple">Royal Purple</option>
+                     </select>
+                  </div>
+                  <div class="sp-field">
+                     <label>Font Size</label>
+                     <select id="set-scrollAdFontSize" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                        <option value="1.1rem">Small</option>
+                        <option value="1.4rem" selected>Medium</option>
+                        <option value="1.9rem">Large</option>
+                        <option value="2.4rem">Extra Large</option>
+                     </select>
+                  </div>
+                  <div class="sp-field">
+                     <label>Background Style</label>
+                     <select id="set-scrollAdBg" onchange="_toggleScrollCustomBg()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                        <option value="white">Clean White</option>
+                        <option value="lightblue">Light Blue</option>
+                        <option value="amber">Warm Amber</option>
+                        <option value="rose">Soft Rose</option>
+                        <option value="green">Mint Green</option>
+                        <option value="navy">Dark Navy</option>
+                        <option value="gradient-blue">Gradient Blue</option>
+                        <option value="gradient-rose">Gradient Rose</option>
+                        <option value="gradient-amber">Gradient Amber</option>
+                        <option value="custom">Custom Color…</option>
+                     </select>
+                  </div>
+               </div>
+
+               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px">
+                  <div class="sp-field" id="scrollCustomBgWrap" style="display:none">
+                     <label>Custom Background</label>
+                     <input type="color" id="set-scrollAdBgCustom" value="#ffffff" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;padding:2px"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>Badge Text</label>
+                     <input type="text" id="set-scrollAdBadge" placeholder="Campaign Spotlight" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem"/>
+                  </div>
+                  <div class="sp-field">
+                     <label>CTA Button Text</label>
+                     <input type="text" id="set-scrollAdCta" placeholder="Claim Offer" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem"/>
+                  </div>
+               </div>
+            </div>
+
+         </div>
+
+         <style>
+            .ad-emoji-btn { background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:0.82rem;font-weight:600;transition:background 0.15s; }
+            .ad-emoji-btn:hover { background:#e2e8f0; }
+         </style>
+         <script>
+            var _adLastFocused = null;
+            function _adInsertEmoji(emoji) {
+               var el = _adLastFocused;
+               if (!el) return;
+               var s = el.selectionStart || 0, e = el.selectionEnd || 0;
+               el.value = el.value.substring(0, s) + emoji + el.value.substring(e);
+               el.focus();
+               el.selectionStart = el.selectionEnd = s + emoji.length;
+            }
+            function _toggleFixedCustomBg() {
+               var v = document.getElementById('set-fixedAdBg').value;
+               document.getElementById('fixedCustomBgWrap').style.display = v === 'custom' ? '' : 'none';
+            }
+            function _toggleScrollCustomBg() {
+               var v = document.getElementById('set-scrollAdBg').value;
+               document.getElementById('scrollCustomBgWrap').style.display = v === 'custom' ? '' : 'none';
+            }
+         </script>
+      </div><!-- /tab-ads -->
 
       <!-- USERS TAB -->
       <div id="tab-users" class="hidden">
@@ -1485,6 +1632,7 @@
             <button class="amn-drawer-btn" onclick="_adminNavTab('billing')"><span class="amn-icon">💰</span><span class="amn-label">Billing</span></button>
             <button class="amn-drawer-btn" onclick="_adminNavTab('users')"><span class="amn-icon">👥</span><span class="amn-label">Users</span></button>
             <button class="amn-drawer-btn" onclick="_adminNavTab('settings')"><span class="amn-icon">⚙️</span><span class="amn-label">Settings</span></button>
+            <button class="amn-drawer-btn" onclick="_adminNavTab('ads')"><span class="amn-icon">📢</span><span class="amn-label">Ads</span></button>
             <button class="amn-drawer-btn" onclick="window.location='profile.html'"><span class="amn-icon">👤</span><span class="amn-label">My Profile</span></button>
             <button class="amn-drawer-btn" onclick="window.location='home.html'"><span class="amn-icon">🛍️</span><span class="amn-label">View Store</span></button>
             <button class="amn-drawer-btn" style="color:#f87171" onclick="logout()"><span class="amn-icon">↪️</span><span class="amn-label">Logout</span></button>
@@ -1511,6 +1659,7 @@
          <div class="aud-item" onclick="switchAdminTab('billing');_closeAdminUserMenu()">💰 Billing</div>
          <div class="aud-item" onclick="switchAdminTab('users');_closeAdminUserMenu()">👥 Users</div>
          <div class="aud-item" onclick="switchAdminTab('settings');_closeAdminUserMenu()">⚙️ Settings</div>
+         <div class="aud-item" onclick="switchAdminTab('ads');_closeAdminUserMenu()">📢 Ads</div>
          <div class="aud-divider"></div>
          <div class="aud-item" onclick="window.location='profile.html'">👤 My Profile</div>
          <div class="aud-item" onclick="window.location='home.html'">🛍️ View Store</div>

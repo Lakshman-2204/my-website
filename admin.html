@@ -60,42 +60,117 @@
          .admin-tab:hover { color: #cbd5e1 !important; background: rgba(255,255,255,0.05) !important; }
          .admin-tab.active { color: #22d3ee !important; border-bottom-color: #22d3ee !important; }
 
-         /* ── MOBILE (< 600px) ── */
+         /* ── MOBILE (≤ 600px) — Amazon style ── */
          @media (max-width: 600px) {
-            /* Header: allow wrapping so buttons don't clip off-screen */
-            .admin-header {
-               height: auto !important;
-               padding: 8px 12px !important;
-               flex-wrap: wrap;
-               gap: 6px;
-            }
-            .admin-brand { font-size: 0.95rem !important; }
-            /* Right-side actions: reverse order so Logout appears first/leftmost */
-            .admin-header-right {
-               flex-wrap: nowrap !important;
-               flex-direction: row-reverse !important;
-               overflow-x: auto !important;
-               scrollbar-width: none !important;
-               gap: 6px !important;
-               padding-bottom: 2px;
-            }
-            .admin-header-right::-webkit-scrollbar { display: none; }
+            /* Header: brand + language only, hide username */
+            .admin-header { padding: 8px 12px !important; height: auto !important; }
+            .admin-brand  { font-size: 0.95rem !important; }
+            #adminUserName { display: none !important; }
+            /* Right: language + View Store compact, Logout moved to drawer */
+            .admin-header-right { gap: 6px !important; }
             .admin-lang-select,
             .admin-store-btn,
             .admin-logout-btn {
                font-size: 0.72rem !important;
                padding: 5px 8px !important;
                white-space: nowrap;
-               flex-shrink: 0;
             }
+            /* Hide the top tab strip — replaced by bottom nav */
+            .admin-tabs { display: none !important; }
+            /* Push content above bottom nav */
+            body.admin-page { padding-bottom: 62px !important; }
             /* Modals full-width */
-            .admin-modal,
-            .sp-modal {
+            .admin-modal, .sp-modal {
                max-width: 96vw !important;
                width: 96vw !important;
                margin: 4vh auto !important;
             }
+            /* Show mobile bottom nav */
+            #adminMobileNav { display: flex !important; }
+            #adminMobileOverlay,
+            #adminMobileDrawer { display: block; }
          }
+         @media (min-width: 601px) {
+            #adminMobileNav,
+            #adminMobileDrawer,
+            #adminMobileOverlay { display: none !important; }
+         }
+
+         /* ── Admin bottom nav styles ── */
+         #adminMobileNav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: calc(58px + env(safe-area-inset-bottom,0px));
+            padding-bottom: env(safe-area-inset-bottom,0px);
+            background: #0f172a;
+            z-index: 499;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+            align-items: center;
+         }
+         .amn-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.65);
+            cursor: pointer;
+            padding: 6px 2px;
+            transition: color 0.15s;
+         }
+         .amn-btn.active { color: #f59e0b; }
+         .amn-icon  { font-size: 1.25rem; line-height: 1; }
+         .amn-label { font-size: 0.58rem; font-weight: 600; white-space: nowrap; }
+
+         /* ── Drawer ── */
+         #adminMobileOverlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 498;
+         }
+         #adminMobileDrawer {
+            display: none;
+            position: fixed;
+            bottom: 58px; left: 0; right: 0;
+            background: #0f172a;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px 16px 0 0;
+            z-index: 499;
+            transform: translateY(100%);
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+            padding: 14px 12px 12px;
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+         }
+         #adminMobileDrawer.open { transform: translateY(0); }
+         .amn-drawer-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+         }
+         .amn-drawer-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px 6px;
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            font-size: 0;
+            transition: background 0.15s;
+         }
+         .amn-drawer-btn:active { background: rgba(245,158,11,0.2); color: #f59e0b; }
+         .amn-drawer-btn .amn-icon  { font-size: 1.3rem; }
+         .amn-drawer-btn .amn-label { font-size: 0.65rem; font-weight: 600; color: inherit; }
       </style>
    </head>
    <body class="admin-page">
@@ -1309,6 +1384,45 @@
             var saved = localStorage.getItem('preferredLanguage');
             if (saved && saved !== 'en') adminChangeLanguage(saved);
          })();
+
+         function _adminToggleDrawer() {
+            var d = document.getElementById('adminMobileDrawer');
+            var o = document.getElementById('adminMobileOverlay');
+            var open = d.classList.toggle('open');
+            o.style.display = open ? 'block' : 'none';
+         }
+         function _adminNavTab(tab) {
+            if (document.getElementById('adminMobileDrawer').classList.contains('open')) _adminToggleDrawer();
+            switchAdminTab(tab);
+            // highlight active bottom nav btn
+            document.querySelectorAll('.amn-btn').forEach(function(b) { b.classList.remove('active'); });
+            var btn = document.getElementById('amn-' + tab);
+            if (btn) btn.classList.add('active');
+         }
       </script>
+
+      <!-- ── Admin mobile bottom nav ── -->
+      <div id="adminMobileOverlay" onclick="_adminToggleDrawer()"></div>
+
+      <div id="adminMobileDrawer">
+         <div style="width:36px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;margin:0 auto 14px"></div>
+         <div class="amn-drawer-grid">
+            <button class="amn-drawer-btn" onclick="_adminNavTab('stores')"><span class="amn-icon">🏪</span><span class="amn-label">Stores</span></button>
+            <button class="amn-drawer-btn" onclick="_adminNavTab('catalog')"><span class="amn-icon">🧬</span><span class="amn-label">Catalogue</span></button>
+            <button class="amn-drawer-btn" onclick="_adminNavTab('billing')"><span class="amn-icon">💰</span><span class="amn-label">Billing</span></button>
+            <button class="amn-drawer-btn" onclick="_adminNavTab('users')"><span class="amn-icon">👥</span><span class="amn-label">Users</span></button>
+            <button class="amn-drawer-btn" onclick="_adminNavTab('settings')"><span class="amn-icon">⚙️</span><span class="amn-label">Settings</span></button>
+            <button class="amn-drawer-btn" onclick="window.location='home.html'"><span class="amn-icon">🛍️</span><span class="amn-label">View Store</span></button>
+            <button class="amn-drawer-btn" style="color:#f87171" onclick="logout()"><span class="amn-icon">↪️</span><span class="amn-label">Logout</span></button>
+         </div>
+      </div>
+
+      <nav id="adminMobileNav">
+         <button class="amn-btn active" id="amn-products" onclick="_adminNavTab('products')"><span class="amn-icon">🛍️</span><span class="amn-label">Products</span></button>
+         <button class="amn-btn" id="amn-orders"      onclick="_adminNavTab('orders')"><span class="amn-icon">📦</span><span class="amn-label">Orders</span></button>
+         <button class="amn-btn" id="amn-appointments" onclick="_adminNavTab('appointments')"><span class="amn-icon">🏥</span><span class="amn-label">Appts</span></button>
+         <button class="amn-btn" id="amn-settings"   onclick="_adminNavTab('settings')"><span class="amn-icon">⚙️</span><span class="amn-label">Settings</span></button>
+         <button class="amn-btn" onclick="_adminToggleDrawer()"><span class="amn-icon">☰</span><span class="amn-label">More</span></button>
+      </nav>
    </body>
 </html>

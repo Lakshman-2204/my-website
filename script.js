@@ -11532,6 +11532,58 @@ function closeIpBillModal() {
    _billExisting = null;
 }
 
+// ── COLLECT BALANCE PAYMENT ───────────────────────────────────────────────
+async function openCollectBalanceModal(admId) {
+   var bill = await AppDB.getIpBill(admId);
+   if (!bill) { alert('No finalized bill found for this admission.'); return; }
+
+   var balance = Math.max(0, (bill.net_payable || 0) - (bill.advance_paid || 0));
+   if (balance <= 0) { alert('This bill is already fully settled.'); return; }
+
+   // Get patient name from admissions cache
+   var admRows = await AppDB.getAdmissions(bill.provider_id);
+   var adm = (admRows || []).find(function(r) { return r.id === admId; }) || {};
+
+   document.getElementById('cb-bill-id').value = bill.id;
+   document.getElementById('cb-patient-strip').innerHTML =
+      '<strong>' + (adm.patient_name || '—') + '</strong>' +
+      (adm.patient_phone ? ' &nbsp;📞 ' + adm.patient_phone : '') +
+      '&nbsp; · &nbsp;Bill No: <strong>' + (bill.bill_no || '—') + '</strong>';
+
+   var fmt = function(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); };
+   var gross = Number(bill.net_payable || 0) + Number(bill.advance_paid || 0);
+   document.getElementById('cb-gross').textContent   = fmt(gross);
+   document.getElementById('cb-advance').textContent = fmt(bill.advance_paid || 0);
+   document.getElementById('cb-balance').textContent = fmt(balance);
+   document.getElementById('cb-amount').value        = balance;
+   document.getElementById('cb-mode').value          = 'Cash';
+   document.getElementById('cb-txn-ref').value       = '';
+
+   document.getElementById('collectBalanceModal').classList.remove('hidden');
+}
+
+function closeCollectBalanceModal() {
+   document.getElementById('collectBalanceModal').classList.add('hidden');
+}
+
+async function saveCollectBalance() {
+   var billId  = document.getElementById('cb-bill-id').value;
+   var amount  = Number(document.getElementById('cb-amount').value);
+   var mode    = document.getElementById('cb-mode').value;
+   var txnRef  = document.getElementById('cb-txn-ref').value.trim();
+
+   if (!amount || amount <= 0) { alert('Enter a valid amount.'); return; }
+
+   var updated = await AppDB.settleIpBill(billId, amount, mode, txnRef);
+   if (!updated) { alert('Failed to record payment. Please try again.'); return; }
+
+   closeCollectBalanceModal();
+   showToast('Payment of ₹' + amount.toLocaleString('en-IN') + ' recorded. Bill ' +
+      (Math.max(0, (updated.net_payable || 0) - (updated.advance_paid || 0)) <= 0 ? '✓ Settled!' : 'updated.'));
+   renderShopAdmissions();
+   if (typeof renderShopRevenue === 'function') renderShopRevenue();
+}
+
 function _billAddItem(prefill) {
    var defaults = BILL_CATEGORIES[0];
    var item = Object.assign({
@@ -11996,6 +12048,7 @@ async function renderShopAdmissions() {
                          '<div class="adm-act-row" style="margin-top:4px">' +
                             '<button class="adm-act-btn" style="background:#1b5e20" onclick="openDailyNotesModal(\'' + rid + '\')">📋 Daily Notes</button>' +
                             '<button class="adm-act-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button>' +
+                            '<button class="adm-act-btn" style="background:#1565c0" onclick="openCollectBalanceModal(\'' + rid + '\')">💳 Collect</button>' +
                             '<button class="adm-act-btn" style="background:#2e7d32" onclick="dischargeAdmission(\'' + rid + '\')">✅ Discharge</button>' +
                             '<button class="adm-act-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Del</button>' +
                          '</div>' +
@@ -12049,6 +12102,7 @@ async function renderShopAdmissions() {
                          '</div>' +
                          '<div class="adm-act-row" style="margin-top:4px">' +
                             '<button class="adm-act-btn" style="background:#00695c" onclick="openIpBillModal(\'' + rid + '\')">🧾 Bill</button>' +
+                            '<button class="adm-act-btn" style="background:#1565c0" onclick="openCollectBalanceModal(\'' + rid + '\')">💳 Collect</button>' +
                             '<button class="adm-act-btn" style="background:#c62828" onclick="shopDeleteAdmission(\'' + rid + '\')">🗑 Del</button>' +
                          '</div>' +
                       '</td>' +
@@ -13298,7 +13352,9 @@ async function renderShopRevenue() {
             '<td>' + (adm.patient_name || '—') + (adm.patient_phone ? '<div style="font-size:0.75rem;color:#888">📞 ' + adm.patient_phone + '</div>' : '') + '</td>' +
             '<td>' + (b.bill_no || '—') + '</td>' +
             '<td style="text-align:right">' + fmt(Math.max(b.net_payable||0, b.advance_paid||0)) + '</td>' +
-            '<td><span class="rev-pay-badge ' + (balance <= 0 ? 'paid' : 'pending') + '">' + (balance <= 0 ? '✓ Settled' : '⏳ Balance ' + fmt(balance)) + '</span></td>' +
+            '<td><span class="rev-pay-badge ' + (balance <= 0 ? 'paid' : 'pending') + '">' + (balance <= 0 ? '✓ Settled' : '⏳ Balance ' + fmt(balance)) + '</span>' +
+               (balance > 0 ? ' <button onclick="openCollectBalanceModal(\'' + b.admission_id + '\')" style="margin-left:6px;font-size:0.7rem;padding:2px 8px;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">💳 Collect</button>' : '') +
+            '</td>' +
             '<td style="text-align:right;color:#c62828">' + (b.discount_amt ? fmt(b.discount_amt) : '—') + '</td>' +
             '<td>' + (b.payment_mode || 'Cash') + '</td>' +
          '</tr>';

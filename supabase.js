@@ -770,6 +770,21 @@ window.AppDB = {
       if (error) { console.error('getIpBill:', error.message); return null; }
       return data;
    },
+   async getIpBillById(billId) {
+      const { data, error } = await _sb.from('ip_bills').select('*').eq('id', billId).maybeSingle();
+      if (error) { console.error('getIpBillById:', error.message); return null; }
+      return data;
+   },
+   async settleIpBill(billId, extraAmount, paymentMode, txnRef) {
+      const bill = await this.getIpBillById(billId);
+      if (!bill) return null;
+      const newAdvance = Number(bill.advance_paid || 0) + Number(extraAmount);
+      const patch = { advance_paid: newAdvance, payment_mode: paymentMode, status: 'Issued' };
+      if (txnRef) patch.txn_ref = txnRef;
+      const { data, error } = await _sb.from('ip_bills').update(patch).eq('id', billId).select().maybeSingle();
+      if (error) { console.error('settleIpBill:', error.message); return null; }
+      return data;
+   },
    async getIpBillItems(billId) {
       const { data, error } = await _sb.from('ip_bill_items').select('*')
          .eq('bill_id', billId)

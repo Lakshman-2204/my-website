@@ -954,6 +954,56 @@
    </div>
 
    <!-- DISCHARGE SUMMARY MODAL — fill final clinical summary + discharge -->
+   <!-- COLLECT BALANCE PAYMENT MODAL -->
+   <div class="sp-modal-overlay hidden" id="collectBalanceModal">
+      <div class="sp-modal" style="max-width:520px">
+         <div class="sp-modal-header" style="background:#1565c0">
+            <h3>💳 Collect Balance Payment</h3>
+            <button onclick="closeCollectBalanceModal()" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 8px">✕</button>
+         </div>
+         <div class="sp-modal-body">
+            <input type="hidden" id="cb-bill-id"/>
+            <div id="cb-patient-strip" style="background:#e8f0fe;border:1px solid #c5cae9;padding:12px 14px;border-radius:10px;margin-bottom:16px;font-size:0.9rem"></div>
+            <!-- Bill summary -->
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.9rem">
+               <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0">
+                  <span style="color:#555">Gross Bill Amount</span><strong id="cb-gross">₹0</strong>
+               </div>
+               <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0">
+                  <span style="color:#555">Advance Already Paid</span><strong id="cb-advance" style="color:#2e7d32">₹0</strong>
+               </div>
+               <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:1rem">
+                  <span style="font-weight:800;color:#1565c0">Balance Due</span><strong id="cb-balance" style="color:#c62828;font-size:1.1rem">₹0</strong>
+               </div>
+            </div>
+            <div class="profile-card-body" style="padding:0">
+               <div class="sp-field">
+                  <label>Amount Collecting (₹) *</label>
+                  <input type="number" id="cb-amount" min="1" step="1" placeholder="Enter amount"/>
+               </div>
+               <div class="sp-field">
+                  <label>Payment Mode *</label>
+                  <select id="cb-mode">
+                     <option value="Cash">Cash</option>
+                     <option value="UPI">UPI</option>
+                     <option value="Card">Card (Debit / Credit)</option>
+                     <option value="Cheque">Cheque</option>
+                     <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+               </div>
+               <div class="sp-field" style="grid-column:1/-1">
+                  <label>Txn Ref / UPI ID <small style="color:#888;font-weight:400">(optional)</small></label>
+                  <input type="text" id="cb-txn-ref" placeholder="e.g. UPI: 4123abcd"/>
+               </div>
+            </div>
+         </div>
+         <div class="sp-modal-footer">
+            <button class="sp-btn-cancel" onclick="closeCollectBalanceModal()">Cancel</button>
+            <button class="sp-btn-save" style="background:#1565c0" onclick="saveCollectBalance()">💾 Collect &amp; Settle</button>
+         </div>
+      </div>
+   </div>
+
    <div class="sp-modal-overlay hidden" id="dischargeModal">
       <div class="sp-modal" style="max-width:820px">
          <div class="sp-modal-header" style="background:#0d47a1">

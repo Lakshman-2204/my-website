@@ -101,29 +101,35 @@
       /* ── Announcement bar ── */
       .announcement-bar { background: #fef3c7 !important; border-bottom: 1px solid #fde68a !important; color: #92400e !important; }
 
-      /* ── MOBILE (< 880px) — sidebar + layout ── */
+      /* ── MOBILE (< 880px) — sidebar nav strip ── */
       @media (max-width: 880px) {
-         /* Sidebar horizontal strip: enable iOS momentum scroll, ensure min height */
+         /* Horizontal nav strip */
          .shop-side-nav {
             -webkit-overflow-scrolling: touch !important;
-            min-height: 52px !important;
+            scroll-snap-type: x mandatory !important;
+            min-height: 60px !important;
             align-items: center !important;
+            padding: 8px 10px !important;
+            gap: 4px !important;
          }
-         /* Hide sub-items — they don't work in a horizontal strip */
+         /* Hide sub-items and chevrons in horizontal mode */
          .shop-side-subitem { display: none !important; }
-         /* Chevron arrows on parent items are meaningless in horizontal mode */
          .ssi-chev { display: none !important; }
-         /* Each nav pill: icon + label, compact */
+         /* Each nav pill: icon on top, label below */
          .shop-side-item {
             flex-direction: column !important;
             align-items: center !important;
-            gap: 2px !important;
-            padding: 6px 12px !important;
-            font-size: 0.65rem !important;
+            justify-content: center !important;
+            gap: 3px !important;
+            padding: 6px 14px !important;
+            font-size: 0.62rem !important;
             white-space: nowrap !important;
-            min-width: 56px !important;
+            min-width: 60px !important;
+            flex-shrink: 0 !important;
+            scroll-snap-align: start !important;
+            border-radius: 10px !important;
          }
-         .ssi-icon { margin-right: 0 !important; font-size: 1.1rem !important; }
+         .ssi-icon { margin-right: 0 !important; font-size: 1.2rem !important; display: block !important; }
       }
 
       /* ── MOBILE (< 768px) — topbar, KPIs, modals ── */
@@ -141,20 +147,23 @@
             text-overflow: ellipsis;
          }
 
-         /* Dashboard KPI grid: horizontally scrollable row */
+         /* KPI grid wrapper: allow overflow scroll (body clips it, so we break out) */
          .hosp-kpi-grid {
             display: flex !important;
             flex-wrap: nowrap !important;
-            overflow-x: auto !important;
+            overflow-x: scroll !important;
             -webkit-overflow-scrolling: touch !important;
             gap: 10px !important;
-            padding-bottom: 6px !important;
-            scrollbar-width: none !important;
+            padding-bottom: 8px !important;
+            /* Override the body overflow-x:hidden clip by using margin trick */
+            margin-left: -16px !important;
+            margin-right: -16px !important;
+            padding-left: 16px !important;
+            padding-right: 16px !important;
          }
-         .hosp-kpi-grid::-webkit-scrollbar { display: none; }
          .hosp-kpi-card {
-            min-width: 150px !important;
-            flex: 0 0 150px !important;
+            min-width: 155px !important;
+            flex: 0 0 155px !important;
          }
 
          /* General KPI stat cards: 2-column grid */

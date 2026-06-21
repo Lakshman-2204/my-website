@@ -6147,7 +6147,7 @@ body.profile-page { background: #e8edf5; }
 .profile-page .admin-filter-bar > select.admin-filter-select { max-width: 170px; }
 .profile-page .admin-filter-bar > input[type="date"].admin-filter-select { max-width: 140px; }
 
-@media (max-width: 880px) {
+@media (max-width: 600px) {
 	.shop-app-layout { grid-template-columns: 1fr; }
 	.shop-side-nav {
 		position: static; height: auto; overflow-x: auto; overflow-y: hidden;
@@ -7717,3 +7717,106 @@ body.profile-page { background: #e8edf5; }
 }
 .rev-pay-badge.paid    { background: #dcfce7; color: #166534; }
 .rev-pay-badge.pending { background: #fef9c3; color: #92400e; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   GLOBAL MOBILE RESPONSIVE — home.html content sections
+   Covers all internal pages: products, stores, appointments,
+   booking flow, modals, hero, ticker, cart, prescription, etc.
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+
+   /* ── Hero section ── */
+   .hero { height: auto; padding: 40px 16px; }
+   .hero h1 { font-size: 1.8rem; }
+   .hero p  { font-size: 0.9rem; }
+
+   /* ── Product grid: 2 columns minimum ── */
+   .products-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+   }
+   .product-card .card-body { padding: 10px 10px 12px; }
+   .product-card .card-img  { height: 140px; }
+
+   /* ── Category/subcategory layout: sidebar collapses above content ── */
+   .maincat-layout,
+   .subcat-layout {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+   }
+   .subcat-sidebar {
+      position: static;
+      max-height: none;
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 10px;
+      padding: 6px;
+      gap: 4px;
+   }
+   .subcat-sidebar-item {
+      flex-shrink: 0;
+      border-left: none;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      font-size: 0.75rem;
+      padding: 6px 12px;
+   }
+   .subcat-sidebar-item.active {
+      border-left: none;
+      border-bottom-color: #4a90e2;
+   }
+
+   /* ── Store / provider grids ── */
+   .apt-providers-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+   }
+
+   /* ── Appointment booking: doctor cards stack ── */
+   .apt-doctor-card {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.8rem;
+   }
+
+   /* ── Appointment slot buttons: smaller ── */
+   .apt-slot-btn { padding: 6px 10px; font-size: 0.72rem; }
+
+   /* ── Cart sidebar: full width ── */
+   .cart-sidebar { width: 100% !important; }
+
+   /* ── Prescription modal ── */
+   .rx-modal { max-width: 96vw; margin: 0 auto; }
+
+   /* ── Repeat-prescription / order modals ── */
+   .rp-modal { max-width: 96vw; margin: 1rem auto; }
+
+   /* ── sp-modal (used across home page) ── */
+   .sp-modal-overlay { padding: 10px; }
+   .sp-modal { max-width: 96vw !important; width: 96vw !important; max-height: 92vh !important; }
+
+   /* ── Wallet grid: 1 column ── */
+   .wallet-grid { grid-template-columns: 1fr !important; }
+
+   /* ── Live token pills: compact ── */
+   #liveTokenPills { right: 8px; bottom: 12px; }
+
+   /* ── Section padding: tighter on mobile ── */
+   .section { padding: 16px; }
+   .section-header { font-size: 1rem; }
+
+   /* ── Admin filter bars in home.html ── */
+   .admin-filter-bar { flex-wrap: wrap; gap: 6px; }
+   .admin-filter-select { flex: 1 1 130px; min-width: 0; }
+}
+
+/* ── Very small phones (< 380px) ── */
+@media (max-width: 380px) {
+   .products-grid { grid-template-columns: 1fr; }
+   .apt-slot-btn  { padding: 5px 8px; font-size: 0.68rem; }
+   .hero h1       { font-size: 1.5rem; }
+}

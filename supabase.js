@@ -700,13 +700,18 @@ window.AppDB = {
    //    races — on conflict we retry up to 5 times before bailing out.
    async addAdmissionPayment(p) {
       if (!p.provider_id || !p.admission_id || p.amount == null) return null;
+      // 2-letter hospital prefix for receipt number (e.g. "Apollo" → "AP")
+      const { data: provRow } = await _sb.from('apt_providers').select('name').eq('id', p.provider_id).maybeSingle();
+      const hospPrefix = provRow && provRow.name
+         ? provRow.name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase()
+         : 'RC';
       for (let attempt = 0; attempt < 5; attempt++) {
          const { data: maxRow } = await _sb.from('admission_payments')
             .select('receipt_seq').eq('provider_id', p.provider_id)
             .order('receipt_seq', { ascending: false }).limit(1).maybeSingle();
          const nextSeq = (maxRow && maxRow.receipt_seq ? maxRow.receipt_seq : 0) + 1;
          const yy = String(new Date().getFullYear()).slice(-2);
-         const receiptNo = 'RC-' + yy + '-' + String(nextSeq).padStart(5, '0');
+         const receiptNo = hospPrefix + '-' + yy + '-' + String(nextSeq).padStart(5, '0');
          const id = 'pay_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
          const row = {
             id,
@@ -820,6 +825,11 @@ window.AppDB = {
          billSeq = existing.bill_seq;
          billNo  = existing.bill_no;
       } else {
+         // Derive 2-letter hospital prefix from provider name (e.g. "Apollo" → "AP")
+         const { data: provRow } = await _sb.from('apt_providers').select('name').eq('id', b.provider_id).maybeSingle();
+         const hospPrefix = provRow && provRow.name
+            ? provRow.name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase()
+            : 'BL';
          // Mint a new sequential bill no — retry on UNIQUE conflict.
          for (let attempt = 0; attempt < 5; attempt++) {
             const { data: maxRow } = await _sb.from('ip_bills')
@@ -827,7 +837,7 @@ window.AppDB = {
                .order('bill_seq', { ascending: false }).limit(1).maybeSingle();
             const nextSeq = (maxRow && maxRow.bill_seq ? maxRow.bill_seq : 0) + 1;
             const yy = String(new Date().getFullYear()).slice(-2);
-            const candidateNo = 'BL-' + yy + '-' + String(nextSeq).padStart(5, '0');
+            const candidateNo = hospPrefix + '-' + yy + '-' + String(nextSeq).padStart(5, '0');
             billId  = 'bill_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
             billSeq = nextSeq;
             billNo  = candidateNo;

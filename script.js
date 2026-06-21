@@ -9054,6 +9054,9 @@ function switchShopTab(tab) {
          titleEl.textContent = titleMap[tab] || 'Dashboard';
       }
    }
+   // Update mobile bottom nav + drawer active highlights
+   _updateMobileNavActive(tab);
+
    if (tab !== 'products') _currentMyStoreId = null;
    if (tab === 'dashboard')    renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
@@ -9077,6 +9080,57 @@ function switchShopTab(tab) {
    if (tab === 'revenue')      renderShopRevenue();
    if (tab === 'beds')         renderShopBeds();
    if (tab === 'schedule')     renderShopSchedule();
+}
+
+// ── Mobile bottom nav helpers ──────────────────────────────────────────────
+
+// Update which bottom-bar button is highlighted amber.
+// Also mirrors the active state into the drawer buttons.
+function _updateMobileNavActive(tab) {
+   var bottomIds = ['dashboard', 'appointments', 'admissions', 'revenue'];
+   bottomIds.forEach(function(id) {
+      var btn = document.getElementById('mob-nav-' + id);
+      if (btn) btn.classList.toggle('active', id === tab);
+   });
+   // Menu button: never "active" on its own, but clear it
+   var menuBtn = document.getElementById('mob-nav-menu');
+   if (menuBtn) menuBtn.classList.remove('active');
+
+   // Drawer buttons
+   var drawerMap = {
+      dashboard: 'mob-drawer-dashboard',
+      appointments: 'mob-drawer-appointments',
+      doctors: 'mob-drawer-doctors',
+      patients: 'mob-drawer-patients',
+      'patients-out': 'mob-drawer-patients',
+      'patients-in': 'mob-drawer-patients',
+      admissions: 'mob-drawer-admissions',
+      revenue: 'mob-drawer-revenue',
+      beds: 'mob-drawer-beds',
+      staff: 'mob-drawer-staff',
+      schedule: 'mob-drawer-schedule',
+      orders: 'mob-drawer-orders',
+      products: 'mob-drawer-products',
+   };
+   Object.values(drawerMap).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+   });
+   var activeDrawerId = drawerMap[tab];
+   if (activeDrawerId) {
+      var el = document.getElementById(activeDrawerId);
+      if (el) el.classList.add('active');
+   }
+}
+
+// Toggle the mobile nav drawer open/closed.
+function toggleMobileNavDrawer() {
+   var drawer  = document.getElementById('mobileNavDrawer');
+   var overlay = document.getElementById('mobileNavOverlay');
+   if (!drawer) return;
+   var opening = !drawer.classList.contains('open');
+   drawer.classList.toggle('open', opening);
+   if (overlay) overlay.style.display = opening ? 'block' : 'none';
 }
 
 // Toggle expand/collapse for a sidebar group (e.g. Patients parent).

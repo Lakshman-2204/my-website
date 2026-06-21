@@ -103,60 +103,19 @@
 
       /* ══════════════════════════════════════════
          MOBILE LAYOUT  (≤ 880px)
-         Sidebar → fixed bottom nav bar
+         Original sidebar hidden; new bottom nav bar + drawer shown instead
          ══════════════════════════════════════════ */
       @media (max-width: 880px) {
 
-         /* ── Bottom nav bar ── */
-         .shop-side-nav {
-            position: fixed !important;
-            bottom: 0 !important; left: 0 !important; right: 0 !important;
-            top: auto !important;
-            height: auto !important;
-            width: 100% !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
-            -webkit-overflow-scrolling: touch !important;
-            z-index: 500 !important;
-            padding: 6px 8px env(safe-area-inset-bottom, 6px) !important;
-            gap: 2px !important;
-            border-top: 1px solid rgba(255,255,255,0.1) !important;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.35) !important;
-         }
+         /* Hide the original sidebar entirely */
+         .shop-side-nav { display: none !important; }
 
-         /* Hide decorative elements that don't work in bottom bar */
-         .shop-side-brand,
-         .shop-side-profile,
-         .shop-side-menu-label,
-         .shop-side-subitem,
-         .ssi-chev { display: none !important; }
+         /* Show our new bottom nav bar */
+         #mobileBottomNav { display: flex !important; }
 
-         /* Each nav button: icon + label stacked, fixed width */
-         .shop-side-item {
-            flex: 0 0 auto !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 2px !important;
-            min-width: 64px !important;
-            padding: 5px 8px !important;
-            font-size: 0.6rem !important;
-            white-space: nowrap !important;
-            border-radius: 8px !important;
-            margin: 0 !important;
-         }
-         .ssi-icon {
-            margin-right: 0 !important;
-            font-size: 1.25rem !important;
-            display: block !important;
-            line-height: 1 !important;
-         }
-
-         /* Push main content up so it's not hidden under the bottom bar */
+         /* Push main content above the bar */
          .shop-main-area {
-            padding-bottom: 72px !important;
+            padding-bottom: 64px !important;
          }
 
          /* Topbar: compact */
@@ -202,6 +161,78 @@
          /* Tables: let them scroll inside their own box */
          .adm-table-wrap,
          .apt-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+      }
+
+      /* ── Mobile bottom nav button base style ── */
+      .mob-nav-btn {
+         flex: 1;
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         justify-content: center;
+         gap: 3px;
+         background: transparent;
+         border: none;
+         color: rgba(255,255,255,0.7);
+         cursor: pointer;
+         padding: 6px 4px;
+         transition: color 0.15s, background 0.15s;
+         border-radius: 8px;
+         font-family: inherit;
+      }
+      .mob-nav-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+      .mob-nav-btn.active { background: rgba(245,158,11,0.2); color: #f59e0b; }
+      .mob-nav-btn .mob-icon { font-size: 1.3rem; line-height: 1; }
+      .mob-nav-btn .mob-label { font-size: 0.6rem; font-weight: 600; white-space: nowrap; }
+
+      /* ── Mobile nav drawer ── */
+      #mobileNavDrawer {
+         position: fixed;
+         bottom: 58px;
+         left: 0;
+         right: 0;
+         background: #0f172a;
+         border-top: 1px solid rgba(255,255,255,0.1);
+         border-radius: 16px 16px 0 0;
+         z-index: 499;
+         transform: translateY(100%);
+         transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+         max-height: 60vh;
+         overflow-y: auto;
+         padding: 16px 12px 12px;
+         box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+      }
+      #mobileNavDrawer.open { transform: translateY(0); }
+
+      .mob-drawer-grid {
+         display: grid;
+         grid-template-columns: repeat(3, 1fr);
+         gap: 8px;
+      }
+      .mob-drawer-btn {
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         justify-content: center;
+         gap: 5px;
+         background: rgba(255,255,255,0.05);
+         border: 1px solid rgba(255,255,255,0.07);
+         border-radius: 12px;
+         color: rgba(255,255,255,0.75);
+         cursor: pointer;
+         padding: 12px 6px;
+         font-family: inherit;
+         transition: background 0.15s, color 0.15s;
+      }
+      .mob-drawer-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+      .mob-drawer-btn.active { background: rgba(245,158,11,0.2); color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+      .mob-drawer-btn .mob-icon { font-size: 1.4rem; line-height: 1; }
+      .mob-drawer-btn .mob-label { font-size: 0.68rem; font-weight: 600; text-align: center; }
+      .mob-drawer-handle {
+         width: 36px; height: 4px;
+         background: rgba(255,255,255,0.2);
+         border-radius: 2px;
+         margin: 0 auto 14px;
       }
    </style>
 </head>
@@ -1820,5 +1851,35 @@
    <script>
       checkShopOwnerLogin();
    </script>
+
+   <!-- ── Mobile nav drawer backdrop ── -->
+   <div id="mobileNavOverlay" onclick="toggleMobileNavDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:498"></div>
+
+   <!-- ── Mobile nav drawer (slides up from bottom) ── -->
+   <div id="mobileNavDrawer">
+      <div class="mob-drawer-handle"></div>
+      <div class="mob-drawer-grid">
+         <button class="mob-drawer-btn" id="mob-drawer-dashboard"    onclick="toggleMobileNavDrawer();switchShopTab('dashboard')"><span class="mob-icon">🏠</span><span class="mob-label">Dashboard</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-appointments" onclick="toggleMobileNavDrawer();switchShopTab('appointments')"><span class="mob-icon">📅</span><span class="mob-label">Appointments</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-doctors"      onclick="toggleMobileNavDrawer();switchShopTab('doctors')"><span class="mob-icon">👨‍⚕️</span><span class="mob-label">Doctors</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-patients"     onclick="toggleMobileNavDrawer();switchShopTab('patients-out')"><span class="mob-icon">🧑‍🤝‍🧑</span><span class="mob-label">Patients</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-admissions"   onclick="toggleMobileNavDrawer();switchShopTab('admissions')"><span class="mob-icon">📋</span><span class="mob-label">Admissions</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-revenue"      onclick="toggleMobileNavDrawer();switchShopTab('revenue')"><span class="mob-icon">💰</span><span class="mob-label">Revenue</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-beds"         onclick="toggleMobileNavDrawer();switchShopTab('beds')"><span class="mob-icon">🛏️</span><span class="mob-label">Beds</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-staff"        onclick="toggleMobileNavDrawer();switchShopTab('staff')"><span class="mob-icon">👥</span><span class="mob-label">Staff</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-schedule"     onclick="toggleMobileNavDrawer();switchShopTab('schedule')"><span class="mob-icon">📞</span><span class="mob-label">Schedule</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-orders"       onclick="toggleMobileNavDrawer();switchShopTab('orders')"><span class="mob-icon">📦</span><span class="mob-label">Orders</span></button>
+         <button class="mob-drawer-btn" id="mob-drawer-products"     onclick="toggleMobileNavDrawer();switchShopTab('products')"><span class="mob-icon">🏪</span><span class="mob-label">My Stores</span></button>
+      </div>
+   </div>
+
+   <!-- ── Mobile bottom nav bar (5 quick-access buttons) ── -->
+   <nav id="mobileBottomNav" style="display:none;align-items:center;position:fixed;bottom:0;left:0;right:0;height:calc(58px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:#0f172a;z-index:499;border-top:1px solid rgba(255,255,255,0.1);box-shadow:0 -4px 20px rgba(0,0,0,0.4)">
+      <button class="mob-nav-btn" id="mob-nav-dashboard"    onclick="switchShopTab('dashboard')"><span class="mob-icon">🏠</span><span class="mob-label">Home</span></button>
+      <button class="mob-nav-btn" id="mob-nav-appointments" onclick="switchShopTab('appointments')"><span class="mob-icon">📅</span><span class="mob-label">Appts</span></button>
+      <button class="mob-nav-btn" id="mob-nav-admissions"   onclick="switchShopTab('admissions')"><span class="mob-icon">📋</span><span class="mob-label">Admissions</span></button>
+      <button class="mob-nav-btn" id="mob-nav-revenue"      onclick="switchShopTab('revenue')"><span class="mob-icon">💰</span><span class="mob-label">Revenue</span></button>
+      <button class="mob-nav-btn" id="mob-nav-menu"         onclick="toggleMobileNavDrawer()"><span class="mob-icon">☰</span><span class="mob-label">Menu</span></button>
+   </nav>
 </body>
 </html>

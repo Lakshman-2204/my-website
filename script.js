@@ -15885,7 +15885,7 @@ function showAdminToast(msg) {
 
 // ── ADMIN TABS ──
 async function switchAdminTab(tab) {
-   ['products', 'stores', 'catalog', 'orders', 'appointments', 'billing', 'settings', 'users'].forEach(function(t) {
+   ['products', 'stores', 'catalog', 'orders', 'appointments', 'billing', 'settings', 'ads', 'users'].forEach(function(t) {
       var el  = document.getElementById('tab-' + t);
       var btn = document.getElementById('tab-' + t + '-btn');
       if (el)  el.classList.toggle('hidden', t !== tab);
@@ -15895,6 +15895,7 @@ async function switchAdminTab(tab) {
    // empty-form race condition where Settings tab loaded before fetch returned.
    if (typeof initDB === 'function') { try { await initDB(); } catch (e) {} }
    if (tab === 'settings')     loadSettingsForm();
+   if (tab === 'ads')          loadSettingsForm();
    if (tab === 'users')        refreshAndRenderUsers();
    if (tab === 'stores')       switchStoreAdminSub('categories');
    if (tab === 'catalog')      { _catalogCurrentCat = null; _catalogItemsCache = []; document.getElementById('catalogItemsView').classList.add('hidden'); document.getElementById('catalogCategoriesView').classList.remove('hidden'); renderCatalogCategoriesGrid(); }

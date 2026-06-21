@@ -9651,9 +9651,10 @@ async function renderShopOverview() {
       var _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       var _updateTopbarClock = function() {
          var _d = new Date();
-         var hh = String(_d.getHours()).padStart(2, '0');
+         var h = _d.getHours(), ampm = h >= 12 ? 'PM' : 'AM';
+         var h12 = h % 12 || 12;
          var mm = String(_d.getMinutes()).padStart(2, '0');
-         _tbDate.textContent = _days[_d.getDay()] + ', ' + _d.getDate() + ' ' + _months[_d.getMonth()] + ' ' + _d.getFullYear() + '  ' + hh + ':' + mm;
+         _tbDate.textContent = _days[_d.getDay()] + ', ' + _d.getDate() + ' ' + _months[_d.getMonth()] + ' ' + _d.getFullYear() + '  ' + h12 + ':' + mm + ' ' + ampm;
       };
       _updateTopbarClock();
       clearInterval(window._topbarClockInterval);

@@ -101,7 +101,32 @@
       /* ── Announcement bar ── */
       .announcement-bar { background: #fef3c7 !important; border-bottom: 1px solid #fde68a !important; color: #92400e !important; }
 
-      /* ── MOBILE (< 768px) ── */
+      /* ── MOBILE (< 880px) — sidebar + layout ── */
+      @media (max-width: 880px) {
+         /* Sidebar horizontal strip: enable iOS momentum scroll, ensure min height */
+         .shop-side-nav {
+            -webkit-overflow-scrolling: touch !important;
+            min-height: 52px !important;
+            align-items: center !important;
+         }
+         /* Hide sub-items — they don't work in a horizontal strip */
+         .shop-side-subitem { display: none !important; }
+         /* Chevron arrows on parent items are meaningless in horizontal mode */
+         .ssi-chev { display: none !important; }
+         /* Each nav pill: icon + label, compact */
+         .shop-side-item {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 2px !important;
+            padding: 6px 12px !important;
+            font-size: 0.65rem !important;
+            white-space: nowrap !important;
+            min-width: 56px !important;
+         }
+         .ssi-icon { margin-right: 0 !important; font-size: 1.1rem !important; }
+      }
+
+      /* ── MOBILE (< 768px) — topbar, KPIs, modals ── */
       @media (max-width: 767px) {
          /* Topbar: compact padding, truncate long date */
          .shop-topbar { padding: 10px 12px !important; }
@@ -110,10 +135,32 @@
          .shop-topbar-date  {
             font-size: 0.65rem !important;
             padding: 3px 7px !important;
-            max-width: 110px;
+            max-width: 120px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+         }
+
+         /* Dashboard KPI grid: horizontally scrollable row */
+         .hosp-kpi-grid {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            gap: 10px !important;
+            padding-bottom: 6px !important;
+            scrollbar-width: none !important;
+         }
+         .hosp-kpi-grid::-webkit-scrollbar { display: none; }
+         .hosp-kpi-card {
+            min-width: 150px !important;
+            flex: 0 0 150px !important;
+         }
+
+         /* General KPI stat cards: 2-column grid */
+         .shop-ov-kpis {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
          }
 
          /* Modals: full viewport width, scrollable */
@@ -130,9 +177,6 @@
          .profile-card-body,
          .shop-prods-list,
          .apt-table-wrap { overflow-x: auto !important; }
-
-         /* KPI stat cards: 2-column grid instead of 4 */
-         .shop-ov-kpis { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
 
          /* Filter bars: wrap instead of overflow */
          .admin-filter-bar { flex-wrap: wrap !important; gap: 6px !important; }

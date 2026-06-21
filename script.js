@@ -12058,7 +12058,7 @@ async function renderShopAdmissions() {
          tableRows = admFiltered.map(function(r) {
             var d = new Date((r.admit_date || '') + 'T00:00:00');
             var los = isNaN(d.getTime()) ? 0 : _calcLos(r.admit_date, r.admit_time, todayYmd, null);
-            var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            var admitLbl = isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + (r.admit_time ? ' ' + r.admit_time : '');
             var targetLbl = '—', isDueToday = false;
             if (r.target_discharge) {
                isDueToday = r.target_discharge === todayYmd;
@@ -12120,8 +12120,8 @@ async function renderShopAdmissions() {
          tableRows = sorted.map(function(r) {
             var admD  = new Date((r.admit_date || '') + 'T00:00:00');
             var disD  = new Date((r.target_discharge || '') + 'T00:00:00');
-            var admLbl = isNaN(admD.getTime()) ? '—' : admD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-            var disLbl = isNaN(disD.getTime()) ? '—' : disD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            var admLbl = isNaN(admD.getTime()) ? '—' : admD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + (r.admit_time ? ' ' + r.admit_time : '');
+            var disLbl = isNaN(disD.getTime()) ? '—' : disD.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + (r.discharge_time ? ' ' + r.discharge_time : '');
             var los = (!isNaN(admD.getTime()) && !isNaN(disD.getTime())) ? _calcLos(r.admit_date, r.admit_time, r.target_discharge, r.discharge_time) : '—';
             var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
             var rid = r.id.replace(/'/g, "\\'");

@@ -125,6 +125,69 @@
 
          /* Hide hospital patient IDs card for storeowners (not a customer feature) */
          body.storeowner-profile #prof-hospital-ids-card { display: none !important; }
+
+         /* ── MOBILE (≤ 600px) ── */
+         @media (max-width: 600px) {
+            /* Sidebar → horizontal scrollable tab strip */
+            .shop-side-nav {
+               position: static !important;
+               height: auto !important;
+               flex-direction: row !important;
+               overflow-x: auto !important;
+               overflow-y: hidden !important;
+               padding: 6px 8px !important;
+               border-right: none !important;
+               border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+               flex-wrap: nowrap !important;
+            }
+            .shop-side-brand,
+            .shop-side-profile,
+            .shop-side-menu-label { display: none !important; }
+            .shop-side-item {
+               flex-shrink: 0 !important;
+               padding: 7px 12px !important;
+               font-size: 0.75rem !important;
+               margin: 0 2px !important;
+            }
+            .shop-app-layout { grid-template-columns: 1fr !important; }
+
+            /* Topbar compact */
+            .shop-topbar { padding: 10px 14px !important; }
+
+            /* Form: collapse all columns to single — override inline grid-template-columns */
+            .profile-card-body {
+               grid-template-columns: 1fr !important;
+               padding: 14px !important;
+               gap: 10px !important;
+            }
+            /* Reset any inline grid-column spans — all fields full width in 1-col layout */
+            .profile-card-body .profile-field,
+            .profile-card-body > button,
+            .profile-card-body > p { grid-column: 1 / -1 !important; }
+
+            /* Save button full width */
+            .profile-save-btn { width: 100% !important; }
+
+            /* Profile content padding */
+            .profile-content { padding: 12px 10px 40px !important; }
+
+            /* Profile card header smaller */
+            .profile-card-header { font-size: 0.82rem !important; padding: 10px 14px !important; }
+
+            /* Filter bar in orders/appointments tabs */
+            .admin-filter-bar { flex-wrap: wrap !important; gap: 6px !important; }
+            .admin-filter-select { min-width: 0 !important; flex: 1 1 120px !important; font-size: 0.8rem !important; }
+
+            /* Tables scroll horizontally inside their box */
+            .adm-table-wrap,
+            .apt-table-wrap,
+            .profile-card-body .admin-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+
+            /* Modals full width */
+            .sp-modal-box,
+            .rx-modal,
+            .rp-modal { max-width: 96vw !important; width: 96vw !important; }
+         }
       </style>
    </head>
    <body class="profile-page">

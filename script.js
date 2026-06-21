@@ -13109,8 +13109,6 @@ async function printDischargeSummary(admId) {
          '.sig-block .sig{min-width:260px;text-align:center;font-size:12.5px}' +
          '.sig-block .line{margin-top:50px;border-top:1px solid #333;padding-top:4px}' +
          '.footer{margin-top:30px;padding-top:14px;border-top:1px solid #d6dce8;font-size:11px;color:#666;text-align:center}' +
-         'table td,table th{padding:5px 7px;border:1px solid #cfd8e3;vertical-align:top}' +
-         'table tbody tr:nth-child(even){background:#f8fafc}' +
          '.toolbar{text-align:right;margin-bottom:14px}' +
          '.toolbar button{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;background:#1a73e8;color:#fff}' +
          '@media print{.toolbar{display:none}body{padding:14px}}' +
@@ -13144,26 +13142,18 @@ async function printDischargeSummary(admId) {
       (summary.investigations_summary ? '<div class="section"><h3>Investigations</h3><div class="body">' + nl2br(summary.investigations_summary) + '</div></div>' : '') +
       (summary.treatment_given ? '<div class="section"><h3>Treatment Given</h3><div class="body">' + nl2br(summary.treatment_given) + '</div></div>' : '') +
       (Array.isArray(summary.daily_notes) && summary.daily_notes.length ? (function() {
-         var dnRows = summary.daily_notes.map(function(n) {
+         var dnItems = summary.daily_notes.map(function(n) {
             var vitals = [n.bp ? 'BP: '+n.bp : '', n.pulse ? 'Pulse: '+n.pulse : '', n.temp ? 'Temp: '+n.temp : '', n.spo2 ? 'SpO₂: '+n.spo2 : '', n.weight ? 'Wt: '+n.weight : ''].filter(Boolean).join(' · ');
-            return '<tr>' +
-               '<td style="white-space:nowrap">' + esc(n.date||'') + (n.time ? ' '+esc(n.time) : '') + '</td>' +
-               '<td>' + esc(n.doctor||'') + '</td>' +
-               '<td>' + esc(vitals) + '</td>' +
-               '<td>' + esc(n.findings||'') + '</td>' +
-               '<td>' + esc(n.procedures||'') + '</td>' +
-            '</tr>';
+            var lines = [];
+            if (vitals)       lines.push('<span style="color:#374151">' + esc(vitals) + '</span>');
+            if (n.findings)   lines.push('<b>Findings:</b> ' + esc(n.findings));
+            if (n.procedures) lines.push('<b>Procedures:</b> ' + esc(n.procedures));
+            return '<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #e2e8f0">' +
+               '<div style="min-width:130px;font-size:12px;font-weight:700;color:#1e40af;padding-top:1px">' + esc(n.date||'') + (n.time ? '<br/><span style="font-weight:400;color:#64748b">'+esc(n.time)+'</span>' : '') + (n.doctor ? '<br/><span style="font-weight:400;color:#475569;font-size:11px">Dr. '+esc(n.doctor)+'</span>' : '') + '</div>' +
+               '<div style="font-size:13px;line-height:1.7">' + lines.join('<br/>') + '</div>' +
+            '</div>';
          }).join('');
-         return '<div class="section"><h3>Daily Progress Notes</h3>' +
-            '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-            '<thead><tr style="background:#e8f0fe;color:#1a1a2e">' +
-               '<th style="text-align:left;padding:5px 7px;border:1px solid #cfd8e3">Date / Time</th>' +
-               '<th style="text-align:left;padding:5px 7px;border:1px solid #cfd8e3">Doctor</th>' +
-               '<th style="text-align:left;padding:5px 7px;border:1px solid #cfd8e3">Vitals</th>' +
-               '<th style="text-align:left;padding:5px 7px;border:1px solid #cfd8e3">Findings</th>' +
-               '<th style="text-align:left;padding:5px 7px;border:1px solid #cfd8e3">Procedures</th>' +
-            '</tr></thead>' +
-            '<tbody>' + dnRows + '</tbody></table></div>';
+         return '<div class="section"><h3>Daily Progress Notes</h3>' + dnItems + '</div>';
       })() : '') +
       (medsHtml ? '<div class="section"><h3>Discharge Medications</h3><ul class="meds">' + medsHtml + '</ul></div>' : '') +
       (summary.follow_up_advice || followUp ? '<div class="section"><h3>Follow-up Advice</h3><div class="body">' +

@@ -6561,6 +6561,10 @@ async function checkShopOwnerLogin() {
    if (dashTab)   dashTab.classList.toggle('hidden',   !ownsHospital);
    if (ordersTab) ordersTab.classList.toggle('hidden', !ownsStores);
    if (prodTab)   prodTab.classList.toggle('hidden',   !ownsStores);
+   var mobDrawerOrders = document.getElementById('mob-drawer-orders');
+   var mobDrawerProducts = document.getElementById('mob-drawer-products');
+   if (mobDrawerOrders)   mobDrawerOrders.classList.toggle('hidden',   !ownsStores);
+   if (mobDrawerProducts) mobDrawerProducts.classList.toggle('hidden', !ownsStores);
    if (aptTab)    aptTab.classList.toggle('hidden',    !ownsHospital);
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
    if (patTab)    patTab.classList.toggle('hidden',    !ownsHospital);

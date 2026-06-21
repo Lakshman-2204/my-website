@@ -7883,9 +7883,69 @@ body.profile-page { background: #e8edf5; }
    /* ── Staff grid: single column ── */
    .staff-grid { grid-template-columns: 1fr !important; }
 
-   /* ── Shop stat KPI cards: 2-col ── */
+   /* ── Appointments KPI bar: 3 compact columns (Confirmed / Completed / Cancelled) ── */
+   .shop-stats-bar {
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 8px !important;
+      padding: 10px 10px !important;
+   }
+   .shop-stats-bar .shop-stat {
+      flex-direction: column !important;
+      align-items: center !important;
+      text-align: center !important;
+      padding: 10px 6px !important;
+      gap: 4px !important;
+      border-radius: 12px !important;
+   }
+   .shop-stats-bar .shop-stat-icon {
+      width: 36px !important; height: 36px !important;
+      font-size: 1.1rem !important;
+   }
+   .shop-stats-bar .shop-stat-num  { font-size: 1.3rem !important; }
+   .shop-stats-bar .shop-stat-label { font-size: 0.6rem !important; letter-spacing: 0 !important; }
+
+   /* ── Admissions KPI cards: 2-col, compact label ── */
    .shop-ov-kpis { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+   .shop-ov-kpis .shop-stat {
+      flex-direction: column !important;
+      align-items: center !important;
+      text-align: center !important;
+      padding: 10px 6px !important;
+      gap: 4px !important;
+   }
+   .shop-ov-kpis .shop-stat-icon { width: 36px !important; height: 36px !important; font-size: 1.1rem !important; }
+   .shop-ov-kpis .shop-stat-num  { font-size: 1.2rem !important; }
+   .shop-ov-kpis .shop-stat-label { font-size: 0.58rem !important; line-height: 1.3 !important; letter-spacing: 0 !important; }
+
+   /* ── All shop-stat cards: no overflow ── */
    .shop-stat { min-width: 0 !important; }
+
+   /* ── Admissions section: compact padding + header stacks ── */
+   #shop-panel-admissions > div[style*="padding:18px 22px"],
+   #shopAdmissionsContent { padding: 10px 10px !important; }
+   #adm-search-slot { padding: 0 10px 8px !important; }
+   #adm-search-slot input { width: 100% !important; box-sizing: border-box !important; }
+   .panel-hdr { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; padding-bottom: 10px !important; }
+   .panel-hdr > div[style*="display:flex"] { width: 100% !important; }
+   .panel-hdr .apt-view-btn { flex: 1 !important; text-align: center !important; }
+
+   /* ── Appointments filter bar: stack on mobile ── */
+   #shop-panel-appointments .shop-tabs {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 8px !important;
+      padding: 8px 10px !important;
+   }
+   #shop-panel-appointments .shop-tabs > div {
+      width: 100% !important;
+   }
+   #shop-panel-appointments .apt-search-input {
+      width: 100% !important; max-width: 100% !important;
+   }
+   /* Export buttons: side by side, stretch full row */
+   #shop-panel-appointments .apt-view-btn {
+      flex: 1 1 auto !important;
+   }
 
    /* ── Bed grid: 2-col ── */
    .bed-grid,

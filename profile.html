@@ -126,30 +126,51 @@
          /* Hide hospital patient IDs card for storeowners (not a customer feature) */
          body.storeowner-profile #prof-hospital-ids-card { display: none !important; }
 
+         /* ── MOBILE (≤ 600px) — Amazon style bottom nav ── */
+         @media (max-width: 600px) {
+            /* Hide sidebar entirely — replaced by bottom nav */
+            .shop-side-nav { display: none !important; }
+            .shop-app-layout { grid-template-columns: 1fr !important; }
+            body { padding-bottom: 62px !important; }
+            #profMobileNav { display: flex !important; }
+         }
+         @media (min-width: 601px) {
+            #profMobileNav { display: none !important; }
+         }
+
+         /* ── Profile bottom nav styles ── */
+         #profMobileNav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: calc(58px + env(safe-area-inset-bottom,0px));
+            padding-bottom: env(safe-area-inset-bottom,0px);
+            background: #0f172a;
+            z-index: 499;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+            align-items: center;
+         }
+         .pmn-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.65);
+            cursor: pointer;
+            padding: 6px 2px;
+            transition: color 0.15s;
+         }
+         .pmn-btn.active { color: #f59e0b; }
+         .pmn-icon  { font-size: 1.25rem; line-height: 1; }
+         .pmn-label { font-size: 0.58rem; font-weight: 600; white-space: nowrap; }
+
          /* ── MOBILE (≤ 600px) ── */
          @media (max-width: 600px) {
-            /* Sidebar → horizontal scrollable tab strip */
-            .shop-side-nav {
-               position: static !important;
-               height: auto !important;
-               flex-direction: row !important;
-               overflow-x: auto !important;
-               overflow-y: hidden !important;
-               padding: 6px 8px !important;
-               border-right: none !important;
-               border-bottom: 1px solid rgba(255,255,255,0.1) !important;
-               flex-wrap: nowrap !important;
-            }
-            .shop-side-brand,
-            .shop-side-profile,
-            .shop-side-menu-label { display: none !important; }
-            .shop-side-item {
-               flex-shrink: 0 !important;
-               padding: 7px 12px !important;
-               font-size: 0.75rem !important;
-               margin: 0 2px !important;
-            }
-            .shop-app-layout { grid-template-columns: 1fr !important; }
 
             /* Topbar compact */
             .shop-topbar { padding: 10px 14px !important; }
@@ -510,11 +531,29 @@
       <!-- TOAST -->
       <div class="toast hidden" id="profileToast"></div>
 
+      <!-- MOBILE BOTTOM NAV -->
+      <nav id="profMobileNav">
+         <button class="pmn-btn active" id="pmn-profile" onclick="_profNavTab('profile')"><span class="pmn-icon">👤</span><span class="pmn-label">Profile</span></button>
+         <button class="pmn-btn" id="pmn-address" onclick="_profNavTab('address')"><span class="pmn-icon">📍</span><span class="pmn-label">Addresses</span></button>
+         <button class="pmn-btn" id="pmn-orders" onclick="_profNavTab('orders')"><span class="pmn-icon">📦</span><span class="pmn-label">Orders</span></button>
+         <button class="pmn-btn" id="pmn-appointments" onclick="_profNavTab('appointments')"><span class="pmn-icon">📅</span><span class="pmn-label">Appts</span></button>
+         <button class="pmn-btn" id="pmn-back" onclick="history.back()"><span class="pmn-icon">⬅️</span><span class="pmn-label">Back</span></button>
+      </nav>
+
       <script src="script.js"></script>
       <script>
          loadSiteSettings();
          initProfile();
          if (typeof _initLiveTokenPill === 'function') _initLiveTokenPill();
+
+         function _profNavTab(tab) {
+            document.querySelectorAll('.pmn-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById('pmn-' + tab);
+            if (btn) btn.classList.add('active');
+            const map = { profile: 'info', address: 'addresses', orders: 'orders', appointments: 'appointments' };
+            const sideTab = map[tab];
+            if (sideTab && typeof switchProfileTab === 'function') switchProfileTab(sideTab);
+         }
       </script>
    </body>
 </html>

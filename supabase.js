@@ -779,7 +779,8 @@ window.AppDB = {
       const bill = await this.getIpBillById(billId);
       if (!bill) return null;
       const newAdvance = Number(bill.advance_paid || 0) + Number(extraAmount);
-      const patch = { advance_paid: newAdvance, payment_mode: paymentMode, status: 'Issued' };
+      const newNetPayable = Math.max(0, Number(bill.net_payable || 0) - Number(extraAmount));
+      const patch = { advance_paid: newAdvance, net_payable: newNetPayable, payment_mode: paymentMode, status: 'Issued' };
       if (txnRef) patch.txn_ref = txnRef;
       const { data, error } = await _sb.from('ip_bills').update(patch).eq('id', billId).select().maybeSingle();
       if (error) { console.error('settleIpBill:', error.message); return null; }

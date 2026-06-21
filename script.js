@@ -11541,7 +11541,7 @@ async function openCollectBalanceModal(admId) {
    var bill = await AppDB.getIpBill(admId);
    if (!bill) { alert('No finalized bill found for this admission.'); return; }
 
-   var balance = Math.max(0, (bill.net_payable || 0) - (bill.advance_paid || 0));
+   var balance = Number(bill.net_payable || 0);
    if (balance <= 0) { alert('This bill is already fully settled.'); return; }
 
    // Get patient name from admissions cache
@@ -13352,13 +13352,14 @@ async function renderShopRevenue() {
    if (showIp) {
       ipAll.forEach(function(b) {
          var adm = admMap[b.admission_id] || {};
-         var balance = Math.max(0, (b.net_payable||0) - (b.advance_paid||0));
+         var balance = Number(b.net_payable || 0);
+         var gross   = Number(b.advance_paid || 0) + Number(b.net_payable || 0);
          tableRows += '<tr>' +
             '<td>' + (b.bill_date || '—') + '</td>' +
             '<td><span class="rev-source-badge ip">IP Bill</span></td>' +
             '<td>' + (adm.patient_name || '—') + (adm.patient_phone ? '<div style="font-size:0.75rem;color:#888">📞 ' + adm.patient_phone + '</div>' : '') + '</td>' +
             '<td>' + (b.bill_no || '—') + '</td>' +
-            '<td style="text-align:right">' + fmt(Math.max(b.net_payable||0, b.advance_paid||0)) + '</td>' +
+            '<td style="text-align:right">' + fmt(gross) + '</td>' +
             '<td><span class="rev-pay-badge ' + (balance <= 0 ? 'paid' : 'pending') + '">' + (balance <= 0 ? '✓ Settled' : '⏳ Balance ' + fmt(balance)) + '</span>' +
                (balance > 0 ? ' <button onclick="openCollectBalanceModal(\'' + b.admission_id + '\')" style="margin-left:6px;font-size:0.7rem;padding:2px 8px;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">💳 Collect</button>' : '') +
             '</td>' +
@@ -13395,12 +13396,13 @@ async function renderShopRevenue() {
    });
    if (showIp) ipAll.forEach(function(b) {
       var adm = admMap[b.admission_id] || {};
-      var balance = Math.max(0, (b.net_payable||0) - (b.advance_paid||0));
+      var balance = Number(b.net_payable || 0);
+      var gross   = Number(b.advance_paid || 0) + Number(b.net_payable || 0);
       window._revExportRows.push({
          'Date': b.bill_date||'', 'Type': 'IP Bill', 'Patient': adm.patient_name||'', 'Phone': adm.patient_phone||'',
-         'Doctor / Ref': b.bill_no||'', 'Gross (Rs)': Math.max(b.net_payable||0, b.advance_paid||0),
+         'Doctor / Ref': b.bill_no||'', 'Gross (Rs)': gross,
          'Status': balance <= 0 ? 'Settled' : 'Pending Balance', 'Refund (Rs)': b.discount_amt||0,
-         'Net (Rs)': (b.net_payable||0) - (b.discount_amt||0), 'Payment Mode': b.payment_mode||'Cash'
+         'Net (Rs)': gross - (b.discount_amt||0), 'Payment Mode': b.payment_mode||'Cash'
       });
    });
 

@@ -16252,6 +16252,14 @@ function loadSettingsForm() {
    setVal('set-maintenanceMessage',          s.maintenanceMessage     || '');
    setVal('set-maintenanceEndTime',          s.maintenanceEndTime     || '');
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
+   setVal('set-fixedAdText',   s.fixedAdText   || '');
+   setVal('set-scrollAdList',  s.scrollAdList  || '');
+   var fixedThemeSel  = document.getElementById('set-fixedAdTheme');
+   var fixedAnimSel   = document.getElementById('set-fixedAdAnim');
+   var scrollThemeSel = document.getElementById('set-scrollAdTheme');
+   if (fixedThemeSel)  fixedThemeSel.value  = s.fixedAdTheme  || 'blue';
+   if (fixedAnimSel)   fixedAnimSel.value   = s.fixedAdAnim   || 'pulse';
+   if (scrollThemeSel) scrollThemeSel.value = s.scrollAdTheme || 'blue';
 }
 
 // ── MENU ITEMS MANAGER ──
@@ -16352,6 +16360,11 @@ function saveAllSettings() {
       maintenanceMessage:        document.getElementById('set-maintenanceMessage').value.trim(),
       maintenanceEndTime:        document.getElementById('set-maintenanceEndTime').value.trim()
    };
+   s.fixedAdText   = (document.getElementById('set-fixedAdText')   || {value:''}).value || '';
+   s.fixedAdTheme  = (document.getElementById('set-fixedAdTheme')  || {value:'blue'}).value || 'blue';
+   s.fixedAdAnim   = (document.getElementById('set-fixedAdAnim')   || {value:'pulse'}).value || 'pulse';
+   s.scrollAdList  = (document.getElementById('set-scrollAdList')  || {value:''}).value || '';
+   s.scrollAdTheme = (document.getElementById('set-scrollAdTheme') || {value:'blue'}).value || 'blue';
    _db.settings = s;
    AppDB.saveSettings(s);
    showAdminToast('✅ Settings saved! Refresh the store to see changes.');
@@ -16441,6 +16454,61 @@ function loadSiteSettings() {
          shopBar.classList.remove('hidden');
       } else {
          shopBar.classList.add('hidden');
+      }
+   }
+
+   // ── Fixed Ad ──
+   var fixedCard = document.getElementById('fixedAdCard');
+   var fixedText = document.getElementById('fixedAdText');
+   if (fixedCard && fixedText) {
+      var fText  = s.fixedAdText  || '';
+      var fTheme = s.fixedAdTheme || 'blue';
+      var fAnim  = s.fixedAdAnim  || 'pulse';
+      var fColors = { blue:'#2563eb', rose:'#e11d48', amber:'#d97706' };
+      var fc = fColors[fTheme] || fColors.blue;
+      fixedCard.style.borderLeftColor = fc;
+      var badge = document.getElementById('fixedAdBadge');
+      if (badge) badge.style.background = fc;
+      fixedText.textContent = fText || '[ No offer configured ]';
+      fixedCard.classList.remove('ad-effect-pulse','ad-effect-shake','ad-effect-marquee');
+      if (fAnim && fAnim !== 'none') fixedCard.classList.add('ad-effect-' + fAnim);
+   }
+
+   // ── Scrolling Ads ──
+   var scrollText = document.getElementById('scrollAdText');
+   var scrollCard = document.getElementById('scrollAdCard');
+   var scrollDots = document.getElementById('scrollAdDots');
+   if (scrollText && scrollCard) {
+      var rawList = s.scrollAdList || '';
+      var sTheme  = s.scrollAdTheme || 'blue';
+      var sColors = { blue:'#2563eb', rose:'#e11d48', amber:'#d97706' };
+      var sc = sColors[sTheme] || sColors.blue;
+      scrollCard.style.borderLeftColor = sc;
+      var sBadge = document.getElementById('scrollAdBadge');
+      if (sBadge) sBadge.style.background = sc;
+      var adList = rawList.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+      if (!adList.length) adList = ['[ No offers configured ]'];
+      if (scrollDots) {
+         scrollDots.innerHTML = adList.map(function(_,i){ return '<span style="width:7px;height:7px;border-radius:50%;background:'+(i===0?sc:'#cbd5e1')+';display:inline-block;transition:background 0.3s"></span>'; }).join('');
+      }
+      scrollText.textContent = adList[0];
+      if (window._scrollAdTimer) clearInterval(window._scrollAdTimer);
+      if (adList.length > 1) {
+         var _idx = 0;
+         window._scrollAdTimer = setInterval(function() {
+            _idx = (_idx + 1) % adList.length;
+            scrollText.style.opacity = '0';
+            scrollText.style.transform = 'translateY(-8px)';
+            setTimeout(function() {
+               scrollText.textContent = adList[_idx];
+               scrollText.style.opacity = '1';
+               scrollText.style.transform = 'translateY(0)';
+               if (scrollDots) {
+                  var dots = scrollDots.querySelectorAll('span');
+                  dots.forEach(function(d,i){ d.style.background = i===_idx ? sc : '#cbd5e1'; });
+               }
+            }, 380);
+         }, 5000);
       }
    }
 }

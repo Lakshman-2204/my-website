@@ -515,6 +515,58 @@
                </div>
             </div>
 
+            <!-- ADVERTISEMENT CONTROLS -->
+            <div class="settings-card">
+               <div class="settings-card-header">📢 Advertisement Panels</div>
+               <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;flex-wrap:wrap">
+
+                  <!-- Fixed Ad -->
+                  <div>
+                     <h4 style="font-size:0.88rem;font-weight:700;color:#1e293b;margin:0 0 14px">📌 Fixed Ad (single promo)</h4>
+                     <div class="sp-field">
+                        <label>Offer Headline</label>
+                        <textarea id="set-fixedAdText" rows="3" placeholder="e.g. Get 25% Off with code SAVE25 ✨" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;resize:vertical"></textarea>
+                     </div>
+                     <div class="sp-field" style="margin-top:10px">
+                        <label>Color Theme</label>
+                        <select id="set-fixedAdTheme" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                           <option value="blue">Corporate Blue</option>
+                           <option value="rose">Urgent Rose / Red</option>
+                           <option value="amber">Premium Amber / Gold</option>
+                        </select>
+                     </div>
+                     <div class="sp-field" style="margin-top:10px">
+                        <label>Animation Effect</label>
+                        <select id="set-fixedAdAnim" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                           <option value="pulse">Smooth Pulse</option>
+                           <option value="shake">Vibrate (Urgent)</option>
+                           <option value="marquee">Ticker Marquee</option>
+                           <option value="none">Static</option>
+                        </select>
+                     </div>
+                  </div>
+
+                  <!-- Scrolling Ads -->
+                  <div>
+                     <h4 style="font-size:0.88rem;font-weight:700;color:#1e293b;margin:0 0 14px">🔄 Rotating Ads (one per line)</h4>
+                     <div class="sp-field">
+                        <label>Ad Copy Pool <small style="color:#94a3b8;font-weight:400">(each line = one ad, rotates every 5s)</small></label>
+                        <textarea id="set-scrollAdList" rows="6" placeholder="Get 25% Off with code SUMMER25 ✨&#10;🔥 Flash Sale: Buy 1 Get 1 Free on bags!&#10;⚡ Free delivery on orders above ₹499" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem;resize:vertical;line-height:1.5"></textarea>
+                        <small style="color:#64748b;font-size:0.78rem">Each new line creates a separate rotating advertisement.</small>
+                     </div>
+                     <div class="sp-field" style="margin-top:10px">
+                        <label>Color Theme</label>
+                        <select id="set-scrollAdTheme" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                           <option value="blue">Corporate Blue</option>
+                           <option value="rose">Urgent Rose / Red</option>
+                           <option value="amber">Premium Amber / Gold</option>
+                        </select>
+                     </div>
+                  </div>
+
+               </div>
+            </div>
+
          </div><!-- /settings-content -->
       </div><!-- /tab-settings -->
 

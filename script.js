@@ -12841,6 +12841,7 @@ async function saveProgressNote() {
 
 async function dischargeAdmission(id) {
   try {
+   var _esc = function(s){ return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
    var r = null;
    if (_admHospitalChoice) {
       var rows = await AppDB.getAdmissions(_admHospitalChoice);

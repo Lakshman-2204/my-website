@@ -11556,6 +11556,29 @@ async function openCollectBalanceModal(admId) {
    var admRows = await AppDB.getAdmissions(bill.provider_id);
    var adm = (admRows || []).find(function(r) { return r.id === admId; }) || {};
 
+   // Prior receipts for this admission
+   var priorPay = await AppDB.getAdmissionPayments(admId);
+   var cbPrior = document.getElementById('cb-prior-list');
+   if (cbPrior) {
+      if (!priorPay || !priorPay.length) {
+         cbPrior.innerHTML = '<div style="font-size:0.82rem;color:#888;font-style:italic">No prior receipts on this admission.</div>';
+      } else {
+         cbPrior.innerHTML =
+            '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px 12px;font-size:0.82rem">' +
+               '<strong>Prior receipts:</strong>' +
+               '<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">' +
+               priorPay.map(function(p) {
+                  return '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                     '<span>' + p.receipt_no + ' · ₹' + Number(p.amount).toLocaleString('en-IN') + ' (' + p.payment_mode + ')</span>' +
+                     '<button onclick="printDepositReceipt(\'' + p.id + '\')" style="font-size:0.75rem;padding:2px 8px;background:#1565c0;color:#fff;border:none;border-radius:5px;cursor:pointer">🖨 Reprint</button>' +
+                  '</div>';
+               }).join('') +
+               '</div>' +
+               '<strong style="color:#065f46;display:block;margin-top:6px">Total collected: ₹' + priorPay.reduce(function(s,p){ return s+Number(p.amount||0); },0).toLocaleString('en-IN') + '</strong>' +
+            '</div>';
+      }
+   }
+
    document.getElementById('cb-bill-id').value = bill.id;
    document.getElementById('cb-patient-strip').innerHTML =
       '<strong>' + (adm.patient_name || '—') + '</strong>' +
@@ -12817,9 +12840,15 @@ async function saveProgressNote() {
 }
 
 async function dischargeAdmission(id) {
-   var rows = await AppDB.getAdmissions(_admHospitalChoice);
-   var r = (rows || []).find(function(x) { return x.id === id; });
-   if (!r) { alert('Admission not found.'); return; }
+  try {
+   var r = null;
+   if (_admHospitalChoice) {
+      var rows = await AppDB.getAdmissions(_admHospitalChoice);
+      r = (rows || []).find(function(x) { return x.id === id; });
+   }
+   // Fallback: fetch directly by id in case hospital context is lost
+   if (!r) r = await AppDB.getAdmissionById(id);
+   if (!r) { alert('Admission not found. Please refresh the page and try again.'); return; }
    _dsAdmission = r;
 
    var get  = function(eid) { return document.getElementById(eid); };
@@ -12911,6 +12940,10 @@ async function dischargeAdmission(id) {
    _dsConditionChanged();
 
    document.getElementById('dischargeModal').classList.remove('hidden');
+  } catch(e) {
+   console.error('dischargeAdmission error:', e);
+   alert('Could not open discharge form: ' + e.message);
+  }
 }
 
 function closeDischargeModal() {
@@ -12956,6 +12989,7 @@ async function _dsPullFromLastRx() {
 }
 
 async function saveDischargeAndPrint() {
+  try {
    if (!_dsAdmission) return;
    var get = function(id) { return (document.getElementById(id).value || '').trim(); };
    var finalDx = get('ds-final-dx');
@@ -13011,6 +13045,10 @@ async function saveDischargeAndPrint() {
    if (condition === 'DAMA') printDamaForm(admId);
    else                       printDischargeSummary(admId);
    renderShopAdmissions();
+  } catch(e) {
+   console.error('saveDischargeAndPrint error:', e);
+   alert('Discharge failed: ' + e.message);
+  }
 }
 
 async function printDischargeSummary(admId) {

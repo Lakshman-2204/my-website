@@ -592,6 +592,11 @@ window.AppDB = {
       if (error) { console.error('getAdmissions:', error.message); return []; }
       return data || [];
    },
+   async getAdmissionById(admissionId) {
+      const { data, error } = await _sb.from('admissions').select('*').eq('id', admissionId).maybeSingle();
+      if (error) { console.error('getAdmissionById:', error.message); return null; }
+      return data;
+   },
 
    // Admin-wide: every admission across every hospital. Used by the
    // admin panel's "All Admissions" sub-tab for oversight.

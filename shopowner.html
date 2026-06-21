@@ -101,95 +101,107 @@
       /* ── Announcement bar ── */
       .announcement-bar { background: #fef3c7 !important; border-bottom: 1px solid #fde68a !important; color: #92400e !important; }
 
-      /* ── MOBILE (< 880px) — sidebar nav strip ── */
+      /* ══════════════════════════════════════════
+         MOBILE LAYOUT  (≤ 880px)
+         Sidebar → fixed bottom nav bar
+         ══════════════════════════════════════════ */
       @media (max-width: 880px) {
-         /* Horizontal nav strip */
+
+         /* ── Bottom nav bar ── */
          .shop-side-nav {
+            position: fixed !important;
+            bottom: 0 !important; left: 0 !important; right: 0 !important;
+            top: auto !important;
+            height: auto !important;
+            width: 100% !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
             -webkit-overflow-scrolling: touch !important;
-            scroll-snap-type: x mandatory !important;
-            min-height: 60px !important;
-            align-items: center !important;
-            padding: 8px 10px !important;
-            gap: 4px !important;
+            z-index: 500 !important;
+            padding: 6px 8px env(safe-area-inset-bottom, 6px) !important;
+            gap: 2px !important;
+            border-top: 1px solid rgba(255,255,255,0.1) !important;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.35) !important;
          }
-         /* Hide sub-items and chevrons in horizontal mode */
-         .shop-side-subitem { display: none !important; }
+
+         /* Hide decorative elements that don't work in bottom bar */
+         .shop-side-brand,
+         .shop-side-profile,
+         .shop-side-menu-label,
+         .shop-side-subitem,
          .ssi-chev { display: none !important; }
-         /* Each nav pill: icon on top, label below */
+
+         /* Each nav button: icon + label stacked, fixed width */
          .shop-side-item {
+            flex: 0 0 auto !important;
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
-            gap: 3px !important;
-            padding: 6px 14px !important;
-            font-size: 0.62rem !important;
+            gap: 2px !important;
+            min-width: 64px !important;
+            padding: 5px 8px !important;
+            font-size: 0.6rem !important;
             white-space: nowrap !important;
-            min-width: 60px !important;
-            flex-shrink: 0 !important;
-            scroll-snap-align: start !important;
-            border-radius: 10px !important;
+            border-radius: 8px !important;
+            margin: 0 !important;
          }
-         .ssi-icon { margin-right: 0 !important; font-size: 1.2rem !important; display: block !important; }
-      }
+         .ssi-icon {
+            margin-right: 0 !important;
+            font-size: 1.25rem !important;
+            display: block !important;
+            line-height: 1 !important;
+         }
 
-      /* ── MOBILE (< 768px) — topbar, KPIs, modals ── */
-      @media (max-width: 767px) {
-         /* Topbar: compact padding, truncate long date */
-         .shop-topbar { padding: 10px 12px !important; }
-         .shop-topbar-title { font-size: 0.88rem !important; }
+         /* Push main content up so it's not hidden under the bottom bar */
+         .shop-main-area {
+            padding-bottom: 72px !important;
+         }
+
+         /* Topbar: compact */
+         .shop-topbar { padding: 10px 14px !important; }
+         .shop-topbar-title { font-size: 0.9rem !important; }
          .shop-topbar-sub   { font-size: 0.65rem !important; }
          .shop-topbar-date  {
             font-size: 0.65rem !important;
             padding: 3px 7px !important;
-            max-width: 120px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            max-width: 130px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
          }
 
-         /* KPI grid wrapper: allow overflow scroll (body clips it, so we break out) */
+         /* KPI cards: 2-column grid (avoids all overflow-x issues) */
          .hosp-kpi-grid {
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            overflow-x: scroll !important;
-            -webkit-overflow-scrolling: touch !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
             gap: 10px !important;
-            padding-bottom: 8px !important;
-            /* Override the body overflow-x:hidden clip by using margin trick */
-            margin-left: -16px !important;
-            margin-right: -16px !important;
-            padding-left: 16px !important;
-            padding-right: 16px !important;
          }
-         .hosp-kpi-card {
-            min-width: 155px !important;
-            flex: 0 0 155px !important;
-         }
+         .hosp-kpi-card { min-width: 0 !important; }
 
-         /* General KPI stat cards: 2-column grid */
+         /* General stat KPI cards: 2-column */
          .shop-ov-kpis {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 8px !important;
          }
 
-         /* Modals: full viewport width, scrollable */
+         /* Modals: full-width on mobile */
          .sp-modal-box,
          .admin-modal-box {
             max-width: 96vw !important;
             width: 96vw !important;
-            max-height: 92vh !important;
-            margin: 4vh auto !important;
+            max-height: 90vh !important;
+            margin: 5vh auto !important;
          }
 
-         /* Data tables inside panels: horizontal scroll */
-         .adm-table-wrap,
-         .profile-card-body,
-         .shop-prods-list,
-         .apt-table-wrap { overflow-x: auto !important; }
-
-         /* Filter bars: wrap instead of overflow */
+         /* Filter bars: wrap neatly */
          .admin-filter-bar { flex-wrap: wrap !important; gap: 6px !important; }
-         .admin-filter-select { min-width: 0 !important; flex: 1 1 120px !important; }
+         .admin-filter-select { min-width: 0 !important; flex: 1 1 130px !important; }
+
+         /* Tables: let them scroll inside their own box */
+         .adm-table-wrap,
+         .apt-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
       }
    </style>
 </head>

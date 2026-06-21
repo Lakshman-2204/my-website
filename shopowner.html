@@ -101,6 +101,13 @@
       /* ── Announcement bar ── */
       .announcement-bar { background: #fef3c7 !important; border-bottom: 1px solid #fde68a !important; color: #92400e !important; }
 
+      /* On desktop/tablet, force all mobile nav elements completely off */
+      @media (min-width: 601px) {
+         #mobileBottomNav,
+         #mobileNavDrawer,
+         #mobileNavOverlay { display: none !important; }
+      }
+
       /* ══════════════════════════════════════════
          MOBILE LAYOUT  (≤ 600px)
          Original sidebar hidden; new bottom nav bar + drawer shown instead
@@ -131,13 +138,39 @@
             white-space: nowrap !important;
          }
 
-         /* KPI cards: 2-column grid (avoids all overflow-x issues) */
+         /* KPI cards: 2-column grid */
          .hosp-kpi-grid {
             display: grid !important;
             grid-template-columns: repeat(2, 1fr) !important;
-            gap: 10px !important;
+            gap: 8px !important;
          }
-         .hosp-kpi-card { min-width: 0 !important; }
+         .hosp-kpi-card {
+            min-width: 0 !important;
+            padding: 12px 10px !important;
+            overflow: hidden !important;
+         }
+         /* Shrink the big number so it fits in a half-width card */
+         .hkpi-num {
+            font-size: 1.4rem !important;
+         }
+         /* Allow body row to wrap if badge doesn't fit beside the number */
+         .hkpi-body {
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+         }
+         /* Shrink badges slightly */
+         .hkpi-badge {
+            font-size: 0.62rem !important;
+            padding: 2px 6px !important;
+         }
+         /* Sub-text smaller */
+         .hkpi-sub {
+            font-size: 0.65rem !important;
+         }
+         /* Card title smaller */
+         .hkpi-head {
+            font-size: 0.72rem !important;
+         }
 
          /* General stat KPI cards: 2-column */
          .shop-ov-kpis {
@@ -1874,12 +1907,27 @@
    </div>
 
    <!-- ── Mobile bottom nav bar (5 quick-access buttons) ── -->
-   <nav id="mobileBottomNav" style="display:none;align-items:center;position:fixed;bottom:0;left:0;right:0;height:calc(58px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:#0f172a;z-index:499;border-top:1px solid rgba(255,255,255,0.1);box-shadow:0 -4px 20px rgba(0,0,0,0.4)">
+   <nav id="mobileBottomNav" style="display:none;align-items:center;position:fixed;bottom:0;left:0;right:0;height:calc(58px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:#0f172a;z-index:499;border-top:1px solid rgba(255,255,255,0.1);box-shadow:0 -4px 20px rgba(0,0,0,0.4)" aria-label="Mobile navigation">
       <button class="mob-nav-btn" id="mob-nav-dashboard"    onclick="switchShopTab('dashboard')"><span class="mob-icon">🏠</span><span class="mob-label">Home</span></button>
       <button class="mob-nav-btn" id="mob-nav-appointments" onclick="switchShopTab('appointments')"><span class="mob-icon">📅</span><span class="mob-label">Appts</span></button>
       <button class="mob-nav-btn" id="mob-nav-admissions"   onclick="switchShopTab('admissions')"><span class="mob-icon">📋</span><span class="mob-label">Admissions</span></button>
       <button class="mob-nav-btn" id="mob-nav-revenue"      onclick="switchShopTab('revenue')"><span class="mob-icon">💰</span><span class="mob-label">Revenue</span></button>
       <button class="mob-nav-btn" id="mob-nav-menu"         onclick="toggleMobileNavDrawer()"><span class="mob-icon">☰</span><span class="mob-label">Menu</span></button>
    </nav>
+   <script>
+      (function() {
+         var _mbn = document.getElementById('mobileBottomNav');
+         var _mnd = document.getElementById('mobileNavDrawer');
+         var _mno = document.getElementById('mobileNavOverlay');
+         function _syncMobileNav() {
+            var isMobile = window.innerWidth <= 600;
+            if (_mbn) _mbn.style.setProperty('display', isMobile ? 'flex' : 'none', 'important');
+            if (!isMobile && _mnd) { _mnd.classList.remove('open'); }
+            if (!isMobile && _mno) { _mno.style.display = 'none'; }
+         }
+         _syncMobileNav();
+         window.addEventListener('resize', _syncMobileNav);
+      })();
+   </script>
 </body>
 </html>

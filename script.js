@@ -5960,6 +5960,7 @@ async function refreshAndRenderUsers() {
    var fresh = await AppDB.getUsers();
    _db.users = fresh;
    renderUserList(_currentUserFilter || 'all');
+   _wlLoad();
    _wlRenderTable();
 }
 
@@ -5983,7 +5984,6 @@ function _wlLoad() {
 }
 
 function _wlRenderTable() {
-   _wlLoad();
    var tbody = document.getElementById('wlDomainBody');
    if (!tbody) return;
    if (!_wlRows.length) {

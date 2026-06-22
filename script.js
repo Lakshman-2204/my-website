@@ -4971,6 +4971,13 @@ async function showStoreCategory(catKey) {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = meta.icon + ' ' + meta.label;
+   // Restore normal products header when going back to store list
+   var hdr = document.getElementById('productsHeader');
+   if (hdr) hdr.innerHTML =
+      '<h2 id="productTitle">' + meta.icon + ' ' + meta.label + '</h2>' +
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+         '<button class="btn-back" onclick="goHome()">← Back to Home</button>' +
+      '</div>';
    _setStoresChromeMode(true);
    // Live-refresh on any store change (delivery pause/resume etc.)
    _liveSubscribe('storeProvsCustomer', 'store_providers', async function() {
@@ -5057,23 +5064,48 @@ async function showStoreProvider(providerId) {
          ? '<span style="color:#c62828;font-weight:600" title="The store owner has temporarily paused home delivery — orders are pickup-only right now">⏸ Delivery paused · pickup only</span>'
          : '<span style="color:#0a8a3a;font-weight:600">🚚 Home delivery</span>');
    }
-   var titleText = (p.icon || meta.icon) + ' ' + p.name;
-   var titleEl = document.getElementById('productTitle');
-   titleEl.innerHTML = titleText +
-      (inline.length ? '<span class="store-title-meta"> · ' + inline.join(' · ') + '</span>' : '');
+   // Sepa-style green store nav bar
+   var storeNavColor = '#00a676';
+   var hdr = document.getElementById('productsHeader');
+   if (hdr) {
+      var rxBtnNav = (p.category === 'medical')
+         ? '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Order via Prescription</button>'
+         : '';
+      hdr.innerHTML =
+         '<div style="background:' + storeNavColor + ';color:#fff;padding:14px 5%;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">' +
+            '<div style="font-size:1.15rem;font-weight:800;display:flex;align-items:center;gap:8px">' + (p.icon || meta.icon) + ' ' + p.name + '</div>' +
+            (p.tagline ? '<div style="font-size:0.78rem;opacity:0.85">' + p.tagline + '</div>' : '') +
+            '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">' +
+               rxBtnNav +
+               '<button onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:7px 14px;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">← ' + meta.label + 's</button>' +
+               '<button onclick="goHome()" style="background:rgba(0,0,0,0.2);color:#fff;border:none;padding:7px 14px;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">🏠 Home</button>' +
+            '</div>' +
+         '</div>';
+   }
    _setStoresChromeMode(true);
+
+   // Sepa hero banner + trust badges inside right column
+   var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
+   var sepaHero =
+      '<div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;min-height:200px;margin-bottom:16px;overflow:hidden">' +
+         '<div style="flex:1;min-width:180px">' +
+            '<div style="color:#00a676;font-weight:700;font-size:0.88rem;margin-bottom:8px">' + (p.tagline || 'Exclusive Offers Today!!') + '</div>' +
+            '<h2 style="font-size:1.7rem;font-weight:900;color:#004d40;margin-bottom:8px;line-height:1.2">' + p.name + '</h2>' +
+            '<p style="color:#6b7280;margin-bottom:16px;font-size:0.85rem">' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? ' · 📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
+            '<button onclick="this.parentElement.parentElement.parentElement.remove()" style="background:#00a676;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;cursor:pointer">Shop Now ↓</button>' +
+         '</div>' +
+         '<div style="font-size:80px;opacity:0.85;flex-shrink:0">' + heroEmoji + '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#fff;padding:16px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:20px">' +
+         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:20px;color:#00a676">🚚</span><div><div style="font-weight:700;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:11px">On orders over ₹499</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:20px;color:#00a676">🔄</span><div><div style="font-weight:700;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:11px">On damaged items</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:20px;color:#00a676">💳</span><div><div style="font-weight:700;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:11px">100% protected</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:20px;color:#00a676">🎁</span><div><div style="font-weight:700;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:11px">On festivals & events</div></div></div>' +
+      '</div>';
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
-   var rxBtn = (p.category === 'medical')
-      ? '<button class="rx-only-btn" title="Don\'t know the medicine names? Just upload your prescription." onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Order via Prescription</button>'
-      : '';
-   var html = '<div class="store-topbar">' +
-                 '<button class="apt-back-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g, "\\'") + '\')">← Back to ' + meta.label + '</button>' +
-                 rxBtn +
-              '</div>';
-   html += '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id) + '</div>';
-   grid.innerHTML = html;
+   grid.innerHTML = '<div id="storeProviderProducts">' + sepaHero + buildStoreSubcatLayout(p.id) + '</div>';
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

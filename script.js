@@ -5073,34 +5073,35 @@ async function showStoreProvider(providerId) {
          : '';
       hdr.innerHTML =
          '<div style="background:' + storeNavColor + ';color:#fff;padding:14px 5%;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">' +
-            '<div style="font-size:1.15rem;font-weight:800;display:flex;align-items:center;gap:8px">' + (p.icon || meta.icon) + ' ' + p.name + '</div>' +
-            (p.tagline ? '<div style="font-size:0.78rem;opacity:0.85">' + p.tagline + '</div>' : '') +
+            '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+               '<div style="font-size:1.15rem;font-weight:800;display:flex;align-items:center;gap:8px">' + (p.icon || meta.icon) + ' ' + p.name + '</div>' +
+               (p.tagline ? '<div style="font-size:0.78rem;opacity:0.75;border-left:1px solid rgba(255,255,255,0.4);padding-left:12px">' + p.tagline + '</div>' : '') +
+            '</div>' +
             '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">' +
                rxBtnNav +
-               '<button onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:7px 14px;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">← ' + meta.label + 's</button>' +
-               '<button onclick="goHome()" style="background:rgba(0,0,0,0.2);color:#fff;border:none;padding:7px 14px;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">🏠 Home</button>' +
+               '<button onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:7px 16px;border-radius:20px;font-weight:600;cursor:pointer;font-size:0.82rem">← ' + meta.label + '</button>' +
+               '<button onclick="goHome()" style="background:rgba(0,0,0,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:7px 16px;border-radius:20px;font-weight:600;cursor:pointer;font-size:0.82rem">🏠 Home</button>' +
             '</div>' +
          '</div>';
    }
-   _setStoresChromeMode(true);
 
-   // Sepa hero banner + trust badges inside right column
+   // Sepa hero banner + trust badges inside right column (matches sepa_medical_website_2.html exactly)
    var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
    var sepaHero =
-      '<div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;min-height:200px;margin-bottom:16px;overflow:hidden">' +
-         '<div style="flex:1;min-width:180px">' +
-            '<div style="color:#00a676;font-weight:700;font-size:0.88rem;margin-bottom:8px">' + (p.tagline || 'Exclusive Offers Today!!') + '</div>' +
-            '<h2 style="font-size:1.7rem;font-weight:900;color:#004d40;margin-bottom:8px;line-height:1.2">' + p.name + '</h2>' +
-            '<p style="color:#6b7280;margin-bottom:16px;font-size:0.85rem">' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? ' · 📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
-            '<button onclick="this.parentElement.parentElement.parentElement.remove()" style="background:#00a676;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;cursor:pointer">Shop Now ↓</button>' +
+      '<div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;gap:20px;min-height:280px;margin-bottom:40px;position:relative;overflow:hidden">' +
+         '<div style="flex:1;min-width:200px">' +
+            '<h4 style="color:#00a676;margin-bottom:10px;font-size:16px;font-weight:700">' + (p.tagline || 'Exclusive Offers Today!!') + '</h4>' +
+            '<h1 style="font-size:36px;color:#004d40;margin-bottom:15px;line-height:1.2;font-weight:900">' + p.name + '</h1>' +
+            '<p style="color:#6b7280;margin-bottom:25px;font-size:14px">' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? '&nbsp;&nbsp;📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
+            '<button onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})" style="background:#00a676;color:#fff;border:none;padding:12px 28px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:15px">Shop Now ↓</button>' +
          '</div>' +
-         '<div style="font-size:80px;opacity:0.85;flex-shrink:0">' + heroEmoji + '</div>' +
+         '<div style="width:220px;height:220px;background:radial-gradient(circle,#ffe0b2 0%,transparent 70%);display:flex;align-items:center;justify-content:center;font-size:80px;border-radius:50%;flex-shrink:0">' + heroEmoji + '</div>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#fff;padding:16px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:20px">' +
-         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:20px;color:#00a676">🚚</span><div><div style="font-weight:700;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:11px">On orders over ₹499</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:20px;color:#00a676">🔄</span><div><div style="font-weight:700;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:11px">On damaged items</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:20px;color:#00a676">💳</span><div><div style="font-weight:700;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:11px">100% protected</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:20px;color:#00a676">🎁</span><div><div style="font-weight:700;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:11px">On festivals & events</div></div></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;background:#fff;padding:20px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:40px">' +
+         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🚚</span><div><div style="font-weight:bold;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:12px">On orders over ₹499</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🔄</span><div><div style="font-weight:bold;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:12px">On damaged items</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">💳</span><div><div style="font-weight:bold;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:12px">100% protected</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🎁</span><div><div style="font-weight:bold;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:12px">On festivals & events</div></div></div>' +
       '</div>';
 
    var grid = document.getElementById('productsGrid');
@@ -5323,20 +5324,20 @@ function showStoreProducts(storeId, storeName, opts) {
    var heroSub  = (opts && opts.heroSub) || 'Browse our full catalog and get the best deals delivered to your door.';
    var heroEmoji = storeEmoji === '⚕️' ? '💊' : storeEmoji === '🛒' ? '🛒' : storeEmoji;
    var heroHTML =
-      '<div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;min-height:220px;margin-bottom:20px;position:relative;overflow:hidden">' +
-         '<div style="flex:1;min-width:180px">' +
-            '<div style="color:#00a676;font-weight:700;font-size:0.9rem;margin-bottom:10px">' + heroTag + '</div>' +
-            '<h2 style="font-size:1.8rem;font-weight:900;color:#004d40;margin-bottom:10px;line-height:1.2">' + storeName + '</h2>' +
-            '<p style="color:#6b7280;margin-bottom:20px;font-size:0.88rem">' + heroSub + '</p>' +
-            '<button onclick="this.closest(\'.sepa-hero\') && this.closest(\'.sepa-hero\').remove()" style="background:#00a676;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;cursor:pointer">Shop Now ↓</button>' +
+      '<div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;gap:20px;min-height:280px;margin-bottom:40px;position:relative;overflow:hidden">' +
+         '<div style="flex:1;min-width:200px">' +
+            '<h4 style="color:#00a676;margin-bottom:10px;font-size:16px;font-weight:700">' + heroTag + '</h4>' +
+            '<h1 style="font-size:36px;color:#004d40;margin-bottom:15px;line-height:1.2;font-weight:900">' + storeName + '</h1>' +
+            '<p style="color:#6b7280;margin-bottom:25px;font-size:14px">' + heroSub + '</p>' +
+            '<button onclick="document.getElementById(\'storeProductsPanel\').scrollIntoView({behavior:\'smooth\'})" style="background:#00a676;color:#fff;border:none;padding:12px 28px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:15px">Shop Now ↓</button>' +
          '</div>' +
-         '<div style="font-size:80px;opacity:0.85;flex-shrink:0">' + heroEmoji + '</div>' +
+         '<div style="width:220px;height:220px;background:radial-gradient(circle,#ffe0b2 0%,transparent 70%);display:flex;align-items:center;justify-content:center;font-size:80px;border-radius:50%;flex-shrink:0">' + heroEmoji + '</div>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#fff;padding:18px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:24px">' +
-         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:22px;color:#00a676">🚚</span><div><div style="font-weight:700;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:11px">On orders over ₹499</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:22px;color:#00a676">🔄</span><div><div style="font-weight:700;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:11px">On damaged items</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:22px;color:#00a676">💳</span><div><div style="font-weight:700;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:11px">100% protected</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:22px;color:#00a676">🎁</span><div><div style="font-weight:700;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:11px">On festivals & events</div></div></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;background:#fff;padding:20px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:40px">' +
+         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🚚</span><div><div style="font-weight:bold;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:12px">On orders over ₹499</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🔄</span><div><div style="font-weight:bold;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:12px">On damaged items</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">💳</span><div><div style="font-weight:bold;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:12px">100% protected</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🎁</span><div><div style="font-weight:bold;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:12px">On festivals & events</div></div></div>' +
       '</div>';
 
    grid.innerHTML =

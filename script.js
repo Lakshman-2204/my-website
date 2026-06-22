@@ -5105,7 +5105,7 @@ async function showStoreProvider(providerId) {
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
-   grid.innerHTML = '<div id="storeProviderProducts">' + sepaHero + buildStoreSubcatLayout(p.id) + '</div>';
+   grid.innerHTML = '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id, sepaHero) + '</div>';
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -5113,7 +5113,7 @@ async function showStoreProvider(providerId) {
 // Filter products by store_provider_id (new model). The layout includes a
 // store-scoped search bar at the top — typing into it filters across ALL of
 // this store's sub-categories and renders a flat result grid.
-function buildStoreSubcatLayout(storeProviderId) {
+function buildStoreSubcatLayout(storeProviderId, heroHtml) {
    var storeCats = [];
    Object.entries(products).forEach(function(entry) {
       var catKey = entry[0], catData = entry[1];
@@ -5150,12 +5150,15 @@ function buildStoreSubcatLayout(storeProviderId) {
    tmp.className = 'products-grid';
    first.items.forEach(function(item) { renderCard(Object.assign({}, item, { type: first.catData.type }), first.catKey, tmp); });
 
-   return searchBar +
-          '<div class="subcat-layout">' +
+   return '<div class="subcat-layout">' +
              '<div class="subcat-sidebar">' + sidebarHtml + '</div>' +
-             '<div class="subcat-products-panel" id="storeSubcatPanel">' +
-                '<div class="subcat-panel-title">' + first.catData.title + '</div>' +
-                '<div class="products-grid">' + tmp.innerHTML + '</div>' +
+             '<div class="subcat-products-panel">' +
+                (heroHtml || '') +
+                searchBar +
+                '<div id="storeSubcatPanel">' +
+                   '<div class="subcat-panel-title">' + first.catData.title + '</div>' +
+                   '<div class="products-grid">' + tmp.innerHTML + '</div>' +
+                '</div>' +
              '</div>' +
           '</div>';
 }

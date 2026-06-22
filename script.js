@@ -16253,8 +16253,10 @@ function loadSettingsForm() {
    setVal('set-maintenanceMessage',          s.maintenanceMessage     || '');
    setVal('set-maintenanceEndTime',          s.maintenanceEndTime     || '');
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
-   setVal('set-fixedAdText',   s.fixedAdText   || '');
-   setVal('set-scrollAdList',  s.scrollAdList  || '');
+   setVal('set-fixedAdText',    s.fixedAdText    || '');
+   setVal('set-fixedAdText_te', s.fixedAdText_te || '');
+   setVal('set-scrollAdList',   s.scrollAdList   || '');
+   setVal('set-scrollAdList_te',s.scrollAdList_te|| '');
    var fixedThemeSel    = document.getElementById('set-fixedAdTheme');
    var fixedAnimSel     = document.getElementById('set-fixedAdAnim');
    var fixedFontSel     = document.getElementById('set-fixedAdFontSize');
@@ -16391,6 +16393,7 @@ function saveAdSettings() {
    var s = getAdminSettings();
    function _v(id, def) { var el = document.getElementById(id); return el ? (el.value || def) : def; }
    s.fixedAdText      = _v('set-fixedAdText', '');
+   s.fixedAdText_te   = _v('set-fixedAdText_te', '');
    s.fixedAdTheme     = _v('set-fixedAdTheme', 'blue');
    s.fixedAdAnim      = _v('set-fixedAdAnim', 'pulse');
    s.fixedAdFontSize  = _v('set-fixedAdFontSize', '1.5rem');
@@ -16399,6 +16402,7 @@ function saveAdSettings() {
    s.fixedAdBadgeText = _v('set-fixedAdBadge', '');
    s.fixedAdCtaText   = _v('set-fixedAdCta', '');
    s.scrollAdList     = _v('set-scrollAdList', '');
+   s.scrollAdList_te  = _v('set-scrollAdList_te', '');
    s.scrollAdTheme    = _v('set-scrollAdTheme', 'blue');
    s.scrollAdFontSize = _v('set-scrollAdFontSize', '1.4rem');
    s.scrollAdBg       = _v('set-scrollAdBg', 'white');
@@ -16521,12 +16525,14 @@ function loadSiteSettings() {
    // is bg dark (navy / gradient-dark)
    function _adDarkBg(preset) { return preset === 'navy' || (preset||'').indexOf('gradient') !== -1; }
 
+   var _adLang = localStorage.getItem('preferredLanguage') || 'en';
+
    // ── Fixed Ad ──
    var fixedCard  = document.getElementById('fixedAdCard');
    var fixedPanel = document.getElementById('fixedAdPanel');
    var fixedText  = document.getElementById('fixedAdText');
    if (fixedCard && fixedText) {
-      var fText      = s.fixedAdText      || '';
+      var fText      = (_adLang !== 'en' && s['fixedAdText_' + _adLang]) ? s['fixedAdText_' + _adLang] : (s.fixedAdText || '');
       var fTheme     = s.fixedAdTheme     || 'blue';
       var fAnim      = s.fixedAdAnim      || 'pulse';
       var fFontSize  = s.fixedAdFontSize  || '1.5rem';
@@ -16555,7 +16561,7 @@ function loadSiteSettings() {
    var scrollCard  = document.getElementById('scrollAdCard');
    var scrollDots  = document.getElementById('scrollAdDots');
    if (scrollText && scrollCard) {
-      var rawList    = s.scrollAdList     || '';
+      var rawList    = (_adLang !== 'en' && s['scrollAdList_' + _adLang]) ? s['scrollAdList_' + _adLang] : (s.scrollAdList || '');
       var sTheme     = s.scrollAdTheme    || 'blue';
       var sFontSize  = s.scrollAdFontSize || '1.4rem';
       var sBg        = s.scrollAdBg       || 'white';
@@ -16578,12 +16584,14 @@ function loadSiteSettings() {
       if (scrollDots) {
          scrollDots.innerHTML = adList.map(function(_,i){ return '<span style="width:7px;height:7px;border-radius:50%;background:'+(i===0?sc:'#cbd5e1')+';display:inline-block;transition:background 0.3s"></span>'; }).join('');
       }
-      scrollText.textContent = adList[0];
+      var _idx = (window._scrollAdIdx !== undefined && window._scrollAdIdx < adList.length) ? window._scrollAdIdx : 0;
+      scrollText.textContent = adList[_idx];
       if (window._scrollAdTimer) clearInterval(window._scrollAdTimer);
+      window._scrollAdIdx = _idx;
       if (adList.length > 1) {
-         var _idx = 0;
          window._scrollAdTimer = setInterval(function() {
             _idx = (_idx + 1) % adList.length;
+            window._scrollAdIdx = _idx;
             scrollText.style.opacity = '0';
             scrollText.style.transform = 'translateY(-8px)';
             setTimeout(function() {

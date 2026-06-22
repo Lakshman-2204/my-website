@@ -924,6 +924,10 @@
          // Update search placeholder
          var si = document.getElementById('searchInput');
          if (si && t.search_placeholder) si.placeholder = t.search_placeholder;
+         // Re-apply ad panels in the new language
+         window._scrollAdIdx = 0;
+         if (window._scrollAdTimer) { clearInterval(window._scrollAdTimer); window._scrollAdTimer = null; }
+         if (typeof loadSiteSettings === 'function') loadSiteSettings();
       }
 
       // Restore saved language on load

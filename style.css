@@ -798,11 +798,12 @@ body.guest .store-section-divider {
 	align-items: start;
 }
 
-/* LEFT SIDEBAR */
+/* LEFT SIDEBAR — sepa pharmacy style */
 .subcat-sidebar {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+	border-radius: 8px;
+	border: 1px solid #e2e8f0;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 	position: sticky;
 	top: 175px;
 	z-index: 5;
@@ -810,7 +811,17 @@ body.guest .store-section-divider {
 	overflow-y: auto;
 	overflow-x: hidden;
 	scrollbar-width: thin;
-	scrollbar-color: #c5cae9 transparent;
+	scrollbar-color: #a7f3d0 transparent;
+}
+.subcat-sidebar::before {
+	content: '☰  CATEGORIES';
+	display: block;
+	background: #004d40;
+	color: #fff;
+	padding: 13px 16px;
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
 }
 .subcat-sidebar::-webkit-scrollbar {
 	width: 4px;
@@ -827,24 +838,26 @@ body.guest .store-section-divider {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	padding: 0.65rem 0.9rem;
+	padding: 11px 16px;
 	cursor: pointer;
 	border-left: 3px solid transparent;
+	border-bottom: 1px solid #f1f5f9;
 	font-size: 0.82rem;
 	font-weight: 500;
-	color: #444;
+	color: #4b5563;
 	transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .subcat-sidebar-item:hover {
-	background: #f5f7ff;
-	color: #4a90e2;
+	background: #f0fdf4;
+	color: #00a676;
+	font-weight: 600;
 }
 
 .subcat-sidebar-item.active {
-	background: #eef3ff;
-	border-left-color: #4a90e2;
-	color: #4a90e2;
+	background: #f0fdf4;
+	border-left-color: #00a676;
+	color: #00a676;
 	font-weight: 700;
 }
 

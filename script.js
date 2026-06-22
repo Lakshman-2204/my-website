@@ -1466,8 +1466,6 @@ function goHome() {
    document.getElementById('productsSection').classList.add('hidden');
    var heroBanner = document.getElementById('storeHeroBanner');
    if (heroBanner) heroBanner.classList.add('hidden');
-   var storeSidebar = document.getElementById('storeCatSidebar');
-   if (storeSidebar) storeSidebar.classList.add('hidden');
    var aptSec = document.getElementById('appointmentSection');
    if (aptSec) aptSec.classList.add('hidden');
    // Restore the product-category row hidden by showBookAppointment / showStoresList
@@ -5237,13 +5235,9 @@ function showStoreProducts(storeId, storeName) {
    var heroBanner = document.getElementById('storeHeroBanner');
    if (heroBanner) {
       document.getElementById('storeHeroTitle').textContent = storeName;
-      document.getElementById('storeHeroTag').textContent = 'Exclusive Offers — ' + storeName;
+      document.getElementById('storeHeroTag').textContent = 'Exclusive Offers Today';
       heroBanner.classList.remove('hidden');
    }
-   // Show category sidebar
-   var sidebar = document.getElementById('storeCatSidebar');
-   if (sidebar) sidebar.classList.remove('hidden');
-
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
    grid.innerHTML = '';
@@ -5261,18 +5255,6 @@ function showStoreProducts(storeId, storeName) {
    if (storeCats.length === 0) {
       grid.innerHTML = '<p style="color:#888;text-align:center;padding:60px">No products in this store yet.</p>';
       return;
-   }
-
-   // Populate left categories sidebar
-   var sidebarList = document.getElementById('storeCatSidebarList');
-   if (sidebarList) {
-      sidebarList.innerHTML = storeCats.map(function(c, i) {
-         return '<div class="sepa-cat-item' + (i===0?' active':'') + '" ' +
-            'onclick="switchStoreCat(this,\'' + (storeId?storeId.replace(/'/g,"\\'"):'__platform__') + '\')" ' +
-            'data-catkey="' + c.catKey + '" ' +
-            'id="storeSidebar_' + c.catKey + '">' +
-            c.catData.title + '</div>';
-      }).join('');
    }
 
    // Build sidebar

@@ -540,40 +540,7 @@
 
    <!-- PRODUCTS SECTION -->
    <div class="products-section hidden" id="productsSection">
-      <!-- Sepa-style store hero + trust badges — shown only when viewing a specific store -->
-      <div id="storeHeroBanner" class="hidden">
-         <!-- Hero card: light green like sepa reference -->
-         <div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;margin:20px 20px 0;gap:20px;flex-wrap:wrap;min-height:220px;position:relative;overflow:hidden">
-            <div style="flex:1;min-width:200px">
-               <div style="color:#00a676;font-weight:700;font-size:0.9rem;margin-bottom:10px" id="storeHeroTag">Upto 50% Off Today Only!!</div>
-               <h1 style="font-size:2rem;font-weight:900;color:#004d40;margin-bottom:12px;line-height:1.2" id="storeHeroTitle">Welcome to Our Store</h1>
-               <p style="color:#6b7280;margin-bottom:20px;font-size:0.9rem" id="storeHeroSub">Browse our full catalog and get the best deals delivered to your door.</p>
-               <button onclick="document.getElementById('storeHeroBanner').classList.add('hidden')" style="background:#00a676;color:#fff;border:none;padding:12px 28px;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.95rem">Shop Now ↓</button>
-            </div>
-            <div style="font-size:90px;opacity:0.85;flex-shrink:0" id="storeHeroEmoji">💊</div>
-         </div>
-         <!-- Trust badges ribbon like sepa reference -->
-         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;background:#fff;padding:20px;border-radius:8px;border:1px solid #e2e8f0;margin:16px 20px">
-            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
-               <span style="font-size:24px;color:#00a676">🚚</span>
-               <div><div style="font-weight:700;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:11px">On orders over ₹499</div></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
-               <span style="font-size:24px;color:#00a676">🔄</span>
-               <div><div style="font-weight:700;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:11px">On damaged items</div></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
-               <span style="font-size:24px;color:#00a676">💳</span>
-               <div><div style="font-weight:700;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:11px">100% protected</div></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
-               <span style="font-size:24px;color:#00a676">🎁</span>
-               <div><div style="font-weight:700;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:11px">On festivals & events</div></div>
-            </div>
-         </div>
-      </div>
-
-      <div class="products-header">
+      <div class="products-header" id="productsHeader">
          <h2 id="productTitle">Products</h2>
          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <button class="btn-back" onclick="goHome()">← Back to Home</button>

@@ -1463,8 +1463,13 @@ function goDashboard() {
 function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
-   var heroBanner = document.getElementById('storeHeroBanner');
-   if (heroBanner) heroBanner.classList.add('hidden');
+   // Restore normal products header
+   var hdr = document.getElementById('productsHeader');
+   if (hdr) hdr.innerHTML =
+      '<h2 id="productTitle">Products</h2>' +
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+         '<button class="btn-back" onclick="goHome()">← Back to Home</button>' +
+      '</div>';
    var aptSec = document.getElementById('appointmentSection');
    if (aptSec) aptSec.classList.add('hidden');
    // Restore the product-category row hidden by showBookAppointment / showStoresList
@@ -5228,29 +5233,22 @@ function buildStoreCard(storeId, storeName, ownerLabel, productCount, orderCount
 function showStoreProducts(storeId, storeName, opts) {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
-   document.getElementById('productTitle').textContent = '🏪 ' + storeName;
 
-   // Show sepa-style store hero banner
-   var heroBanner = document.getElementById('storeHeroBanner');
-   if (heroBanner) {
-      var _heroTitle = document.getElementById('storeHeroTitle');
-      var _heroSub   = document.getElementById('storeHeroSub');
-      var _heroEmoji = document.getElementById('storeHeroEmoji');
-      if (_heroTitle) _heroTitle.textContent = storeName;
-      var _heroTagEl = document.getElementById('storeHeroTag');
-      if (_heroTagEl) _heroTagEl.textContent = (opts && opts.heroTag) || 'Exclusive Offers Today!!';
-      if (_heroSub)   _heroSub.textContent   = (opts && opts.heroSub) || 'Browse our full catalog and get the best deals delivered to your door.';
-      // Pick emoji based on store name keywords
-      if (_heroEmoji) {
-         var sn = (storeName || '').toLowerCase();
-         _heroEmoji.textContent = sn.indexOf('medical') !== -1 || sn.indexOf('pharma') !== -1 || sn.indexOf('health') !== -1 ? '💊'
-            : sn.indexOf('grocery') !== -1 || sn.indexOf('food') !== -1 ? '🛒'
-            : sn.indexOf('flower') !== -1 ? '🌸'
-            : sn.indexOf('electronic') !== -1 ? '💡'
-            : '🏪';
-      }
-      heroBanner.classList.remove('hidden');
-   }
+   // Replace products-header with a sepa-style green store nav bar
+   var sn = (storeName || '').toLowerCase();
+   var storeEmoji = sn.indexOf('medical') !== -1 || sn.indexOf('pharma') !== -1 || sn.indexOf('health') !== -1 ? '⚕️'
+      : sn.indexOf('grocery') !== -1 || sn.indexOf('food') !== -1 ? '🛒'
+      : sn.indexOf('flower') !== -1 ? '🌸'
+      : sn.indexOf('electronic') !== -1 ? '💡' : '🏪';
+   var storeColor = (opts && opts.primaryColor) || '#00a676';
+   var hdr = document.getElementById('productsHeader');
+   if (hdr) hdr.innerHTML =
+      '<div style="background:' + storeColor + ';color:#fff;padding:14px 5%;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">' +
+         '<div style="font-size:1.2rem;font-weight:800;display:flex;align-items:center;gap:8px">' + storeEmoji + ' ' + storeName + '</div>' +
+         '<div style="flex:1;max-width:400px"><input placeholder="Search products..." style="width:100%;padding:8px 16px;border-radius:20px;border:none;outline:none;font-size:0.9rem" oninput="filterStoreSearch(this.value)"/></div>' +
+         '<button onclick="goHome()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.85rem">← All Stores</button>' +
+      '</div>';
+
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
    grid.innerHTML = '';
@@ -5285,13 +5283,42 @@ function showStoreProducts(storeId, storeName, opts) {
    var first = storeCats[0];
    var initialHTML = buildStoreCatPanel(storeId, first.catKey, first.items, first.catData);
 
+   // Sepa-style hero banner + trust badges (go inside the right column)
+   var heroTag  = (opts && opts.heroTag) || 'Exclusive Offers Today!!';
+   var heroSub  = (opts && opts.heroSub) || 'Browse our full catalog and get the best deals delivered to your door.';
+   var heroEmoji = storeEmoji === '⚕️' ? '💊' : storeEmoji === '🛒' ? '🛒' : storeEmoji;
+   var heroHTML =
+      '<div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;min-height:220px;margin-bottom:20px;position:relative;overflow:hidden">' +
+         '<div style="flex:1;min-width:180px">' +
+            '<div style="color:#00a676;font-weight:700;font-size:0.9rem;margin-bottom:10px">' + heroTag + '</div>' +
+            '<h2 style="font-size:1.8rem;font-weight:900;color:#004d40;margin-bottom:10px;line-height:1.2">' + storeName + '</h2>' +
+            '<p style="color:#6b7280;margin-bottom:20px;font-size:0.88rem">' + heroSub + '</p>' +
+            '<button onclick="this.closest(\'.sepa-hero\') && this.closest(\'.sepa-hero\').remove()" style="background:#00a676;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;cursor:pointer">Shop Now ↓</button>' +
+         '</div>' +
+         '<div style="font-size:80px;opacity:0.85;flex-shrink:0">' + heroEmoji + '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#fff;padding:18px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:24px">' +
+         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:22px;color:#00a676">🚚</span><div><div style="font-weight:700;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:11px">On orders over ₹499</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:22px;color:#00a676">🔄</span><div><div style="font-weight:700;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:11px">On damaged items</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:22px;color:#00a676">💳</span><div><div style="font-weight:700;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:11px">100% protected</div></div></div>' +
+         '<div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="font-size:22px;color:#00a676">🎁</span><div><div style="font-weight:700;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:11px">On festivals & events</div></div></div>' +
+      '</div>';
+
    grid.innerHTML =
       '<div class="subcat-layout">' +
          '<div class="subcat-sidebar">' + sidebarHTML + '</div>' +
-         '<div class="subcat-products-panel" id="storeProductsPanel">' + initialHTML + '</div>' +
+         '<div class="subcat-products-panel" id="storeProductsPanel">' + heroHTML + initialHTML + '</div>' +
       '</div>';
 
    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function filterStoreSearch(q) {
+   var term = (q || '').toLowerCase().trim();
+   document.querySelectorAll('#storeProductsPanel .product-card').forEach(function(card) {
+      var name = (card.querySelector('.product-name') || {}).textContent || '';
+      card.style.display = !term || name.toLowerCase().indexOf(term) !== -1 ? '' : 'none';
+   });
 }
 
 function buildStoreCatPanel(storeId, catKey, items, catData) {

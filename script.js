@@ -5064,44 +5064,43 @@ async function showStoreProvider(providerId) {
          ? '<span style="color:#c62828;font-weight:600" title="The store owner has temporarily paused home delivery — orders are pickup-only right now">⏸ Delivery paused · pickup only</span>'
          : '<span style="color:#0a8a3a;font-weight:600">🚚 Home delivery</span>');
    }
-   // Sepa-style green store nav bar
-   var storeNavColor = '#00a676';
+   // Store nav bar
    var hdr = document.getElementById('productsHeader');
    if (hdr) {
       var rxBtnNav = (p.category === 'medical')
          ? '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Order via Prescription</button>'
          : '';
       hdr.innerHTML =
-         '<div style="background:' + storeNavColor + ';color:#fff;padding:14px 5%;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">' +
-            '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-               '<div style="font-size:1.15rem;font-weight:800;display:flex;align-items:center;gap:8px">' + (p.icon || meta.icon) + ' ' + p.name + '</div>' +
-               (p.tagline ? '<div style="font-size:0.78rem;opacity:0.75;border-left:1px solid rgba(255,255,255,0.4);padding-left:12px">' + p.tagline + '</div>' : '') +
+         '<div class="store-nav-bar">' +
+            '<div class="store-nav-left">' +
+               '<div class="store-nav-name">' + (p.icon || meta.icon) + ' ' + p.name + '</div>' +
+               (p.tagline ? '<div class="store-nav-tagline">' + p.tagline + '</div>' : '') +
             '</div>' +
-            '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">' +
+            '<div class="store-nav-actions">' +
                rxBtnNav +
-               '<button onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:7px 16px;border-radius:20px;font-weight:600;cursor:pointer;font-size:0.82rem">← ' + meta.label + '</button>' +
-               '<button onclick="goHome()" style="background:rgba(0,0,0,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);padding:7px 16px;border-radius:20px;font-weight:600;cursor:pointer;font-size:0.82rem">🏠 Home</button>' +
+               '<button class="store-nav-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>' +
+               '<button class="store-nav-btn store-nav-btn-dark" onclick="goHome()">🏠 Home</button>' +
             '</div>' +
          '</div>';
    }
 
-   // Sepa hero banner + trust badges inside right column (matches sepa_medical_website_2.html exactly)
+   // Hero banner + trust badges (CSS classes, no inline styles)
    var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
    var sepaHero =
-      '<div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;gap:20px;min-height:280px;margin-bottom:40px;position:relative;overflow:hidden">' +
-         '<div style="flex:1;min-width:200px">' +
-            '<h4 style="color:#00a676;margin-bottom:10px;font-size:16px;font-weight:700">' + (p.tagline || 'Exclusive Offers Today!!') + '</h4>' +
-            '<h1 style="font-size:36px;color:#004d40;margin-bottom:15px;line-height:1.2;font-weight:900">' + p.name + '</h1>' +
-            '<p style="color:#6b7280;margin-bottom:25px;font-size:14px">' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? '&nbsp;&nbsp;📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
-            '<button onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})" style="background:#00a676;color:#fff;border:none;padding:12px 28px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:15px">Shop Now ↓</button>' +
+      '<div class="store-hero-banner">' +
+         '<div class="store-hero-text">' +
+            '<h4>' + (p.tagline || 'Exclusive Offers Today!!') + '</h4>' +
+            '<h1>' + p.name + '</h1>' +
+            '<p>' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? '&nbsp;&nbsp;📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
+            '<button class="shop-now-btn" onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
          '</div>' +
-         '<div style="width:220px;height:220px;background:radial-gradient(circle,#ffe0b2 0%,transparent 70%);display:flex;align-items:center;justify-content:center;font-size:80px;border-radius:50%;flex-shrink:0">' + heroEmoji + '</div>' +
+         '<div class="store-hero-image">' + heroEmoji + '</div>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;background:#fff;padding:20px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:40px">' +
-         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🚚</span><div><div style="font-weight:bold;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:12px">On orders over ₹499</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🔄</span><div><div style="font-weight:bold;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:12px">On damaged items</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">💳</span><div><div style="font-weight:bold;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:12px">100% protected</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🎁</span><div><div style="font-weight:bold;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:12px">On festivals & events</div></div></div>' +
+      '<div class="store-value-ribbon">' +
+         '<div class="store-badge-item"><span class="store-badge-icon">🚚</span><div><div class="store-badge-title">Free Shipping</div><div class="store-badge-sub">On orders over ₹499</div></div></div>' +
+         '<div class="store-badge-item"><span class="store-badge-icon">🔄</span><div><div class="store-badge-title">7 Days Returns</div><div class="store-badge-sub">On damaged items</div></div></div>' +
+         '<div class="store-badge-item"><span class="store-badge-icon">💳</span><div><div class="store-badge-title">Secure Checkout</div><div class="store-badge-sub">100% protected</div></div></div>' +
+         '<div class="store-badge-item"><span class="store-badge-icon">🎁</span><div><div class="store-badge-title">Offers &amp; Gifts</div><div class="store-badge-sub">On festivals &amp; events</div></div></div>' +
       '</div>';
 
    var grid = document.getElementById('productsGrid');
@@ -5279,10 +5278,13 @@ function showStoreProducts(storeId, storeName, opts) {
    var storeColor = (opts && opts.primaryColor) || '#00a676';
    var hdr = document.getElementById('productsHeader');
    if (hdr) hdr.innerHTML =
-      '<div style="background:' + storeColor + ';color:#fff;padding:14px 5%;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">' +
-         '<div style="font-size:1.2rem;font-weight:800;display:flex;align-items:center;gap:8px">' + storeEmoji + ' ' + storeName + '</div>' +
-         '<div style="flex:1;max-width:400px"><input placeholder="Search products..." style="width:100%;padding:8px 16px;border-radius:20px;border:none;outline:none;font-size:0.9rem" oninput="filterStoreSearch(this.value)"/></div>' +
-         '<button onclick="goHome()" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.4);padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.85rem">← All Stores</button>' +
+      '<div class="store-nav-bar">' +
+         '<div class="store-nav-left">' +
+            '<div class="store-nav-name">' + storeEmoji + ' ' + storeName + '</div>' +
+         '</div>' +
+         '<div class="store-nav-actions">' +
+            '<button class="store-nav-btn store-nav-btn-dark" onclick="goHome()">← All Stores</button>' +
+         '</div>' +
       '</div>';
 
    var grid = document.getElementById('productsGrid');
@@ -5324,20 +5326,20 @@ function showStoreProducts(storeId, storeName, opts) {
    var heroSub  = (opts && opts.heroSub) || 'Browse our full catalog and get the best deals delivered to your door.';
    var heroEmoji = storeEmoji === '⚕️' ? '💊' : storeEmoji === '🛒' ? '🛒' : storeEmoji;
    var heroHTML =
-      '<div style="background:#e6f7f4;border-radius:12px;padding:40px;display:flex;justify-content:space-between;align-items:center;gap:20px;min-height:280px;margin-bottom:40px;position:relative;overflow:hidden">' +
-         '<div style="flex:1;min-width:200px">' +
-            '<h4 style="color:#00a676;margin-bottom:10px;font-size:16px;font-weight:700">' + heroTag + '</h4>' +
-            '<h1 style="font-size:36px;color:#004d40;margin-bottom:15px;line-height:1.2;font-weight:900">' + storeName + '</h1>' +
-            '<p style="color:#6b7280;margin-bottom:25px;font-size:14px">' + heroSub + '</p>' +
-            '<button onclick="document.getElementById(\'storeProductsPanel\').scrollIntoView({behavior:\'smooth\'})" style="background:#00a676;color:#fff;border:none;padding:12px 28px;border-radius:6px;font-weight:bold;cursor:pointer;font-size:15px">Shop Now ↓</button>' +
+      '<div class="store-hero-banner">' +
+         '<div class="store-hero-text">' +
+            '<h4>' + heroTag + '</h4>' +
+            '<h1>' + storeName + '</h1>' +
+            '<p>' + heroSub + '</p>' +
+            '<button class="shop-now-btn" onclick="document.getElementById(\'storeProductsPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
          '</div>' +
-         '<div style="width:220px;height:220px;background:radial-gradient(circle,#ffe0b2 0%,transparent 70%);display:flex;align-items:center;justify-content:center;font-size:80px;border-radius:50%;flex-shrink:0">' + heroEmoji + '</div>' +
+         '<div class="store-hero-image">' + heroEmoji + '</div>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;background:#fff;padding:20px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:40px">' +
-         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🚚</span><div><div style="font-weight:bold;color:#004d40">Free Shipping</div><div style="color:#71717a;font-size:12px">On orders over ₹499</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🔄</span><div><div style="font-weight:bold;color:#004d40">7 Days Returns</div><div style="color:#71717a;font-size:12px">On damaged items</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">💳</span><div><div style="font-weight:bold;color:#004d40">Secure Checkout</div><div style="color:#71717a;font-size:12px">100% protected</div></div></div>' +
-         '<div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="font-size:24px;color:#00a676">🎁</span><div><div style="font-weight:bold;color:#004d40">Offers & Gifts</div><div style="color:#71717a;font-size:12px">On festivals & events</div></div></div>' +
+      '<div class="store-value-ribbon">' +
+         '<div class="store-badge-item"><span class="store-badge-icon">🚚</span><div><div class="store-badge-title">Free Shipping</div><div class="store-badge-sub">On orders over ₹499</div></div></div>' +
+         '<div class="store-badge-item"><span class="store-badge-icon">🔄</span><div><div class="store-badge-title">7 Days Returns</div><div class="store-badge-sub">On damaged items</div></div></div>' +
+         '<div class="store-badge-item"><span class="store-badge-icon">💳</span><div><div class="store-badge-title">Secure Checkout</div><div class="store-badge-sub">100% protected</div></div></div>' +
+         '<div class="store-badge-item"><span class="store-badge-icon">🎁</span><div><div class="store-badge-title">Offers &amp; Gifts</div><div class="store-badge-sub">On festivals &amp; events</div></div></div>' +
       '</div>';
 
    grid.innerHTML =

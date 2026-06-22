@@ -8075,6 +8075,146 @@ body.profile-page { background: #e8edf5; }
 }
 
 /* ── SEPA PHARMACY STYLE ELEMENTS ── */
+/* ── Store page: nav bar ── */
+.store-nav-bar {
+   background: #00a676;
+   color: #fff;
+   padding: 14px 5%;
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 12px;
+   flex-wrap: wrap;
+}
+.store-nav-left {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   flex-wrap: wrap;
+}
+.store-nav-name {
+   font-size: 1.15rem;
+   font-weight: 800;
+   display: flex;
+   align-items: center;
+   gap: 8px;
+}
+.store-nav-tagline {
+   font-size: 0.78rem;
+   opacity: 0.75;
+   border-left: 1px solid rgba(255,255,255,0.4);
+   padding-left: 12px;
+}
+.store-nav-actions {
+   display: flex;
+   gap: 8px;
+   align-items: center;
+   flex-shrink: 0;
+}
+.store-nav-btn {
+   background: rgba(255,255,255,0.15);
+   color: #fff;
+   border: 1px solid rgba(255,255,255,0.4);
+   padding: 7px 16px;
+   border-radius: 20px;
+   font-weight: 600;
+   cursor: pointer;
+   font-size: 0.82rem;
+   transition: background 0.15s;
+}
+.store-nav-btn:hover { background: rgba(255,255,255,0.28); }
+.store-nav-btn-dark {
+   background: rgba(0,0,0,0.15);
+   border-color: rgba(255,255,255,0.3);
+}
+.store-nav-btn-dark:hover { background: rgba(0,0,0,0.28); }
+
+/* ── Store shop-now button (reused across hero and cart) ── */
+.shop-now-btn {
+   background-color: #00a676;
+   color: #fff;
+   border: none;
+   padding: 12px 28px;
+   border-radius: 6px;
+   font-weight: bold;
+   cursor: pointer;
+   font-size: 15px;
+   transition: background 0.15s;
+}
+.shop-now-btn:hover { background-color: #008f67; }
+
+/* ── Store page: hero banner (matches sepa_medical_website_2.html) ── */
+.store-hero-banner {
+   background-color: #e6f7f4;
+   border-radius: 12px;
+   padding: 40px;
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 20px;
+   min-height: 280px;
+   margin-bottom: 40px;
+   position: relative;
+   overflow: hidden;
+}
+.store-hero-text h4 {
+   color: #00a676;
+   margin-bottom: 10px;
+   font-size: 16px;
+   font-weight: 700;
+}
+.store-hero-text h1 {
+   font-size: 36px;
+   color: #004d40;
+   margin-bottom: 15px;
+   line-height: 1.2;
+   font-weight: 900;
+}
+.store-hero-text p {
+   color: #6b7280;
+   margin-bottom: 25px;
+   font-size: 14px;
+}
+.store-hero-image {
+   width: 220px;
+   height: 220px;
+   background: radial-gradient(circle, #ffe0b2 0%, transparent 70%);
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 80px;
+   border-radius: 50%;
+   flex-shrink: 0;
+}
+
+/* ── Store page: trust / value ribbon ── */
+.store-value-ribbon {
+   display: grid;
+   grid-template-columns: repeat(4, 1fr);
+   gap: 15px;
+   background: #fff;
+   padding: 20px;
+   border-radius: 8px;
+   border: 1px solid #e2e8f0;
+   margin-bottom: 40px;
+}
+.store-badge-item {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   font-size: 13px;
+}
+.store-badge-icon { font-size: 24px; color: #00a676; }
+.store-badge-title { font-weight: bold; color: #004d40; }
+.store-badge-sub { color: #71717a; font-size: 12px; }
+
+@media (max-width: 768px) {
+   .store-hero-banner { flex-direction: column; min-height: auto; padding: 24px 20px; }
+   .store-hero-text h1 { font-size: 1.6rem; }
+   .store-hero-image { width: 120px; height: 120px; font-size: 56px; }
+   .store-value-ribbon { grid-template-columns: 1fr 1fr; }
+}
+
 .sepa-discount-tag {
    position:absolute; top:10px; right:10px;
    background:#ccfbf1; color:#00a676;

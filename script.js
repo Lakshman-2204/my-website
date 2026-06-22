@@ -890,21 +890,20 @@ async function _ensureCustomerPhone(user) {
 
 // ── CASH ON DELIVERY ──
 function _cartCOD() {
-   if (!_db.cart || !_db.cart.length) { showToast('Your cart is empty.'); return; }
+   if (!cart || !cart.length) { showToast('Your cart is empty.'); return; }
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
-   // Show COD confirmation panel
    var sidebar = document.getElementById('cartSidebar');
    var footer = sidebar ? sidebar.querySelector('.cart-footer') : null;
    if (!footer) return;
-   footer.innerHTML = `
-      <div style="text-align:center;padding:20px 10px">
-         <div style="font-size:2.5rem;margin-bottom:8px">🚚</div>
-         <h3 style="color:#16a34a;font-weight:800;margin-bottom:6px">Cash on Delivery Selected</h3>
-         <p style="color:#64748b;font-size:0.85rem;margin-bottom:16px">Your order will be logged and the store will confirm delivery.</p>
-         <button class="btn-makeorder" onclick="makeOrder()" style="width:100%">📋 Confirm & Place Order</button>
-         <button onclick="renderCart()" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;margin-top:10px;cursor:pointer;width:100%">← Go back</button>
-      </div>`;
+   footer.innerHTML =
+      '<div style="text-align:center;padding:20px 10px">' +
+         '<div style="font-size:2.5rem;margin-bottom:8px">🚚</div>' +
+         '<h3 style="color:#16a34a;font-weight:800;margin-bottom:6px">Cash on Delivery</h3>' +
+         '<p style="color:#64748b;font-size:0.85rem;margin-bottom:16px">Your order will be logged and the store will confirm delivery.</p>' +
+         '<button class="btn-makeorder" onclick="makeOrder()" style="width:100%">📋 Confirm & Place Order</button>' +
+         '<button onclick="showCart()" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;margin-top:10px;cursor:pointer;width:100%">← Go back</button>' +
+      '</div>';
 }
 
 // ── MAKE ORDER (offline pickup) ──
@@ -5226,16 +5225,30 @@ function buildStoreCard(storeId, storeName, ownerLabel, productCount, orderCount
           '</div>';
 }
 
-function showStoreProducts(storeId, storeName) {
+function showStoreProducts(storeId, storeName, opts) {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = '🏪 ' + storeName;
 
-   // Show pharmacy hero banner
+   // Show sepa-style store hero banner
    var heroBanner = document.getElementById('storeHeroBanner');
    if (heroBanner) {
-      document.getElementById('storeHeroTitle').textContent = storeName;
-      document.getElementById('storeHeroTag').textContent = 'Exclusive Offers Today';
+      var _heroTitle = document.getElementById('storeHeroTitle');
+      var _heroSub   = document.getElementById('storeHeroSub');
+      var _heroEmoji = document.getElementById('storeHeroEmoji');
+      if (_heroTitle) _heroTitle.textContent = storeName;
+      var _heroTagEl = document.getElementById('storeHeroTag');
+      if (_heroTagEl) _heroTagEl.textContent = (opts && opts.heroTag) || 'Exclusive Offers Today!!';
+      if (_heroSub)   _heroSub.textContent   = (opts && opts.heroSub) || 'Browse our full catalog and get the best deals delivered to your door.';
+      // Pick emoji based on store name keywords
+      if (_heroEmoji) {
+         var sn = (storeName || '').toLowerCase();
+         _heroEmoji.textContent = sn.indexOf('medical') !== -1 || sn.indexOf('pharma') !== -1 || sn.indexOf('health') !== -1 ? '💊'
+            : sn.indexOf('grocery') !== -1 || sn.indexOf('food') !== -1 ? '🛒'
+            : sn.indexOf('flower') !== -1 ? '🌸'
+            : sn.indexOf('electronic') !== -1 ? '💡'
+            : '🏪';
+      }
       heroBanner.classList.remove('hidden');
    }
    var grid = document.getElementById('productsGrid');
@@ -5554,7 +5567,10 @@ async function _activateWhiteLabel(vendor) {
       await initDB();
       await loadStoreProviders();
       // showStoreProducts uses owner_email as storeId
-      showStoreProducts(vendor.vendorId, vendor.brandEmoji + ' ' + vendor.brandName);
+      showStoreProducts(vendor.vendorId, vendor.brandEmoji + ' ' + vendor.brandName, {
+         heroTag: vendor.heroTag || 'Exclusive Offers Today!!',
+         heroSub: vendor.heroSub || 'Browse our full catalog and get the best deals delivered to your door.'
+      });
    } catch (e) {
       console.warn('[WhiteLabel] Could not auto-load store:', e);
    }
@@ -6032,7 +6048,8 @@ function _wlRenderTable() {
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.brandName) + '" placeholder="Kumar Medical" oninput="_wlRows[' + i + '].brandName=this.value"/></td>' +
          '<td style="' + cellStyle + ';width:64px"><input style="' + inputStyle + ';text-align:center" value="' + _esc(r.brandEmoji) + '" placeholder="⚕️" oninput="_wlRows[' + i + '].brandEmoji=this.value"/></td>' +
          '<td style="' + cellStyle + ';width:56px"><input type="color" style="width:40px;height:32px;padding:2px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer" value="' + (r.primaryColor || '#0ea5e9') + '" oninput="_wlRows[' + i + '].primaryColor=this.value"/></td>' +
-         '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.titleSuffix) + '" placeholder="Home Delivery Pharmacy" oninput="_wlRows[' + i + '].titleSuffix=this.value"/></td>' +
+         '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.heroTag) + '" placeholder="Upto 50% Off Today!!" oninput="_wlRows[' + i + '].heroTag=this.value"/></td>' +
+         '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.heroSub) + '" placeholder="Best deals delivered to your door." oninput="_wlRows[' + i + '].heroSub=this.value"/></td>' +
          '<td style="' + cellStyle + ';width:36px;text-align:center"><button onclick="_wlDeleteRow(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:1rem;color:#ef4444" title="Remove">🗑️</button></td>' +
       '</tr>';
    }).join('');

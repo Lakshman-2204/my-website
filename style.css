@@ -8101,8 +8101,8 @@ body.profile-page { background: #e8edf5; }
 .sepa-cat-item.active { background:#f0fdf4; color:#00a676; font-weight:700; border-left:3px solid #00a676; }
 
 @media (max-width:600px) {
-   #storeCatSidebar { width:100% !important; position:static !important; border-right:none !important; border-bottom:1px solid #e2e8f0; }
-   #storeCatSidebarList { display:flex; overflow-x:auto; }
-   .sepa-cat-item { white-space:nowrap; border-bottom:none; border-right:1px solid #f1f5f9; }
-   #storeHeroBanner h1 { font-size:1.4rem !important; }
+   #storeHeroBanner > div:first-child { margin:12px 12px 0 !important; padding:24px 16px !important; }
+   #storeHeroBanner > div:first-child h1 { font-size:1.4rem !important; }
+   #storeHeroEmoji { font-size:56px !important; }
+   #storeHeroBanner > div:nth-child(2) { grid-template-columns:1fr 1fr !important; margin:10px 12px !important; }
 }

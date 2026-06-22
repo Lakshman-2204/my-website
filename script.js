@@ -5397,6 +5397,147 @@ function showToast(msg) {
 
 // ── AUTH ──
 // ══════════════════════════════════════════════════════════
+//  WHITE-LABEL DOMAIN ROUTER
+//  Each shop owner who signs an agreement gets their custom
+//  domain added here. No other file needs to change.
+// ══════════════════════════════════════════════════════════
+
+var VENDOR_REGISTRY = {
+   // ── format ──────────────────────────────────────────────
+   // 'custom-domain.com': {
+   //    vendorId:    '<owner_email used as storeId in DB>',
+   //    brandName:   '<display name shown in title & header>',
+   //    brandEmoji:  '<emoji prefix for store brand>',
+   //    primaryColor:'<hex — optional, applied as CSS var>',
+   //    titleSuffix: '<appended to document.title>',
+   // }
+   // ────────────────────────────────────────────────────────
+
+   'kumarmedicalstore.com': {
+      vendorId:     'kumar@kumarmedical.com',
+      brandName:    'Kumar Medical Store',
+      brandEmoji:   '⚕️',
+      primaryColor: '#00a676',
+      titleSuffix:  'Home Delivery Pharmacy',
+   },
+   'laxmipharma.com': {
+      vendorId:     'laxmi@laxmipharma.com',
+      brandName:    'Laxmi Pharma',
+      brandEmoji:   '💊',
+      primaryColor: '#7c3aed',
+      titleSuffix:  'Trusted Pharmacy Since 1998',
+   },
+   // ── add new partners here ────────────────────────────────
+};
+
+// Resolve vendor from hostname → fallback to ?view= param
+// Reads from admin-saved settings first, then falls back to hardcoded VENDOR_REGISTRY
+function _resolveVendor() {
+   // Build effective registry: saved settings override hardcoded entries
+   var registry = Object.assign({}, VENDOR_REGISTRY);
+   try {
+      var saved = getAdminSettings().vendorRegistry;
+      if (saved && Array.isArray(saved)) {
+         // Clear hardcoded, use only saved entries
+         registry = {};
+         saved.forEach(function(r) {
+            if (r.domain && r.vendorId && r.brandName) {
+               registry[r.domain.replace(/^www\./,'').toLowerCase()] = {
+                  vendorId: r.vendorId, brandName: r.brandName,
+                  brandEmoji: r.brandEmoji || '🏪',
+                  primaryColor: r.primaryColor || '#0ea5e9',
+                  titleSuffix: r.titleSuffix || ''
+               };
+            }
+         });
+      }
+   } catch (e) {}
+
+   var host = (window.location.hostname || '').replace(/^www\./, '').toLowerCase();
+
+   // 1. Production: exact hostname match
+   if (registry[host]) return registry[host];
+
+   // 2. Debug / GitHub Pages / localhost: ?view=<keyword> param
+   var param = new URLSearchParams(window.location.search).get('view') || '';
+   if (param) {
+      var lp = param.toLowerCase();
+      var keys = Object.keys(registry);
+      for (var i = 0; i < keys.length; i++) {
+         var v = registry[keys[i]];
+         if (
+            keys[i].indexOf(lp) !== -1 ||
+            v.vendorId.toLowerCase().indexOf(lp) !== -1 ||
+            v.brandName.toLowerCase().replace(/\s+/g,'').indexOf(lp) !== -1
+         ) return v;
+      }
+   }
+   return null;
+}
+
+// Execute white-label mode for a matched vendor
+async function _activateWhiteLabel(vendor) {
+   // 1. Strip platform navbar immediately (before any async work)
+   var navbar = document.getElementById('main-global-navbar');
+   if (navbar) navbar.style.display = 'none';
+
+   // 2. Apply brand color if provided
+   if (vendor.primaryColor) {
+      document.documentElement.style.setProperty('--brand-primary', vendor.primaryColor);
+   }
+
+   // 3. Update page title
+   document.title = vendor.brandEmoji + ' ' + vendor.brandName
+      + (vendor.titleSuffix ? ' | ' + vendor.titleSuffix : '');
+
+   // 4. Inject a minimal standalone nav bar so the store is still navigable
+   var standaloneNav = document.getElementById('_wl_nav');
+   if (!standaloneNav) {
+      standaloneNav = document.createElement('div');
+      standaloneNav.id = '_wl_nav';
+      standaloneNav.style.cssText = [
+         'background:' + (vendor.primaryColor || '#1e293b'),
+         'color:#fff',
+         'padding:12px 5%',
+         'display:flex',
+         'align-items:center',
+         'justify-content:space-between',
+         'font-weight:700',
+         'font-size:1rem',
+         'position:sticky',
+         'top:0',
+         'z-index:200',
+         'box-shadow:0 2px 8px rgba(0,0,0,0.18)',
+      ].join(';');
+      standaloneNav.innerHTML =
+         '<span>' + vendor.brandEmoji + ' ' + vendor.brandName + '</span>' +
+         '<span id="_wl_cart" style="cursor:pointer;font-size:0.85rem;background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px" ' +
+         'onclick="document.getElementById(\'cartBtn\') && document.getElementById(\'cartBtn\').click()">🛒 Cart</span>';
+      document.body.insertBefore(standaloneNav, document.body.firstChild);
+   }
+
+   // 5. Wait for DB + products to load, then open the vendor's store directly
+   try {
+      await initDB();
+      await loadStoreProviders();
+      // showStoreProducts uses owner_email as storeId
+      showStoreProducts(vendor.vendorId, vendor.brandEmoji + ' ' + vendor.brandName);
+   } catch (e) {
+      console.warn('[WhiteLabel] Could not auto-load store:', e);
+   }
+}
+
+// Entry point — called once on home.html after DOM is ready
+function initDomainRouter() {
+   var vendor = _resolveVendor();
+   if (vendor) {
+      _activateWhiteLabel(vendor);
+      return true;   // white-label mode active
+   }
+   return false;     // normal platform mode
+}
+
+// ══════════════════════════════════════════════════════════
 //  SUPABASE DATA CACHE  — replaces all localStorage ops
 // ══════════════════════════════════════════════════════════
 var _db = { users: [], orders: [], settings: {}, overrides: {}, storeProducts: [], addresses: [], cards: [], wishlist: [] };
@@ -5819,7 +5960,85 @@ async function refreshAndRenderUsers() {
    var fresh = await AppDB.getUsers();
    _db.users = fresh;
    renderUserList(_currentUserFilter || 'all');
+   _wlRenderTable();
 }
+
+// ── WHITE-LABEL DOMAIN REGISTRY GUI ──────────────────────
+var _wlRows = [];   // working copy: [{domain,vendorId,brandName,brandEmoji,primaryColor,titleSuffix}]
+
+function _wlLoad() {
+   var s = getAdminSettings();
+   _wlRows = (s.vendorRegistry && Array.isArray(s.vendorRegistry))
+      ? s.vendorRegistry.map(function(r) { return Object.assign({}, r); })
+      : [];
+   // Seed from the hardcoded VENDOR_REGISTRY so pre-existing entries appear
+   if (!_wlRows.length && typeof VENDOR_REGISTRY === 'object') {
+      _wlRows = Object.keys(VENDOR_REGISTRY).map(function(domain) {
+         var v = VENDOR_REGISTRY[domain];
+         return { domain: domain, vendorId: v.vendorId, brandName: v.brandName,
+                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#0ea5e9',
+                  titleSuffix: v.titleSuffix || '' };
+      });
+   }
+}
+
+function _wlRenderTable() {
+   _wlLoad();
+   var tbody = document.getElementById('wlDomainBody');
+   if (!tbody) return;
+   if (!_wlRows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#94a3b8">No domains configured yet. Click "+ Add Domain" to begin.</td></tr>';
+      return;
+   }
+   var cellStyle = 'padding:6px 4px;border-bottom:1px solid #f1f5f9;vertical-align:middle';
+   var inputStyle = 'width:100%;padding:5px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.8rem;box-sizing:border-box';
+   tbody.innerHTML = _wlRows.map(function(r, i) {
+      return '<tr>' +
+         '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.domain) + '" placeholder="kumarmedical.com" oninput="_wlRows[' + i + '].domain=this.value"/></td>' +
+         '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.vendorId) + '" placeholder="owner@email.com" oninput="_wlRows[' + i + '].vendorId=this.value"/></td>' +
+         '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.brandName) + '" placeholder="Kumar Medical" oninput="_wlRows[' + i + '].brandName=this.value"/></td>' +
+         '<td style="' + cellStyle + ';width:64px"><input style="' + inputStyle + ';text-align:center" value="' + _esc(r.brandEmoji) + '" placeholder="⚕️" oninput="_wlRows[' + i + '].brandEmoji=this.value"/></td>' +
+         '<td style="' + cellStyle + ';width:56px"><input type="color" style="width:40px;height:32px;padding:2px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer" value="' + (r.primaryColor || '#0ea5e9') + '" oninput="_wlRows[' + i + '].primaryColor=this.value"/></td>' +
+         '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.titleSuffix) + '" placeholder="Home Delivery Pharmacy" oninput="_wlRows[' + i + '].titleSuffix=this.value"/></td>' +
+         '<td style="' + cellStyle + ';width:36px;text-align:center"><button onclick="_wlDeleteRow(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:1rem;color:#ef4444" title="Remove">🗑️</button></td>' +
+      '</tr>';
+   }).join('');
+}
+
+function _wlAddRow() {
+   _wlRows.push({ domain: '', vendorId: '', brandName: '', brandEmoji: '🏪', primaryColor: '#0ea5e9', titleSuffix: '' });
+   _wlRenderTable();
+   // scroll to new row
+   var tbody = document.getElementById('wlDomainBody');
+   if (tbody) tbody.lastElementChild && tbody.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function _wlDeleteRow(i) {
+   _wlRows.splice(i, 1);
+   _wlRenderTable();
+}
+
+function _wlSave() {
+   var valid = _wlRows.filter(function(r) { return r.domain.trim() && r.vendorId.trim() && r.brandName.trim(); });
+   var s = getAdminSettings();
+   s.vendorRegistry = valid;
+   _db.settings = s;
+   AppDB.saveSettings(s);
+   // Sync the live VENDOR_REGISTRY object so the router picks up changes immediately
+   if (typeof VENDOR_REGISTRY === 'object') {
+      // Clear old keys
+      Object.keys(VENDOR_REGISTRY).forEach(function(k) { delete VENDOR_REGISTRY[k]; });
+      valid.forEach(function(r) {
+         VENDOR_REGISTRY[r.domain.replace(/^www\./,'').toLowerCase()] = {
+            vendorId: r.vendorId, brandName: r.brandName, brandEmoji: r.brandEmoji,
+            primaryColor: r.primaryColor, titleSuffix: r.titleSuffix
+         };
+      });
+   }
+   showAdminToast('✅ Domain registry saved! Router updated live.');
+}
+
+function _esc(str) { return (str || '').replace(/"/g, '&quot;'); }
 
 // Show pending block-appeals at the top of the Users tab so admin sees them
 // immediately on login. Approve clears the user's no-show count (effective

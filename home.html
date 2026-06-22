@@ -227,7 +227,7 @@
    <!-- ═══════════════════════════════════════════════════════
         SITE HEADER
    ═══════════════════════════════════════════════════════ -->
-   <header class="site-header">
+   <header class="site-header" id="main-global-navbar">
 
       <!-- ROW 1: Utility bar — brand + marquee + address -->
       <div class="header-top bg-white px-4 lg:px-8 py-2.5 flex justify-between items-center text-xs border-b border-slate-200">
@@ -940,6 +940,10 @@
       })();
 
 
+      // Domain router runs first — if white-label mode is active it takes
+      // over navigation and the normal platform boot still runs for settings/cart.
+      var _wlActive = (typeof initDomainRouter === 'function') && initDomainRouter();
+
       initDB().then(function() {
          _checkMaintenanceMode();
          loadSiteSettings();
@@ -948,16 +952,19 @@
          var _u = JSON.parse(sessionStorage.getItem('loggedInUser'));
          if (_u) AppDB.getWishlist(_u.email).then(function(ids) { _db.wishlist = ids || []; });
          if (_u && typeof _initLiveTokenPill === 'function') _initLiveTokenPill();
-         var storesBtn = document.querySelector('.header-stores-btn');
-         if (storesBtn && storesBtn.classList.contains('active')) {
-            /* user is viewing Stores — do nothing */
-         } else {
-            var activeEl = document.querySelector('.cat-item.active');
-            var activeCat = activeEl ? activeEl.id.replace('cat-','') : 'all';
-            if (activeCat && activeCat !== 'all') catClick(activeCat);
-            else if (document.getElementById('productsSection') &&
-                     !document.getElementById('productsSection').classList.contains('hidden')) {
-               showAllProducts();
+         // Skip platform default navigation when white-label router handled it
+         if (!_wlActive) {
+            var storesBtn = document.querySelector('.header-stores-btn');
+            if (storesBtn && storesBtn.classList.contains('active')) {
+               /* user is viewing Stores — do nothing */
+            } else {
+               var activeEl = document.querySelector('.cat-item.active');
+               var activeCat = activeEl ? activeEl.id.replace('cat-','') : 'all';
+               if (activeCat && activeCat !== 'all') catClick(activeCat);
+               else if (document.getElementById('productsSection') &&
+                        !document.getElementById('productsSection').classList.contains('hidden')) {
+                  showAllProducts();
+               }
             }
          }
          if (typeof renderFeaturedTickers === 'function') renderFeaturedTickers();

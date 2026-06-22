@@ -432,9 +432,11 @@ function renderCard(item, catKey, grid) {
   <button class="wish-btn${inWL ? ' wished' : ''}" id="wish_${item.id}"
           onclick="toggleWishlist('${item.id}','${catKey}',this)"
           title="${inWL ? 'Remove from Wishlist' : 'Add to Wishlist'}">${inWL ? '❤️' : '🤍'}</button>
+  ${item.mrp && item.mrp > item.price ? `<div class="sepa-discount-tag">-${Math.round((1 - item.price/item.mrp)*100)}%</div>` : ''}
 </div>
 <div class="card-content">
   <span class="badge">${item.badge}</span>
+  <div class="sepa-stars">★★★★☆ <span class="sepa-rating-count">(${(item.id.charCodeAt(0) % 80) + 15})</span></div>
   <div class="product-name">${item.name}</div>
   <div class="product-desc">${item.desc}</div>
   ${item.storeId ? `<div class="store-badge">🏪 ${item.storeName || getStoreName(item.storeId)}</div>` : ''}
@@ -464,7 +466,10 @@ function renderCard(item, catKey, grid) {
   </div>`}
   ${_rxStockTags(item)}
   <div class="product-footer">
-  <span class="product-price" id="price_${item.id}">${displayPrice}</span>
+  <div style="display:flex;flex-direction:column;gap:1px">
+    <span class="product-price" id="price_${item.id}">${displayPrice}</span>
+    ${item.mrp && item.mrp > item.price ? `<span class="sepa-old-price">MRP ₹${item.mrp.toLocaleString('en-IN')}</span>` : ''}
+  </div>
   ${_addToCartButton(item, catKey)}
   </div>
 </div>
@@ -881,6 +886,25 @@ async function _ensureCustomerPhone(user) {
       }
       alert('That doesn\'t look like a valid mobile number. Please enter 10 digits.');
    }
+}
+
+// ── CASH ON DELIVERY ──
+function _cartCOD() {
+   if (!_db.cart || !_db.cart.length) { showToast('Your cart is empty.'); return; }
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { window.location.href = 'login.html'; return; }
+   // Show COD confirmation panel
+   var sidebar = document.getElementById('cartSidebar');
+   var footer = sidebar ? sidebar.querySelector('.cart-footer') : null;
+   if (!footer) return;
+   footer.innerHTML = `
+      <div style="text-align:center;padding:20px 10px">
+         <div style="font-size:2.5rem;margin-bottom:8px">🚚</div>
+         <h3 style="color:#16a34a;font-weight:800;margin-bottom:6px">Cash on Delivery Selected</h3>
+         <p style="color:#64748b;font-size:0.85rem;margin-bottom:16px">Your order will be logged and the store will confirm delivery.</p>
+         <button class="btn-makeorder" onclick="makeOrder()" style="width:100%">📋 Confirm & Place Order</button>
+         <button onclick="renderCart()" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;margin-top:10px;cursor:pointer;width:100%">← Go back</button>
+      </div>`;
 }
 
 // ── MAKE ORDER (offline pickup) ──
@@ -1440,6 +1464,10 @@ function goDashboard() {
 function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
+   var heroBanner = document.getElementById('storeHeroBanner');
+   if (heroBanner) heroBanner.classList.add('hidden');
+   var storeSidebar = document.getElementById('storeCatSidebar');
+   if (storeSidebar) storeSidebar.classList.add('hidden');
    var aptSec = document.getElementById('appointmentSection');
    if (aptSec) aptSec.classList.add('hidden');
    // Restore the product-category row hidden by showBookAppointment / showStoresList
@@ -5205,6 +5233,17 @@ function showStoreProducts(storeId, storeName) {
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = '🏪 ' + storeName;
 
+   // Show pharmacy hero banner
+   var heroBanner = document.getElementById('storeHeroBanner');
+   if (heroBanner) {
+      document.getElementById('storeHeroTitle').textContent = storeName;
+      document.getElementById('storeHeroTag').textContent = 'Exclusive Offers — ' + storeName;
+      heroBanner.classList.remove('hidden');
+   }
+   // Show category sidebar
+   var sidebar = document.getElementById('storeCatSidebar');
+   if (sidebar) sidebar.classList.remove('hidden');
+
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
    grid.innerHTML = '';
@@ -5222,6 +5261,18 @@ function showStoreProducts(storeId, storeName) {
    if (storeCats.length === 0) {
       grid.innerHTML = '<p style="color:#888;text-align:center;padding:60px">No products in this store yet.</p>';
       return;
+   }
+
+   // Populate left categories sidebar
+   var sidebarList = document.getElementById('storeCatSidebarList');
+   if (sidebarList) {
+      sidebarList.innerHTML = storeCats.map(function(c, i) {
+         return '<div class="sepa-cat-item' + (i===0?' active':'') + '" ' +
+            'onclick="switchStoreCat(this,\'' + (storeId?storeId.replace(/'/g,"\\'"):'__platform__') + '\')" ' +
+            'data-catkey="' + c.catKey + '" ' +
+            'id="storeSidebar_' + c.catKey + '">' +
+            c.catData.title + '</div>';
+      }).join('');
    }
 
    // Build sidebar

@@ -1465,11 +1465,14 @@ function goHome() {
    document.getElementById('productsSection').classList.add('hidden');
    // Restore normal products header
    var hdr = document.getElementById('productsHeader');
-   if (hdr) hdr.innerHTML =
-      '<h2 id="productTitle">Products</h2>' +
-      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
-         '<button class="btn-back" onclick="goHome()">← Back to Home</button>' +
-      '</div>';
+   if (hdr) {
+      hdr.style.display = '';
+      hdr.innerHTML =
+         '<h2 id="productTitle">Products</h2>' +
+         '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+            '<button class="btn-back" onclick="goHome()">← Back to Home</button>' +
+         '</div>';
+   }
    var aptSec = document.getElementById('appointmentSection');
    if (aptSec) aptSec.classList.add('hidden');
    // Restore the product-category row hidden by showBookAppointment / showStoresList
@@ -4973,11 +4976,14 @@ async function showStoreCategory(catKey) {
    document.getElementById('productTitle').textContent = meta.icon + ' ' + meta.label;
    // Restore normal products header when going back to store list
    var hdr = document.getElementById('productsHeader');
-   if (hdr) hdr.innerHTML =
-      '<h2 id="productTitle">' + meta.icon + ' ' + meta.label + '</h2>' +
-      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
-         '<button class="btn-back" onclick="goHome()">← Back to Home</button>' +
-      '</div>';
+   if (hdr) {
+      hdr.style.display = '';
+      hdr.innerHTML =
+         '<h2 id="productTitle">' + meta.icon + ' ' + meta.label + '</h2>' +
+         '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+            '<button class="btn-back" onclick="goHome()">← Back to Home</button>' +
+         '</div>';
+   }
    _setStoresChromeMode(true);
    // Live-refresh on any store change (delivery pause/resume etc.)
    _liveSubscribe('storeProvsCustomer', 'store_providers', async function() {
@@ -5064,17 +5070,15 @@ async function showStoreProvider(providerId) {
          ? '<span style="color:#c62828;font-weight:600" title="The store owner has temporarily paused home delivery — orders are pickup-only right now">⏸ Delivery paused · pickup only</span>'
          : '<span style="color:#0a8a3a;font-weight:600">🚚 Home delivery</span>');
    }
-   // Clear the productsHeader — store nav is merged into hero below
+   // Hide the productsHeader — store nav is merged into hero below
    var hdr = document.getElementById('productsHeader');
-   if (hdr) hdr.innerHTML = '';
+   if (hdr) { hdr.innerHTML = ''; hdr.style.display = 'none'; }
 
    // Build action buttons for inside the hero
    var rxBtn = (p.category === 'medical')
       ? '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Prescription</button>'
       : '';
    var backBtn = '<button class="store-hero-outline-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>';
-   var homeBtn = '<button class="store-hero-outline-btn" onclick="goHome()">🏠 Home</button>';
-
    // Hero banner + trust badges (CSS classes, no inline styles)
    var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
    var sepaHero =
@@ -5085,7 +5089,7 @@ async function showStoreProvider(providerId) {
             '<p>' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? '&nbsp;&nbsp;📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
             '<div class="store-hero-actions">' +
                '<button class="shop-now-btn" onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
-               rxBtn + backBtn + homeBtn +
+               rxBtn + backBtn +
             '</div>' +
          '</div>' +
          '<div class="store-hero-image">' + heroEmoji + '</div>' +

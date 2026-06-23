@@ -5618,16 +5618,23 @@ async function _activateWhiteLabel(vendor) {
    var navbar = document.getElementById('main-global-navbar');
    if (navbar) navbar.style.display = 'none';
 
-   // SSO: restore session passed from the platform via ?sso= token
+   // SSO: if no session in this tab, try localStorage (same-domain cross-tab) or ?sso= token
    try {
+      if (!sessionStorage.getItem('loggedInUser')) {
+         // 1. Same-domain: restore from localStorage (works for ?view= on GitHub Pages)
+         var _lsUser = localStorage.getItem('loggedInUser');
+         if (_lsUser) sessionStorage.setItem('loggedInUser', _lsUser);
+      }
+      // 2. Cross-domain: restore from ?sso= token (real custom domain)
       var _ssoRaw = new URLSearchParams(window.location.search).get('sso');
       if (_ssoRaw && !sessionStorage.getItem('loggedInUser')) {
          var _ssoUser = JSON.parse(decodeURIComponent(escape(atob(_ssoRaw))));
          if (_ssoUser && _ssoUser.email) {
             sessionStorage.setItem('loggedInUser', JSON.stringify(_ssoUser));
+            localStorage.setItem('loggedInUser', JSON.stringify(_ssoUser));
          }
       }
-      // Remove sso param from URL bar so it isn't bookmarked or shared
+      // Remove sso param from URL so it isn't bookmarked or shared
       if (_ssoRaw) {
          var _cleanUrl = window.location.pathname + window.location.search.replace(/[?&]sso=[^&]*/,'').replace(/^&/,'?');
          history.replaceState(null, '', _cleanUrl || window.location.pathname);
@@ -5993,6 +6000,7 @@ async function login() {
    if (savedRole && !user.role) user.role = savedRole;
 
    sessionStorage.setItem('loggedInUser', JSON.stringify(user));
+   localStorage.setItem('loggedInUser', JSON.stringify(user));   // persist across tabs
 
    // Admin → home.html (can access all pages via dropdown)
    if (isAdmin(user.email)) { window.location.href = 'home.html'; return; }
@@ -15648,6 +15656,7 @@ async function shopMarkPaid(aptId) {
 
 async function logout() {
    sessionStorage.removeItem('loggedInUser');
+   localStorage.removeItem('loggedInUser');
    try { await _sb.auth.signOut(); } catch (e) { /* fine if no session */ }
    window.location.href = 'login.html';
 }

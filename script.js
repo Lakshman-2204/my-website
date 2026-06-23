@@ -5648,11 +5648,31 @@ async function _activateWhiteLabel(vendor) {
    try {
       await initDB();
       await loadStoreProviders();
-      // showStoreProducts uses owner_email as storeId
-      showStoreProducts(vendor.vendorId, vendor.brandEmoji + ' ' + vendor.brandName, {
-         heroTag: vendor.heroTag || 'Exclusive Offers Today!!',
-         heroSub: vendor.heroSub || 'Browse our full catalog and get the best deals delivered to your door.'
+
+      // Re-resolve vendor now that DB settings are loaded (admin-saved registry
+      // was not available when initDomainRouter ran before initDB)
+      var resolvedVendor = _resolveVendor() || vendor;
+
+      // Find store provider by owner_email match
+      var sp = (_storeProvidersCache || []).find(function(x) {
+         return (x.owner_email || '').toLowerCase() === (resolvedVendor.vendorId || '').toLowerCase();
       });
+
+      if (sp) {
+         showStoreProvider(sp.id);
+      } else {
+         // No matching store provider found — show a clear message
+         document.getElementById('heroSection') && document.getElementById('heroSection').classList.add('hidden');
+         document.getElementById('productsSection') && document.getElementById('productsSection').classList.remove('hidden');
+         var grid = document.getElementById('productsGrid');
+         if (grid) grid.innerHTML =
+            '<div style="text-align:center;padding:60px 20px;color:#6b7280">' +
+               '<div style="font-size:48px;margin-bottom:16px">🏪</div>' +
+               '<h2 style="color:#004d40;margin-bottom:8px">' + resolvedVendor.brandName + '</h2>' +
+               '<p>Store not found. Check that the Owner Email in the white-label registry matches the store\'s registered email in admin.</p>' +
+               '<p style="font-size:0.8rem;margin-top:8px;color:#94a3b8">Looking for: <code>' + resolvedVendor.vendorId + '</code></p>' +
+            '</div>';
+      }
    } catch (e) {
       console.warn('[WhiteLabel] Could not auto-load store:', e);
    }

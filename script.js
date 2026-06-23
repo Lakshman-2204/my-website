@@ -5094,8 +5094,9 @@ async function showStoreProvider(providerId) {
    var rxBtn = (p.category === 'medical')
       ? '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Prescription</button>'
       : '';
-   var backBtn = '<button class="store-hero-outline-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>';
-   var domainBtn = _storeDomain
+   // In white-label mode: no "back to platform" or "visit website" buttons
+   var backBtn = window._wlMode ? '' : '<button class="store-hero-outline-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>';
+   var domainBtn = (!window._wlMode && _storeDomain)
       ? '<a class="store-hero-outline-btn" href="https://' + _storeDomain + '" target="_blank" rel="noopener" title="Visit ' + _storeDomain + '">🌐 Visit Website ↗</a>'
       : '';
    // Hero banner + trust badges (CSS classes, no inline styles)
@@ -5605,9 +5606,17 @@ function _resolveVendor() {
 
 // Execute white-label mode for a matched vendor
 async function _activateWhiteLabel(vendor) {
-   // 1. Strip platform navbar immediately (before any async work)
+   // 1. Strip platform navbar + hide hero immediately (prevents flash before async load)
+   window._wlMode = true;
    var navbar = document.getElementById('main-global-navbar');
    if (navbar) navbar.style.display = 'none';
+   var heroSec = document.getElementById('heroSection');
+   if (heroSec) heroSec.style.display = 'none';
+   // Show a minimal loading state so page isn't blank
+   var prodSec = document.getElementById('productsSection');
+   if (prodSec) prodSec.classList.remove('hidden');
+   var grid = document.getElementById('productsGrid');
+   if (grid) grid.innerHTML = '<p style="text-align:center;padding:60px;color:#6b7280">Loading ' + vendor.brandName + '…</p>';
 
    // 2. Apply brand color if provided
    if (vendor.primaryColor) {

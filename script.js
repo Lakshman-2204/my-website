@@ -4973,7 +4973,6 @@ async function showStoreCategory(catKey) {
    if (!meta) return;
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
-   document.getElementById('productTitle').textContent = meta.icon + ' ' + meta.label;
    // Restore normal products header when going back to store list
    var hdr = document.getElementById('productsHeader');
    if (hdr) {
@@ -4984,6 +4983,8 @@ async function showStoreCategory(catKey) {
             '<button class="btn-back" onclick="goHome()">← Back to Home</button>' +
          '</div>';
    }
+   var pt = document.getElementById('productTitle');
+   if (pt) pt.textContent = meta.icon + ' ' + meta.label;
    _setStoresChromeMode(true);
    // Live-refresh on any store change (delivery pause/resume etc.)
    _liveSubscribe('storeProvsCustomer', 'store_providers', async function() {

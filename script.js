@@ -5086,7 +5086,7 @@ async function showStoreProvider(providerId) {
       } catch(e) {}
       return Object.keys(reg).find(function(d) {
          var v = reg[d];
-         return (v.vendorId || '').toLowerCase() === (p.id || '').toLowerCase();
+         return (v.vendorId || '').toLowerCase() === (p.owner_email || '').toLowerCase();
       }) || null;
    })();
 

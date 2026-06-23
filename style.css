@@ -793,7 +793,7 @@ body.guest .store-section-divider {
 .maincat-layout,
 .subcat-layout {
 	display: grid;
-	grid-template-columns: 170px 1fr;
+	grid-template-columns: 220px 1fr;
 	gap: 1.2rem;
 	align-items: start;
 }

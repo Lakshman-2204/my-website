@@ -5075,11 +5075,29 @@ async function showStoreProvider(providerId) {
    var hdr = document.getElementById('productsHeader');
    if (hdr) { hdr.innerHTML = ''; hdr.style.display = 'none'; }
 
+   // Look up this store's custom domain from the white-label registry
+   var _storeDomain = (function() {
+      var reg = Object.assign({}, VENDOR_REGISTRY);
+      try {
+         var saved = getAdminSettings().vendorRegistry;
+         if (Array.isArray(saved)) saved.forEach(function(r) {
+            if (r.domain && r.vendorId) reg[r.domain.replace(/^www\./,'').toLowerCase()] = r;
+         });
+      } catch(e) {}
+      return Object.keys(reg).find(function(d) {
+         var v = reg[d];
+         return (v.vendorId || '').toLowerCase() === (p.id || '').toLowerCase();
+      }) || null;
+   })();
+
    // Build action buttons for inside the hero
    var rxBtn = (p.category === 'medical')
       ? '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Prescription</button>'
       : '';
    var backBtn = '<button class="store-hero-outline-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>';
+   var domainBtn = _storeDomain
+      ? '<a class="store-hero-outline-btn" href="https://' + _storeDomain + '" target="_blank" rel="noopener" title="Visit ' + _storeDomain + '">🌐 Visit Website ↗</a>'
+      : '';
    // Hero banner + trust badges (CSS classes, no inline styles)
    var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
    var sepaHero =
@@ -5090,7 +5108,7 @@ async function showStoreProvider(providerId) {
             '<p>' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? '&nbsp;&nbsp;📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
             '<div class="store-hero-actions">' +
                '<button class="shop-now-btn" onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
-               rxBtn + backBtn +
+               rxBtn + backBtn + domainBtn +
             '</div>' +
          '</div>' +
          '<div class="store-hero-image">' + heroEmoji + '</div>' +

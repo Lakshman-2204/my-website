@@ -5096,9 +5096,16 @@ async function showStoreProvider(providerId) {
       : '';
    // In white-label mode: no "back to platform" or "visit website" buttons
    var backBtn = window._wlMode ? '' : '<button class="store-hero-outline-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>';
-   var domainBtn = (!window._wlMode && _storeDomain)
-      ? '<a class="store-hero-outline-btn" href="https://' + _storeDomain + '" target="_blank" rel="noopener" title="Visit ' + _storeDomain + '">🌐 Visit Website ↗</a>'
-      : '';
+   var domainBtn = '';
+   if (!window._wlMode && _storeDomain) {
+      // Attach SSO token so the user stays logged in on the white-label domain
+      var _ssoSuffix = '';
+      try {
+         var _wlUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
+         if (_wlUser) _ssoSuffix = '?sso=' + btoa(unescape(encodeURIComponent(JSON.stringify(_wlUser))));
+      } catch(e) {}
+      domainBtn = '<a class="store-hero-outline-btn" href="https://' + _storeDomain + '/home.html' + _ssoSuffix + '" target="_blank" rel="noopener">🌐 Visit Website ↗</a>';
+   }
    // Hero banner + trust badges (CSS classes, no inline styles)
    var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
    var sepaHero =
@@ -5610,6 +5617,22 @@ async function _activateWhiteLabel(vendor) {
    window._wlMode = true;
    var navbar = document.getElementById('main-global-navbar');
    if (navbar) navbar.style.display = 'none';
+
+   // SSO: restore session passed from the platform via ?sso= token
+   try {
+      var _ssoRaw = new URLSearchParams(window.location.search).get('sso');
+      if (_ssoRaw && !sessionStorage.getItem('loggedInUser')) {
+         var _ssoUser = JSON.parse(decodeURIComponent(escape(atob(_ssoRaw))));
+         if (_ssoUser && _ssoUser.email) {
+            sessionStorage.setItem('loggedInUser', JSON.stringify(_ssoUser));
+         }
+      }
+      // Remove sso param from URL bar so it isn't bookmarked or shared
+      if (_ssoRaw) {
+         var _cleanUrl = window.location.pathname + window.location.search.replace(/[?&]sso=[^&]*/,'').replace(/^&/,'?');
+         history.replaceState(null, '', _cleanUrl || window.location.pathname);
+      }
+   } catch(e) {}
    var heroSec = document.getElementById('heroSection');
    if (heroSec) heroSec.style.display = 'none';
    // Show a minimal loading state so page isn't blank

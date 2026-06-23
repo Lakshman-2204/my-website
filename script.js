@@ -5533,6 +5533,30 @@ function showToast(msg) {
 
 // ── AUTH ──
 // ══════════════════════════════════════════════════════════
+//  THEME ENGINE
+// ══════════════════════════════════════════════════════════
+
+// Lighten (+%) or darken (-%) a hex colour. Returns hex string.
+function adjustColorBrightness(hex, percent) {
+   hex = hex.replace(/^#/, '');
+   if (hex.length === 3) hex = hex.split('').map(function(c){ return c+c; }).join('');
+   var num = parseInt(hex, 16);
+   var clamp = function(v){ return Math.min(255, Math.max(0, v)); };
+   var r = clamp((num >> 16)       + Math.round(255 * percent / 100));
+   var g = clamp((num >> 8 & 0xff) + Math.round(255 * percent / 100));
+   var b = clamp((num & 0xff)      + Math.round(255 * percent / 100));
+   return '#' + [r, g, b].map(function(v){ return v.toString(16).padStart(2,'0'); }).join('');
+}
+
+// Inject brand colour into CSS variable layer — called during white-label init.
+function applyStoreTheme(storeConfig) {
+   var primary = (storeConfig && (storeConfig.primaryColor || storeConfig.color)) || '#00a676';
+   document.documentElement.style.setProperty('--store-primary',       primary);
+   document.documentElement.style.setProperty('--store-primary-hover', adjustColorBrightness(primary, -20));
+   document.documentElement.style.setProperty('--store-bg-light',      adjustColorBrightness(primary, 90));
+}
+
+// ══════════════════════════════════════════════════════════
 //  WHITE-LABEL DOMAIN ROUTER
 //  Each shop owner who signs an agreement gets their custom
 //  domain added here. No other file needs to change.
@@ -5648,10 +5672,8 @@ async function _activateWhiteLabel(vendor) {
    var grid = document.getElementById('productsGrid');
    if (grid) grid.innerHTML = '<p style="text-align:center;padding:60px;color:#6b7280">Loading ' + vendor.brandName + '…</p>';
 
-   // 2. Apply brand color if provided
-   if (vendor.primaryColor) {
-      document.documentElement.style.setProperty('--brand-primary', vendor.primaryColor);
-   }
+   // 2. Apply brand theme (primary colour + auto-computed hover + bg-light tint)
+   applyStoreTheme(vendor);
 
    // 3. Update page title
    document.title = vendor.brandEmoji + ' ' + vendor.brandName
@@ -5691,6 +5713,7 @@ async function _activateWhiteLabel(vendor) {
       // Re-resolve vendor now that DB settings are loaded (admin-saved registry
       // was not available when initDomainRouter ran before initDB)
       var resolvedVendor = _resolveVendor() || vendor;
+      applyStoreTheme(resolvedVendor);   // reapply with DB colour (may differ from hardcoded)
 
       // Find store provider by owner_email match
       var sp = (_storeProvidersCache || []).find(function(x) {
@@ -6187,7 +6210,22 @@ function _wlRenderTable() {
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.vendorId) + '" placeholder="owner@email.com" oninput="_wlRows[' + i + '].vendorId=this.value"/></td>' +
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.brandName) + '" placeholder="Kumar Medical" oninput="_wlRows[' + i + '].brandName=this.value"/></td>' +
          '<td style="' + cellStyle + ';width:64px"><input style="' + inputStyle + ';text-align:center" value="' + _esc(r.brandEmoji) + '" placeholder="⚕️" oninput="_wlRows[' + i + '].brandEmoji=this.value"/></td>' +
-         '<td style="' + cellStyle + ';width:56px"><input type="color" style="width:40px;height:32px;padding:2px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer" value="' + (r.primaryColor || '#0ea5e9') + '" oninput="_wlRows[' + i + '].primaryColor=this.value"/></td>' +
+         '<td style="' + cellStyle + ';min-width:160px">' +
+            '<div style="display:flex;gap:6px;align-items:center">' +
+               '<input type="color" id="wlColor_' + i + '" value="' + (r.primaryColor || '#00a676') + '" ' +
+                  'style="width:36px;height:32px;padding:2px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;flex-shrink:0" ' +
+                  'oninput="_wlRows[' + i + '].primaryColor=this.value;document.getElementById(\'wlPreset_' + i + '\').value=\'custom\'" />' +
+               '<select id="wlPreset_' + i + '" style="flex:1;padding:5px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.78rem" ' +
+                  'onchange="var v=this.value;if(v!==\'custom\'){_wlRows[' + i + '].primaryColor=v;document.getElementById(\'wlColor_' + i + '\').value=v}">' +
+                  '<option value="custom">Custom</option>' +
+                  '<option value="#00a676" ' + (r.primaryColor==='#00a676'?'selected':'') + '>🟢 Teal Green</option>' +
+                  '<option value="#0284c7" ' + (r.primaryColor==='#0284c7'?'selected':'') + '>🔵 Clinical Blue</option>' +
+                  '<option value="#b91c1c" ' + (r.primaryColor==='#b91c1c'?'selected':'') + '>🔴 Emergency Red</option>' +
+                  '<option value="#7c3aed" ' + (r.primaryColor==='#7c3aed'?'selected':'') + '>🟣 Premium Purple</option>' +
+                  '<option value="#f59e0b" ' + (r.primaryColor==='#f59e0b'?'selected':'') + '>🟡 Amber Orange</option>' +
+               '</select>' +
+            '</div>' +
+         '</td>' +
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.heroTag) + '" placeholder="Upto 50% Off Today!!" oninput="_wlRows[' + i + '].heroTag=this.value"/></td>' +
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.heroSub) + '" placeholder="Best deals delivered to your door." oninput="_wlRows[' + i + '].heroSub=this.value"/></td>' +
          '<td style="' + cellStyle + ';width:36px;text-align:center"><button onclick="_wlDeleteRow(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:1rem;color:#ef4444" title="Remove">🗑️</button></td>' +

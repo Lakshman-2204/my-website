@@ -1,3 +1,9 @@
+:root {
+	--store-primary:       #00a676;
+	--store-primary-hover: #008055;
+	--store-bg-light:      #e6f7f4;
+}
+
 * {
 	box-sizing: border-box;
 	margin: 0;
@@ -849,15 +855,15 @@ body.guest .store-section-divider {
 }
 
 .subcat-sidebar-item:hover {
-	background: #f0fdf4;
-	color: #00a676;
+	background: var(--store-bg-light);
+	color: var(--store-primary);
 	font-weight: 600;
 }
 
 .subcat-sidebar-item.active {
-	background: #f0fdf4;
-	border-left-color: #00a676;
-	color: #00a676;
+	background: var(--store-bg-light);
+	border-left-color: var(--store-primary);
+	color: var(--store-primary);
 	font-weight: 700;
 }
 
@@ -8077,7 +8083,7 @@ body.profile-page { background: #e8edf5; }
 /* ── SEPA PHARMACY STYLE ELEMENTS ── */
 /* ── Store page: nav bar ── */
 .store-nav-bar {
-   background: #00a676;
+   background: var(--store-primary);
    color: #fff;
    padding: 14px 5%;
    display: flex;
@@ -8131,7 +8137,7 @@ body.profile-page { background: #e8edf5; }
 
 /* ── Store shop-now button (reused across hero and cart) ── */
 .shop-now-btn {
-   background-color: #00a676;
+   background-color: var(--store-primary);
    color: #fff;
    border: none;
    padding: 9px 22px;
@@ -8141,11 +8147,11 @@ body.profile-page { background: #e8edf5; }
    font-size: 0.88rem;
    transition: background 0.15s;
 }
-.shop-now-btn:hover { background-color: #008f67; }
+.shop-now-btn:hover { background-color: var(--store-primary-hover); }
 
 /* ── Store page: hero banner ── */
 .store-hero-banner {
-   background-color: #e6f7f4;
+   background-color: var(--store-bg-light);
    border-radius: 12px;
    padding: 28px 36px;
    display: flex;
@@ -8158,7 +8164,7 @@ body.profile-page { background: #e8edf5; }
 }
 .store-hero-text { flex: 1; min-width: 0; }
 .store-hero-text h4 {
-   color: #00a676;
+   color: var(--store-primary);
    margin: 0 0 6px 0;
    font-size: 0.78rem;
    font-weight: 700;
@@ -8225,7 +8231,7 @@ body.profile-page { background: #e8edf5; }
    gap: 10px;
    font-size: 12px;
 }
-.store-badge-icon { font-size: 22px; color: #00a676; flex-shrink: 0; }
+.store-badge-icon { font-size: 22px; color: var(--store-primary); flex-shrink: 0; }
 .store-badge-title { font-weight: 700; color: #004d40; font-size: 12px; }
 .store-badge-sub { color: #71717a; font-size: 11px; }
 

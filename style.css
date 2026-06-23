@@ -8174,10 +8174,28 @@ body.profile-page { background: #e8edf5; }
 }
 .store-hero-text p {
    color: #6b7280;
-   margin: 0 0 18px 0;
+   margin: 0 0 14px 0;
    font-size: 0.83rem;
    line-height: 1.5;
 }
+.store-hero-actions {
+   display: flex;
+   gap: 8px;
+   align-items: center;
+   flex-wrap: wrap;
+}
+.store-hero-outline-btn {
+   background: transparent;
+   color: #004d40;
+   border: 1.5px solid #00a676;
+   padding: 7px 14px;
+   border-radius: 6px;
+   font-weight: 600;
+   cursor: pointer;
+   font-size: 0.8rem;
+   transition: background 0.15s;
+}
+.store-hero-outline-btn:hover { background: rgba(0,166,118,0.1); }
 .store-hero-image {
    width: 130px;
    height: 130px;

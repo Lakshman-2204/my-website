@@ -5064,35 +5064,29 @@ async function showStoreProvider(providerId) {
          ? '<span style="color:#c62828;font-weight:600" title="The store owner has temporarily paused home delivery — orders are pickup-only right now">⏸ Delivery paused · pickup only</span>'
          : '<span style="color:#0a8a3a;font-weight:600">🚚 Home delivery</span>');
    }
-   // Store nav bar
+   // Clear the productsHeader — store nav is merged into hero below
    var hdr = document.getElementById('productsHeader');
-   if (hdr) {
-      var rxBtnNav = (p.category === 'medical')
-         ? '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Order via Prescription</button>'
-         : '';
-      hdr.innerHTML =
-         '<div class="store-nav-bar">' +
-            '<div class="store-nav-left">' +
-               '<div class="store-nav-name">' + (p.icon || meta.icon) + ' ' + p.name + '</div>' +
-               (p.tagline ? '<div class="store-nav-tagline">' + p.tagline + '</div>' : '') +
-            '</div>' +
-            '<div class="store-nav-actions">' +
-               rxBtnNav +
-               '<button class="store-nav-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>' +
-               '<button class="store-nav-btn store-nav-btn-dark" onclick="goHome()">🏠 Home</button>' +
-            '</div>' +
-         '</div>';
-   }
+   if (hdr) hdr.innerHTML = '';
+
+   // Build action buttons for inside the hero
+   var rxBtn = (p.category === 'medical')
+      ? '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Prescription</button>'
+      : '';
+   var backBtn = '<button class="store-hero-outline-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>';
+   var homeBtn = '<button class="store-hero-outline-btn" onclick="goHome()">🏠 Home</button>';
 
    // Hero banner + trust badges (CSS classes, no inline styles)
    var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
    var sepaHero =
       '<div class="store-hero-banner">' +
          '<div class="store-hero-text">' +
-            '<h4>' + (p.tagline || 'Exclusive Offers Today!!') + '</h4>' +
+            '<h4>' + (p.tagline || 'Open Now') + '</h4>' +
             '<h1>' + p.name + '</h1>' +
             '<p>' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? '&nbsp;&nbsp;📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
-            '<button class="shop-now-btn" onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
+            '<div class="store-hero-actions">' +
+               '<button class="shop-now-btn" onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
+               rxBtn + backBtn + homeBtn +
+            '</div>' +
          '</div>' +
          '<div class="store-hero-image">' + heroEmoji + '</div>' +
       '</div>' +

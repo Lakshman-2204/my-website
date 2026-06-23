@@ -6151,8 +6151,6 @@ async function refreshAndRenderUsers() {
    var fresh = await AppDB.getUsers();
    _db.users = fresh;
    renderUserList(_currentUserFilter || 'all');
-   _wlLoad();
-   _wlRenderTable();
 }
 
 // ── WHITE-LABEL DOMAIN REGISTRY GUI ──────────────────────
@@ -16297,7 +16295,7 @@ function showAdminToast(msg) {
 
 // ── ADMIN TABS ──
 async function switchAdminTab(tab) {
-   ['products', 'stores', 'catalog', 'orders', 'appointments', 'billing', 'settings', 'ads', 'users'].forEach(function(t) {
+   ['products', 'stores', 'catalog', 'orders', 'appointments', 'billing', 'settings', 'ads', 'users', 'whitelabel'].forEach(function(t) {
       var el  = document.getElementById('tab-' + t);
       var btn = document.getElementById('tab-' + t + '-btn');
       if (el)  el.classList.toggle('hidden', t !== tab);
@@ -16309,6 +16307,7 @@ async function switchAdminTab(tab) {
    if (tab === 'settings')     loadSettingsForm();
    if (tab === 'ads')          loadSettingsForm();
    if (tab === 'users')        refreshAndRenderUsers();
+   if (tab === 'whitelabel')   { _wlLoad(); _wlRenderTable(); }
    if (tab === 'stores')       switchStoreAdminSub('categories');
    if (tab === 'catalog')      { _catalogCurrentCat = null; _catalogItemsCache = []; document.getElementById('catalogItemsView').classList.add('hidden'); document.getElementById('catalogCategoriesView').classList.remove('hidden'); renderCatalogCategoriesGrid(); }
    if (tab === 'orders')       renderAdminOrders();

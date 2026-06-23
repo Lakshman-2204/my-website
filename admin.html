@@ -219,7 +219,8 @@
          <button class="admin-tab" id="tab-billing-btn" onclick="switchAdminTab('billing')">💰 Billing</button>
          <button class="admin-tab" id="tab-settings-btn" onclick="switchAdminTab('settings')">⚙️ Settings</button>
          <button class="admin-tab" id="tab-ads-btn"      onclick="switchAdminTab('ads')">📢 Ads</button>
-         <button class="admin-tab" id="tab-users-btn"    onclick="switchAdminTab('users')">👥 Users</button>
+         <button class="admin-tab" id="tab-users-btn"       onclick="switchAdminTab('users')">👥 Users</button>
+         <button class="admin-tab" id="tab-whitelabel-btn" onclick="switchAdminTab('whitelabel')">🌐 Domains</button>
       </div>
 
       <!-- PRODUCTS TAB -->
@@ -814,37 +815,43 @@
             </div>
          </div>
 
-         <!-- WHITE-LABEL DOMAIN REGISTRY -->
-         <div style="margin-top:28px">
-            <div class="settings-card">
-               <div class="settings-card-header" style="display:flex;align-items:center;justify-content:space-between">
-                  <span>🌐 White-Label Domain Registry</span>
-                  <div style="display:flex;gap:8px">
-                     <button onclick="_wlAddRow()" style="background:#0ea5e9;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer">+ Add Domain</button>
-                     <button onclick="_wlSave()" style="background:#16a34a;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer">💾 Save</button>
-                  </div>
-               </div>
-               <p style="font-size:0.78rem;color:#64748b;margin:10px 0 14px">Map shop owners' custom domains to their store. The router uses this to auto-load their store when visitors arrive on their domain. Test with <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px">?view=&lt;keyword&gt;</code> on GitHub Pages / localhost.</p>
+      </div>
 
-               <div style="overflow-x:auto">
-                  <table style="width:100%;border-collapse:collapse;font-size:0.82rem" id="wlDomainTable">
-                     <thead>
-                        <tr style="background:#f8fafc;text-align:left">
-                           <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Custom Domain</th>
-                           <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Owner Email</th>
-                           <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Brand Name</th>
-                           <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Emoji</th>
-                           <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Color</th>
-                           <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Hero Offer Line</th>
-                           <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Hero Subtitle</th>
-                           <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569"></th>
-                        </tr>
-                     </thead>
-                     <tbody id="wlDomainBody">
-                        <tr><td colspan="8" style="padding:20px;text-align:center;color:#94a3b8">No domains configured yet.</td></tr>
-                     </tbody>
-                  </table>
+      <!-- WHITE-LABEL TAB -->
+      <div id="tab-whitelabel" class="hidden">
+         <div class="admin-page-title">
+            <div class="admin-title-row">
+               <div>
+                  <h1>🌐 White-Label Domains</h1>
+                  <p>Map shop owners' custom domains to their store. The router auto-loads their store when visitors arrive on their domain.</p>
                </div>
+               <div style="display:flex;gap:8px">
+                  <button onclick="_wlAddRow()" class="btn-primary">+ Add Domain</button>
+                  <button onclick="_wlSave()" class="btn-save">💾 Save</button>
+               </div>
+            </div>
+         </div>
+
+         <div class="settings-card">
+            <p style="font-size:0.83rem;color:#64748b;margin:0 0 16px">Test any entry with <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">?view=&lt;keyword&gt;</code> on GitHub Pages / localhost before going live on a real domain.</p>
+            <div style="overflow-x:auto">
+               <table style="width:100%;border-collapse:collapse;font-size:0.82rem" id="wlDomainTable">
+                  <thead>
+                     <tr style="background:#f8fafc;text-align:left">
+                        <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Custom Domain</th>
+                        <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Owner Email</th>
+                        <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Brand Name</th>
+                        <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Emoji</th>
+                        <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Color</th>
+                        <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Hero Offer Line</th>
+                        <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569">Hero Subtitle</th>
+                        <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#475569"></th>
+                     </tr>
+                  </thead>
+                  <tbody id="wlDomainBody">
+                     <tr><td colspan="8" style="padding:20px;text-align:center;color:#94a3b8">No domains configured yet.</td></tr>
+                  </tbody>
+               </table>
             </div>
          </div>
       </div>

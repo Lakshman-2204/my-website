@@ -8134,55 +8134,58 @@ body.profile-page { background: #e8edf5; }
    background-color: #00a676;
    color: #fff;
    border: none;
-   padding: 12px 28px;
+   padding: 9px 22px;
    border-radius: 6px;
-   font-weight: bold;
+   font-weight: 700;
    cursor: pointer;
-   font-size: 15px;
+   font-size: 0.88rem;
    transition: background 0.15s;
 }
 .shop-now-btn:hover { background-color: #008f67; }
 
-/* ── Store page: hero banner (matches sepa_medical_website_2.html) ── */
+/* ── Store page: hero banner ── */
 .store-hero-banner {
    background-color: #e6f7f4;
    border-radius: 12px;
-   padding: 40px;
+   padding: 28px 36px;
    display: flex;
    justify-content: space-between;
    align-items: center;
-   gap: 20px;
-   min-height: 280px;
-   margin-bottom: 40px;
+   gap: 24px;
+   margin-bottom: 20px;
    position: relative;
    overflow: hidden;
 }
+.store-hero-text { flex: 1; min-width: 0; }
 .store-hero-text h4 {
    color: #00a676;
-   margin-bottom: 10px;
-   font-size: 16px;
+   margin: 0 0 6px 0;
+   font-size: 0.78rem;
    font-weight: 700;
+   text-transform: uppercase;
+   letter-spacing: 0.04em;
 }
 .store-hero-text h1 {
-   font-size: 36px;
+   font-size: 1.55rem;
    color: #004d40;
-   margin-bottom: 15px;
-   line-height: 1.2;
-   font-weight: 900;
+   margin: 0 0 8px 0;
+   line-height: 1.25;
+   font-weight: 800;
 }
 .store-hero-text p {
    color: #6b7280;
-   margin-bottom: 25px;
-   font-size: 14px;
+   margin: 0 0 18px 0;
+   font-size: 0.83rem;
+   line-height: 1.5;
 }
 .store-hero-image {
-   width: 220px;
-   height: 220px;
-   background: radial-gradient(circle, #ffe0b2 0%, transparent 70%);
+   width: 130px;
+   height: 130px;
+   background: radial-gradient(circle, #ffe0b2 60%, transparent 100%);
    display: flex;
    align-items: center;
    justify-content: center;
-   font-size: 80px;
+   font-size: 64px;
    border-radius: 50%;
    flex-shrink: 0;
 }
@@ -8191,28 +8194,28 @@ body.profile-page { background: #e8edf5; }
 .store-value-ribbon {
    display: grid;
    grid-template-columns: repeat(4, 1fr);
-   gap: 15px;
+   gap: 12px;
    background: #fff;
-   padding: 20px;
+   padding: 16px 20px;
    border-radius: 8px;
    border: 1px solid #e2e8f0;
-   margin-bottom: 40px;
+   margin-bottom: 24px;
 }
 .store-badge-item {
    display: flex;
    align-items: center;
-   gap: 12px;
-   font-size: 13px;
+   gap: 10px;
+   font-size: 12px;
 }
-.store-badge-icon { font-size: 24px; color: #00a676; }
-.store-badge-title { font-weight: bold; color: #004d40; }
-.store-badge-sub { color: #71717a; font-size: 12px; }
+.store-badge-icon { font-size: 22px; color: #00a676; flex-shrink: 0; }
+.store-badge-title { font-weight: 700; color: #004d40; font-size: 12px; }
+.store-badge-sub { color: #71717a; font-size: 11px; }
 
-@media (max-width: 768px) {
-   .store-hero-banner { flex-direction: column; min-height: auto; padding: 24px 20px; }
-   .store-hero-text h1 { font-size: 1.6rem; }
-   .store-hero-image { width: 120px; height: 120px; font-size: 56px; }
-   .store-value-ribbon { grid-template-columns: 1fr 1fr; }
+@media (max-width: 900px) {
+   .store-hero-banner { padding: 20px; gap: 16px; }
+   .store-hero-text h1 { font-size: 1.2rem; }
+   .store-hero-image { width: 90px; height: 90px; font-size: 44px; }
+   .store-value-ribbon { grid-template-columns: 1fr 1fr; gap: 10px; }
 }
 
 .sepa-discount-tag {

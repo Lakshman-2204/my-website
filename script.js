@@ -5776,7 +5776,10 @@ function initDomainRouter() {
 //  WHITE-LABEL FULL-PAGE STORE BUILDER
 // ══════════════════════════════════════════════════════════
 function buildWLPage(sp, vendor) {
-   // Collect all products for this store from the in-memory catalog
+   // Capitalize store name
+   var displayName = sp.name.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+
+   // Collect products grouped by category
    var storeCats = [];
    Object.entries(products).forEach(function(entry) {
       var catKey = entry[0], catData = entry[1];
@@ -5784,7 +5787,6 @@ function buildWLPage(sp, vendor) {
       if (items.length) storeCats.push({ catKey: catKey, title: catData.title, items: items });
    });
 
-   // Category emoji map
    var CAT_EMOJI = {
       medicines: '💊', medicine: '💊', health: '🏥', medical: '🏥',
       personalcare: '🧴', personalCare: '🧴', skincare: '🧴',
@@ -5795,75 +5797,153 @@ function buildWLPage(sp, vendor) {
    };
    function getCatEmoji(key) {
       if (CAT_EMOJI[key]) return CAT_EMOJI[key];
-      var k = key.toLowerCase();
+      var k = (key || '').toLowerCase();
       for (var ck in CAT_EMOJI) { if (k.includes(ck.toLowerCase())) return CAT_EMOJI[ck]; }
       return '🏪';
    }
-
-   // Capitalize each word of store name for display
-   var displayName = sp.name.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
-
-   // Build one product card
-   function wlCard(item, catKey) {
-      var pct = (item.mrp && item.price && item.mrp > item.price)
-         ? Math.round((1 - item.price / item.mrp) * 100) : 0;
-      // Vary count using multiple chars of item.id so each card differs
+   function starCount(item) {
       var idSum = (item.id || 'x').split('').reduce(function(s, c, i) { return s + c.charCodeAt(0) * (i + 1); }, 0);
-      var count = (idSum % 60) + 18;
-      var stars = count > 65 ? '★★★★★' : count > 45 ? '★★★★☆' : '★★★☆☆';
-      var imgHtml = item.image
-         ? '<img class="wl-card-img" src="' + item.image + '" alt="" onerror="this.parentNode.innerHTML=\'<div class=wl-card-emoji>' + getCatEmoji(catKey) + '</div>\'">'
-         : '<div class="wl-card-emoji">' + getCatEmoji(catKey) + '</div>';
+      return (idSum % 60) + 18;
+   }
+   function stars(item) {
+      var n = starCount(item);
+      return n > 65 ? '★★★★★' : n > 45 ? '★★★★☆' : '★★★☆☆';
+   }
+   function pct(item) {
+      return (item.mrp && item.price && item.mrp > item.price) ? Math.round((1 - item.price / item.mrp) * 100) : 0;
+   }
+   function imgOrEmoji(item, catKey, cls) {
+      var emoji = getCatEmoji(catKey);
+      if (item.image) return '<img class="' + cls + '" src="' + item.image + '" alt="" onerror="this.parentNode.innerHTML=\'<div class=wl-card-emoji>' + emoji + '</div>\'">';
+      return '<div class="wl-card-emoji">' + emoji + '</div>';
+   }
+
+   // ── Product card for horizontal scroll ──
+   function wlCard(item, catKey) {
+      var p = pct(item);
+      var cnt = starCount(item);
+      var safeId = (item.id || '').replace(/'/g, "\\'");
       var safeCat = (catKey || '').replace(/'/g, "\\'");
-      var safeId  = (item.id  || '').replace(/'/g, "\\'");
       return '<div class="wl-card">' +
-         '<div class="wl-card-img-wrap">' + imgHtml +
+         '<div class="wl-card-img-wrap">' +
+            imgOrEmoji(item, catKey, 'wl-card-img') +
             (item.badge ? '<span class="wl-card-badge-new">' + item.badge + '</span>' : '') +
-            (pct ? '<span class="wl-card-badge-pct">-' + pct + '%</span>' : '') +
+            (p ? '<span class="wl-card-badge-pct">-' + p + '%</span>' : '') +
+            '<button class="wl-card-wish" title="Wishlist">♡</button>' +
          '</div>' +
          '<div class="wl-card-body">' +
-            '<div class="wl-card-stars">' + stars + ' <span style="color:#94a3b8;font-size:0.7rem">(' + count + ')</span></div>' +
+            '<div class="wl-card-stars">' + stars(item) + ' <span style="color:#94a3b8;font-size:0.68rem">(' + cnt + ')</span></div>' +
             '<div class="wl-card-name">' + item.name + '</div>' +
             '<div class="wl-card-price-row">' +
                '<span class="wl-card-price">₹' + (item.price || item.mrp || 0) + '</span>' +
                (item.mrp && item.mrp > item.price ? '<span class="wl-card-mrp">₹' + item.mrp + '</span>' : '') +
             '</div>' +
-            '<button class="wl-card-add-btn" onclick="addToCart(\'' + safeId + '\',\'' + safeCat + '\')">' +
-               '🛒 Add to Cart' +
-            '</button>' +
+            '<button class="wl-card-add-btn" onclick="addToCart(\'' + safeId + '\',\'' + safeCat + '\')">🛒 Add to Cart</button>' +
+            '<div class="wl-card-links"><span>🔍 Quick View</span><span>♡ Wishlist</span></div>' +
          '</div>' +
       '</div>';
    }
 
-   // Category chips
-   var chips = '<div class="wl-cat-chip active" onclick="wlScrollToTop(this)"><span class="wl-cat-emoji">🏠</span><span>All</span></div>' +
-      storeCats.map(function(c) {
-         var secId = 'wl-sec-' + c.catKey;
-         return '<div class="wl-cat-chip" onclick="wlScrollToSection(\'' + secId + '\',this)">' +
-            '<span class="wl-cat-emoji">' + getCatEmoji(c.catKey) + '</span>' +
-            '<span>' + c.title + '</span>' +
+   // ── Horizontal scroll section ──
+   var _wlScrollIdx = 0;
+   function hScrollSection(c) {
+      var idx = _wlScrollIdx++;
+      var scrollId = 'wl-hscroll-' + idx;
+      return '<section class="wl-section" id="wl-sec-' + c.catKey + '">' +
+         '<div class="wl-section-header">' +
+            '<h2 class="wl-section-title">' + c.title + '</h2>' +
+            '<span class="wl-view-all">View All →</span>' +
+         '</div>' +
+         '<div class="wl-hscroll-wrap">' +
+            '<button class="wl-scroll-btn prev" onclick="wlScroll(\'' + scrollId + '\',-1)">‹</button>' +
+            '<div class="wl-hscroll" id="' + scrollId + '">' +
+               c.items.map(function(it) { return wlCard(it, c.catKey); }).join('') +
+            '</div>' +
+            '<button class="wl-scroll-btn next" onclick="wlScroll(\'' + scrollId + '\',1)">›</button>' +
+         '</div>' +
+      '</section>';
+   }
+
+   // ── Today's Deals featured section ──
+   var allItems = storeCats.length ? storeCats[0].items : [];
+   var catKey0  = storeCats.length ? storeCats[0].catKey : 'medicines';
+   var featuredHtml = '';
+   if (allItems.length >= 1) {
+      var feat = allItems[0];
+      var mini = allItems.slice(1, 5);
+      var fp = pct(feat);
+      var fsafe = (feat.id || '').replace(/'/g, "\\'");
+      var fcatsafe = catKey0.replace(/'/g, "\\'");
+      var featCard =
+         '<div class="wl-featured-card">' +
+            (feat.badge ? '<span class="wl-featured-badge-new">' + feat.badge + '</span>' : '') +
+            (fp ? '<span class="wl-featured-badge-pct">-' + fp + '%</span>' : '') +
+            '<div class="wl-featured-card-emoji">' + getCatEmoji(catKey0) + '</div>' +
+            '<div>' +
+               '<div class="wl-featured-stars">' + stars(feat) + ' <span style="color:#94a3b8;font-size:0.7rem">(' + starCount(feat) + ')</span></div>' +
+               '<div class="wl-featured-name">' + feat.name + '</div>' +
+               '<div class="wl-featured-price-row">' +
+                  '<span class="wl-featured-price">₹' + (feat.price || feat.mrp || 0) + '</span>' +
+                  (feat.mrp && feat.mrp > feat.price ? '<span class="wl-featured-mrp">₹' + feat.mrp + '</span>' : '') +
+               '</div>' +
+               '<button class="wl-featured-add" onclick="addToCart(\'' + fsafe + '\',\'' + fcatsafe + '\')">🛒 Add to Cart</button>' +
+            '</div>' +
+         '</div>';
+
+      var miniCards = mini.map(function(item) {
+         var mp = pct(item); var msafe = (item.id || '').replace(/'/g, "\\'");
+         return '<div class="wl-mini-card">' +
+            (item.badge ? '<span class="wl-mini-badge">' + item.badge + '</span>' : '') +
+            (mp ? '<span class="wl-mini-badge-pct">-' + mp + '%</span>' : '') +
+            '<div class="wl-mini-card-emoji">' + getCatEmoji(catKey0) + '</div>' +
+            '<div class="wl-mini-stars">' + stars(item) + '</div>' +
+            '<div class="wl-mini-name">' + item.name + '</div>' +
+            '<div class="wl-mini-price">₹' + (item.price || item.mrp || 0) + '</div>' +
+            (item.mrp && item.mrp > item.price ? '<div class="wl-mini-mrp">₹' + item.mrp + '</div>' : '') +
+            '<button class="wl-mini-add" onclick="addToCart(\'' + msafe + '\',\'' + fcatsafe + '\')">Add to Cart</button>' +
          '</div>';
       }).join('');
 
-   // Product sections
-   var sections = storeCats.length
-      ? storeCats.map(function(c) {
-         var visible = c.items.slice(0, 8);
-         return '<section class="wl-section" id="wl-sec-' + c.catKey + '">' +
-            '<div class="wl-section-header">' +
-               '<h2 class="wl-section-title">' + c.title + '</h2>' +
-               (c.items.length > 8 ? '<span class="wl-view-all">View All →</span>' : '') +
+      featuredHtml =
+         '<div class="wl-deals-section">' +
+            '<div class="wl-deals-header">' +
+               '<h2 class="wl-deals-title">Today\'s Picks</h2>' +
+               '<div class="wl-countdown">' +
+                  '<span class="wl-countdown-label">Sale ends in</span>' +
+                  '<span class="wl-countdown-seg" id="wl-cd-d">00</span>' +
+                  '<span class="wl-countdown-sep">:</span>' +
+                  '<span class="wl-countdown-seg" id="wl-cd-h">00</span>' +
+                  '<span class="wl-countdown-sep">:</span>' +
+                  '<span class="wl-countdown-seg" id="wl-cd-m">00</span>' +
+                  '<span class="wl-countdown-sep">:</span>' +
+                  '<span class="wl-countdown-seg" id="wl-cd-s">00</span>' +
+               '</div>' +
             '</div>' +
-            '<div class="wl-product-row">' + visible.map(function(it) { return wlCard(it, c.catKey); }).join('') + '</div>' +
-         '</section>';
-      }).join('')
-      : '<div style="text-align:center;padding:60px;color:#94a3b8"><div style="font-size:48px;margin-bottom:16px">📦</div><p>No products available yet.</p></div>';
+            '<div class="wl-deals-grid">' +
+               featCard +
+               '<div class="wl-mini-grid">' + (mini.length ? miniCards : '') + '</div>' +
+            '</div>' +
+         '</div>';
+   }
 
-   // Promo banners — use vendor heroTag/heroSub or sensible defaults
+   // ── Category chips ──
+   var chips = '<div class="wl-cat-chip active" onclick="wlScrollToTop(this)"><span class="wl-cat-emoji">🏠</span><span>All</span></div>' +
+      storeCats.map(function(c) {
+         return '<div class="wl-cat-chip" onclick="wlScrollToSection(\'wl-sec-' + c.catKey + '\',this)">' +
+            '<span class="wl-cat-emoji">' + getCatEmoji(c.catKey) + '</span><span>' + c.title + '</span>' +
+         '</div>';
+      }).join('');
+
+   // ── Product sections ──
+   var sections = storeCats.length
+      ? storeCats.map(hScrollSection).join('')
+      : '<div style="text-align:center;padding:48px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">📦</div><p>No products yet.</p></div>';
+
+   // ── Promo banners ──
    var promos = [
-      { bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '🚚', tag: 'Special Offer',     title: vendor.heroTag || 'Free Delivery',   sub: 'On orders over ₹499' },
-      { bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '📋', tag: 'Hassle-free',       title: 'Prescription Orders',               sub: 'Upload Rx to order instantly' },
-      { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', emoji: '🕐', tag: 'Always Available',  title: 'Open 24×7',       sub: 'Round the clock service for you' },
+      { bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '🚚', tag: 'Special Offer', title: vendor.heroTag || 'Free Delivery', sub: 'On orders over ₹499' },
+      { bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '📋', tag: 'Hassle-free', title: 'Prescription Orders', sub: 'Upload Rx to order instantly' },
+      { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', emoji: '🕐', tag: 'Always Available', title: 'Open 24×7', sub: 'Round the clock service' },
    ];
    var promoHtml = promos.map(function(b) {
       return '<div class="wl-promo-banner" data-emoji="' + b.emoji + '" style="background:' + b.bg + ';color:#fff">' +
@@ -5873,17 +5953,18 @@ function buildWLPage(sp, vendor) {
       '</div>';
    }).join('');
 
-   // Hero
+   // ── Hero ──
    var heroHtml =
+      '<div class="wl-announce">🚚 Free delivery on orders over ₹499 &nbsp;|&nbsp; 📋 Upload prescription for Rx medicines</div>' +
       '<div class="wl-hero">' +
          '<div class="wl-hero-inner">' +
             '<div class="wl-hero-text">' +
-               '<span class="wl-hero-tag">' + (vendor.heroTag || (sp.category === 'medical' ? '24×7 Pharmacy' : 'Open Now')) + '</span>' +
+               '<span class="wl-hero-tag">' + (sp.category === 'medical' ? '24×7 Pharmacy' : 'Open Now') + '</span>' +
                '<h1 class="wl-hero-title">' + displayName + '</h1>' +
-               '<p class="wl-hero-sub">' + (vendor.heroSub || sp.tagline || 'Quality products delivered to your doorstep') + '</p>' +
+               '<p class="wl-hero-sub">' + (vendor.heroSub || sp.tagline || 'Quality medicines delivered to your doorstep') + '</p>' +
                '<div class="wl-hero-actions">' +
                   '<button class="wl-btn-primary" onclick="document.getElementById(\'wl-sections\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
-                  (sp.category === 'medical' ? '<button class="wl-btn-outline" onclick="document.getElementById(\'rxBtn\') && document.getElementById(\'rxBtn\').click()">📋 Prescription</button>' : '') +
+                  (sp.category === 'medical' ? '<button class="wl-btn-outline">📋 Prescription</button>' : '') +
                '</div>' +
                '<div class="wl-hero-meta">' +
                   (sp.timing  ? '<span>🕐 ' + sp.timing  + '</span>' : '<span>🕐 Open 24×7</span>') +
@@ -5900,33 +5981,33 @@ function buildWLPage(sp, vendor) {
          '</div>' +
       '</div>';
 
-   // CTA + Footer
+   // ── CTA + Footer ──
    var footerHtml =
+      (sp.category === 'medical' ?
+         '<div class="wl-ask-bar">' +
+            '<div class="wl-ask-text"><h2>Ask your pharmacist, not the Internet.</h2><p>' + sp.address + (sp.timing ? ' · ' + sp.timing : '') + '</p></div>' +
+            '<button class="wl-ask-btn">📍 Visit Us</button>' +
+         '</div>' : '') +
       '<div class="wl-cta-bar">' +
          '<div class="wl-cta-content">' +
             '<div class="wl-cta-title">Visit ' + displayName + '</div>' +
-            '<div class="wl-cta-sub">' + (sp.address || '') + (sp.timing ? '  •  ' + sp.timing : '') + '</div>' +
-            '<button class="wl-cta-btn" onclick="window.open(\'https://maps.google.com?q=' + encodeURIComponent((sp.address || sp.name) + '') + '\',\'_blank\')">📍 Get Directions</button>' +
+            '<div class="wl-cta-sub">' + (sp.address || '') + (sp.timing ? ' · ' + sp.timing : '') + '</div>' +
+            '<button class="wl-cta-btn" onclick="window.open(\'https://maps.google.com?q=' + encodeURIComponent(sp.address || sp.name) + '\',\'_blank\')">📍 Get Directions</button>' +
          '</div>' +
       '</div>' +
       '<footer class="wl-footer">' +
          '<div class="wl-footer-grid">' +
             '<div>' +
                '<div class="wl-footer-brand-name">' + (vendor.brandEmoji || '💊') + ' ' + displayName + '</div>' +
-               '<div class="wl-footer-brand-desc">Your trusted store for quality products. Genuine items, doorstep delivery, and hassle-free returns.</div>' +
+               '<div class="wl-footer-brand-desc">Your trusted pharmacy for genuine medicines, doorstep delivery, and hassle-free returns.</div>' +
                '<div class="wl-footer-powered">Powered by <a href="#" onclick="return false">MyStore</a></div>' +
             '</div>' +
-            '<div>' +
-               '<div class="wl-footer-col-title">Working Hours</div>' +
-               '<div class="wl-footer-col-line"><span>🕐</span><span>' + (sp.timing || 'Open 24×7') + '</span></div>' +
-            '</div>' +
-            '<div>' +
-               '<div class="wl-footer-col-title">Contact</div>' +
+            '<div><div class="wl-footer-col-title">Working Hours</div><div class="wl-footer-col-line"><span>🕐</span><span>' + (sp.timing || 'Open 24×7') + '</span></div></div>' +
+            '<div><div class="wl-footer-col-title">Contact</div>' +
                (sp.address ? '<div class="wl-footer-col-line"><span>📍</span><span>' + sp.address + '</span></div>' : '') +
                (sp.phone   ? '<div class="wl-footer-col-line"><span>📞</span><span>' + sp.phone   + '</span></div>' : '') +
             '</div>' +
-            '<div>' +
-               '<div class="wl-footer-col-title">Services</div>' +
+            '<div><div class="wl-footer-col-title">Services</div>' +
                '<div class="wl-footer-col-line"><span>📦</span><span>Home Delivery</span></div>' +
                '<div class="wl-footer-col-line"><span>📋</span><span>Prescription Orders</span></div>' +
                '<div class="wl-footer-col-line"><span>🔁</span><span>Easy Returns</span></div>' +
@@ -5937,9 +6018,10 @@ function buildWLPage(sp, vendor) {
          '<div class="wl-footer-bottom">© 2026 ' + displayName + '. All rights reserved.</div>' +
       '</footer>';
 
-   // Assemble & inject
+   // ── Assemble ──
    var fullPage = heroHtml +
       '<div class="wl-cats-bar" id="wl-cats-bar">' + chips + '</div>' +
+      featuredHtml +
       '<div class="wl-sections" id="wl-sections">' + sections + '</div>' +
       '<div class="wl-promo-strip">' + promoHtml + '</div>' +
       footerHtml;
@@ -5952,7 +6034,6 @@ function buildWLPage(sp, vendor) {
    var pg = document.getElementById('productsGrid');
    if (pg) pg.style.display = 'none';
 
-   // Inject into a dedicated container appended to body
    var container = document.getElementById('wl-page-container');
    if (!container) {
       container = document.createElement('div');
@@ -5960,6 +6041,30 @@ function buildWLPage(sp, vendor) {
       document.body.appendChild(container);
    }
    container.innerHTML = fullPage;
+
+   // Start countdown timer (24h from now)
+   var end = Date.now() + 24 * 3600 * 1000;
+   (function tick() {
+      var rem = Math.max(0, end - Date.now());
+      var d = Math.floor(rem / 86400000);
+      var h = Math.floor((rem % 86400000) / 3600000);
+      var m = Math.floor((rem % 3600000) / 60000);
+      var s = Math.floor((rem % 60000) / 1000);
+      function pad(n) { return n < 10 ? '0' + n : '' + n; }
+      var dd = document.getElementById('wl-cd-d');
+      var dh = document.getElementById('wl-cd-h');
+      var dm = document.getElementById('wl-cd-m');
+      var ds = document.getElementById('wl-cd-s');
+      if (dd) dd.textContent = pad(d);
+      if (dh) dh.textContent = pad(h);
+      if (dm) dm.textContent = pad(m);
+      if (ds) ds.textContent = pad(s);
+      if (rem > 0 && document.getElementById('wl-cd-s')) setTimeout(tick, 1000);
+   })();
+}
+function wlScroll(id, dir) {
+   var el = document.getElementById(id);
+   if (el) el.scrollLeft += dir * 220;
 }
 
 function wlScrollToSection(secId, chip) {

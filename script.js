@@ -5573,6 +5573,9 @@ function applyStoreTheme(storeConfig) {
    document.documentElement.style.setProperty('--store-primary',       primary);
    document.documentElement.style.setProperty('--store-primary-hover', adjustColorBrightness(primary, -20));
    document.documentElement.style.setProperty('--store-bg-light',      adjustColorBrightness(primary, 90));
+   // Also update standalone WL nav background (it uses inline style so needs explicit update)
+   var wlNav = document.getElementById('_wl_nav');
+   if (wlNav) wlNav.style.background = primary;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -5704,7 +5707,7 @@ async function _activateWhiteLabel(vendor) {
       standaloneNav = document.createElement('div');
       standaloneNav.id = '_wl_nav';
       standaloneNav.style.cssText = [
-         'background:' + (vendor.primaryColor || '#1e293b'),
+         'background:var(--store-primary)',
          'color:#fff',
          'padding:12px 5%',
          'display:flex',

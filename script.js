@@ -1464,7 +1464,7 @@ function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
    // Reset theme to platform default when going home
-   applyStoreTheme({ primaryColor: '#00a676' });
+   applyStoreTheme({ primaryColor: '#00BCD4' });
    // Restore normal products header
    var hdr = document.getElementById('productsHeader');
    if (hdr) {
@@ -4976,7 +4976,7 @@ async function showStoreCategory(catKey) {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    // Reset theme back to platform default when leaving a store
-   applyStoreTheme({ primaryColor: '#00a676' });
+   applyStoreTheme({ primaryColor: '#00BCD4' });
    // Restore normal products header when going back to store list
    var hdr = document.getElementById('productsHeader');
    if (hdr) {
@@ -5122,7 +5122,7 @@ async function showStoreProvider(providerId) {
          } catch(e) {}
          return reg[_storeDomain] || null;
       })() : null;
-      applyStoreTheme(_storeVendorConfig || { primaryColor: '#00a676' });
+      applyStoreTheme(_storeVendorConfig || { primaryColor: '#00BCD4' });
    }
 
    // Hero banner + trust badges (CSS classes, no inline styles)
@@ -5319,7 +5319,7 @@ function showStoreProducts(storeId, storeName, opts) {
       : sn.indexOf('grocery') !== -1 || sn.indexOf('food') !== -1 ? '🛒'
       : sn.indexOf('flower') !== -1 ? '🌸'
       : sn.indexOf('electronic') !== -1 ? '💡' : '🏪';
-   var storeColor = (opts && opts.primaryColor) || '#00a676';
+   var storeColor = (opts && opts.primaryColor) || '#00BCD4';
    var hdr = document.getElementById('productsHeader');
    if (hdr) hdr.innerHTML =
       '<div class="store-nav-bar">' +
@@ -5569,7 +5569,7 @@ function adjustColorBrightness(hex, percent) {
 
 // Inject brand colour into CSS variable layer — called during white-label init.
 function applyStoreTheme(storeConfig) {
-   var primary = (storeConfig && (storeConfig.primaryColor || storeConfig.color)) || '#00a676';
+   var primary = (storeConfig && (storeConfig.primaryColor || storeConfig.color)) || '#00BCD4';
    document.documentElement.style.setProperty('--store-primary',       primary);
    document.documentElement.style.setProperty('--store-primary-hover', adjustColorBrightness(primary, -20));
    document.documentElement.style.setProperty('--store-bg-light',      adjustColorBrightness(primary, 90));
@@ -5601,7 +5601,7 @@ var VENDOR_REGISTRY = {
       vendorId:     'kumar@kumarmedical.com',
       brandName:    'Kumar Medical Store',
       brandEmoji:   '⚕️',
-      primaryColor: '#00a676',
+      primaryColor: '#00BCD4',
       titleSuffix:  'Home Delivery Pharmacy',
    },
    'laxmipharma.com': {
@@ -6543,7 +6543,7 @@ async function _wlLoadAndRender() {
       _wlRows = Object.keys(VENDOR_REGISTRY).map(function(domain) {
          var v = VENDOR_REGISTRY[domain];
          return { domain: domain, vendorId: v.vendorId, brandName: v.brandName,
-                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#00a676',
+                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#00BCD4',
                   heroTag: v.heroTag || '', heroSub: v.heroSub || '', titleSuffix: v.titleSuffix || '' };
       });
    }
@@ -6558,7 +6558,7 @@ function _wlLoad() {
       : Object.keys(VENDOR_REGISTRY).map(function(domain) {
          var v = VENDOR_REGISTRY[domain];
          return { domain: domain, vendorId: v.vendorId, brandName: v.brandName,
-                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#00a676',
+                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#00BCD4',
                   heroTag: v.heroTag || '', heroSub: v.heroSub || '', titleSuffix: v.titleSuffix || '' };
       });
 }
@@ -6580,13 +6580,13 @@ function _wlRenderTable() {
          '<td style="' + cellStyle + ';width:64px"><input style="' + inputStyle + ';text-align:center" value="' + _esc(r.brandEmoji) + '" placeholder="⚕️" oninput="_wlRows[' + i + '].brandEmoji=this.value"/></td>' +
          '<td style="' + cellStyle + ';min-width:160px">' +
             '<div style="display:flex;gap:6px;align-items:center">' +
-               '<input type="color" id="wlColor_' + i + '" value="' + (r.primaryColor || '#00a676') + '" ' +
+               '<input type="color" id="wlColor_' + i + '" value="' + (r.primaryColor || '#00BCD4') + '" ' +
                   'style="width:36px;height:32px;padding:2px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;flex-shrink:0" ' +
                   'oninput="_wlRows[' + i + '].primaryColor=this.value;document.getElementById(\'wlPreset_' + i + '\').value=\'custom\'" />' +
                '<select id="wlPreset_' + i + '" style="flex:1;padding:5px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.78rem" ' +
                   'onchange="var v=this.value;if(v!==\'custom\'){_wlRows[' + i + '].primaryColor=v;document.getElementById(\'wlColor_' + i + '\').value=v}">' +
                   '<option value="custom">Custom</option>' +
-                  '<option value="#00a676" ' + (r.primaryColor==='#00a676'?'selected':'') + '>🟢 Teal Green</option>' +
+                  '<option value="#00BCD4" ' + (r.primaryColor==='#00BCD4'?'selected':'') + '>🩵 Cyan Blue</option>' +
                   '<option value="#0284c7" ' + (r.primaryColor==='#0284c7'?'selected':'') + '>🔵 Clinical Blue</option>' +
                   '<option value="#b91c1c" ' + (r.primaryColor==='#b91c1c'?'selected':'') + '>🔴 Emergency Red</option>' +
                   '<option value="#7c3aed" ' + (r.primaryColor==='#7c3aed'?'selected':'') + '>🟣 Premium Purple</option>' +

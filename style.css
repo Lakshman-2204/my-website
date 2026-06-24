@@ -8310,126 +8310,127 @@ body.profile-page { background: #e8edf5; }
    display: flex;
    align-items: center;
    justify-content: space-between;
-   padding: 56px 6% 44px;
-   gap: 40px;
+   padding: 30px 5% 28px;
+   gap: 24px;
    max-width: 1280px;
    margin: 0 auto;
    position: relative;
    z-index: 1;
+   min-height: 220px;
 }
 .wl-hero-text { flex: 1; min-width: 0; }
 .wl-hero-tag {
    display: inline-block;
-   background: rgba(255,255,255,0.2);
-   padding: 5px 16px;
-   border-radius: 30px;
-   font-size: 0.7rem;
+   background: rgba(255,255,255,0.22);
+   padding: 3px 12px;
+   border-radius: 20px;
+   font-size: 0.67rem;
    font-weight: 800;
-   letter-spacing: 0.1em;
+   letter-spacing: 0.09em;
    text-transform: uppercase;
-   margin-bottom: 18px;
+   margin-bottom: 10px;
 }
 .wl-hero-title {
-   font-size: 2.8rem;
+   font-size: 2.1rem;
    font-weight: 900;
-   margin: 0 0 14px;
-   line-height: 1.08;
+   margin: 0 0 8px;
+   line-height: 1.1;
 }
 .wl-hero-sub {
-   font-size: 1.02rem;
-   opacity: 0.88;
-   margin: 0 0 28px;
-   line-height: 1.55;
-   max-width: 460px;
+   font-size: 0.9rem;
+   opacity: 0.86;
+   margin: 0 0 18px;
+   line-height: 1.5;
+   max-width: 420px;
 }
-.wl-hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 26px; }
+.wl-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .wl-btn-primary {
    background: #fff;
    color: var(--store-primary);
    border: none;
-   padding: 13px 30px;
-   border-radius: 30px;
+   padding: 10px 24px;
+   border-radius: 24px;
    font-weight: 800;
-   font-size: 0.95rem;
+   font-size: 0.88rem;
    cursor: pointer;
-   box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+   box-shadow: 0 3px 12px rgba(0,0,0,0.16);
    transition: transform 0.15s, box-shadow 0.15s;
 }
-.wl-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.22); }
+.wl-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 18px rgba(0,0,0,0.2); }
 .wl-btn-outline {
    background: rgba(255,255,255,0.15);
    color: #fff;
-   border: 2px solid rgba(255,255,255,0.55);
-   padding: 11px 24px;
-   border-radius: 30px;
+   border: 1.5px solid rgba(255,255,255,0.55);
+   padding: 9px 20px;
+   border-radius: 24px;
    font-weight: 700;
-   font-size: 0.9rem;
+   font-size: 0.85rem;
    cursor: pointer;
    transition: background 0.15s;
 }
 .wl-btn-outline:hover { background: rgba(255,255,255,0.28); }
-.wl-hero-meta { display: flex; gap: 20px; font-size: 0.82rem; opacity: 0.78; flex-wrap: wrap; }
+.wl-hero-meta { display: flex; gap: 16px; font-size: 0.78rem; opacity: 0.78; flex-wrap: wrap; }
 .wl-hero-visual {
-   font-size: 110px;
-   width: 220px; height: 220px;
-   background: rgba(255,255,255,0.14);
+   font-size: 90px;
+   width: 170px; height: 170px;
+   background: rgba(255,255,255,0.12);
    border-radius: 50%;
    display: flex; align-items: center; justify-content: center;
    flex-shrink: 0;
-   box-shadow: 0 8px 40px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.2);
+   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
 }
 
 /* ── Trust strip inside hero ── */
 .wl-trust-strip {
-   background: rgba(0,0,0,0.14);
+   background: rgba(0,0,0,0.13);
    display: grid;
    grid-template-columns: repeat(4, 1fr);
-   padding: 14px 6%;
+   padding: 10px 5%;
    position: relative; z-index: 1;
 }
 .wl-trust-item {
-   display: flex; align-items: center; gap: 12px;
-   justify-content: center; padding: 6px;
+   display: flex; align-items: center; gap: 10px;
+   justify-content: center; padding: 4px;
 }
-.wl-trust-icon { font-size: 1.5rem; flex-shrink: 0; }
-.wl-trust-label { font-weight: 700; font-size: 0.82rem; }
-.wl-trust-sub { font-size: 0.7rem; opacity: 0.72; margin-top: 1px; }
+.wl-trust-icon { font-size: 1.3rem; flex-shrink: 0; }
+.wl-trust-label { font-weight: 700; font-size: 0.78rem; }
+.wl-trust-sub { font-size: 0.66rem; opacity: 0.72; margin-top: 1px; }
 
 /* ── Category chips bar ── */
 .wl-cats-bar {
-   display: flex; gap: 10px;
-   padding: 16px 5%;
+   display: flex; gap: 8px;
+   padding: 10px 5%;
    overflow-x: auto;
    background: #fff;
    border-bottom: 1px solid #f1f5f9;
    scrollbar-width: none;
    position: sticky; top: 52px; z-index: 100;
-   box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+   align-items: center;
 }
 .wl-cats-bar::-webkit-scrollbar { display: none; }
 .wl-cat-chip {
-   display: flex; flex-direction: column; align-items: center; gap: 5px;
-   padding: 10px 18px;
-   border-radius: 14px;
+   display: flex; flex-direction: row; align-items: center; gap: 6px;
+   padding: 6px 14px;
+   border-radius: 20px;
    cursor: pointer;
    transition: background 0.15s, color 0.15s, border-color 0.15s;
    white-space: nowrap;
-   font-size: 0.74rem; font-weight: 600; color: #64748b;
-   border: 1.5px solid transparent;
-   min-width: 76px;
+   font-size: 0.78rem; font-weight: 600; color: #64748b;
+   border: 1.5px solid #e2e8f0;
    flex-shrink: 0;
 }
-.wl-cat-chip:hover { background: var(--store-bg-light); color: var(--store-primary); }
+.wl-cat-chip:hover { background: var(--store-bg-light); color: var(--store-primary); border-color: var(--store-primary); }
 .wl-cat-chip.active {
-   background: var(--store-bg-light);
-   color: var(--store-primary);
+   background: var(--store-primary);
+   color: #fff;
    border-color: var(--store-primary);
 }
-.wl-cat-emoji { font-size: 1.55rem; line-height: 1; }
+.wl-cat-emoji { font-size: 1rem; line-height: 1; }
 
 /* ── Product sections ── */
-.wl-sections { background: #f8fafc; padding: 0 5% 32px; }
-.wl-section { padding: 36px 0 4px; }
+.wl-sections { background: #f8fafc; padding: 0 5% 20px; }
+.wl-section { padding: 24px 0 4px; }
 .wl-section-header {
    display: flex; align-items: flex-end; justify-content: space-between;
    margin-bottom: 18px;
@@ -8511,11 +8512,11 @@ body.profile-page { background: #e8edf5; }
 /* ── Promo banners ── */
 .wl-promo-strip {
    display: grid; grid-template-columns: repeat(3, 1fr);
-   gap: 16px; padding: 8px 5% 32px; background: #f8fafc;
+   gap: 14px; padding: 4px 5% 20px; background: #f8fafc;
 }
 .wl-promo-banner {
-   border-radius: 16px; padding: 28px 24px 24px;
-   min-height: 150px; display: flex; flex-direction: column;
+   border-radius: 14px; padding: 22px 20px 18px;
+   min-height: 120px; display: flex; flex-direction: column;
    justify-content: flex-end; cursor: pointer;
    transition: transform 0.2s, box-shadow 0.2s;
    box-shadow: 0 4px 18px rgba(0,0,0,0.12);
@@ -8534,7 +8535,7 @@ body.profile-page { background: #e8edf5; }
 /* ── CTA bar ── */
 .wl-cta-bar {
    background: linear-gradient(135deg, var(--store-primary) 0%, var(--store-primary-hover) 100%);
-   color: #fff; text-align: center; padding: 64px 5%;
+   color: #fff; text-align: center; padding: 40px 5%;
    position: relative; overflow: hidden;
 }
 .wl-cta-bar::before {
@@ -8557,10 +8558,10 @@ body.profile-page { background: #e8edf5; }
 .wl-cta-btn:hover { transform: translateY(-2px); }
 
 /* ── Footer ── */
-.wl-footer { background: #0f172a; color: #94a3b8; padding: 52px 5% 24px; }
+.wl-footer { background: #0f172a; color: #94a3b8; padding: 36px 5% 20px; }
 .wl-footer-grid {
    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
-   gap: 36px; margin-bottom: 44px;
+   gap: 28px; margin-bottom: 28px;
 }
 .wl-footer-brand-name { font-size: 1.18rem; font-weight: 800; color: #f1f5f9; margin: 0 0 10px; }
 .wl-footer-brand-desc { font-size: 0.82rem; line-height: 1.65; margin: 0 0 14px; }
@@ -8573,9 +8574,9 @@ body.profile-page { background: #e8edf5; }
 
 /* ── Responsive ── */
 @media (max-width: 960px) {
-   .wl-hero-inner { flex-direction: column; padding: 36px 5% 24px; text-align: center; }
-   .wl-hero-title { font-size: 2.1rem; }
-   .wl-hero-visual { width: 130px; height: 130px; font-size: 64px; }
+   .wl-hero-inner { flex-direction: column; padding: 22px 5% 18px; text-align: center; min-height: unset; }
+   .wl-hero-title { font-size: 1.7rem; }
+   .wl-hero-visual { width: 100px; height: 100px; font-size: 52px; }
    .wl-hero-sub { margin-left: auto; margin-right: auto; }
    .wl-hero-actions { justify-content: center; }
    .wl-hero-meta { justify-content: center; }

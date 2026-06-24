@@ -5888,7 +5888,7 @@ function buildWLPage(sp, vendor) {
          '<div class="wl-featured-card">' +
             (feat.badge ? '<span class="wl-featured-badge-new">' + feat.badge + '</span>' : '') +
             (fp ? '<span class="wl-featured-badge-pct">-' + fp + '%</span>' : '') +
-            '<div class="wl-featured-card-emoji">' + getCatEmoji(catKey0) + '</div>' +
+            '<div class="wl-featured-card-img-area"><div class="wl-featured-card-emoji">' + getCatEmoji(catKey0) + '</div></div>' +
             '<div>' +
                '<div class="wl-featured-stars">' + stars(feat) + ' <span style="color:#94a3b8;font-size:0.7rem">(' + starCount(feat) + ')</span></div>' +
                '<div class="wl-featured-name">' + feat.name + '</div>' +
@@ -5905,7 +5905,7 @@ function buildWLPage(sp, vendor) {
          return '<div class="wl-mini-card">' +
             (item.badge ? '<span class="wl-mini-badge">' + item.badge + '</span>' : '') +
             (mp ? '<span class="wl-mini-badge-pct">-' + mp + '%</span>' : '') +
-            '<div class="wl-mini-card-emoji">' + getCatEmoji(catKey0) + '</div>' +
+            '<div class="wl-mini-card-img-area"><div class="wl-mini-card-emoji">' + getCatEmoji(catKey0) + '</div></div>' +
             '<div class="wl-mini-stars">' + stars(item) + '</div>' +
             '<div class="wl-mini-name">' + item.name + '</div>' +
             '<div class="wl-mini-price">₹' + (item.price || item.mrp || 0) + '</div>' +

@@ -5573,9 +5573,11 @@ function applyStoreTheme(storeConfig) {
    document.documentElement.style.setProperty('--store-primary',       primary);
    document.documentElement.style.setProperty('--store-primary-hover', adjustColorBrightness(primary, -20));
    document.documentElement.style.setProperty('--store-bg-light',      adjustColorBrightness(primary, 90));
-   // Also update standalone WL nav background (it uses inline style so needs explicit update)
+   // Also update standalone WL nav + announce bar (inline styles need explicit update)
    var wlNav = document.getElementById('_wl_nav');
    if (wlNav) wlNav.style.background = primary;
+   var wlAnn = document.getElementById('_wl_announce');
+   if (wlAnn) wlAnn.style.background = primary;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -5701,7 +5703,14 @@ async function _activateWhiteLabel(vendor) {
    document.title = vendor.brandEmoji + ' ' + vendor.brandName
       + (vendor.titleSuffix ? ' | ' + vendor.titleSuffix : '');
 
-   // 4. Inject a minimal standalone nav bar so the store is still navigable
+   // 4. Inject announcement bar + sticky nav at the very top
+   if (!document.getElementById('_wl_announce')) {
+      var announceBar = document.createElement('div');
+      announceBar.id = '_wl_announce';
+      announceBar.style.cssText = 'background:var(--store-primary);color:#fff;text-align:center;font-size:0.75rem;font-weight:700;padding:7px 5%;letter-spacing:0.03em;position:relative;z-index:201';
+      announceBar.innerHTML = '🚚 Free delivery on orders over ₹499 &nbsp;|&nbsp; 📋 Upload prescription for Rx medicines';
+      document.body.insertBefore(announceBar, document.body.firstChild);
+   }
    var standaloneNav = document.getElementById('_wl_nav');
    if (!standaloneNav) {
       standaloneNav = document.createElement('div');
@@ -5724,7 +5733,8 @@ async function _activateWhiteLabel(vendor) {
          '<span>' + vendor.brandEmoji + ' ' + vendor.brandName + '</span>' +
          '<span id="_wl_cart" style="cursor:pointer;font-size:0.85rem;background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px" ' +
          'onclick="document.getElementById(\'cartBtn\') && document.getElementById(\'cartBtn\').click()">🛒 Cart</span>';
-      document.body.insertBefore(standaloneNav, document.body.firstChild);
+      var ann = document.getElementById('_wl_announce');
+      document.body.insertBefore(standaloneNav, ann ? ann.nextSibling : document.body.firstChild);
    }
 
    // 5. Wait for DB + products to load, then open the vendor's store directly
@@ -5955,7 +5965,6 @@ function buildWLPage(sp, vendor) {
 
    // ── Hero ──
    var heroHtml =
-      '<div class="wl-announce">🚚 Free delivery on orders over ₹499 &nbsp;|&nbsp; 📋 Upload prescription for Rx medicines</div>' +
       '<div class="wl-hero">' +
          '<div class="wl-hero-inner">' +
             '<div class="wl-hero-text">' +
@@ -6038,7 +6047,13 @@ function buildWLPage(sp, vendor) {
    if (!container) {
       container = document.createElement('div');
       container.id = 'wl-page-container';
-      document.body.appendChild(container);
+      // Insert right after the standalone nav so announce bar sits above nav
+      var wlNav = document.getElementById('_wl_nav');
+      if (wlNav && wlNav.nextSibling) {
+         document.body.insertBefore(container, wlNav.nextSibling);
+      } else {
+         document.body.appendChild(container);
+      }
    }
    container.innerHTML = fullPage;
 

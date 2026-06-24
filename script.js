@@ -5743,7 +5743,7 @@ async function _activateWhiteLabel(vendor) {
       });
 
       if (sp) {
-         showStoreProvider(sp.id);
+         buildWLPage(sp, resolvedVendor);
       } else {
          // No matching store provider found — show a clear message
          document.getElementById('heroSection') && document.getElementById('heroSection').classList.add('hidden');
@@ -5770,6 +5770,203 @@ function initDomainRouter() {
       return true;   // white-label mode active
    }
    return false;     // normal platform mode
+}
+
+// ══════════════════════════════════════════════════════════
+//  WHITE-LABEL FULL-PAGE STORE BUILDER
+// ══════════════════════════════════════════════════════════
+function buildWLPage(sp, vendor) {
+   // Collect all products for this store from the in-memory catalog
+   var storeCats = [];
+   Object.entries(products).forEach(function(entry) {
+      var catKey = entry[0], catData = entry[1];
+      var items = catData.items.filter(function(it) { return it.store_provider_id === sp.id; });
+      if (items.length) storeCats.push({ catKey: catKey, title: catData.title, items: items });
+   });
+
+   // Category emoji map
+   var CAT_EMOJI = {
+      medicines: '💊', medicine: '💊', health: '🏥', medical: '🏥',
+      personalcare: '🧴', personalCare: '🧴', skincare: '🧴',
+      babycare: '👶', vitamins: '🌿', supplements: '💪',
+      dental: '🦷', eye: '👁️', cardiac: '❤️', diabetes: '🩺',
+      surgical: '🩹', grocery: '🛒', groceries: '🛒',
+      beverages: '☕', snacks: '🍿', dairy: '🥛', vegetables: '🥦',
+   };
+   function getCatEmoji(key) {
+      if (CAT_EMOJI[key]) return CAT_EMOJI[key];
+      var k = key.toLowerCase();
+      for (var ck in CAT_EMOJI) { if (k.includes(ck.toLowerCase())) return CAT_EMOJI[ck]; }
+      return '🏪';
+   }
+
+   // Build one product card
+   function wlCard(item, catKey) {
+      var pct = (item.mrp && item.price && item.mrp > item.price)
+         ? Math.round((1 - item.price / item.mrp) * 100) : 0;
+      var count = (item.id ? item.id.charCodeAt(0) % 60 : 20) + 18;
+      var stars = count > 55 ? '★★★★★' : count > 35 ? '★★★★☆' : '★★★☆☆';
+      var imgHtml = item.image
+         ? '<img class="wl-card-img" src="' + item.image + '" alt="" onerror="this.parentNode.innerHTML=\'<div class=wl-card-emoji>' + getCatEmoji(catKey) + '</div>\'">'
+         : '<div class="wl-card-emoji">' + getCatEmoji(catKey) + '</div>';
+      var safeCat = (catKey || '').replace(/'/g, "\\'");
+      var safeId  = (item.id  || '').replace(/'/g, "\\'");
+      return '<div class="wl-card">' +
+         '<div class="wl-card-img-wrap">' + imgHtml +
+            (item.badge ? '<span class="wl-card-badge-new">' + item.badge + '</span>' : '') +
+            (pct ? '<span class="wl-card-badge-pct">-' + pct + '%</span>' : '') +
+         '</div>' +
+         '<div class="wl-card-body">' +
+            '<div class="wl-card-stars">' + stars + ' <span style="color:#94a3b8;font-size:0.7rem">(' + count + ')</span></div>' +
+            '<div class="wl-card-name">' + item.name + '</div>' +
+            '<div class="wl-card-price-row">' +
+               '<span class="wl-card-price">₹' + (item.price || item.mrp || 0) + '</span>' +
+               (item.mrp && item.mrp > item.price ? '<span class="wl-card-mrp">₹' + item.mrp + '</span>' : '') +
+            '</div>' +
+            '<button class="wl-card-add-btn" onclick="addToCart(\'' + safeId + '\',\'' + safeCat + '\')">' +
+               '🛒 Add to Cart' +
+            '</button>' +
+         '</div>' +
+      '</div>';
+   }
+
+   // Category chips
+   var chips = '<div class="wl-cat-chip active" onclick="wlScrollToTop(this)"><span class="wl-cat-emoji">🏠</span><span>All</span></div>' +
+      storeCats.map(function(c) {
+         var secId = 'wl-sec-' + c.catKey;
+         return '<div class="wl-cat-chip" onclick="wlScrollToSection(\'' + secId + '\',this)">' +
+            '<span class="wl-cat-emoji">' + getCatEmoji(c.catKey) + '</span>' +
+            '<span>' + c.title + '</span>' +
+         '</div>';
+      }).join('');
+
+   // Product sections
+   var sections = storeCats.length
+      ? storeCats.map(function(c) {
+         var visible = c.items.slice(0, 8);
+         return '<section class="wl-section" id="wl-sec-' + c.catKey + '">' +
+            '<div class="wl-section-header">' +
+               '<h2 class="wl-section-title">' + c.title + '</h2>' +
+               (c.items.length > 8 ? '<span class="wl-view-all">View All →</span>' : '') +
+            '</div>' +
+            '<div class="wl-product-row">' + visible.map(function(it) { return wlCard(it, c.catKey); }).join('') + '</div>' +
+         '</section>';
+      }).join('')
+      : '<div style="text-align:center;padding:60px;color:#94a3b8"><div style="font-size:48px;margin-bottom:16px">📦</div><p>No products available yet.</p></div>';
+
+   // Promo banners — use vendor heroTag/heroSub or sensible defaults
+   var promos = [
+      { bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '🚚', tag: 'Special Offer',     title: vendor.heroTag || 'Free Delivery',   sub: 'On orders over ₹499' },
+      { bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '📋', tag: 'Hassle-free',       title: 'Prescription Orders',               sub: 'Upload Rx to order instantly' },
+      { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', emoji: '🕐', tag: 'Always Available',  title: vendor.heroSub || 'Open 24x7',       sub: sp.timing || 'Round the clock' },
+   ];
+   var promoHtml = promos.map(function(b) {
+      return '<div class="wl-promo-banner" data-emoji="' + b.emoji + '" style="background:' + b.bg + ';color:#fff">' +
+         '<div class="wl-promo-tag">' + b.tag + '</div>' +
+         '<div class="wl-promo-title">' + b.title + '</div>' +
+         '<div class="wl-promo-sub">' + b.sub + '</div>' +
+      '</div>';
+   }).join('');
+
+   // Hero
+   var heroHtml =
+      '<div class="wl-hero">' +
+         '<div class="wl-hero-inner">' +
+            '<div class="wl-hero-text">' +
+               '<span class="wl-hero-tag">' + (vendor.heroTag || (sp.category === 'medical' ? '24×7 Pharmacy' : 'Open Now')) + '</span>' +
+               '<h1 class="wl-hero-title">' + sp.name + '</h1>' +
+               '<p class="wl-hero-sub">' + (vendor.heroSub || sp.tagline || 'Quality products delivered to your doorstep') + '</p>' +
+               '<div class="wl-hero-actions">' +
+                  '<button class="wl-btn-primary" onclick="document.getElementById(\'wl-sections\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
+                  (sp.category === 'medical' ? '<button class="wl-btn-outline" onclick="document.getElementById(\'rxBtn\') && document.getElementById(\'rxBtn\').click()">📋 Prescription</button>' : '') +
+               '</div>' +
+               '<div class="wl-hero-meta">' +
+                  (sp.timing  ? '<span>🕐 ' + sp.timing  + '</span>' : '<span>🕐 Open 24×7</span>') +
+                  (sp.address ? '<span>📍 ' + sp.address + '</span>' : '') +
+               '</div>' +
+            '</div>' +
+            '<div class="wl-hero-visual">' + (vendor.brandEmoji || '💊') + '</div>' +
+         '</div>' +
+         '<div class="wl-trust-strip">' +
+            '<div class="wl-trust-item"><span class="wl-trust-icon">🚚</span><div><div class="wl-trust-label">Free Delivery</div><div class="wl-trust-sub">On orders over ₹499</div></div></div>' +
+            '<div class="wl-trust-item"><span class="wl-trust-icon">↩️</span><div><div class="wl-trust-label">7 Days Returns</div><div class="wl-trust-sub">On damaged items</div></div></div>' +
+            '<div class="wl-trust-item"><span class="wl-trust-icon">🔒</span><div><div class="wl-trust-label">Secure Checkout</div><div class="wl-trust-sub">100% protected</div></div></div>' +
+            '<div class="wl-trust-item"><span class="wl-trust-icon">🎁</span><div><div class="wl-trust-label">Offers & Gifts</div><div class="wl-trust-sub">On festivals & events</div></div></div>' +
+         '</div>' +
+      '</div>';
+
+   // CTA + Footer
+   var footerHtml =
+      '<div class="wl-cta-bar">' +
+         '<div class="wl-cta-content">' +
+            '<div class="wl-cta-title">Visit ' + sp.name + '</div>' +
+            '<div class="wl-cta-sub">' + (sp.address || '') + (sp.timing ? '  •  ' + sp.timing : '') + '</div>' +
+            '<button class="wl-cta-btn" onclick="window.open(\'https://maps.google.com?q=' + encodeURIComponent((sp.address || sp.name) + '') + '\',\'_blank\')">📍 Get Directions</button>' +
+         '</div>' +
+      '</div>' +
+      '<footer class="wl-footer">' +
+         '<div class="wl-footer-grid">' +
+            '<div>' +
+               '<div class="wl-footer-brand-name">' + (vendor.brandEmoji || '💊') + ' ' + sp.name + '</div>' +
+               '<div class="wl-footer-brand-desc">Your trusted store for quality products. Genuine items, doorstep delivery, and hassle-free returns.</div>' +
+               '<div class="wl-footer-powered">Powered by <a href="#" onclick="return false">MyStore</a></div>' +
+            '</div>' +
+            '<div>' +
+               '<div class="wl-footer-col-title">Working Hours</div>' +
+               '<div class="wl-footer-col-line"><span>🕐</span><span>' + (sp.timing || 'Open 24×7') + '</span></div>' +
+            '</div>' +
+            '<div>' +
+               '<div class="wl-footer-col-title">Contact</div>' +
+               (sp.address ? '<div class="wl-footer-col-line"><span>📍</span><span>' + sp.address + '</span></div>' : '') +
+               (sp.phone   ? '<div class="wl-footer-col-line"><span>📞</span><span>' + sp.phone   + '</span></div>' : '') +
+            '</div>' +
+            '<div>' +
+               '<div class="wl-footer-col-title">Services</div>' +
+               '<div class="wl-footer-col-line"><span>📦</span><span>Home Delivery</span></div>' +
+               '<div class="wl-footer-col-line"><span>📋</span><span>Prescription Orders</span></div>' +
+               '<div class="wl-footer-col-line"><span>🔁</span><span>Easy Returns</span></div>' +
+               '<div class="wl-footer-col-line"><span>💳</span><span>Secure Payments</span></div>' +
+            '</div>' +
+         '</div>' +
+         '<hr class="wl-footer-divider">' +
+         '<div class="wl-footer-bottom">© 2026 ' + sp.name + '. All rights reserved.</div>' +
+      '</footer>';
+
+   // Assemble & inject
+   var fullPage = heroHtml +
+      '<div class="wl-cats-bar" id="wl-cats-bar">' + chips + '</div>' +
+      '<div class="wl-sections" id="wl-sections">' + sections + '</div>' +
+      '<div class="wl-promo-strip">' + promoHtml + '</div>' +
+      footerHtml;
+
+   // Hide platform containers
+   ['heroSection','productsSection','productsHeader'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+   });
+   var pg = document.getElementById('productsGrid');
+   if (pg) pg.style.display = 'none';
+
+   // Inject into a dedicated container appended to body
+   var container = document.getElementById('wl-page-container');
+   if (!container) {
+      container = document.createElement('div');
+      container.id = 'wl-page-container';
+      document.body.appendChild(container);
+   }
+   container.innerHTML = fullPage;
+}
+
+function wlScrollToSection(secId, chip) {
+   var sec = document.getElementById(secId);
+   if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+   document.querySelectorAll('.wl-cat-chip').forEach(function(c) { c.classList.remove('active'); });
+   if (chip) chip.classList.add('active');
+}
+function wlScrollToTop(chip) {
+   window.scrollTo({ top: 0, behavior: 'smooth' });
+   document.querySelectorAll('.wl-cat-chip').forEach(function(c) { c.classList.remove('active'); });
+   if (chip) chip.classList.add('active');
 }
 
 // ══════════════════════════════════════════════════════════

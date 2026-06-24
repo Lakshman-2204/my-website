@@ -822,7 +822,7 @@ body.guest .store-section-divider {
 .subcat-sidebar::before {
 	content: '☰  CATEGORIES';
 	display: block;
-	background: #004d40;
+	background: var(--store-primary);
 	color: #fff;
 	padding: 13px 16px;
 	font-size: 0.78rem;
@@ -994,7 +994,7 @@ body.guest .store-section-divider {
 .card-color-name {
 	font-size: 0.78rem;
 	font-weight: 700;
-	color: #1b5e20;
+	color: var(--store-primary);
 	text-align: center;
 	line-height: 1.3;
 	padding: 0 10px;
@@ -1052,8 +1052,8 @@ body.guest .store-section-divider {
 
 .badge {
 	display: inline-block;
-	background: #e8f5e9;
-	color: #27ae60;
+	background: var(--store-bg-light);
+	color: var(--store-primary);
 	font-size: 0.7rem;
 	padding: 2px 8px;
 	border-radius: 20px;
@@ -8173,7 +8173,7 @@ body.profile-page { background: #e8edf5; }
 }
 .store-hero-text h1 {
    font-size: 1.55rem;
-   color: #004d40;
+   color: var(--store-primary);
    margin: 0 0 8px 0;
    line-height: 1.25;
    font-weight: 800;
@@ -8192,8 +8192,8 @@ body.profile-page { background: #e8edf5; }
 }
 .store-hero-outline-btn {
    background: transparent;
-   color: #004d40;
-   border: 1.5px solid #00a676;
+   color: var(--store-primary);
+   border: 1.5px solid var(--store-primary);
    padding: 7px 14px;
    border-radius: 6px;
    font-weight: 600;
@@ -8201,7 +8201,7 @@ body.profile-page { background: #e8edf5; }
    font-size: 0.8rem;
    transition: background 0.15s;
 }
-.store-hero-outline-btn:hover { background: rgba(0,166,118,0.1); }
+.store-hero-outline-btn:hover { background: var(--store-bg-light); }
 .store-hero-image {
    width: 130px;
    height: 130px;
@@ -8232,7 +8232,7 @@ body.profile-page { background: #e8edf5; }
    font-size: 12px;
 }
 .store-badge-icon { font-size: 22px; color: var(--store-primary); flex-shrink: 0; }
-.store-badge-title { font-weight: 700; color: #004d40; font-size: 12px; }
+.store-badge-title { font-weight: 700; color: var(--store-primary); font-size: 12px; }
 .store-badge-sub { color: #71717a; font-size: 11px; }
 
 @media (max-width: 900px) {
@@ -8244,7 +8244,7 @@ body.profile-page { background: #e8edf5; }
 
 .sepa-discount-tag {
    position:absolute; top:10px; right:10px;
-   background:#ccfbf1; color:#00a676;
+   background:var(--store-bg-light); color:var(--store-primary);
    padding:2px 8px; font-size:0.72rem; font-weight:800;
    border-radius:4px; z-index:1;
 }
@@ -8264,8 +8264,8 @@ body.profile-page { background: #e8edf5; }
    cursor:pointer; font-size:0.82rem; color:#4b5563;
    transition:background 0.15s;
 }
-.sepa-cat-item:hover { background:#f0fdf4; color:#00a676; font-weight:600; }
-.sepa-cat-item.active { background:#f0fdf4; color:#00a676; font-weight:700; border-left:3px solid #00a676; }
+.sepa-cat-item:hover { background:var(--store-bg-light); color:var(--store-primary); font-weight:600; }
+.sepa-cat-item.active { background:var(--store-bg-light); color:var(--store-primary); font-weight:700; border-left:3px solid var(--store-primary); }
 
 @media (max-width:600px) {
    #storeHeroBanner > div:first-child { margin:12px 12px 0 !important; padding:24px 16px !important; }

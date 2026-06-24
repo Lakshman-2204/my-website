@@ -1463,6 +1463,8 @@ function goDashboard() {
 function goHome() {
    document.getElementById('heroSection').classList.remove('hidden');
    document.getElementById('productsSection').classList.add('hidden');
+   // Reset theme to platform default when going home
+   applyStoreTheme({ primaryColor: '#00a676' });
    // Restore normal products header
    var hdr = document.getElementById('productsHeader');
    if (hdr) {
@@ -4973,6 +4975,8 @@ async function showStoreCategory(catKey) {
    if (!meta) return;
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
+   // Reset theme back to platform default when leaving a store
+   applyStoreTheme({ primaryColor: '#00a676' });
    // Restore normal products header when going back to store list
    var hdr = document.getElementById('productsHeader');
    if (hdr) {
@@ -5106,6 +5110,21 @@ async function showStoreProvider(providerId) {
       } catch(e) {}
       domainBtn = '<a class="store-hero-outline-btn" href="https://' + _storeDomain + '/home.html' + _ssoSuffix + '" target="_blank" rel="noopener">🌐 Visit Website ↗</a>';
    }
+   // Apply this store's brand theme (color from registry, reset on back/home)
+   if (!window._wlMode) {
+      var _storeVendorConfig = _storeDomain ? (function() {
+         var reg = Object.assign({}, VENDOR_REGISTRY);
+         try {
+            var sv = getAdminSettings().vendorRegistry;
+            if (Array.isArray(sv)) sv.forEach(function(r) {
+               if (r.domain) reg[r.domain.replace(/^www\./,'').toLowerCase()] = r;
+            });
+         } catch(e) {}
+         return reg[_storeDomain] || null;
+      })() : null;
+      applyStoreTheme(_storeVendorConfig || { primaryColor: '#00a676' });
+   }
+
    // Hero banner + trust badges (CSS classes, no inline styles)
    var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
    var sepaHero =

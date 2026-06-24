@@ -5800,12 +5800,17 @@ function buildWLPage(sp, vendor) {
       return '🏪';
    }
 
+   // Capitalize each word of store name for display
+   var displayName = sp.name.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+
    // Build one product card
    function wlCard(item, catKey) {
       var pct = (item.mrp && item.price && item.mrp > item.price)
          ? Math.round((1 - item.price / item.mrp) * 100) : 0;
-      var count = (item.id ? item.id.charCodeAt(0) % 60 : 20) + 18;
-      var stars = count > 55 ? '★★★★★' : count > 35 ? '★★★★☆' : '★★★☆☆';
+      // Vary count using multiple chars of item.id so each card differs
+      var idSum = (item.id || 'x').split('').reduce(function(s, c, i) { return s + c.charCodeAt(0) * (i + 1); }, 0);
+      var count = (idSum % 60) + 18;
+      var stars = count > 65 ? '★★★★★' : count > 45 ? '★★★★☆' : '★★★☆☆';
       var imgHtml = item.image
          ? '<img class="wl-card-img" src="' + item.image + '" alt="" onerror="this.parentNode.innerHTML=\'<div class=wl-card-emoji>' + getCatEmoji(catKey) + '</div>\'">'
          : '<div class="wl-card-emoji">' + getCatEmoji(catKey) + '</div>';
@@ -5858,7 +5863,7 @@ function buildWLPage(sp, vendor) {
    var promos = [
       { bg: 'linear-gradient(135deg,#667eea,#764ba2)', emoji: '🚚', tag: 'Special Offer',     title: vendor.heroTag || 'Free Delivery',   sub: 'On orders over ₹499' },
       { bg: 'linear-gradient(135deg,#f093fb,#f5576c)', emoji: '📋', tag: 'Hassle-free',       title: 'Prescription Orders',               sub: 'Upload Rx to order instantly' },
-      { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', emoji: '🕐', tag: 'Always Available',  title: vendor.heroSub || 'Open 24x7',       sub: sp.timing || 'Round the clock' },
+      { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', emoji: '🕐', tag: 'Always Available',  title: 'Open 24×7',       sub: 'Round the clock service for you' },
    ];
    var promoHtml = promos.map(function(b) {
       return '<div class="wl-promo-banner" data-emoji="' + b.emoji + '" style="background:' + b.bg + ';color:#fff">' +
@@ -5874,7 +5879,7 @@ function buildWLPage(sp, vendor) {
          '<div class="wl-hero-inner">' +
             '<div class="wl-hero-text">' +
                '<span class="wl-hero-tag">' + (vendor.heroTag || (sp.category === 'medical' ? '24×7 Pharmacy' : 'Open Now')) + '</span>' +
-               '<h1 class="wl-hero-title">' + sp.name + '</h1>' +
+               '<h1 class="wl-hero-title">' + displayName + '</h1>' +
                '<p class="wl-hero-sub">' + (vendor.heroSub || sp.tagline || 'Quality products delivered to your doorstep') + '</p>' +
                '<div class="wl-hero-actions">' +
                   '<button class="wl-btn-primary" onclick="document.getElementById(\'wl-sections\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
@@ -5899,7 +5904,7 @@ function buildWLPage(sp, vendor) {
    var footerHtml =
       '<div class="wl-cta-bar">' +
          '<div class="wl-cta-content">' +
-            '<div class="wl-cta-title">Visit ' + sp.name + '</div>' +
+            '<div class="wl-cta-title">Visit ' + displayName + '</div>' +
             '<div class="wl-cta-sub">' + (sp.address || '') + (sp.timing ? '  •  ' + sp.timing : '') + '</div>' +
             '<button class="wl-cta-btn" onclick="window.open(\'https://maps.google.com?q=' + encodeURIComponent((sp.address || sp.name) + '') + '\',\'_blank\')">📍 Get Directions</button>' +
          '</div>' +
@@ -5907,7 +5912,7 @@ function buildWLPage(sp, vendor) {
       '<footer class="wl-footer">' +
          '<div class="wl-footer-grid">' +
             '<div>' +
-               '<div class="wl-footer-brand-name">' + (vendor.brandEmoji || '💊') + ' ' + sp.name + '</div>' +
+               '<div class="wl-footer-brand-name">' + (vendor.brandEmoji || '💊') + ' ' + displayName + '</div>' +
                '<div class="wl-footer-brand-desc">Your trusted store for quality products. Genuine items, doorstep delivery, and hassle-free returns.</div>' +
                '<div class="wl-footer-powered">Powered by <a href="#" onclick="return false">MyStore</a></div>' +
             '</div>' +
@@ -5929,7 +5934,7 @@ function buildWLPage(sp, vendor) {
             '</div>' +
          '</div>' +
          '<hr class="wl-footer-divider">' +
-         '<div class="wl-footer-bottom">© 2026 ' + sp.name + '. All rights reserved.</div>' +
+         '<div class="wl-footer-bottom">© 2026 ' + displayName + '. All rights reserved.</div>' +
       '</footer>';
 
    // Assemble & inject

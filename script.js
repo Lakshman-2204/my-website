@@ -6198,20 +6198,44 @@ async function refreshAndRenderUsers() {
 // ── WHITE-LABEL DOMAIN REGISTRY GUI ──────────────────────
 var _wlRows = [];   // working copy: [{domain,vendorId,brandName,brandEmoji,primaryColor,titleSuffix}]
 
-function _wlLoad() {
+async function _wlLoadAndRender() {
+   var tbody = document.getElementById('wlDomainBody');
+   if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:#94a3b8">Loading…</td></tr>';
+
+   // Always fetch fresh from Supabase so we never show stale data
+   try {
+      var fresh = await AppDB.getSettings();
+      if (fresh) _db.settings = fresh;
+   } catch(e) {}
+
    var s = getAdminSettings();
-   _wlRows = (s.vendorRegistry && Array.isArray(s.vendorRegistry))
-      ? s.vendorRegistry.map(function(r) { return Object.assign({}, r); })
-      : [];
-   // Seed from the hardcoded VENDOR_REGISTRY so pre-existing entries appear
-   if (!_wlRows.length && typeof VENDOR_REGISTRY === 'object') {
+   var saved = s.vendorRegistry;
+
+   if (saved && Array.isArray(saved) && saved.length) {
+      _wlRows = saved.map(function(r) { return Object.assign({}, r); });
+   } else {
+      // Seed from hardcoded VENDOR_REGISTRY as starting point
       _wlRows = Object.keys(VENDOR_REGISTRY).map(function(domain) {
          var v = VENDOR_REGISTRY[domain];
          return { domain: domain, vendorId: v.vendorId, brandName: v.brandName,
-                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#0ea5e9',
-                  titleSuffix: v.titleSuffix || '' };
+                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#00a676',
+                  heroTag: v.heroTag || '', heroSub: v.heroSub || '', titleSuffix: v.titleSuffix || '' };
       });
    }
+   _wlRenderTable();
+}
+
+function _wlLoad() {
+   // kept for backward compat — used by non-tab code paths
+   var s = getAdminSettings();
+   _wlRows = (s.vendorRegistry && Array.isArray(s.vendorRegistry) && s.vendorRegistry.length)
+      ? s.vendorRegistry.map(function(r) { return Object.assign({}, r); })
+      : Object.keys(VENDOR_REGISTRY).map(function(domain) {
+         var v = VENDOR_REGISTRY[domain];
+         return { domain: domain, vendorId: v.vendorId, brandName: v.brandName,
+                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#00a676',
+                  heroTag: v.heroTag || '', heroSub: v.heroSub || '', titleSuffix: v.titleSuffix || '' };
+      });
 }
 
 function _wlRenderTable() {
@@ -16364,7 +16388,7 @@ async function switchAdminTab(tab) {
    if (tab === 'settings')     loadSettingsForm();
    if (tab === 'ads')          loadSettingsForm();
    if (tab === 'users')        refreshAndRenderUsers();
-   if (tab === 'whitelabel')   { _wlLoad(); _wlRenderTable(); }
+   if (tab === 'whitelabel')   { await _wlLoadAndRender(); }
    if (tab === 'stores')       switchStoreAdminSub('categories');
    if (tab === 'catalog')      { _catalogCurrentCat = null; _catalogItemsCache = []; document.getElementById('catalogItemsView').classList.add('hidden'); document.getElementById('catalogCategoriesView').classList.remove('hidden'); renderCatalogCategoriesGrid(); }
    if (tab === 'orders')       renderAdminOrders();

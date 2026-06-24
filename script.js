@@ -5730,8 +5730,12 @@ async function _activateWhiteLabel(vendor) {
          'box-shadow:0 2px 8px rgba(0,0,0,0.18)',
       ].join(';');
       standaloneNav.innerHTML =
-         '<span>' + vendor.brandEmoji + ' ' + vendor.brandName + '</span>' +
-         '<span id="_wl_cart" style="cursor:pointer;font-size:0.85rem;background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px" ' +
+         '<span style="font-size:1.05rem;white-space:nowrap">' + vendor.brandEmoji + ' ' + vendor.brandName + '</span>' +
+         '<div style="flex:1;max-width:420px;margin:0 20px;position:relative">' +
+            '<input type="text" placeholder="Search medicines, vitamins…" style="width:100%;padding:7px 36px 7px 14px;border-radius:24px;border:none;font-size:0.85rem;outline:none;box-sizing:border-box" />' +
+            '<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#888;font-size:0.9rem">🔍</span>' +
+         '</div>' +
+         '<span id="_wl_cart" style="cursor:pointer;font-size:0.85rem;background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px;white-space:nowrap" ' +
          'onclick="document.getElementById(\'cartBtn\') && document.getElementById(\'cartBtn\').click()">🛒 Cart</span>';
       var ann = document.getElementById('_wl_announce');
       document.body.insertBefore(standaloneNav, ann ? ann.nextSibling : document.body.firstChild);
@@ -5862,7 +5866,6 @@ function buildWLPage(sp, vendor) {
       return '<section class="wl-section" id="wl-sec-' + c.catKey + '">' +
          '<div class="wl-section-header">' +
             '<h2 class="wl-section-title">' + c.title + '</h2>' +
-            '<span class="wl-view-all">View All →</span>' +
          '</div>' +
          '<div class="wl-hscroll-wrap">' +
             '<button class="wl-scroll-btn prev" onclick="wlScroll(\'' + scrollId + '\',-1)">‹</button>' +
@@ -5874,50 +5877,65 @@ function buildWLPage(sp, vendor) {
       '</section>';
    }
 
-   // ── Today's Deals featured section ──
-   var allItems = storeCats.length ? storeCats[0].items : [];
-   var catKey0  = storeCats.length ? storeCats[0].catKey : 'medicines';
+   // ── Today's Picks featured section ──
+   var allItems = [];
+   storeCats.forEach(function(c) { allItems = allItems.concat(c.items.map(function(it) { return {item: it, catKey: c.catKey}; })); });
    var featuredHtml = '';
    if (allItems.length >= 1) {
-      var feat = allItems[0];
-      var mini = allItems.slice(1, 5);
+      function findCatKey(item) {
+         for (var ci = 0; ci < storeCats.length; ci++) {
+            if (storeCats[ci].items.indexOf(item) !== -1) return storeCats[ci].catKey;
+         }
+         return storeCats.length ? storeCats[0].catKey : 'medicines';
+      }
+      var feat = allItems[0].item;
+      var featCat = allItems[0].catKey;
       var fp = pct(feat);
       var fsafe = (feat.id || '').replace(/'/g, "\\'");
-      var fcatsafe = catKey0.replace(/'/g, "\\'");
+      var fcatsafe = featCat.replace(/'/g, "\\'");
+
       var featCard =
          '<div class="wl-featured-card">' +
-            (feat.badge ? '<span class="wl-featured-badge-new">' + feat.badge + '</span>' : '') +
-            (fp ? '<span class="wl-featured-badge-pct">-' + fp + '%</span>' : '') +
-            '<div class="wl-featured-card-img-area"><div class="wl-featured-card-emoji">' + getCatEmoji(catKey0) + '</div></div>' +
-            '<div>' +
-               '<div class="wl-featured-stars">' + stars(feat) + ' <span style="color:#94a3b8;font-size:0.7rem">(' + starCount(feat) + ')</span></div>' +
+            (feat.badge ? '<span class="wl-fb-new">' + feat.badge + '</span>' : '<span class="wl-fb-new">New</span>') +
+            (fp ? '<span class="wl-fb-pct">-' + fp + '%</span>' : '') +
+            '<div class="wl-featured-img">' + getCatEmoji(featCat) + '</div>' +
+            '<div class="wl-featured-info">' +
+               '<div class="wl-card-stars">' + stars(feat) + ' <span style="color:#94a3b8;font-size:0.68rem">(' + starCount(feat) + ')</span></div>' +
                '<div class="wl-featured-name">' + feat.name + '</div>' +
-               '<div class="wl-featured-price-row">' +
+               '<div class="wl-featured-prices">' +
                   '<span class="wl-featured-price">₹' + (feat.price || feat.mrp || 0) + '</span>' +
                   (feat.mrp && feat.mrp > feat.price ? '<span class="wl-featured-mrp">₹' + feat.mrp + '</span>' : '') +
                '</div>' +
-               '<button class="wl-featured-add" onclick="addToCart(\'' + fsafe + '\',\'' + fcatsafe + '\')">🛒 Add to Cart</button>' +
+               '<button class="wl-featured-btn" onclick="addToCart(\'' + fsafe + '\',\'' + fcatsafe + '\')">🛒 Add to Cart</button>' +
             '</div>' +
          '</div>';
 
-      var miniCards = mini.map(function(item) {
-         var mp = pct(item); var msafe = (item.id || '').replace(/'/g, "\\'");
+      var miniItems = allItems.slice(1, 5);
+      var miniCards = miniItems.map(function(entry) {
+         var item = entry.item; var ck = entry.catKey;
+         var mp = pct(item);
+         var msafe = (item.id || '').replace(/'/g, "\\'");
+         var mcsafe = ck.replace(/'/g, "\\'");
          return '<div class="wl-mini-card">' +
-            (item.badge ? '<span class="wl-mini-badge">' + item.badge + '</span>' : '') +
-            (mp ? '<span class="wl-mini-badge-pct">-' + mp + '%</span>' : '') +
-            '<div class="wl-mini-card-img-area"><div class="wl-mini-card-emoji">' + getCatEmoji(catKey0) + '</div></div>' +
-            '<div class="wl-mini-stars">' + stars(item) + '</div>' +
+            (item.badge ? '<span class="wl-mb-new">' + item.badge + '</span>' : '') +
+            (mp ? '<span class="wl-mb-pct">-' + mp + '%</span>' : '') +
+            '<div class="wl-mini-img">' + getCatEmoji(ck) + '</div>' +
             '<div class="wl-mini-name">' + item.name + '</div>' +
-            '<div class="wl-mini-price">₹' + (item.price || item.mrp || 0) + '</div>' +
-            (item.mrp && item.mrp > item.price ? '<div class="wl-mini-mrp">₹' + item.mrp + '</div>' : '') +
-            '<button class="wl-mini-add" onclick="addToCart(\'' + msafe + '\',\'' + fcatsafe + '\')">Add to Cart</button>' +
+            '<div class="wl-mini-prices">' +
+               '<span class="wl-mini-price">₹' + (item.price || item.mrp || 0) + '</span>' +
+               (item.mrp && item.mrp > item.price ? '<span class="wl-mini-mrp">₹' + item.mrp + '</span>' : '') +
+            '</div>' +
+            '<button class="wl-mini-btn" onclick="addToCart(\'' + msafe + '\',\'' + mcsafe + '\')">Add to Cart</button>' +
          '</div>';
       }).join('');
 
       featuredHtml =
          '<div class="wl-deals-section">' +
             '<div class="wl-deals-header">' +
-               '<h2 class="wl-deals-title">Today\'s Picks</h2>' +
+               '<div>' +
+                  '<h2 class="wl-deals-title">What do you need today?</h2>' +
+                  '<p class="wl-deals-sub">Check our featured products and deals</p>' +
+               '</div>' +
                '<div class="wl-countdown">' +
                   '<span class="wl-countdown-label">Sale ends in</span>' +
                   '<span class="wl-countdown-seg" id="wl-cd-d">00</span>' +
@@ -5929,18 +5947,19 @@ function buildWLPage(sp, vendor) {
                   '<span class="wl-countdown-seg" id="wl-cd-s">00</span>' +
                '</div>' +
             '</div>' +
-            '<div class="wl-deals-grid">' +
+            '<div class="wl-picks-grid">' +
                featCard +
-               '<div class="wl-mini-grid">' + (mini.length ? miniCards : '') + '</div>' +
+               '<div class="wl-mini-grid">' + (miniCards || '') + '</div>' +
             '</div>' +
          '</div>';
    }
 
    // ── Category chips ──
-   var chips = '<div class="wl-cat-chip active" onclick="wlScrollToTop(this)"><span class="wl-cat-emoji">🏠</span><span>All</span></div>' +
+   var chips = '<div class="wl-cat-chip active" onclick="wlScrollToTop(this)"><div class="wl-chip-icon">🏠</div><div class="wl-chip-label">All</div></div>' +
       storeCats.map(function(c) {
          return '<div class="wl-cat-chip" onclick="wlScrollToSection(\'wl-sec-' + c.catKey + '\',this)">' +
-            '<span class="wl-cat-emoji">' + getCatEmoji(c.catKey) + '</span><span>' + c.title + '</span>' +
+            '<div class="wl-chip-icon">' + getCatEmoji(c.catKey) + '</div>' +
+            '<div class="wl-chip-label">' + c.title + '</div>' +
          '</div>';
       }).join('');
 
@@ -6028,10 +6047,26 @@ function buildWLPage(sp, vendor) {
       '</footer>';
 
    // ── Assemble ──
+   var reviewsHtml =
+      '<div class="wl-reviews-strip">' +
+         '<div class="wl-reviews-stat"><div class="wl-reviews-num">10,000+</div><div class="wl-reviews-lbl">Happy Customers</div></div>' +
+         '<div class="wl-reviews-div"></div>' +
+         '<div class="wl-reviews-stat"><div class="wl-reviews-num">★ 4.8</div><div class="wl-reviews-lbl">Average Rating</div></div>' +
+         '<div class="wl-reviews-div"></div>' +
+         '<div class="wl-reviews-stat"><div class="wl-reviews-num">500+</div><div class="wl-reviews-lbl">Products Available</div></div>' +
+         '<div class="wl-reviews-div"></div>' +
+         '<div class="wl-reviews-stat"><div class="wl-reviews-num">24×7</div><div class="wl-reviews-lbl">Service Available</div></div>' +
+      '</div>';
+
    var fullPage = heroHtml +
-      '<div class="wl-cats-bar" id="wl-cats-bar">' + chips + '</div>' +
+      '<div class="wl-cats-outer" id="wl-cats-bar">' +
+         '<button class="wl-cats-arrow prev" onclick="var e=document.getElementById(\'wl-chips-scroll\');if(e)e.scrollLeft-=200">‹</button>' +
+         '<div class="wl-chips-scroll" id="wl-chips-scroll">' + chips + '</div>' +
+         '<button class="wl-cats-arrow next" onclick="var e=document.getElementById(\'wl-chips-scroll\');if(e)e.scrollLeft+=200">›</button>' +
+      '</div>' +
       featuredHtml +
       '<div class="wl-sections" id="wl-sections">' + sections + '</div>' +
+      reviewsHtml +
       '<div class="wl-promo-strip">' + promoHtml + '</div>' +
       footerHtml;
 

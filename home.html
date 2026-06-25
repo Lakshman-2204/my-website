@@ -785,7 +785,7 @@
             <p id="rxModalMsg" style="color:#555;font-size:0.95rem;margin:0 0 12px"></p>
             <p style="color:#888;font-size:0.85rem;margin:0 0 12px">Upload a clear photo of your doctor's prescription.</p>
             <input type="file" id="rxFileInput" accept="image/*" capture="environment"
-                   style="width:100%;padding:10px;border:2px dashed #1a73e8;border-radius:8px;background:#f5fafe"/>
+                   style="width:100%;padding:10px;border:2px dashed var(--store-primary,#1a73e8);border-radius:8px;background:#f5fafe"/>
             <div id="rxPreview" class="rx-preview hidden"></div>
             <div id="rxUploadStatus" style="margin-top:10px;font-size:0.88rem;text-align:center"></div>
          </div>
@@ -799,14 +799,14 @@
    <!-- PRESCRIPTION-ONLY ORDER MODAL -->
    <div class="rx-overlay hidden" id="rxOnlyOverlay" onclick="if(event.target===this)closeRxOnlyOrderModal()">
       <div class="rx-modal" style="max-width:520px">
-         <div class="rx-modal-header" style="background:#1a73e8">
+         <div class="rx-modal-header" style="background:var(--store-primary,#1a73e8)">
             <h3>📋 Order via Prescription</h3>
             <button class="rx-modal-close" onclick="closeRxOnlyOrderModal()">✕</button>
          </div>
          <div class="rx-modal-body">
             <p style="color:#555;font-size:0.92rem;margin:0 0 10px">Upload a clear photo of your doctor's prescription. The pharmacist will read it, pack the medicines, and contact you.</p>
             <input type="file" id="rxOnlyFileInput" accept="image/*" capture="environment"
-                   style="width:100%;padding:10px;border:2px dashed #1a73e8;border-radius:8px;background:#f5fafe"/>
+                   style="width:100%;padding:10px;border:2px dashed var(--store-primary,#1a73e8);border-radius:8px;background:#f5fafe"/>
             <div id="rxOnlyPreview" class="rx-preview hidden"></div>
             <div class="sp-field" style="margin-top:10px">
                <label>Notes for pharmacist <small style="color:#888;font-weight:400">(optional)</small></label>
@@ -825,7 +825,7 @@
    <!-- MEDICAL CHECKOUT MODAL -->
    <div class="rx-overlay hidden" id="medCheckoutOverlay" onclick="if(event.target===this)closeMedCheckout()">
       <div class="rx-modal" style="max-width:560px">
-         <div class="rx-modal-header" style="background:#1a73e8">
+         <div class="rx-modal-header" style="background:var(--store-primary,#1a73e8)">
             <h3>🛒 Confirm Order</h3>
             <button class="rx-modal-close" onclick="closeMedCheckout()">✕</button>
          </div>

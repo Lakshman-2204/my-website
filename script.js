@@ -5127,6 +5127,8 @@ async function showStoreProvider(providerId) {
       var hdr2 = document.getElementById('productsHeader');
       if (hdr2) hdr2.style.display = 'none';
       grid.innerHTML = '<div id="storeProviderProducts">' + buildMedicalWLLayout(p, rxBtn, domainBtn) + '</div>';
+      var srch = document.getElementById('medWlSearch');
+      if (srch) srch.addEventListener('input', medWlSearch);
    } else {
       grid.innerHTML = '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id, sepaHero) + '</div>';
    }
@@ -5170,7 +5172,8 @@ function wlCard(item, catKey) {
    var price = item.price || item.mrp || 0;
    var mrp = item.mrp || 0;
    var imgSrc = item.image || item.img || getCatImg(catKey);
-   return '<div class="wl-card" data-cat="' + catKey + '" data-sale="' + (isLiveSale ? '1' : '0') + '" data-name="' + (item.name || '').toLowerCase().replace(/"/g, '') + '">' +
+   var itemName = (item.name && item.name !== 'undefined') ? item.name : '';
+   return '<div class="wl-card" data-cat="' + catKey + '" data-sale="' + (isLiveSale ? '1' : '0') + '" data-name="' + itemName.toLowerCase().replace(/"/g, '') + '">' +
       (isLiveSale ? '<span class="wl-card-live-badge">⚡ LIVE SALE</span>' : '') +
       (isLiveSale ? '<span class="wl-card-stock-badge">Limited Stock</span>' : '') +
       '<div class="wl-card-img-wrap">' +
@@ -5178,7 +5181,7 @@ function wlCard(item, catKey) {
       '</div>' +
       '<div class="wl-card-body">' +
          '<div class="wl-card-stars">★★★★★</div>' +
-         '<div class="wl-card-name">' + item.name + '</div>' +
+         '<div class="wl-card-name">' + itemName + '</div>' +
          '<div class="wl-card-price-row">' +
             (isLiveSale && mrp > price
                ? '<span class="wl-card-mrp">₹' + mrp + '</span><span class="wl-card-price">₹' + price + '</span><span class="wl-card-offpct">' + p + '% off</span>'
@@ -5227,7 +5230,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             '</div>' +
          '</div>' +
          '<div class="med-wl-nav-search">' +
-            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" autocomplete="off" />' +
+            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" autocomplete="off" oninput="medWlSearch()" />' +
             '<span>🔍</span>' +
          '</div>' +
       '</div>';
@@ -5280,10 +5283,14 @@ function medWlSearch() {
    var input = document.getElementById('medWlSearch');
    var q = (input ? input.value : '').trim().toLowerCase();
    var grid = document.getElementById('wl-prod-grid');
-   if (!grid) return;
-   grid.querySelectorAll('.wl-card').forEach(function(card) {
+   var cards = grid ? grid.querySelectorAll('.wl-card') : document.querySelectorAll('.wl-card');
+   cards.forEach(function(card) {
+      if (!q) { card.style.display = ''; return; }
       var name = card.getAttribute('data-name') || '';
-      card.style.display = (!q || name.includes(q)) ? '' : 'none';
+      var el = card.querySelector('.wl-card-name');
+      var textName = el ? el.textContent.trim().toLowerCase() : '';
+      var searchName = name || textName;
+      card.style.display = searchName.includes(q) ? '' : 'none';
    });
 }
 

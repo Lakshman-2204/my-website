@@ -5207,13 +5207,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
 
    if (!allItems.length) return '<p style="color:#888;padding:40px;text-align:center">No products in this store yet.</p>';
 
-   // Announcement bar
-   var announce =
-      '<div class="med-wl-announce">' +
-         '🚚 Free delivery on orders over ₹499 &nbsp;|&nbsp; 📋 Upload prescription for Rx medicines' +
-      '</div>';
-
-   // Hero card — contains nav row (store name + search) + store info + buttons
+   // Hero card — single compact block, no separate announce/nav bars
    var rxHeroBtn = rxBtn
       ? rxBtn.replace('class="rx-only-btn"', 'class="med-wl-hero-btn rx"')
              .replace(/>📋 Prescription</, '>📋 Upload Prescription<')
@@ -5224,21 +5218,18 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
 
    var heroCard =
       '<div class="med-wl-hero">' +
-         '<div class="med-wl-hero-nav">' +
-            '<span class="med-wl-nav-brand">⚕️ ' + sp.name + '</span>' +
-            '<div class="med-wl-nav-search">' +
-               '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" />' +
-               '<span>🔍</span>' +
-            '</div>' +
-         '</div>' +
          '<div class="med-wl-hero-left">' +
-            '<div class="med-wl-hero-tag">24×7 PHARMACY</div>' +
+            '<div class="med-wl-hero-tag">24×7 PHARMACY &nbsp;·&nbsp; 🚚 Free delivery over ₹499</div>' +
             '<h2 class="med-wl-hero-name">' + sp.name + '</h2>' +
             (sp.timing ? '<div class="med-wl-hero-meta">🕐 ' + sp.timing + (sp.address ? ' &nbsp;📍 ' + sp.address : '') + '</div>' : '') +
             '<div class="med-wl-hero-actions">' +
                rxHeroBtn + visitHeroBtn +
                '<button class="med-wl-hero-btn shop" onclick="document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
             '</div>' +
+         '</div>' +
+         '<div class="med-wl-nav-search">' +
+            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" />' +
+            '<span>🔍</span>' +
          '</div>' +
       '</div>';
 
@@ -5282,7 +5273,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
       '</section>';
 
-   return announce + heroCard + filterBar +
+   return heroCard + filterBar +
       '<div class="wl-main-layout">' + sidebar + mainContent + '</div>';
 }
 

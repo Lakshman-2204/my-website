@@ -8571,10 +8571,10 @@ body.profile-page { background: #e8edf5; }
 }
 .med-wl-nav-brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
 .med-wl-nav-search {
-   flex: 1; max-width: 420px; position: relative; display: flex; align-items: center;
+   width: 300px; flex-shrink: 0; position: relative; display: flex; align-items: center;
 }
 .med-wl-nav-search input {
-   width: 100%; padding: 7px 36px 7px 14px; border-radius: 24px; border: none;
+   width: 100%; padding: 8px 36px 8px 14px; border-radius: 24px; border: none;
    font-size: 0.85rem; outline: none; box-sizing: border-box;
 }
 .med-wl-nav-search span {
@@ -8583,13 +8583,9 @@ body.profile-page { background: #e8edf5; }
 /* Hero card */
 .med-wl-hero {
    background: linear-gradient(135deg, var(--store-primary) 0%, var(--store-primary-hover) 100%);
-   color: #fff;
+   color: #fff; display: flex; align-items: center; gap: 24px; padding: 22px 28px;
 }
-.med-wl-hero-nav {
-   display: flex; align-items: center; justify-content: space-between;
-   padding: 10px 24px; border-bottom: 1px solid rgba(255,255,255,0.15); gap: 16px;
-}
-.med-wl-hero-left { padding: 24px 32px; display: flex; flex-direction: column; }
+.med-wl-hero-left { flex: 1; display: flex; flex-direction: column; }
 .med-wl-hero-tag { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; opacity: 0.8; text-transform: uppercase; margin-bottom: 6px; }
 .med-wl-hero-name { font-size: 1.6rem; font-weight: 900; margin: 0 0 6px; text-transform: capitalize; }
 .med-wl-hero-meta { font-size: 0.8rem; opacity: 0.85; margin-bottom: 18px; }

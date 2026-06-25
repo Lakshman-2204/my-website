@@ -8577,6 +8577,8 @@ body.profile-page { background: #e8edf5; }
    width: 100%; padding: 8px 36px 8px 14px; border-radius: 24px; border: none;
    font-size: 0.85rem; outline: none; box-sizing: border-box;
 }
+.med-wl-nav-search input[type="search"]::-webkit-search-cancel-button,
+.med-wl-nav-search input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
 .med-wl-nav-search span {
    position: absolute; right: 12px; color: #888; font-size: 0.9rem;
 }

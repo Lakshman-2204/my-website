@@ -5230,7 +5230,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             '</div>' +
          '</div>' +
          '<div class="med-wl-nav-search">' +
-            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" autocomplete="off" oninput="medWlSearch()" />' +
+            '<input type="search" id="medWlSearch" placeholder="Search medicines, vitamins…" autocomplete="off" oninput="medWlSearch()" />' +
             '<span>🔍</span>' +
          '</div>' +
       '</div>';

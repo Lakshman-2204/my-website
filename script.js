@@ -5021,6 +5021,17 @@ async function showStoreProvider(providerId) {
       await loadStoreProviders(true);
       showStoreProvider(providerId);
    });
+   // Live-refresh when store owner adds/edits/deletes products
+   _liveSubscribe('storeProdsCustomer', 'products', async function() {
+      var prods = await AppDB.getAllStoreProducts();
+      if (prods) {
+         _db.storeProducts = prods;
+         _applyStoreProdsToProducts();
+      }
+      if (window._currentStoreProvider && window._currentStoreProvider.id === providerId) {
+         showStoreProvider(providerId);
+      }
+   });
 
    // Refresh in-memory stock snapshot so we can render Out-of-stock / In-stock
    // badges on each card. This drives addToCart() guards too.
@@ -5311,6 +5322,20 @@ function medWlSearch() {
       var textName = el ? el.textContent.trim().toLowerCase() : '';
       var searchName = name || textName;
       card.style.display = searchName.includes(q) ? '' : 'none';
+   });
+}
+
+function wlSearch() {
+   var input = document.getElementById('wlNavSearch');
+   var q = (input ? input.value : '').trim().toLowerCase();
+   var grid = document.getElementById('wl-prod-grid');
+   var cards = grid ? grid.querySelectorAll('.wl-card') : [];
+   cards.forEach(function(card) {
+      if (!q) { card.style.display = ''; return; }
+      var name = card.getAttribute('data-name') || '';
+      var el = card.querySelector('.wl-card-name');
+      var textName = el ? el.textContent.trim().toLowerCase() : '';
+      card.style.display = (name || textName).includes(q) ? '' : 'none';
    });
 }
 
@@ -5893,7 +5918,7 @@ async function _activateWhiteLabel(vendor) {
       standaloneNav.innerHTML =
          '<span style="font-size:1.05rem;white-space:nowrap">' + vendor.brandEmoji + ' ' + vendor.brandName + '</span>' +
          '<div style="flex:1;max-width:420px;margin:0 20px;position:relative">' +
-            '<input type="text" placeholder="Search medicines, vitamins…" style="width:100%;padding:7px 36px 7px 14px;border-radius:24px;border:none;font-size:0.85rem;outline:none;box-sizing:border-box" />' +
+            '<input type="text" id="wlNavSearch" name="wl-search" placeholder="Search medicines, vitamins…" autocomplete="one-time-code" oninput="wlSearch()" style="width:100%;padding:7px 36px 7px 14px;border-radius:24px;border:none;font-size:0.85rem;outline:none;box-sizing:border-box;color:#1e293b" />' +
             '<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#888;font-size:0.9rem">🔍</span>' +
          '</div>' +
          '<span id="_wl_cart" style="cursor:pointer;font-size:0.85rem;background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px;white-space:nowrap" ' +
@@ -5919,6 +5944,16 @@ async function _activateWhiteLabel(vendor) {
 
       if (sp) {
          buildWLPage(sp, resolvedVendor);
+         // Live-refresh when owner edits products
+         _liveSubscribe('storeProdsWL', 'products', async function() {
+            var prods = await AppDB.getAllStoreProducts();
+            if (prods) {
+               _db.storeProducts = prods;
+               _applyStoreProdsToProducts();
+            }
+            var freshSp = (_storeProvidersCache || []).find(function(x) { return x.id === sp.id; }) || sp;
+            buildWLPage(freshSp, resolvedVendor);
+         });
       } else {
          // No matching store provider found — show a clear message
          document.getElementById('heroSection') && document.getElementById('heroSection').classList.add('hidden');
@@ -8566,9 +8601,11 @@ if (typeof window !== 'undefined') {
 // Delegated search listener — works even when input is injected dynamically
 document.addEventListener('input', function(e) {
    if (e.target && e.target.id === 'medWlSearch') medWlSearch();
+   if (e.target && e.target.id === 'wlNavSearch') wlSearch();
 });
 document.addEventListener('keyup', function(e) {
    if (e.target && e.target.id === 'medWlSearch') medWlSearch();
+   if (e.target && e.target.id === 'wlNavSearch') wlSearch();
 });
 
 // ── Walk-in customer history ───────────────────────────────────────────

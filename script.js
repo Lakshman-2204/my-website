@@ -7452,6 +7452,8 @@ async function checkShopOwnerLogin() {
       return (p.owner_email || '').toLowerCase() === user.email.toLowerCase();
    });
    var ownsStores   = myStoreProvs.length > 0;
+   window._ownsStores   = ownsStores;
+   window._ownsHospital = ownsHospital;
    var businessName = '';
    if (myProviders.length > 0) {
       businessName = myProviders.length === 1 ? myProviders[0].name
@@ -10066,7 +10068,7 @@ function switchShopTab(tab) {
    _updateMobileNavActive(tab);
 
    if (tab !== 'products') _currentMyStoreId = null;
-   if (tab === 'dashboard')    renderShopOverview();
+   if (tab === 'dashboard')    (window._ownsStores && !window._ownsHospital) ? renderStoreDashboard() : renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'appointments') {
       _shopAptsCache = null;
@@ -10085,7 +10087,7 @@ function switchShopTab(tab) {
    if (tab === 'patients')     { _patientsMode = patientsSub || _patientsMode || 'out'; renderShopPatients(); }
    if (tab === 'admissions')   { window._admTabActive = 'admitted'; renderShopAdmissions(); }
    if (tab === 'staff')        renderShopStaff();
-   if (tab === 'revenue')      renderShopRevenue();
+   if (tab === 'revenue')      (window._ownsStores && !window._ownsHospital) ? renderStoreRevenue() : renderShopRevenue();
    if (tab === 'beds')         renderShopBeds();
    if (tab === 'schedule')     renderShopSchedule();
 }
@@ -10621,6 +10623,199 @@ async function renderShopAppointments(filterStatus) {
 function setShopAptDoctor(doctorName) {
    window._shopAptDoctorFilter = doctorName || '';
    renderShopAppointments(window._shopAptCurrentFilter);
+}
+
+// ── STORE OWNER DASHBOARD ────────────────────────────────────────────────────
+async function renderStoreDashboard() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var container = document.getElementById('shopDashboardContent');
+   if (!container) return;
+   container.innerHTML = '<div class="shop-empty">Loading…</div>';
+
+   await loadStoreProviders(true);
+   var myStores = (_storeProvidersCache || []).filter(function(s) {
+      return (s.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
+   });
+   if (!myStores.length) { container.innerHTML = '<div class="shop-empty">No stores linked to your account.</div>'; return; }
+
+   var orders = _db.orders || [];
+   var myOrders = orders.filter(function(o) {
+      return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
+   });
+
+   var today = _todayLocalYmd();
+   var now = new Date();
+   var weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 6);
+   var monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 29);
+
+   var todayOrders  = myOrders.filter(function(o) { return (o.date || o.createdAt || '').slice(0,10) === today; });
+   var pending      = myOrders.filter(function(o) { return o.status === 'Pending Pickup' || o.status === 'Pending'; });
+   var totalRevenue = myOrders.filter(function(o) { return o.status === 'Delivered' || o.status === 'Completed'; })
+                              .reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
+   var monthRevenue = myOrders.filter(function(o) {
+      var d = new Date((o.date || o.createdAt || '').slice(0,10) + 'T00:00:00');
+      return d >= monthAgo && (o.status === 'Delivered' || o.status === 'Completed');
+   }).reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
+
+   var productCount = (_db.storeProducts || []).filter(function(p) {
+      return myStores.some(function(s) { return s.id === p.store_provider_id; });
+   }).length;
+
+   var fmt = function(n) { return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0}); };
+
+   var statsHtml =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px">' +
+         _storeStat('📦', 'Today\'s Orders', todayOrders.length, '#1a73e8') +
+         _storeStat('⏳', 'Pending', pending.length, '#ef6c00') +
+         _storeStat('💰', 'This Month', fmt(monthRevenue), '#2e7d32') +
+         _storeStat('🏆', 'Total Earned', fmt(totalRevenue), '#7c3aed') +
+         _storeStat('🛍️', 'Products', productCount, '#0e7490') +
+      '</div>';
+
+   var recentHtml = '';
+   var recent = myOrders.slice().sort(function(a,b) {
+      return (b.date||b.createdAt||'') > (a.date||a.createdAt||'') ? 1 : -1;
+   }).slice(0, 10);
+   if (recent.length) {
+      recentHtml =
+         '<div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden">' +
+            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9">🕐 Recent Orders</div>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+               '<thead><tr style="background:#f8fafc;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
+                  '<th style="padding:8px 14px;text-align:left">Customer</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Items</th>' +
+                  '<th style="padding:8px 14px;text-align:right">Amount</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Status</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Date</th>' +
+               '</tr></thead><tbody>' +
+               recent.map(function(o, i) {
+                  var statusColor = o.status === 'Delivered' || o.status === 'Completed' ? '#2e7d32'
+                     : o.status === 'Cancelled' ? '#c62828' : '#ef6c00';
+                  var itemList = (o.items || []).slice(0,2).map(function(it) { return it.name || ''; }).join(', ');
+                  if ((o.items||[]).length > 2) itemList += ' +' + ((o.items||[]).length - 2) + ' more';
+                  return '<tr style="border-top:1px solid #f1f5f9' + (i%2===0?';background:#fff':';background:#fafafa') + '">' +
+                     '<td style="padding:9px 14px;font-weight:600">' + (o.customerName || o.name || '—') + '</td>' +
+                     '<td style="padding:9px 14px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (itemList||'—') + '</td>' +
+                     '<td style="padding:9px 14px;text-align:right;font-weight:700">' + fmt(o.total||o.amount||0) + '</td>' +
+                     '<td style="padding:9px 14px"><span style="background:' + statusColor + '20;color:' + statusColor + ';font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px">' + (o.status||'—') + '</span></td>' +
+                     '<td style="padding:9px 14px;color:#94a3b8">' + ((o.date||o.createdAt||'').slice(0,10)||'—') + '</td>' +
+                  '</tr>';
+               }).join('') +
+               '</tbody></table>' +
+         '</div>';
+   }
+
+   container.innerHTML = '<div style="max-width:1100px">' +
+      '<h2 style="margin:0 0 20px;font-size:1.2rem;font-weight:800;color:#1e293b">🏪 Store Dashboard</h2>' +
+      statsHtml + recentHtml + '</div>';
+}
+function _storeStat(icon, label, value, color) {
+   return '<div style="background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + '">' +
+      '<div style="font-size:1.5rem;margin-bottom:6px">' + icon + '</div>' +
+      '<div style="font-size:1.5rem;font-weight:900;color:' + color + '">' + value + '</div>' +
+      '<div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-top:2px">' + label + '</div>' +
+   '</div>';
+}
+
+// ── STORE OWNER REVENUE ───────────────────────────────────────────────────────
+async function renderStoreRevenue() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var host = document.getElementById('shopRevenueContent');
+   if (!host) return;
+   host.innerHTML = '<div class="shop-empty">Loading…</div>';
+
+   await loadStoreProviders(true);
+   var myStores = (_storeProvidersCache || []).filter(function(s) {
+      return (s.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
+   });
+   if (!myStores.length) { host.innerHTML = '<div class="shop-empty">No stores linked.</div>'; return; }
+
+   var orders = _db.orders || [];
+   var myOrders = orders.filter(function(o) {
+      return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
+   });
+   var completed = myOrders.filter(function(o) { return o.status === 'Delivered' || o.status === 'Completed'; });
+
+   var now = new Date();
+   var fmt = function(n) { return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0}); };
+
+   // Build last-30-days daily revenue
+   var days = [];
+   for (var i = 29; i >= 0; i--) {
+      var d = new Date(now); d.setDate(now.getDate() - i);
+      var ymd = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      var dayRev = completed.filter(function(o) { return (o.date||o.createdAt||'').slice(0,10) === ymd; })
+                            .reduce(function(s,o) { return s + (o.total||o.amount||0); }, 0);
+      days.push({ ymd: ymd, rev: dayRev, label: String(d.getDate()) + '/' + String(d.getMonth()+1) });
+   }
+   var maxRev = Math.max.apply(null, days.map(function(d) { return d.rev; })) || 1;
+
+   // Top products by quantity sold
+   var prodSales = {};
+   completed.forEach(function(o) {
+      (o.items||[]).forEach(function(it) {
+         var k = it.name || it.id || '?';
+         if (!prodSales[k]) prodSales[k] = { name: k, qty: 0, rev: 0 };
+         prodSales[k].qty += (it.qty || it.quantity || 1);
+         prodSales[k].rev += (it.price || 0) * (it.qty || it.quantity || 1);
+      });
+   });
+   var topProds = Object.values(prodSales).sort(function(a,b) { return b.rev - a.rev; }).slice(0, 8);
+
+   var todayRev   = days[days.length-1].rev;
+   var weekRev    = days.slice(-7).reduce(function(s,d) { return s + d.rev; }, 0);
+   var monthRev   = days.reduce(function(s,d) { return s + d.rev; }, 0);
+   var totalOrders = myOrders.length;
+   var avgOrder   = completed.length ? Math.round(completed.reduce(function(s,o) { return s + (o.total||o.amount||0); }, 0) / completed.length) : 0;
+
+   var chartBars = days.map(function(d) {
+      var pct = Math.round((d.rev / maxRev) * 100);
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px" title="' + d.ymd + ': ' + fmt(d.rev) + '">' +
+         '<div style="width:100%;background:#e8f0fe;border-radius:4px 4px 0 0;position:relative;height:80px">' +
+            '<div style="position:absolute;bottom:0;left:0;right:0;background:var(--store-primary,#1a73e8);border-radius:4px 4px 0 0;height:' + pct + '%;transition:height 0.3s"></div>' +
+         '</div>' +
+         (d.ymd.slice(8) === '01' || d.ymd === days[0].ymd || d.ymd === days[days.length-1].ymd
+            ? '<div style="font-size:0.6rem;color:#94a3b8;white-space:nowrap">' + d.label + '</div>'
+            : '<div style="font-size:0.6rem;color:transparent">·</div>') +
+      '</div>';
+   }).join('');
+
+   var topProdsHtml = topProds.length ? topProds.map(function(p, i) {
+      var barPct = Math.round((p.rev / (topProds[0].rev||1)) * 100);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">' +
+         '<div style="width:20px;font-weight:800;color:#94a3b8;font-size:0.78rem">' + (i+1) + '</div>' +
+         '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:0.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + p.name + '</div>' +
+            '<div style="margin-top:3px;background:#f1f5f9;border-radius:4px;height:6px"><div style="background:var(--store-primary,#1a73e8);border-radius:4px;height:6px;width:' + barPct + '%"></div></div>' +
+         '</div>' +
+         '<div style="text-align:right;flex-shrink:0">' +
+            '<div style="font-weight:800;font-size:0.85rem">' + fmt(p.rev) + '</div>' +
+            '<div style="font-size:0.72rem;color:#94a3b8">' + p.qty + ' sold</div>' +
+         '</div>' +
+      '</div>';
+   }).join('') : '<div style="color:#94a3b8;font-size:0.85rem;padding:12px 0">No completed orders yet.</div>';
+
+   host.innerHTML =
+      '<div style="max-width:1100px">' +
+         '<h2 style="margin:0 0 20px;font-size:1.2rem;font-weight:800;color:#1e293b">💰 Store Revenue</h2>' +
+         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px">' +
+            _storeStat('📅', 'Today', fmt(todayRev), '#1a73e8') +
+            _storeStat('📆', 'This Week', fmt(weekRev), '#0e7490') +
+            _storeStat('🗓️', 'Last 30 Days', fmt(monthRev), '#7c3aed') +
+            _storeStat('🛒', 'Total Orders', totalOrders, '#ef6c00') +
+            _storeStat('📊', 'Avg Order', fmt(avgOrder), '#2e7d32') +
+         '</div>' +
+         '<div style="display:grid;grid-template-columns:1fr 340px;gap:20px">' +
+            '<div style="background:#fff;border-radius:14px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,0.06)">' +
+               '<div style="font-weight:800;font-size:0.92rem;margin-bottom:14px">📈 Daily Revenue — Last 30 Days</div>' +
+               '<div style="display:flex;align-items:flex-end;gap:2px;height:96px">' + chartBars + '</div>' +
+            '</div>' +
+            '<div style="background:#fff;border-radius:14px;padding:18px;box-shadow:0 2px 12px rgba(0,0,0,0.06)">' +
+               '<div style="font-weight:800;font-size:0.92rem;margin-bottom:10px">🏆 Top Products</div>' +
+               topProdsHtml +
+            '</div>' +
+         '</div>' +
+      '</div>';
 }
 
 // ── DASHBOARD overview (hospital owner's landing page) ──

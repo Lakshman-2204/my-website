@@ -5128,10 +5128,7 @@ async function showStoreProvider(providerId) {
       if (hdr2) hdr2.style.display = 'none';
       grid.innerHTML = '<div id="storeProviderProducts">' + buildMedicalWLLayout(p, rxBtn, domainBtn) + '</div>';
       var srch = document.getElementById('medWlSearch');
-      if (srch) {
-         srch.addEventListener('focus', function() { this.removeAttribute('readonly'); });
-         srch.addEventListener('input', medWlSearch);
-      }
+      if (srch) srch.addEventListener('input', medWlSearch);
    } else {
       grid.innerHTML = '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id, sepaHero) + '</div>';
    }
@@ -5233,7 +5230,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             '</div>' +
          '</div>' +
          '<div class="med-wl-nav-search">' +
-            '<input type="text" id="medWlSearch" name="med-search" placeholder="Search medicines, vitamins…" autocomplete="off" readonly onfocus="this.removeAttribute(\'readonly\')" oninput="medWlSearch()" />' +
+            '<input type="text" id="medWlSearch" name="med-search" placeholder="Search medicines, vitamins…" autocomplete="one-time-code" oninput="medWlSearch()" />' +
             '<span>🔍</span>' +
          '</div>' +
       '</div>';

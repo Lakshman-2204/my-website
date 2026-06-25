@@ -5227,7 +5227,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             '</div>' +
          '</div>' +
          '<div class="med-wl-nav-search">' +
-            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" />' +
+            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" onkeyup="medWlSearch()" />' +
             '<span>🔍</span>' +
          '</div>' +
       '</div>';
@@ -5282,8 +5282,9 @@ function medWlSearch() {
    var grid = document.getElementById('wl-prod-grid');
    if (!grid) return;
    grid.querySelectorAll('.wl-card').forEach(function(card) {
-      var name = (card.querySelector('.wl-card-name') || {}).textContent || '';
-      card.style.display = (!q || name.toLowerCase().includes(q)) ? '' : 'none';
+      if (!q) { card.style.display = ''; return; }
+      var text = card.innerText.toLowerCase();
+      card.style.display = text.includes(q) ? '' : 'none';
    });
 }
 

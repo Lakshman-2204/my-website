@@ -8529,10 +8529,10 @@ body.profile-page { background: #e8edf5; }
 }
 @keyframes wl-pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
 .wl-card-img-wrap {
-   height: 176px; display: flex; align-items: center; justify-content: center;
+   height: 120px; display: flex; align-items: center; justify-content: center;
    background: #f8fafc; flex-shrink: 0; overflow: hidden;
 }
-.wl-card-img { object-fit: contain; height: 128px; width: 128px; transition: transform 0.3s; }
+.wl-card-img { object-fit: contain; height: 88px; width: 88px; transition: transform 0.3s; }
 .wl-card:hover .wl-card-img { transform: scale(1.05); }
 .wl-card-body { padding: 12px 14px 16px; flex: 1; display: flex; flex-direction: column; }
 .wl-card-stars { color: #f59e0b; font-size: 0.7rem; margin-bottom: 6px; }
@@ -8581,6 +8581,6 @@ body.profile-page { background: #e8edf5; }
    .wl-main-layout { padding: 12px; gap: 12px; }
    .wl-prod-grid { grid-template-columns: repeat(2,1fr); gap: 10px; }
    .wl-footer-grid { grid-template-columns: 1fr; }
-   .wl-card-img-wrap { height: 140px; }
-   .wl-card-img { height: 100px; width: 100px; }
+   .wl-card-img-wrap { height: 100px; }
+   .wl-card-img { height: 72px; width: 72px; }
 }

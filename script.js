@@ -5213,13 +5213,44 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '🚚 Free delivery on orders over ₹499 &nbsp;|&nbsp; 📋 Upload prescription for Rx medicines' +
       '</div>';
 
-   // Mini store nav (name + search + cart)
+   // Mini store nav (name + search)
    var miniNav =
       '<div class="med-wl-nav">' +
          '<span class="med-wl-nav-brand">⚕️ ' + sp.name + '</span>' +
          '<div class="med-wl-nav-search">' +
             '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" />' +
             '<span>🔍</span>' +
+         '</div>' +
+      '</div>';
+
+   // Hero card with store info + action buttons
+   var rxHeroBtn = rxBtn
+      ? rxBtn.replace('class="rx-only-btn"', 'class="med-wl-hero-btn rx"')
+      : '';
+   var visitHeroBtn = domainBtn
+      ? domainBtn.replace('class="store-hero-outline-btn"', 'class="med-wl-hero-btn visit"')
+      : '';
+
+   var heroCard =
+      '<div class="med-wl-hero">' +
+         '<div class="med-wl-hero-left">' +
+            '<div class="med-wl-hero-tag">24×7 PHARMACY</div>' +
+            '<h2 class="med-wl-hero-name">' + sp.name + '</h2>' +
+            (sp.timing ? '<div class="med-wl-hero-meta">🕐 ' + sp.timing + (sp.address ? ' &nbsp;📍 ' + sp.address : '') + '</div>' : '') +
+            '<div class="med-wl-hero-actions">' +
+               rxHeroBtn + visitHeroBtn +
+               '<button class="med-wl-hero-btn shop" onclick="document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
+            '</div>' +
+         '</div>' +
+         '<div class="med-wl-hero-right">' +
+            '<div class="med-wl-hero-promo">' +
+               '<div style="font-size:2rem">📋</div>' +
+               '<div style="font-weight:800;font-size:0.95rem">Upload Prescription</div>' +
+               '<div style="font-size:0.75rem;opacity:0.85;margin:4px 0 10px">Get 20% off on all Rx medicines</div>' +
+               (rxBtn
+                  ? rxBtn.replace('class="rx-only-btn"', 'style="background:#fff;color:var(--store-primary);border:none;padding:6px 16px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer"')
+                  : '') +
+            '</div>' +
          '</div>' +
       '</div>';
 
@@ -5232,7 +5263,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '<button class="wl-filter-btn reg" onclick="wlFilterSale(\'reg\',this)">Regular</button>' +
       '</div>';
 
-   // Sidebar
+   // Sidebar — department only
    var catBtns =
       '<button class="wl-sidebar-cat active" onclick="wlFilterCat(\'all\',this)">📦 All Products</button>' +
       storeCats.map(function(c) {
@@ -5240,28 +5271,15 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             getCatIcon(c.catKey) + ' ' + c.title + '</button>';
       }).join('');
 
-   var actionBtns = '';
-   if (rxBtn) actionBtns += '<div style="margin-top:10px">' + rxBtn.replace('class="rx-only-btn"', 'class="med-wl-action-btn rx"') + '</div>';
-   if (domainBtn) actionBtns += '<div style="margin-top:8px">' + domainBtn.replace('class="store-hero-outline-btn"', 'class="med-wl-action-btn visit"') + '</div>';
-
    var sidebar =
       '<aside class="wl-sidebar">' +
          '<div class="wl-sidebar-box">' +
             '<div class="wl-sidebar-title">🏷️ Department</div>' +
             '<div class="wl-sidebar-cats" id="wl-sidebar-cats">' + catBtns + '</div>' +
          '</div>' +
-         (actionBtns ? '<div class="wl-sidebar-box">' + actionBtns + '</div>' : '') +
-         '<div class="wl-sidebar-promo">' +
-            '<div style="font-size:1.8rem;margin-bottom:8px">📋</div>' +
-            '<div style="font-weight:800;font-size:0.9rem;color:#fff">Upload Prescription</div>' +
-            '<div style="font-size:0.75rem;color:rgba(255,255,255,0.8);margin:4px 0 12px">Get 20% off on all Rx medicines</div>' +
-            (rxBtn
-               ? rxBtn.replace('class="rx-only-btn"','style="background:#fff;color:var(--store-primary);border:none;padding:7px 16px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer"')
-               : '<button style="background:#fff;color:var(--store-primary);border:none;padding:7px 16px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer">Upload Now →</button>') +
-         '</div>' +
       '</aside>';
 
-   // Product cards using wlCard (adapting img→image field)
+   // Product cards
    var cardHtml = allItems.map(function(e) {
       var adapted = Object.assign({}, e.item, { image: e.item.img || e.item.image });
       return wlCard(adapted, e.catKey);
@@ -5276,7 +5294,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
       '</section>';
 
-   return announce + miniNav + filterBar +
+   return announce + miniNav + heroCard + filterBar +
       '<div class="wl-main-layout">' + sidebar + mainContent + '</div>';
 }
 

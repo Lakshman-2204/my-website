@@ -5127,6 +5127,8 @@ async function showStoreProvider(providerId) {
       var hdr2 = document.getElementById('productsHeader');
       if (hdr2) hdr2.style.display = 'none';
       grid.innerHTML = '<div id="storeProviderProducts">' + buildMedicalWLLayout(p, rxBtn, domainBtn) + '</div>';
+      var _si = document.getElementById('medWlSearch');
+      if (_si) { _si.oninput = medWlSearch; _si.onkeyup = medWlSearch; }
    } else {
       grid.innerHTML = '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id, sepaHero) + '</div>';
    }
@@ -5227,7 +5229,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             '</div>' +
          '</div>' +
          '<div class="med-wl-nav-search">' +
-            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" onkeyup="medWlSearch()" />' +
+            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" autocomplete="off" />' +
             '<span>🔍</span>' +
          '</div>' +
       '</div>';

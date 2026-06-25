@@ -7482,7 +7482,7 @@ async function checkShopOwnerLogin() {
    var staffTab  = document.getElementById('shop-tab-staff');
    var schedTab  = document.getElementById('shop-tab-schedule');
    var prodTab   = document.getElementById('shop-tab-products');
-   if (dashTab)   dashTab.classList.toggle('hidden',   !ownsHospital);
+   if (dashTab)   dashTab.classList.toggle('hidden',   !(ownsHospital || ownsStores));
    if (ordersTab) ordersTab.classList.toggle('hidden', !ownsStores);
    if (prodTab)   prodTab.classList.toggle('hidden',   !ownsStores);
    var mobDrawerOrders = document.getElementById('mob-drawer-orders');
@@ -7493,7 +7493,7 @@ async function checkShopOwnerLogin() {
    if (docTab)    docTab.classList.toggle('hidden',    !ownsHospital);
    if (patTab)    patTab.classList.toggle('hidden',    !ownsHospital);
    if (admTab)    admTab.classList.toggle('hidden',    !ownsHospital);
-   if (revenueTab) revenueTab.classList.toggle('hidden', !ownsHospital);
+   if (revenueTab) revenueTab.classList.toggle('hidden', !(ownsHospital || ownsStores));
    if (bedsTab)   bedsTab.classList.toggle('hidden',   !ownsHospital);
    if (staffTab)  staffTab.classList.toggle('hidden',  !ownsHospital);
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);

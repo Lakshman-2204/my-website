@@ -1500,6 +1500,13 @@ window.AppDB = {
       if (error) { console.error('setDeliveryPaused:', error.message); return false; }
       return true;
    },
+   async setStoreAds(storeId, adsJson) {
+      const { error } = await _sb.from('store_providers')
+         .update({ store_ads: adsJson })
+         .eq('id', storeId);
+      if (error) { console.error('setStoreAds:', error.message); return false; }
+      return true;
+   },
 
    async deleteStoreProvider(id) {
       const { error } = await _sb.from('store_providers').delete().eq('id', id);

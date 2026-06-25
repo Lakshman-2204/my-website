@@ -8583,6 +8583,29 @@ body.profile-page { background: #e8edf5; }
 .med-wl-nav-search span {
    position: absolute; right: 12px; color: #888; font-size: 0.9rem;
 }
+/* Ad banner strip */
+.med-wl-ads-strip {
+   display: flex; gap: 12px; padding: 12px 20px; overflow-x: auto;
+   background: #f8fafc; scrollbar-width: none;
+}
+.med-wl-ads-strip::-webkit-scrollbar { display: none; }
+.med-wl-ad-card {
+   min-width: 260px; height: 90px; border-radius: 12px; flex-shrink: 0;
+   background: linear-gradient(135deg, var(--store-primary), var(--store-primary-hover));
+   position: relative; overflow: hidden; cursor: pointer;
+}
+.med-wl-ad-overlay {
+   position: absolute; inset: 0; padding: 12px 14px;
+   background: linear-gradient(to right, rgba(0,0,0,0.45), rgba(0,0,0,0.1));
+   display: flex; flex-direction: column; justify-content: center;
+}
+.med-wl-ad-headline { color: #fff; font-weight: 800; font-size: 0.88rem; line-height: 1.2; }
+.med-wl-ad-subtitle { color: rgba(255,255,255,0.85); font-size: 0.73rem; margin-top: 3px; }
+.med-wl-ad-cta {
+   margin-top: 6px; display: inline-block; background: #fff;
+   color: var(--store-primary); font-size: 0.7rem; font-weight: 800;
+   padding: 3px 10px; border-radius: 20px;
+}
 /* Hero card */
 .med-wl-hero {
    background: linear-gradient(135deg, var(--store-primary) 0%, var(--store-primary-hover) 100%);

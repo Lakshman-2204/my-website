@@ -5235,6 +5235,26 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '</div>' +
       '</div>';
 
+   // Ad banners (from store_providers.store_ads JSON)
+   var adsBannerHtml = '';
+   try {
+      var storeAds = sp.store_ads ? JSON.parse(sp.store_ads) : [];
+      if (storeAds.length) {
+         adsBannerHtml =
+            '<div class="med-wl-ads-strip">' +
+            storeAds.map(function(ad) {
+               return '<div class="med-wl-ad-card"' + (ad.image ? ' style="background-image:url(\'' + ad.image + '\');background-size:cover;background-position:center"' : '') + '>' +
+                  '<div class="med-wl-ad-overlay">' +
+                     '<div class="med-wl-ad-headline">' + ad.headline + '</div>' +
+                     (ad.subtitle ? '<div class="med-wl-ad-subtitle">' + ad.subtitle + '</div>' : '') +
+                     (ad.cta ? '<span class="med-wl-ad-cta">' + ad.cta + ' →</span>' : '') +
+                  '</div>' +
+               '</div>';
+            }).join('') +
+            '</div>';
+      }
+   } catch(e) {}
+
    // Filter bar
    var filterBar =
       '<div class="wl-filter-bar">' +
@@ -5275,7 +5295,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
       '</section>';
 
-   return heroCard + filterBar +
+   return heroCard + adsBannerHtml + filterBar +
       '<div class="wl-main-layout">' + sidebar + mainContent + '</div>';
 }
 
@@ -6177,7 +6197,7 @@ function _applyStoreProdsToProducts() {
       if (!cat) return;
       if (cat.items.find(function(i) { return i.id === p.id; })) return;
       cat.items.push({
-         id: p.id, name: p.name, price: p.price || 0,
+         id: p.id, name: p.name, price: p.price || 0, mrp: p.mrp || 0,
          desc: p.description || '', img: p.image || '',
          badge: p.badge || 'New',
          storeId: p.store_id, storeName: p.store_name,
@@ -8015,7 +8035,7 @@ function renderMyStoreProducts(storeId) {
    _currentMyStoreProds = (_db.storeProducts || [])
       .filter(function(p) { return p.store_provider_id === storeId; })
       .map(function(p) {
-         return { id: p.id, name: p.name, price: p.price, desc: p.description,
+         return { id: p.id, name: p.name, price: p.price, mrp: p.mrp || 0, desc: p.description,
                   img: p.image, badge: p.badge, catKey: p.category,
                   reorder_point: p.reorder_point || 0,
                   sell_unit: p.sell_unit || 'strip',
@@ -8066,8 +8086,8 @@ function renderMyStoreProducts(storeId) {
       return '<div class="shop-prod-card">' +
                 '<img src="' + imgSrc + '" onerror="_fallbackItemImg(this)"/>' +
                 '<div class="shop-prod-info">' +
-                   '<div class="shop-prod-name">' + p.name + stockBadge + '</div>' +
-                   '<div class="shop-prod-meta">\u20b9' + (p.price || 0).toLocaleString('en-IN') + ' \xb7 ' + (p.desc || '') + '</div>' +
+                   '<div class="shop-prod-name">' + p.name + stockBadge + (p.mrp && p.mrp > p.price ? ' <span style="background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px">\u26a1 LIVE SALE</span>' : '') + '</div>' +
+                   '<div class="shop-prod-meta">\u20b9' + (p.price || 0).toLocaleString('en-IN') + (p.mrp && p.mrp > p.price ? ' <span style="text-decoration:line-through;color:#999;margin-left:4px">MRP \u20b9' + p.mrp.toLocaleString('en-IN') + '</span>' : '') + ' \xb7 ' + (p.desc || '') + '</div>' +
                 '</div>' +
                 '<div class="shop-prod-actions">' +
                    '<button title="Manage Stock"   onclick="openStockModal(\'' + p.id.replace(/\'/g,"\\'") + '\')">\ud83d\udce6</button>' +
@@ -8128,6 +8148,7 @@ function openStoreProductModal(idx) {
    document.getElementById('sp-modal-title').textContent = p ? 'Edit Item' : 'Add Item';
    document.getElementById('sp-name').value  = p ? p.name  : '';
    document.getElementById('sp-price').value = p ? p.price : '';
+   document.getElementById('sp-mrp').value   = p ? (p.mrp || '') : '';
    document.getElementById('sp-desc').value  = p ? p.desc  : '';
    document.getElementById('sp-img').value   = p ? p.img   : '';
    document.getElementById('sp-badge').value = p ? (p.badge || '') : '';
@@ -9811,6 +9832,7 @@ async function saveStoreProduct() {
    var user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    var name  = document.getElementById('sp-name').value.trim();
    var price = parseFloat(document.getElementById('sp-price').value) || 0;
+   var mrp   = parseFloat(document.getElementById('sp-mrp').value) || 0;
    var brand = document.getElementById('sp-brand').value.trim();
    var desc  = document.getElementById('sp-desc').value.trim() || brand;
    var img   = document.getElementById('sp-img').value.trim() || 'https://placehold.co/400x300?text=Product';
@@ -9858,7 +9880,7 @@ async function saveStoreProduct() {
    }
 
    var dbRow = {
-      id: id, name: name, price: price,
+      id: id, name: name, price: price, mrp: mrp > price ? mrp : 0,
       description: desc, image: img,
       category: catKey, badge: badge,
       store_id: store ? store.owner_email : user.email,
@@ -9887,6 +9909,71 @@ async function deleteStoreProduct(idx) {
    _db.storeProducts = (_db.storeProducts || []).filter(function(x) { return x.id !== p.id; });
    _applyStoreProdsToProducts();
    renderMyStoreProducts(_currentMyStoreId);
+}
+
+// ── Store Ads / Promotions ────────────────────────────────────────────────────
+function openStoreAdsModal() {
+   if (!_currentMyStoreId) { alert('Open a store first.'); return; }
+   _renderStoreAdsList();
+   document.getElementById('adHeadline').value = '';
+   document.getElementById('adSubtitle').value = '';
+   document.getElementById('adImage').value    = '';
+   document.getElementById('adCta').value      = '';
+   document.getElementById('storeAdsModal').classList.remove('hidden');
+}
+function closeStoreAdsModal() {
+   document.getElementById('storeAdsModal').classList.add('hidden');
+}
+function _getStoreAds() {
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === _currentMyStoreId; });
+   if (!store || !store.store_ads) return [];
+   try { return JSON.parse(store.store_ads); } catch(e) { return []; }
+}
+function _renderStoreAdsList() {
+   var ads = _getStoreAds();
+   var container = document.getElementById('storeAdsList');
+   if (!container) return;
+   if (!ads.length) { container.innerHTML = '<p style="color:#888;font-size:0.85rem;text-align:center;padding:10px">No banners yet — add one below.</p>'; return; }
+   container.innerHTML = ads.map(function(ad, i) {
+      return '<div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">' +
+         (ad.image ? '<img src="' + ad.image + '" style="width:56px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0"/>' : '<div style="width:56px;height:40px;background:#f1f5f9;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📢</div>') +
+         '<div style="flex:1;min-width:0">' +
+            '<div style="font-weight:700;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ad.headline + '</div>' +
+            (ad.subtitle ? '<div style="font-size:0.78rem;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ad.subtitle + '</div>' : '') +
+         '</div>' +
+         '<button onclick="deleteStoreAd(' + i + ')" style="background:none;border:none;color:#c62828;cursor:pointer;font-size:1.1rem;padding:0 4px" title="Remove">🗑️</button>' +
+      '</div>';
+   }).join('');
+}
+async function addStoreAd() {
+   var headline = document.getElementById('adHeadline').value.trim();
+   if (!headline) { alert('Headline is required.'); return; }
+   var ad = {
+      headline: headline,
+      subtitle: document.getElementById('adSubtitle').value.trim(),
+      image:    document.getElementById('adImage').value.trim(),
+      cta:      document.getElementById('adCta').value.trim()
+   };
+   var ads = _getStoreAds();
+   ads.push(ad);
+   var ok = await AppDB.setStoreAds(_currentMyStoreId, JSON.stringify(ads));
+   if (!ok) { alert('Failed to save ad. Make sure the store_ads column exists in store_providers.'); return; }
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === _currentMyStoreId; });
+   if (store) store.store_ads = JSON.stringify(ads);
+   document.getElementById('adHeadline').value = '';
+   document.getElementById('adSubtitle').value = '';
+   document.getElementById('adImage').value    = '';
+   document.getElementById('adCta').value      = '';
+   _renderStoreAdsList();
+}
+async function deleteStoreAd(idx) {
+   var ads = _getStoreAds();
+   ads.splice(idx, 1);
+   var ok = await AppDB.setStoreAds(_currentMyStoreId, JSON.stringify(ads));
+   if (!ok) { alert('Failed to remove ad.'); return; }
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === _currentMyStoreId; });
+   if (store) store.store_ads = JSON.stringify(ads);
+   _renderStoreAdsList();
 }
 
 function switchShopTab(tab) {

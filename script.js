@@ -423,55 +423,27 @@ function renderCard(item, catKey, grid) {
    const card = document.createElement('div');
    card.className = 'product-card';
    card.id = 'card_' + item.id;
+   const fallbackImg = item.img || getCatImg(catKey);
+   const discPct = item.mrp && item.mrp > item.price ? Math.round((1 - item.price/item.mrp)*100) : 0;
    card.innerHTML = `
-<div class="card-color-top" style="${item.img ? `background:${topBg};` : `background:${topBg};`}">
-  ${item.img
-    ? `<img src="${item.img}" alt="${shortName}" class="card-product-img" onerror="this.style.display='none';this.parentElement.querySelector('.card-color-name').style.display='flex'">`
-    : ''}
-  <div class="card-color-name" style="${item.img ? 'display:none' : ''}">${shortName}</div>
+<div class="card-color-top">
+  <img src="${fallbackImg}" alt="${shortName}" class="card-product-img"
+       onerror="this.src='https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80'">
+  ${discPct ? `<div class="sepa-discount-tag">-${discPct}%</div>` : ''}
   <button class="wish-btn${inWL ? ' wished' : ''}" id="wish_${item.id}"
           onclick="toggleWishlist('${item.id}','${catKey}',this)"
           title="${inWL ? 'Remove from Wishlist' : 'Add to Wishlist'}">${inWL ? '❤️' : '🤍'}</button>
-  ${item.mrp && item.mrp > item.price ? `<div class="sepa-discount-tag">-${Math.round((1 - item.price/item.mrp)*100)}%</div>` : ''}
 </div>
 <div class="card-content">
-  <span class="badge">${item.badge}</span>
-  <div class="sepa-stars">★★★★☆ <span class="sepa-rating-count">(${(item.id.charCodeAt(0) % 80) + 15})</span></div>
+  <div class="sepa-stars">★★★★☆</div>
   <div class="product-name">${item.name}</div>
-  <div class="product-desc">${item.desc}</div>
-  ${item.storeId ? `<div class="store-badge">🏪 ${item.storeName || getStoreName(item.storeId)}</div>` : ''}
-  ${isMilk ? `
-  <div class="litre-selector">
-  <label>Select Litres:</label>
-  <select class="litre-select" id="litre_${item.id}" onchange="updateMilkPrice('${item.id}', ${item.pricePerLitre})">
-  <option value="0.5">0.5 Litre — ₹${Math.round(item.pricePerLitre*0.5)}</option>
-  <option value="1" selected>1 Litre — ₹${item.pricePerLitre}</option>
-  <option value="2">2 Litres — ₹${item.pricePerLitre*2}</option>
-  <option value="3">3 Litres — ₹${item.pricePerLitre*3}</option>
-  <option value="5">5 Litres — ₹${item.pricePerLitre*5}</option>
-  </select>
-  </div>` : hasVariants ? `
-  <div class="variant-selector" id="variants_${item.id}">
-  ${item.variants.map((v, i) => `<button class="variant-btn${pageVariant[item.id]===i?' active':''}" onclick="selectVariant('${item.id}',${i})">${v.label}</button>`).join('')}
-  </div>
-  <div class="qty-controls">
-  <button class="qty-btn" onclick="changeQty('${item.id}', -1)">−</button>
-  <span class="qty-display" id="qty_${item.id}">${pageQty[item.id]}</span>
-  <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
-  </div>` : `
-  <div class="qty-controls">
-  <button class="qty-btn" onclick="changeQty('${item.id}', -1)">−</button>
-  <span class="qty-display" id="qty_${item.id}">${pageQty[item.id]}</span>
-  <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
-  </div>`}
-  ${_rxStockTags(item)}
   <div class="product-footer">
-  <div style="display:flex;flex-direction:column;gap:1px">
-    <span class="product-price" id="price_${item.id}">${displayPrice}</span>
-    ${item.mrp && item.mrp > item.price ? `<span class="sepa-old-price">MRP ₹${item.mrp.toLocaleString('en-IN')}</span>` : ''}
+    <div style="display:flex;flex-direction:column;gap:1px">
+      <span class="product-price" id="price_${item.id}">${displayPrice}</span>
+      ${item.mrp && item.mrp > item.price ? `<span class="sepa-old-price">MRP ₹${item.mrp.toLocaleString('en-IN')}</span>` : ''}
+    </div>
   </div>
   ${_addToCartButton(item, catKey)}
-  </div>
 </div>
 `;
    grid.appendChild(card);
@@ -5149,8 +5121,171 @@ async function showStoreProvider(providerId) {
 
    var grid = document.getElementById('productsGrid');
    grid.style.display = 'block';
-   grid.innerHTML = '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id, sepaHero) + '</div>';
+
+   if (p.category === 'medical') {
+      // Hide productsHeader — WL layout replaces it
+      var hdr2 = document.getElementById('productsHeader');
+      if (hdr2) hdr2.style.display = 'none';
+      grid.innerHTML = '<div id="storeProviderProducts">' + buildMedicalWLLayout(p, rxBtn, domainBtn) + '</div>';
+   } else {
+      grid.innerHTML = '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id, sepaHero) + '</div>';
+   }
    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Shared WL helpers (used by both white-label and main platform) ──
+var CAT_IMG = {
+   medicines:    'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
+   medicine:     'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
+   health:       'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
+   personalcare: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=300&q=80',
+   personalCare: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=300&q=80',
+   babycare:     'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=300&q=80',
+   vitamins:     'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&q=80',
+   supplements:  'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&q=80',
+   dental:       'https://images.unsplash.com/photo-1559181567-c3190ca9d884?w=300&q=80',
+   surgical:     'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=300&q=80',
+   skincare:     'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=300&q=80',
+   grocery:      'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&q=80',
+   groceries:    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&q=80',
+   snacks:       'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=300&q=80',
+   dairy:        'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300&q=80',
+   beverages:    'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=300&q=80',
+   cleaning:     'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=300&q=80',
+};
+function getCatImg(key) {
+   if (CAT_IMG[key]) return CAT_IMG[key];
+   var k = (key || '').toLowerCase();
+   for (var ck in CAT_IMG) { if (k.includes(ck.toLowerCase())) return CAT_IMG[ck]; }
+   return 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80';
+}
+function wlPct(item) {
+   return (item.mrp && item.price && item.mrp > item.price) ? Math.round((1 - item.price / item.mrp) * 100) : 0;
+}
+function wlCard(item, catKey) {
+   var p = wlPct(item);
+   var isLiveSale = p && p >= 10;
+   var safeId = (item.id || '').replace(/'/g, "\\'");
+   var safeCat = (catKey || '').replace(/'/g, "\\'");
+   var price = item.price || item.mrp || 0;
+   var mrp = item.mrp || 0;
+   var imgSrc = item.image || item.img || getCatImg(catKey);
+   return '<div class="wl-card" data-cat="' + catKey + '" data-sale="' + (isLiveSale ? '1' : '0') + '">' +
+      (isLiveSale ? '<span class="wl-card-live-badge">⚡ LIVE SALE</span>' : '') +
+      (isLiveSale ? '<span class="wl-card-stock-badge">Limited Stock</span>' : '') +
+      '<div class="wl-card-img-wrap">' +
+         '<img src="' + imgSrc + '" alt="" loading="lazy" class="wl-card-img" onerror="this.src=\'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80\'">' +
+      '</div>' +
+      '<div class="wl-card-body">' +
+         '<div class="wl-card-stars">★★★★★</div>' +
+         '<div class="wl-card-name">' + item.name + '</div>' +
+         '<div class="wl-card-price-row">' +
+            (isLiveSale && mrp > price
+               ? '<span class="wl-card-mrp">₹' + mrp + '</span><span class="wl-card-price">₹' + price + '</span><span class="wl-card-offpct">' + p + '% off</span>'
+               : '<span class="wl-card-price">₹' + price + '</span>' + (mrp > price ? '<span class="wl-card-mrp">MRP ₹' + mrp + '</span>' : '')) +
+         '</div>' +
+         '<button class="wl-card-add-btn" onclick="addToCart(\'' + safeId + '\',\'' + safeCat + '\')">ADD TO CART</button>' +
+      '</div>' +
+   '</div>';
+}
+
+// WL-style layout for medical stores on the main platform.
+function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
+   // Collect all items for this store across all categories
+   var storeCats = [];
+   Object.entries(products).forEach(function(entry) {
+      var catKey = entry[0], catData = entry[1];
+      var items = catData.items.filter(function(it) { return it.store_provider_id === sp.id; });
+      if (items.length) storeCats.push({ catKey: catKey, title: catData.title, items: items });
+   });
+
+   // Flatten to one array for the unified grid
+   var allItems = [];
+   storeCats.forEach(function(c) {
+      c.items.forEach(function(it) { allItems.push({ item: it, catKey: c.catKey }); });
+   });
+
+   if (!allItems.length) return '<p style="color:#888;padding:40px;text-align:center">No products in this store yet.</p>';
+
+   // Announcement bar
+   var announce =
+      '<div class="med-wl-announce">' +
+         '🚚 Free delivery on orders over ₹499 &nbsp;|&nbsp; 📋 Upload prescription for Rx medicines' +
+      '</div>';
+
+   // Mini store nav (name + search + cart)
+   var miniNav =
+      '<div class="med-wl-nav">' +
+         '<span class="med-wl-nav-brand">⚕️ ' + sp.name + '</span>' +
+         '<div class="med-wl-nav-search">' +
+            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" />' +
+            '<span>🔍</span>' +
+         '</div>' +
+      '</div>';
+
+   // Filter bar
+   var filterBar =
+      '<div class="wl-filter-bar">' +
+         '<span class="wl-filter-label">🔥 Filters:</span>' +
+         '<button class="wl-filter-btn active" onclick="wlFilterSale(\'all\',this)">View All</button>' +
+         '<button class="wl-filter-btn sale" onclick="wlFilterSale(\'sale\',this)">🔥 Live Sale Only</button>' +
+         '<button class="wl-filter-btn reg" onclick="wlFilterSale(\'reg\',this)">Regular</button>' +
+      '</div>';
+
+   // Sidebar
+   var catBtns =
+      '<button class="wl-sidebar-cat active" onclick="wlFilterCat(\'all\',this)">📦 All Products</button>' +
+      storeCats.map(function(c) {
+         return '<button class="wl-sidebar-cat" onclick="wlFilterCat(\'' + c.catKey + '\',this)">' +
+            getCatIcon(c.catKey) + ' ' + c.title + '</button>';
+      }).join('');
+
+   var actionBtns = '';
+   if (rxBtn) actionBtns += '<div style="margin-top:10px">' + rxBtn.replace('class="rx-only-btn"', 'class="med-wl-action-btn rx"') + '</div>';
+   if (domainBtn) actionBtns += '<div style="margin-top:8px">' + domainBtn.replace('class="store-hero-outline-btn"', 'class="med-wl-action-btn visit"') + '</div>';
+
+   var sidebar =
+      '<aside class="wl-sidebar">' +
+         '<div class="wl-sidebar-box">' +
+            '<div class="wl-sidebar-title">🏷️ Department</div>' +
+            '<div class="wl-sidebar-cats" id="wl-sidebar-cats">' + catBtns + '</div>' +
+         '</div>' +
+         (actionBtns ? '<div class="wl-sidebar-box">' + actionBtns + '</div>' : '') +
+         '<div class="wl-sidebar-promo">' +
+            '<div style="font-size:1.8rem;margin-bottom:8px">📋</div>' +
+            '<div style="font-weight:800;font-size:0.9rem;color:#fff">Upload Prescription</div>' +
+            '<div style="font-size:0.75rem;color:rgba(255,255,255,0.8);margin:4px 0 12px">Get 20% off on all Rx medicines</div>' +
+            (rxBtn
+               ? rxBtn.replace('class="rx-only-btn"','style="background:#fff;color:var(--store-primary);border:none;padding:7px 16px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer"')
+               : '<button style="background:#fff;color:var(--store-primary);border:none;padding:7px 16px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer">Upload Now →</button>') +
+         '</div>' +
+      '</aside>';
+
+   // Product cards using wlCard (adapting img→image field)
+   var cardHtml = allItems.map(function(e) {
+      var adapted = Object.assign({}, e.item, { image: e.item.img || e.item.image });
+      return wlCard(adapted, e.catKey);
+   }).join('');
+
+   var mainContent =
+      '<section class="wl-main-content">' +
+         '<div class="wl-catalog-header">' +
+            '<h2 class="wl-catalog-title">Our Catalog</h2>' +
+            '<p class="wl-catalog-sub">Tap ADD TO CART to add items directly to your basket</p>' +
+         '</div>' +
+         '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
+      '</section>';
+
+   return announce + miniNav + filterBar +
+      '<div class="wl-main-layout">' + sidebar + mainContent + '</div>';
+}
+
+function medWlSearch() {
+   var q = (document.getElementById('medWlSearch').value || '').trim().toLowerCase();
+   document.querySelectorAll('#wl-prod-grid .wl-card').forEach(function(card) {
+      var name = (card.querySelector('.wl-card-name') || {}).textContent || '';
+      card.style.display = (!q || name.toLowerCase().includes(q)) ? '' : 'none';
+   });
 }
 
 // Build the sub-category sidebar + product grid for one store provider.
@@ -5801,86 +5936,7 @@ function buildWLPage(sp, vendor) {
    });
 
    // Category fallback images from Unsplash (shown when owner hasn't uploaded a product photo)
-   var CAT_IMG = {
-      medicines:    'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
-      medicine:     'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
-      health:       'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
-      personalcare: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=300&q=80',
-      personalCare: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=300&q=80',
-      babycare:     'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=300&q=80',
-      vitamins:     'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&q=80',
-      supplements:  'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&q=80',
-      dental:       'https://images.unsplash.com/photo-1559181567-c3190ca9d884?w=300&q=80',
-      surgical:     'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=300&q=80',
-      skincare:     'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=300&q=80',
-      grocery:      'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&q=80',
-      groceries:    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&q=80',
-      snacks:       'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=300&q=80',
-      dairy:        'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300&q=80',
-      beverages:    'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=300&q=80',
-      cleaning:     'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=300&q=80',
-   };
-   var CAT_EMOJI = {
-      medicines: '💊', medicine: '💊', health: '🏥',
-      personalcare: '🧴', personalCare: '🧴', skincare: '🧴',
-      babycare: '👶', vitamins: '🌿', supplements: '💪',
-      dental: '🦷', surgical: '🩹', grocery: '🛒', groceries: '🛒',
-      beverages: '☕', snacks: '🍿', dairy: '🥛', vegetables: '🥦',
-   };
-   function getCatEmoji(key) {
-      if (CAT_EMOJI[key]) return CAT_EMOJI[key];
-      var k = (key || '').toLowerCase();
-      for (var ck in CAT_EMOJI) { if (k.includes(ck.toLowerCase())) return CAT_EMOJI[ck]; }
-      return '🏪';
-   }
-   function getCatImg(key) {
-      if (CAT_IMG[key]) return CAT_IMG[key];
-      var k = (key || '').toLowerCase();
-      for (var ck in CAT_IMG) { if (k.includes(ck.toLowerCase())) return CAT_IMG[ck]; }
-      return 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80';
-   }
-   function starCount(item) {
-      var idSum = (item.id || 'x').split('').reduce(function(s, c, i) { return s + c.charCodeAt(0) * (i + 1); }, 0);
-      return (idSum % 60) + 18;
-   }
-   function pct(item) {
-      return (item.mrp && item.price && item.mrp > item.price) ? Math.round((1 - item.price / item.mrp) * 100) : 0;
-   }
-   function imgOrEmoji(item, catKey) {
-      var src = item.image || getCatImg(catKey);
-      var emoji = getCatEmoji(catKey);
-      return '<img class="wl-card-img" src="' + src + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">' +
-         '<div class="wl-card-emoji" style="display:none">' + emoji + '</div>';
-   }
-
-   // ── Gemini-style product card ──
-   function wlCard(item, catKey) {
-      var p = pct(item);
-      var isLiveSale = p && p >= 10;
-      var safeId = (item.id || '').replace(/'/g, "\\'");
-      var safeCat = (catKey || '').replace(/'/g, "\\'");
-      var price = item.price || item.mrp || 0;
-      var mrp = item.mrp || 0;
-      var imgSrc = item.image || getCatImg(catKey);
-      var stars = '★★★★★';
-      return '<div class="wl-card" data-cat="' + catKey + '" data-sale="' + (isLiveSale ? '1' : '0') + '">' +
-         (isLiveSale ? '<span class="wl-card-live-badge">⚡ LIVE SALE</span>' : '') +
-         (isLiveSale ? '<span class="wl-card-stock-badge">Limited Stock</span>' : '') +
-         '<div class="wl-card-img-wrap">' +
-            '<img src="' + imgSrc + '" alt="" loading="lazy" class="wl-card-img" onerror="this.src=\'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80\'">' +
-         '</div>' +
-         '<div class="wl-card-body">' +
-            '<div class="wl-card-stars">' + stars + '</div>' +
-            '<div class="wl-card-name">' + item.name + '</div>' +
-            '<div class="wl-card-price-row">' +
-               (isLiveSale && mrp > price
-                  ? '<span class="wl-card-mrp">₹' + mrp + '</span><span class="wl-card-price">₹' + price + '</span><span class="wl-card-offpct">' + p + '% off</span>'
-                  : '<span class="wl-card-price">₹' + price + '</span>' + (mrp > price ? '<span class="wl-card-mrp">MRP ₹' + mrp + '</span>' : '')) +
-            '</div>' +
-            '<button class="wl-card-add-btn" onclick="addToCart(\'' + safeId + '\',\'' + safeCat + '\')">ADD TO CART</button>' +
-         '</div>' +
-      '</div>';
-   }
+   // getCatImg, getCatEmoji, pct, wlCard are global — defined below _activateWhiteLabel
 
    // ── Flatten all products for the unified grid ──
    var allItems = [];

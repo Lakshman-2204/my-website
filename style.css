@@ -970,8 +970,6 @@ body.guest .store-section-divider {
 	width: 66px;
 	height: 66px;
 	object-fit: contain;
-	padding: 0;
-	box-sizing: border-box;
 	transition: transform 0.3s;
 }
 
@@ -8561,6 +8559,40 @@ body.profile-page { background: #e8edf5; }
 .wl-empty-state { text-align: center; padding: 80px 20px; color: #94a3b8; font-size: 1rem; line-height: 2; }
 
 /* ── Footer ── */
+/* ── Medical store WL layout (main platform) ── */
+.med-wl-announce {
+   background: var(--store-primary); color: #fff;
+   text-align: center; padding: 8px 16px; font-size: 0.78rem; font-weight: 500;
+}
+.med-wl-nav {
+   background: var(--store-primary); color: #fff;
+   display: flex; align-items: center; justify-content: space-between;
+   padding: 10px 20px; gap: 16px;
+}
+.med-wl-nav-brand { font-size: 1rem; font-weight: 700; white-space: nowrap; }
+.med-wl-nav-search {
+   flex: 1; max-width: 420px; position: relative; display: flex; align-items: center;
+}
+.med-wl-nav-search input {
+   width: 100%; padding: 7px 36px 7px 14px; border-radius: 24px; border: none;
+   font-size: 0.85rem; outline: none; box-sizing: border-box;
+}
+.med-wl-nav-search span {
+   position: absolute; right: 12px; color: #888; font-size: 0.9rem;
+}
+.med-wl-action-btn {
+   display: block; width: 100%; padding: 9px 14px; border-radius: 8px;
+   font-size: 0.8rem; font-weight: 700; cursor: pointer; text-align: center;
+   text-decoration: none; border: none; transition: opacity 0.15s;
+}
+.med-wl-action-btn:hover { opacity: 0.85; }
+.med-wl-action-btn.rx {
+   background: var(--store-bg-light); color: var(--store-primary);
+}
+.med-wl-action-btn.visit {
+   background: #1e293b; color: #fff;
+}
+
 .wl-footer { background: #0f172a; color: #94a3b8; padding: 36px 5% 20px; }
 .wl-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 28px; margin-bottom: 28px; }
 .wl-footer-brand-name { font-size: 1.05rem; font-weight: 800; color: #f1f5f9; margin: 0 0 8px; }

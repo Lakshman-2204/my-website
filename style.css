@@ -8506,7 +8506,7 @@ body.profile-page { background: #e8edf5; }
 .wl-catalog-sub { font-size: 0.78rem; color: #94a3b8; margin: 0; }
 
 /* ── Product grid ── */
-.wl-prod-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.wl-prod-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
 
 /* ── Gemini-style product card ── */
 .wl-card {
@@ -8529,26 +8529,26 @@ body.profile-page { background: #e8edf5; }
 }
 @keyframes wl-pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
 .wl-card-img-wrap {
-   height: 120px; display: flex; align-items: center; justify-content: center;
+   height: 90px; display: flex; align-items: center; justify-content: center;
    background: #f8fafc; flex-shrink: 0; overflow: hidden;
 }
-.wl-card-img { object-fit: contain; height: 88px; width: 88px; transition: transform 0.3s; }
+.wl-card-img { object-fit: contain; height: 66px; width: 66px; transition: transform 0.3s; }
 .wl-card:hover .wl-card-img { transform: scale(1.05); }
-.wl-card-body { padding: 12px 14px 16px; flex: 1; display: flex; flex-direction: column; }
-.wl-card-stars { color: #f59e0b; font-size: 0.7rem; margin-bottom: 6px; }
+.wl-card-body { padding: 8px 10px 12px; flex: 1; display: flex; flex-direction: column; }
+.wl-card-stars { color: #f59e0b; font-size: 0.62rem; margin-bottom: 4px; }
 .wl-card-name {
-   font-size: 0.82rem; font-weight: 500; color: #1e293b;
-   margin-bottom: 8px; line-height: 1.4; flex: 1;
+   font-size: 0.75rem; font-weight: 500; color: #1e293b;
+   margin-bottom: 6px; line-height: 1.35; flex: 1;
    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.wl-card-price-row { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-.wl-card-price { font-size: 1.05rem; font-weight: 900; color: #1e293b; }
-.wl-card-mrp { font-size: 0.72rem; color: #94a3b8; text-decoration: line-through; }
-.wl-card-offpct { font-size: 0.72rem; font-weight: 700; color: #16a34a; }
+.wl-card-price-row { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.wl-card-price { font-size: 0.9rem; font-weight: 900; color: #1e293b; }
+.wl-card-mrp { font-size: 0.65rem; color: #94a3b8; text-decoration: line-through; }
+.wl-card-offpct { font-size: 0.65rem; font-weight: 700; color: #16a34a; }
 .wl-card-add-btn {
    width: 100%; background: var(--store-primary); color: #fff;
-   border: none; padding: 10px; border-radius: 10px; font-weight: 800;
-   font-size: 0.78rem; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase;
+   border: none; padding: 7px; border-radius: 8px; font-weight: 800;
+   font-size: 0.7rem; cursor: pointer; letter-spacing: 0.05em; text-transform: uppercase;
    transition: background 0.15s;
 }
 .wl-card-add-btn:hover { background: var(--store-primary-hover); }
@@ -8574,7 +8574,7 @@ body.profile-page { background: #e8edf5; }
    .wl-sidebar-box { flex: 1; min-width: 200px; }
    .wl-sidebar-cats { flex-direction: row; flex-wrap: wrap; gap: 6px; }
    .wl-sidebar-cat { width: auto; }
-   .wl-prod-grid { grid-template-columns: repeat(2,1fr); }
+   .wl-prod-grid { grid-template-columns: repeat(3,1fr); }
    .wl-footer-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
 }
 @media (max-width: 600px) {

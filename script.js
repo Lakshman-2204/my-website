@@ -5800,20 +5800,44 @@ function buildWLPage(sp, vendor) {
       if (items.length) storeCats.push({ catKey: catKey, title: catData.title, items: items });
    });
 
+   // Category fallback images from Unsplash (shown when owner hasn't uploaded a product photo)
+   var CAT_IMG = {
+      medicines:    'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
+      medicine:     'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
+      health:       'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80',
+      personalcare: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=300&q=80',
+      personalCare: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=300&q=80',
+      babycare:     'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=300&q=80',
+      vitamins:     'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&q=80',
+      supplements:  'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&q=80',
+      dental:       'https://images.unsplash.com/photo-1559181567-c3190ca9d884?w=300&q=80',
+      surgical:     'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=300&q=80',
+      skincare:     'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=300&q=80',
+      grocery:      'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&q=80',
+      groceries:    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&q=80',
+      snacks:       'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=300&q=80',
+      dairy:        'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300&q=80',
+      beverages:    'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=300&q=80',
+      cleaning:     'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=300&q=80',
+   };
    var CAT_EMOJI = {
-      medicines: '💊', medicine: '💊', health: '🏥', medical: '🏥',
+      medicines: '💊', medicine: '💊', health: '🏥',
       personalcare: '🧴', personalCare: '🧴', skincare: '🧴',
       babycare: '👶', vitamins: '🌿', supplements: '💪',
-      dental: '🦷', eye: '👁️', cardiac: '❤️', diabetes: '🩺',
-      surgical: '🩹', grocery: '🛒', groceries: '🛒',
+      dental: '🦷', surgical: '🩹', grocery: '🛒', groceries: '🛒',
       beverages: '☕', snacks: '🍿', dairy: '🥛', vegetables: '🥦',
-      cleaning: '🧹', homeCleaning: '🧹',
    };
    function getCatEmoji(key) {
       if (CAT_EMOJI[key]) return CAT_EMOJI[key];
       var k = (key || '').toLowerCase();
       for (var ck in CAT_EMOJI) { if (k.includes(ck.toLowerCase())) return CAT_EMOJI[ck]; }
       return '🏪';
+   }
+   function getCatImg(key) {
+      if (CAT_IMG[key]) return CAT_IMG[key];
+      var k = (key || '').toLowerCase();
+      for (var ck in CAT_IMG) { if (k.includes(ck.toLowerCase())) return CAT_IMG[ck]; }
+      return 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80';
    }
    function starCount(item) {
       var idSum = (item.id || 'x').split('').reduce(function(s, c, i) { return s + c.charCodeAt(0) * (i + 1); }, 0);
@@ -5823,10 +5847,10 @@ function buildWLPage(sp, vendor) {
       return (item.mrp && item.price && item.mrp > item.price) ? Math.round((1 - item.price / item.mrp) * 100) : 0;
    }
    function imgOrEmoji(item, catKey) {
+      var src = item.image || getCatImg(catKey);
       var emoji = getCatEmoji(catKey);
-      if (item.image) return '<img class="wl-card-img" src="' + item.image + '" alt="" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">' +
+      return '<img class="wl-card-img" src="' + src + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">' +
          '<div class="wl-card-emoji" style="display:none">' + emoji + '</div>';
-      return '<div class="wl-card-emoji">' + emoji + '</div>';
    }
 
    // ── Apollo-style product card ──
@@ -5853,22 +5877,16 @@ function buildWLPage(sp, vendor) {
       '</div>';
    }
 
-   // ── Horizontal scroll section ──
-   var _wlScrollIdx = 0;
+   // ── Grid section (3-col like Apollo) ──
    function hScrollSection(c) {
-      var idx = _wlScrollIdx++;
-      var scrollId = 'wl-hscroll-' + idx;
+      var shown = c.items.slice(0, 6);
       return '<section class="wl-section" id="wl-sec-' + c.catKey + '">' +
          '<div class="wl-section-header">' +
             '<h2 class="wl-section-title">' + c.title + '</h2>' +
-            '<span class="wl-view-all">View All &rsaquo;</span>' +
+            (c.items.length > 6 ? '<span class="wl-view-all">View All &rsaquo;</span>' : '') +
          '</div>' +
-         '<div class="wl-hscroll-wrap">' +
-            '<button class="wl-scroll-btn prev" onclick="wlScroll(\'' + scrollId + '\',-1)">&#8249;</button>' +
-            '<div class="wl-hscroll" id="' + scrollId + '">' +
-               c.items.map(function(it) { return wlCard(it, c.catKey); }).join('') +
-            '</div>' +
-            '<button class="wl-scroll-btn next" onclick="wlScroll(\'' + scrollId + '\',1)">&#8250;</button>' +
+         '<div class="wl-prod-grid">' +
+            shown.map(function(it) { return wlCard(it, c.catKey); }).join('') +
          '</div>' +
       '</section>';
    }
@@ -5904,12 +5922,12 @@ function buildWLPage(sp, vendor) {
          '</div>' +
          '<div class="wl-svc-card" style="background:#eff6ff;border-color:#bfdbfe">' +
             '<div class="wl-svc-icon">🚚</div>' +
-            '<div><div class="wl-svc-title">Home Delivery</div><div class="wl-svc-sub">ORDER NOW</div></div>' +
+            '<div><div class="wl-svc-title">Free Home Delivery</div><div class="wl-svc-sub">ORDERS ABOVE ₹499</div></div>' +
             '<span class="wl-svc-arrow">›</span>' +
          '</div>' +
          '<div class="wl-svc-card" style="background:#fff7ed;border-color:#fed7aa">' +
-            '<div class="wl-svc-icon">🧪</div>' +
-            '<div><div class="wl-svc-title">Lab Tests</div><div class="wl-svc-sub">AT HOME</div></div>' +
+            '<div class="wl-svc-icon">🔒</div>' +
+            '<div><div class="wl-svc-title">Secure Payments</div><div class="wl-svc-sub">100% SAFE</div></div>' +
             '<span class="wl-svc-arrow">›</span>' +
          '</div>' +
          '<div class="wl-svc-card" style="background:#fdf4ff;border-color:#e9d5ff">' +
@@ -5958,10 +5976,11 @@ function buildWLPage(sp, vendor) {
       var fp = pct(feat);
       var fsafe = (feat.id || '').replace(/'/g, "\\'");
       var fcatsafe = featCat.replace(/'/g, "\\'");
+      var featImg = feat.image || getCatImg(featCat);
       var featCard =
          '<div class="wl-featured-card">' +
-            (fp ? '<span class="wl-fb-pct">-' + fp + '%</span>' : '<span class="wl-fb-new">New</span>') +
-            '<div class="wl-featured-img">' + getCatEmoji(featCat) + '</div>' +
+            (fp ? '<span class="wl-fb-pct">-' + fp + '% off</span>' : '<span class="wl-fb-new">New</span>') +
+            '<div class="wl-featured-img"><img src="' + featImg + '" alt="" loading="lazy" onerror="this.src=\'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80\'"></div>' +
             '<div class="wl-featured-name">' + feat.name + '</div>' +
             '<div class="wl-featured-prices">' +
                '<span class="wl-featured-price">₹' + (feat.price || feat.mrp || 0) + '</span>' +
@@ -5972,10 +5991,11 @@ function buildWLPage(sp, vendor) {
       var miniCards = allItems.slice(1, 5).map(function(entry) {
          var item = entry.item; var ck = entry.catKey;
          var mp = pct(item);
+         var mImg = item.image || getCatImg(ck);
          var msafe = (item.id || '').replace(/'/g, "\\'"); var mcsafe = ck.replace(/'/g, "\\'");
          return '<div class="wl-mini-card">' +
             (mp ? '<span class="wl-mb-pct">-' + mp + '%</span>' : '') +
-            '<div class="wl-mini-img">' + getCatEmoji(ck) + '</div>' +
+            '<div class="wl-mini-img"><img src="' + mImg + '" alt="" loading="lazy" onerror="this.src=\'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&q=80\'"></div>' +
             '<div class="wl-mini-name">' + item.name + '</div>' +
             '<div class="wl-mini-prices">' +
                '<span class="wl-mini-price">₹' + (item.price || item.mrp || 0) + '</span>' +

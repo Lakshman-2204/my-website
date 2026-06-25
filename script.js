@@ -5213,19 +5213,10 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '🚚 Free delivery on orders over ₹499 &nbsp;|&nbsp; 📋 Upload prescription for Rx medicines' +
       '</div>';
 
-   // Mini store nav (name + search)
-   var miniNav =
-      '<div class="med-wl-nav">' +
-         '<span class="med-wl-nav-brand">⚕️ ' + sp.name + '</span>' +
-         '<div class="med-wl-nav-search">' +
-            '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" />' +
-            '<span>🔍</span>' +
-         '</div>' +
-      '</div>';
-
-   // Hero card with store info + action buttons
+   // Hero card — contains nav row (store name + search) + store info + buttons
    var rxHeroBtn = rxBtn
       ? rxBtn.replace('class="rx-only-btn"', 'class="med-wl-hero-btn rx"')
+             .replace(/>📋 Prescription</, '>📋 Upload Prescription<')
       : '';
    var visitHeroBtn = domainBtn
       ? domainBtn.replace('class="store-hero-outline-btn"', 'class="med-wl-hero-btn visit"')
@@ -5233,6 +5224,13 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
 
    var heroCard =
       '<div class="med-wl-hero">' +
+         '<div class="med-wl-hero-nav">' +
+            '<span class="med-wl-nav-brand">⚕️ ' + sp.name + '</span>' +
+            '<div class="med-wl-nav-search">' +
+               '<input type="text" id="medWlSearch" placeholder="Search medicines, vitamins…" oninput="medWlSearch()" />' +
+               '<span>🔍</span>' +
+            '</div>' +
+         '</div>' +
          '<div class="med-wl-hero-left">' +
             '<div class="med-wl-hero-tag">24×7 PHARMACY</div>' +
             '<h2 class="med-wl-hero-name">' + sp.name + '</h2>' +
@@ -5240,16 +5238,6 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             '<div class="med-wl-hero-actions">' +
                rxHeroBtn + visitHeroBtn +
                '<button class="med-wl-hero-btn shop" onclick="document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
-            '</div>' +
-         '</div>' +
-         '<div class="med-wl-hero-right">' +
-            '<div class="med-wl-hero-promo">' +
-               '<div style="font-size:2rem">📋</div>' +
-               '<div style="font-weight:800;font-size:0.95rem">Upload Prescription</div>' +
-               '<div style="font-size:0.75rem;opacity:0.85;margin:4px 0 10px">Get 20% off on all Rx medicines</div>' +
-               (rxBtn
-                  ? rxBtn.replace('class="rx-only-btn"', 'style="background:#fff;color:var(--store-primary);border:none;padding:6px 16px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer"')
-                  : '') +
             '</div>' +
          '</div>' +
       '</div>';
@@ -5294,7 +5282,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
       '</section>';
 
-   return announce + miniNav + heroCard + filterBar +
+   return announce + heroCard + filterBar +
       '<div class="wl-main-layout">' + sidebar + mainContent + '</div>';
 }
 

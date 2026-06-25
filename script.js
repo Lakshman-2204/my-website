@@ -5170,7 +5170,7 @@ function wlCard(item, catKey) {
    var price = item.price || item.mrp || 0;
    var mrp = item.mrp || 0;
    var imgSrc = item.image || item.img || getCatImg(catKey);
-   return '<div class="wl-card" data-cat="' + catKey + '" data-sale="' + (isLiveSale ? '1' : '0') + '">' +
+   return '<div class="wl-card" data-cat="' + catKey + '" data-sale="' + (isLiveSale ? '1' : '0') + '" data-name="' + (item.name || '').toLowerCase().replace(/"/g, '') + '">' +
       (isLiveSale ? '<span class="wl-card-live-badge">⚡ LIVE SALE</span>' : '') +
       (isLiveSale ? '<span class="wl-card-stock-badge">Limited Stock</span>' : '') +
       '<div class="wl-card-img-wrap">' +
@@ -5282,9 +5282,8 @@ function medWlSearch() {
    var grid = document.getElementById('wl-prod-grid');
    if (!grid) return;
    grid.querySelectorAll('.wl-card').forEach(function(card) {
-      if (!q) { card.style.display = ''; return; }
-      var text = card.innerText.toLowerCase();
-      card.style.display = text.includes(q) ? '' : 'none';
+      var name = card.getAttribute('data-name') || '';
+      card.style.display = (!q || name.includes(q)) ? '' : 'none';
    });
 }
 

@@ -5127,8 +5127,6 @@ async function showStoreProvider(providerId) {
       var hdr2 = document.getElementById('productsHeader');
       if (hdr2) hdr2.style.display = 'none';
       grid.innerHTML = '<div id="storeProviderProducts">' + buildMedicalWLLayout(p, rxBtn, domainBtn) + '</div>';
-      var _si = document.getElementById('medWlSearch');
-      if (_si) { _si.oninput = medWlSearch; _si.onkeyup = medWlSearch; }
    } else {
       grid.innerHTML = '<div id="storeProviderProducts">' + buildStoreSubcatLayout(p.id, sepaHero) + '</div>';
    }
@@ -8536,6 +8534,14 @@ document.addEventListener('DOMContentLoaded', _bindWalkinDrag);
 if (typeof window !== 'undefined') {
    window.addEventListener('load', _bindWalkinDrag);
 }
+
+// Delegated search listener — works even when input is injected dynamically
+document.addEventListener('input', function(e) {
+   if (e.target && e.target.id === 'medWlSearch') medWlSearch();
+});
+document.addEventListener('keyup', function(e) {
+   if (e.target && e.target.id === 'medWlSearch') medWlSearch();
+});
 
 // ── Walk-in customer history ───────────────────────────────────────────
 // When the cashier blurs the Name or Phone field, look up previous bills

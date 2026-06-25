@@ -5224,7 +5224,6 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             (sp.timing ? '<div class="med-wl-hero-meta">🕐 ' + sp.timing + (sp.address ? ' &nbsp;📍 ' + sp.address : '') + '</div>' : '') +
             '<div class="med-wl-hero-actions">' +
                rxHeroBtn + visitHeroBtn +
-               '<button class="med-wl-hero-btn shop" onclick="document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
             '</div>' +
          '</div>' +
          '<div class="med-wl-nav-search">' +
@@ -5253,7 +5252,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
    var sidebar =
       '<aside class="wl-sidebar">' +
          '<div class="wl-sidebar-box">' +
-            '<div class="wl-sidebar-title">🏷️ Department</div>' +
+            '<div class="wl-sidebar-title">🏷️ Categories</div>' +
             '<div class="wl-sidebar-cats" id="wl-sidebar-cats">' + catBtns + '</div>' +
          '</div>' +
       '</aside>';
@@ -5278,8 +5277,11 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
 }
 
 function medWlSearch() {
-   var q = (document.getElementById('medWlSearch').value || '').trim().toLowerCase();
-   document.querySelectorAll('#wl-prod-grid .wl-card').forEach(function(card) {
+   var input = document.getElementById('medWlSearch');
+   var q = (input ? input.value : '').trim().toLowerCase();
+   var grid = document.getElementById('wl-prod-grid');
+   if (!grid) return;
+   grid.querySelectorAll('.wl-card').forEach(function(card) {
       var name = (card.querySelector('.wl-card-name') || {}).textContent || '';
       card.style.display = (!q || name.toLowerCase().includes(q)) ? '' : 'none';
    });
@@ -5965,7 +5967,7 @@ function buildWLPage(sp, vendor) {
    var sidebarHtml =
       '<aside class="wl-sidebar">' +
          '<div class="wl-sidebar-box">' +
-            '<div class="wl-sidebar-title">🏷️ Department</div>' +
+            '<div class="wl-sidebar-title">🏷️ Categories</div>' +
             '<div class="wl-sidebar-cats" id="wl-sidebar-cats">' + sidebarCats + '</div>' +
          '</div>' +
          '<div class="wl-sidebar-promo">' +

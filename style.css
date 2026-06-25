@@ -8604,7 +8604,7 @@ body.profile-page { background: #e8edf5; }
 .med-wl-ad-cta {
    margin-top: 6px; display: inline-block; background: #fff;
    color: var(--store-primary); font-size: 0.7rem; font-weight: 800;
-   padding: 3px 10px; border-radius: 20px;
+   padding: 3px 10px; border-radius: 20px; text-decoration: none; cursor: pointer;
 }
 /* Hero card */
 .med-wl-hero {

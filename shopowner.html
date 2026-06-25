@@ -1585,8 +1585,13 @@
                <div style="font-weight:700;font-size:0.88rem;color:#374151;margin-bottom:10px">➕ Add New Banner</div>
                <div class="sp-field"><label>Headline <small style="color:#888;font-weight:400">(required)</small></label><input type="text" id="adHeadline" placeholder="e.g. Monsoon Sale — 30% off all vitamins!"/></div>
                <div class="sp-field"><label>Subtitle <small style="color:#888;font-weight:400">(optional)</small></label><input type="text" id="adSubtitle" placeholder="e.g. Valid till 30 June · No min. order"/></div>
-               <div class="sp-field"><label>Image URL <small style="color:#888;font-weight:400">(optional — paste a banner image link)</small></label><input type="text" id="adImage" placeholder="https://..."/></div>
-               <div class="sp-field"><label>CTA Button Text <small style="color:#888;font-weight:400">(optional)</small></label><input type="text" id="adCta" placeholder="e.g. Shop Now"/></div>
+               <div class="sp-field">
+                  <label>Image URL <small style="color:#888;font-weight:400">(optional)</small></label>
+                  <input type="text" id="adImage" placeholder="https://images.unsplash.com/..."/>
+                  <small style="color:#e53935;font-size:0.78rem">⚠️ Google Images won't work — use Unsplash, Cloudinary, or your own hosted image URL</small>
+               </div>
+               <div class="sp-field"><label>CTA Button Text <small style="color:#888;font-weight:400">(optional — shown as a button on the banner)</small></label><input type="text" id="adCta" placeholder="e.g. Shop Now"/></div>
+               <div class="sp-field"><label>CTA Link <small style="color:#888;font-weight:400">(optional — where clicking the button goes)</small></label><input type="text" id="adCtaLink" placeholder="e.g. https://yoursite.com or leave blank to scroll to products"/></div>
             </div>
          </div>
          <div class="sp-modal-footer">

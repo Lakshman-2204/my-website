@@ -5258,7 +5258,11 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
                   '<div class="med-wl-ad-overlay">' +
                      '<div class="med-wl-ad-headline">' + ad.headline + '</div>' +
                      (ad.subtitle ? '<div class="med-wl-ad-subtitle">' + ad.subtitle + '</div>' : '') +
-                     (ad.cta ? '<span class="med-wl-ad-cta">' + ad.cta + ' →</span>' : '') +
+                     (ad.cta
+                        ? (ad.ctaLink
+                           ? '<a href="' + ad.ctaLink + '" target="_blank" rel="noopener" class="med-wl-ad-cta">' + ad.cta + ' →</a>'
+                           : '<span class="med-wl-ad-cta" onclick="document.getElementById(\'wl-prod-grid\')&&document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})">' + ad.cta + ' →</span>')
+                        : '') +
                   '</div>' +
                '</div>';
             }).join('') +
@@ -9952,10 +9956,11 @@ async function deleteStoreProduct(idx) {
 function openStoreAdsModal() {
    if (!_currentMyStoreId) { alert('Open a store first.'); return; }
    _renderStoreAdsList();
-   document.getElementById('adHeadline').value = '';
-   document.getElementById('adSubtitle').value = '';
-   document.getElementById('adImage').value    = '';
-   document.getElementById('adCta').value      = '';
+   document.getElementById('adHeadline').value  = '';
+   document.getElementById('adSubtitle').value  = '';
+   document.getElementById('adImage').value     = '';
+   document.getElementById('adCta').value       = '';
+   document.getElementById('adCtaLink').value   = '';
    document.getElementById('storeAdsModal').classList.remove('hidden');
 }
 function closeStoreAdsModal() {
@@ -9989,7 +9994,8 @@ async function addStoreAd() {
       headline: headline,
       subtitle: document.getElementById('adSubtitle').value.trim(),
       image:    document.getElementById('adImage').value.trim(),
-      cta:      document.getElementById('adCta').value.trim()
+      cta:      document.getElementById('adCta').value.trim(),
+      ctaLink:  document.getElementById('adCtaLink').value.trim()
    };
    var ads = _getStoreAds();
    ads.push(ad);
@@ -9997,10 +10003,11 @@ async function addStoreAd() {
    if (!ok) { alert('Failed to save ad. Make sure the store_ads column exists in store_providers.'); return; }
    var store = (_storeProvidersCache || []).find(function(s) { return s.id === _currentMyStoreId; });
    if (store) store.store_ads = JSON.stringify(ads);
-   document.getElementById('adHeadline').value = '';
-   document.getElementById('adSubtitle').value = '';
-   document.getElementById('adImage').value    = '';
-   document.getElementById('adCta').value      = '';
+   document.getElementById('adHeadline').value  = '';
+   document.getElementById('adSubtitle').value  = '';
+   document.getElementById('adImage').value     = '';
+   document.getElementById('adCta').value       = '';
+   document.getElementById('adCtaLink').value   = '';
    _renderStoreAdsList();
 }
 async function deleteStoreAd(idx) {

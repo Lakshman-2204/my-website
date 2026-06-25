@@ -8148,7 +8148,7 @@ function openStoreProductModal(idx) {
    document.getElementById('sp-modal-title').textContent = p ? 'Edit Item' : 'Add Item';
    document.getElementById('sp-name').value  = p ? p.name  : '';
    document.getElementById('sp-price').value = p ? p.price : '';
-   document.getElementById('sp-mrp').value   = p ? (p.mrp || '') : '';
+   document.getElementById('sp-mrp').value   = p ? (p.mrp != null && p.mrp > 0 ? p.mrp : '') : '';
    document.getElementById('sp-desc').value  = p ? p.desc  : '';
    document.getElementById('sp-img').value   = p ? p.img   : '';
    document.getElementById('sp-badge').value = p ? (p.badge || '') : '';
@@ -9835,7 +9835,7 @@ async function saveStoreProduct() {
    var mrp   = parseFloat(document.getElementById('sp-mrp').value) || 0;
    var brand = document.getElementById('sp-brand').value.trim();
    var desc  = document.getElementById('sp-desc').value.trim() || brand;
-   var img   = document.getElementById('sp-img').value.trim() || 'https://placehold.co/400x300?text=Product';
+   var img   = document.getElementById('sp-img').value.trim() || (existing ? (existing.img || '') : '');
    var badge = document.getElementById('sp-badge').value.trim() || 'New';
    var catKey = document.getElementById('sp-catkey').value;
    if (!name) { alert('Item name is required.'); return; }
@@ -9870,7 +9870,7 @@ async function saveStoreProduct() {
          price:     price,
          serial_no: '',
          batch_no:  '',
-         image_url: img,
+         image_url: img || '',
          attrs:     attrs
       };
       var catOk = await AppDB.upsertCatalogItem(catItem);
@@ -9880,7 +9880,7 @@ async function saveStoreProduct() {
    }
 
    var dbRow = {
-      id: id, name: name, price: price, mrp: mrp > price ? mrp : 0,
+      id: id, name: name, price: price, mrp: mrp || 0,
       description: desc, image: img,
       category: catKey, badge: badge,
       store_id: store ? store.owner_email : user.email,

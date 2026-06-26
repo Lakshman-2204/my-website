@@ -1400,6 +1400,19 @@ window.AppDB = {
       return true;
    },
 
+   async uploadBannerImage(file) {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = 'banner-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      const { error } = await _sb.storage.from('banners').upload(path, file, {
+         cacheControl: '3600',
+         upsert: false,
+         contentType: file.type || ('image/' + ext)
+      });
+      if (error) { console.error('uploadBannerImage:', error.message); return null; }
+      const { data } = _sb.storage.from('banners').getPublicUrl(path);
+      return data && data.publicUrl ? data.publicUrl : null;
+   },
+
    // ── APT CATEGORIES (admin-managed) ─────────────
    async getCategories() {
       const { data, error } = await _sb.from('apt_categories').select('*').order('sort_order').order('label');

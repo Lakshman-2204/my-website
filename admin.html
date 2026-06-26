@@ -603,8 +603,17 @@
 
                   <div id="newSlideImageWrap">
                      <div class="sp-field" style="margin-bottom:10px">
-                        <label>Image URL <small style="color:#64748b">(Unsplash, Cloudinary, any direct .jpg/.png)</small></label>
-                        <input type="url" id="new-slide-img" placeholder="https://images.unsplash.com/photo-…" oninput="_previewNewSlide()" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                        <label>Image</label>
+                        <!-- Upload directly -->
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                           <label style="display:inline-flex;align-items:center;gap:7px;background:#f1f5f9;border:1.5px dashed #94a3b8;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.85rem;font-weight:600;color:#334155;white-space:nowrap">
+                              📁 Upload from device
+                              <input type="file" id="new-slide-file" accept="image/*" style="display:none" onchange="_handleBannerFileUpload(this)">
+                           </label>
+                           <span id="new-slide-upload-status" style="font-size:0.8rem;color:#64748b"></span>
+                        </div>
+                        <!-- Or paste URL -->
+                        <input type="url" id="new-slide-img" placeholder="Or paste image URL (Unsplash, Cloudinary, .jpg/.png…)" oninput="_previewNewSlide()" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
                      </div>
                      <div id="newSlideImgPreview" style="display:none;margin-bottom:10px">
                         <img id="newSlideImgEl" src="" alt="" style="max-height:140px;border-radius:8px;object-fit:cover;width:100%">
@@ -643,6 +652,31 @@
 
             <script>
                var _bannerSlides = [];
+
+               async function _handleBannerFileUpload(input) {
+                  var file = input.files && input.files[0];
+                  if (!file) return;
+                  var status = document.getElementById('new-slide-upload-status');
+                  var urlInput = document.getElementById('new-slide-img');
+                  status.textContent = '⏳ Uploading…';
+                  status.style.color = '#64748b';
+                  try {
+                     var url = await AppDB.uploadBannerImage(file);
+                     if (url) {
+                        urlInput.value = url;
+                        _previewNewSlide();
+                        status.textContent = '✅ Uploaded!';
+                        status.style.color = '#15803d';
+                     } else {
+                        status.textContent = '❌ Upload failed — check Supabase "banners" bucket exists and is public.';
+                        status.style.color = '#b91c1c';
+                     }
+                  } catch(e) {
+                     status.textContent = '❌ ' + e.message;
+                     status.style.color = '#b91c1c';
+                  }
+                  input.value = '';
+               }
 
                function _toggleNewSlideType() {
                   var isVideo = document.getElementById('newSlideTypeVideo').checked;
@@ -754,7 +788,12 @@
 
             <!-- FIXED AD -->
             <div class="settings-card">
-               <div class="settings-card-header">📌 Fixed Ad — single featured offer</div>
+               <div class="settings-card-header" style="display:flex;align-items:center;justify-content:space-between">
+                  <span>📌 Fixed Ad — single featured offer</span>
+                  <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.88rem;font-weight:700;color:#15803d">
+                     <input type="checkbox" id="set-fixedAdOn" checked style="width:16px;height:16px;cursor:pointer"> ✅ Show on home page
+                  </label>
+               </div>
 
                <div class="sp-field">
                   <label>Offer Headline (English)</label>
@@ -832,7 +871,12 @@
 
             <!-- ROTATING ADS -->
             <div class="settings-card">
-               <div class="settings-card-header">🔄 Rotating Ads — auto-carousel (one ad per line)</div>
+               <div class="settings-card-header" style="display:flex;align-items:center;justify-content:space-between">
+                  <span>🔄 Rotating Ads — auto-carousel (one ad per line)</span>
+                  <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.88rem;font-weight:700;color:#15803d">
+                     <input type="checkbox" id="set-scrollAdOn" checked style="width:16px;height:16px;cursor:pointer"> ✅ Show on home page
+                  </label>
+               </div>
 
                <div class="sp-field">
                   <label>Ad Copy Pool (English) <small style="color:#94a3b8;font-weight:400">— each line = one ad</small></label>

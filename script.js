@@ -17449,6 +17449,8 @@ function loadSettingsForm() {
    setVal('set-maintenanceMessage',          s.maintenanceMessage     || '');
    setVal('set-maintenanceEndTime',          s.maintenanceEndTime     || '');
    renderMenuItemsAdmin(s.menuItems || DEFAULT_MENU_ITEMS);
+   setChecked('set-fixedAdOn',  s.fixedAdOn  !== false);
+   setChecked('set-scrollAdOn', s.scrollAdOn !== false);
    setVal('set-fixedAdText',    s.fixedAdText    || '');
    setVal('set-fixedAdText_te', s.fixedAdText_te || '');
    setVal('set-scrollAdList',   s.scrollAdList   || '');
@@ -17591,6 +17593,10 @@ function saveAllSettings() {
 function saveAdSettings() {
    var s = getAdminSettings();
    function _v(id, def) { var el = document.getElementById(id); return el ? (el.value || def) : def; }
+   var fixedAdOnEl  = document.getElementById('set-fixedAdOn');
+   var scrollAdOnEl = document.getElementById('set-scrollAdOn');
+   s.fixedAdOn  = fixedAdOnEl  ? fixedAdOnEl.checked  : true;
+   s.scrollAdOn = scrollAdOnEl ? scrollAdOnEl.checked : true;
    s.fixedAdText      = _v('set-fixedAdText', '');
    s.fixedAdText_te   = _v('set-fixedAdText_te', '');
    s.fixedAdTheme     = _v('set-fixedAdTheme', 'blue');
@@ -17621,10 +17627,11 @@ function saveAdSettings() {
    _db.settings = s;
    AppDB.saveSettings(s);
    var bCount = (s.bannerSlides || []).length;
-   var bMsg = bCount
-      ? ('✅ Saved! Banner: ' + bCount + ' slide' + (bCount > 1 ? 's' : '') + (s.bannerOn === false ? ' (disabled — check Enable to show)' : ' — LIVE on home page'))
-      : '✅ Saved! (No banner slides added yet)';
-   showAdminToast(bMsg);
+   var parts = [];
+   parts.push('Banner: ' + (bCount ? bCount + ' slide' + (bCount > 1 ? 's' : '') + (s.bannerOn !== false ? ' ✅' : ' ⏸ off') : 'none'));
+   parts.push('Fixed Ad: ' + (s.fixedAdOn !== false ? '✅' : '⏸ off'));
+   parts.push('Rotating: ' + (s.scrollAdOn !== false ? '✅' : '⏸ off'));
+   showAdminToast('✅ Saved! ' + parts.join(' · '));
 }
 
 // ── APPLY SITE SETTINGS (called on home.html) ──
@@ -17744,7 +17751,8 @@ function loadSiteSettings() {
    var fixedCard  = document.getElementById('fixedAdCard');
    var fixedPanel = document.getElementById('fixedAdPanel');
    var fixedText  = document.getElementById('fixedAdText');
-   if (fixedCard && fixedText) {
+   if (fixedPanel) fixedPanel.style.display = (s.fixedAdOn !== false) ? '' : 'none';
+   if (fixedCard && fixedText && s.fixedAdOn !== false) {
       var fText      = (_adLang !== 'en' && s['fixedAdText_' + _adLang]) ? s['fixedAdText_' + _adLang] : (s.fixedAdText || '');
       var fTheme     = s.fixedAdTheme     || 'blue';
       var fAnim      = s.fixedAdAnim      || 'pulse';
@@ -17773,7 +17781,12 @@ function loadSiteSettings() {
    var scrollText  = document.getElementById('scrollAdText');
    var scrollCard  = document.getElementById('scrollAdCard');
    var scrollDots  = document.getElementById('scrollAdDots');
-   if (scrollText && scrollCard) {
+   var scrollPanel = document.getElementById('scrollingAdPanel');
+   if (scrollPanel) scrollPanel.style.display = (s.scrollAdOn !== false) ? '' : 'none';
+   // Also hide the whole row if both panels are off
+   var adRow = document.getElementById('adPanelsRow');
+   if (adRow) adRow.style.display = (s.fixedAdOn !== false || s.scrollAdOn !== false) ? '' : 'none';
+   if (scrollText && scrollCard && s.scrollAdOn !== false) {
       var rawList    = (_adLang !== 'en' && s['scrollAdList_' + _adLang]) ? s['scrollAdList_' + _adLang] : (s.scrollAdList || '');
       var sTheme     = s.scrollAdTheme    || 'blue';
       var sFontSize  = s.scrollAdFontSize || '1.4rem';
@@ -17839,9 +17852,12 @@ function loadSiteSettings() {
       var POS_ABS  = 'position:absolute;top:0;right:0;bottom:0;left:0;';
 
       function _buildSlide(sl, idx) {
-         if (!sl || !sl.mediaUrl) return '';
+         if (!sl) return '';
          var mediaHtml = '';
-         if (sl.type === 'video') {
+         if (!sl.mediaUrl) {
+            // No image/video — fall back to a branded gradient so text slides still work
+            mediaHtml = '<div style="' + POS_ABS + 'background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%)"></div>';
+         } else if (sl.type === 'video') {
             var ytMatch = sl.mediaUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
             if (ytMatch) {
                mediaHtml = '<iframe src="https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1&mute=1&loop=1&playlist=' + ytMatch[1] + '&controls=0&modestbranding=1" ' +

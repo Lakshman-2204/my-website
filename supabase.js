@@ -1403,11 +1403,14 @@ window.AppDB = {
    async uploadBannerImage(file) {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = 'banner-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-      const { error } = await _sb.storage.from('banners').upload(path, file, {
-         cacheControl: '3600',
-         upsert: false,
-         contentType: file.type || ('image/' + ext)
-      });
+      const opts = { cacheControl: '3600', upsert: false, contentType: file.type || ('image/' + ext) };
+      let { error } = await _sb.storage.from('banners').upload(path, file, opts);
+      if (error && (error.message || '').toLowerCase().includes('bucket')) {
+         // Bucket missing — create it as public then retry once
+         await _sb.storage.createBucket('banners', { public: true });
+         const retry = await _sb.storage.from('banners').upload(path, file, opts);
+         error = retry.error;
+      }
       if (error) { console.error('uploadBannerImage:', error.message); return null; }
       const { data } = _sb.storage.from('banners').getPublicUrl(path);
       return data && data.publicUrl ? data.publicUrl : null;

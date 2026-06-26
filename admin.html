@@ -637,6 +637,14 @@
                         <input type="text" id="new-slide-subtext" placeholder="Valid till 30 June · Code HEALTH30" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
                      </div>
                      <div class="sp-field">
+                        <label>Image fit</label>
+                        <select id="new-slide-fit" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                           <option value="cover">Fill — crop to fit (recommended for wide photos)</option>
+                           <option value="contain">Fit — show full image (no crop)</option>
+                           <option value="100% 100%">Stretch — fill exactly</option>
+                        </select>
+                     </div>
+                     <div class="sp-field">
                         <label>CTA Button text</label>
                         <input type="text" id="new-slide-cta" placeholder="Shop Now →" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
                      </div>
@@ -702,11 +710,13 @@
                      subtext:  document.getElementById('new-slide-subtext').value.trim(),
                      ctaText:  document.getElementById('new-slide-cta').value.trim(),
                      ctaLink:  document.getElementById('new-slide-ctalink').value.trim(),
+                     imageFit: document.getElementById('new-slide-fit').value || 'cover',
                   });
                   // clear form
                   ['new-slide-img','new-slide-video','new-slide-headline','new-slide-subtext','new-slide-cta','new-slide-ctalink'].forEach(function(id){
                      var el = document.getElementById(id); if (el) el.value = '';
                   });
+                  var fitEl = document.getElementById('new-slide-fit'); if (fitEl) fitEl.value = 'cover';
                   document.getElementById('newSlideImgPreview').style.display = 'none';
                   document.getElementById('newSlideTypeImage').checked = true;
                   _toggleNewSlideType();

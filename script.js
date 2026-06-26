@@ -17863,10 +17863,12 @@ function loadSiteSettings() {
                mediaHtml = '<iframe src="https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1&mute=1&loop=1&playlist=' + ytMatch[1] + '&controls=0&modestbranding=1" ' +
                   'style="' + POS_ABS + 'width:100%;height:100%;border:none" allow="autoplay" allowfullscreen></iframe>';
             } else {
-               mediaHtml = '<video src="' + sl.mediaUrl + '" autoplay muted loop playsinline style="' + POS_ABS + 'width:100%;height:100%;object-fit:cover"></video>';
+               mediaHtml = '<video src="' + sl.mediaUrl + '" autoplay muted loop playsinline style="' + POS_ABS + 'width:100%;height:100%;object-fit:' + (sl.imageFit === 'contain' ? 'contain' : 'cover') + '"></video>';
             }
          } else {
-            mediaHtml = '<div style="' + POS_ABS + 'background-image:url(\'' + sl.mediaUrl + '\');background-size:cover;background-position:center"></div>';
+            var bgSize = sl.imageFit || 'cover';
+            var bgColor = bgSize === 'contain' ? 'background-color:#0f172a;' : '';
+            mediaHtml = '<div style="' + POS_ABS + bgColor + 'background-image:url(\'' + sl.mediaUrl + '\');background-size:' + bgSize + ';background-position:center;background-repeat:no-repeat"></div>';
          }
          var overlayHtml = overlay > 0 ? '<div style="' + POS_ABS + 'background:rgba(0,0,0,' + overlay + ')"></div>' : '';
          var ctaHtml = '';

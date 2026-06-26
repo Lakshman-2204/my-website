@@ -8637,6 +8637,18 @@ body.profile-page { background: #e8edf5; }
 .wl-footer-bottom { text-align: center; font-size: 0.72rem; color: #475569; }
 
 
+/* ── Home page banner carousel ── */
+#homeBannerWrap { width: 100%; }
+#homeBannerWrap video { display: block; }
+.hbc-slide { will-change: opacity; }
+.hbc-dot { outline: none; }
+.hbc-dot:focus-visible { outline: 2px solid #fff; }
+@media (max-width: 600px) {
+   #homeBannerWrap > div { border-radius: 14px !important; }
+   #homeBannerWrap .hbc-slide > div:last-child { padding: 20px 5% !important; }
+   #homeBannerWrap .hbc-slide h2 { font-size: 1.15rem !important; }
+}
+
 /* ── Responsive ── */
 @media (max-width: 960px) {
    .wl-main-layout { flex-direction: column; padding: 16px; }

@@ -5893,14 +5893,7 @@ async function _activateWhiteLabel(vendor) {
    document.title = vendor.brandEmoji + ' ' + vendor.brandName
       + (vendor.titleSuffix ? ' | ' + vendor.titleSuffix : '');
 
-   // 4. Inject announcement bar + sticky nav at the very top
-   if (!document.getElementById('_wl_announce')) {
-      var announceBar = document.createElement('div');
-      announceBar.id = '_wl_announce';
-      announceBar.style.cssText = 'background:var(--store-primary);color:#fff;text-align:center;font-size:0.75rem;font-weight:700;padding:7px 5%;letter-spacing:0.03em;position:relative;z-index:201';
-      announceBar.innerHTML = '🚚 Free delivery on orders over ₹499 &nbsp;|&nbsp; 📋 Upload prescription for Rx medicines';
-      document.body.insertBefore(announceBar, document.body.firstChild);
-   }
+   // 4. Inject sticky nav (no announce bar — info lives in the hero card now)
    var standaloneNav = document.getElementById('_wl_nav');
    if (!standaloneNav) {
       standaloneNav = document.createElement('div');
@@ -5908,7 +5901,7 @@ async function _activateWhiteLabel(vendor) {
       standaloneNav.style.cssText = [
          'background:var(--store-primary)',
          'color:#fff',
-         'padding:12px 5%',
+         'padding:10px 5%',
          'display:flex',
          'align-items:center',
          'justify-content:space-between',
@@ -5919,16 +5912,20 @@ async function _activateWhiteLabel(vendor) {
          'z-index:200',
          'box-shadow:0 2px 8px rgba(0,0,0,0.18)',
       ].join(';');
+      var wlUser = null;
+      try { wlUser = JSON.parse(sessionStorage.getItem('loggedInUser')); } catch(e) {}
+      var authBtns = wlUser
+         ? '<span style="font-size:0.82rem;background:rgba(255,255,255,0.2);padding:6px 12px;border-radius:20px;white-space:nowrap">👤 ' + (wlUser.name || wlUser.email.split('@')[0]) + '</span>'
+         : '<button onclick="window.location=\'login.html\'" style="background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.5);padding:6px 16px;border-radius:20px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">Login</button>' +
+           '<button onclick="window.location=\'login.html?mode=register\'" style="background:#fff;color:var(--store-primary);border:none;padding:6px 16px;border-radius:20px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">Register</button>';
       standaloneNav.innerHTML =
-         '<span style="font-size:1.05rem;white-space:nowrap">' + vendor.brandEmoji + ' ' + vendor.brandName + '</span>' +
-         '<div style="flex:1;max-width:420px;margin:0 20px;position:relative">' +
-            '<input type="text" id="wlNavSearch" name="wl-search" placeholder="Search medicines, vitamins…" autocomplete="one-time-code" oninput="wlSearch()" style="width:100%;padding:7px 36px 7px 14px;border-radius:24px;border:none;font-size:0.85rem;outline:none;box-sizing:border-box;color:#1e293b" />' +
-            '<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#888;font-size:0.9rem">🔍</span>' +
-         '</div>' +
-         '<span id="_wl_cart" style="cursor:pointer;font-size:0.85rem;background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px;white-space:nowrap" ' +
-         'onclick="document.getElementById(\'cartBtn\') && document.getElementById(\'cartBtn\').click()">🛒 Cart</span>';
-      var ann = document.getElementById('_wl_announce');
-      document.body.insertBefore(standaloneNav, ann ? ann.nextSibling : document.body.firstChild);
+         '<span style="font-size:1rem;font-weight:900;white-space:nowrap;letter-spacing:-0.01em">' + vendor.brandEmoji + ' ' + vendor.brandName + '</span>' +
+         '<div style="display:flex;align-items:center;gap:8px">' +
+            authBtns +
+            '<span id="_wl_cart" style="cursor:pointer;font-size:0.82rem;background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px;white-space:nowrap" ' +
+            'onclick="document.getElementById(\'cartBtn\') && document.getElementById(\'cartBtn\').click()">🛒 Cart</span>' +
+         '</div>';
+      document.body.insertBefore(standaloneNav, document.body.firstChild);
    }
 
    // 5. Wait for DB + products to load, then open the vendor's store directly
@@ -6085,8 +6082,35 @@ function buildWLPage(sp, vendor) {
          '<div class="wl-footer-bottom">© 2026 ' + displayName + '. All rights reserved.</div>' +
       '</footer>';
 
-   // ── Assemble: filter-bar + sidebar + grid ──
+   // ── Hero card (mirrors main platform medical store hero) ──
+   var heroAnnounce = '24×7 PHARMACY &nbsp;·&nbsp; 🚚 Free delivery over ₹499';
+   var heroMeta = '';
+   if (sp.timing || sp.address) {
+      heroMeta = '<div class="med-wl-hero-meta">' +
+         (sp.timing  ? '🕐 ' + sp.timing  : '') +
+         (sp.timing && sp.address ? ' &nbsp;&nbsp;' : '') +
+         (sp.address ? '📍 ' + sp.address : '') +
+      '</div>';
+   }
+   var heroCard =
+      '<div class="med-wl-hero">' +
+         '<div class="med-wl-hero-left">' +
+            '<div class="med-wl-hero-tag">' + heroAnnounce + '</div>' +
+            '<h2 class="med-wl-hero-name">' + displayName + '</h2>' +
+            heroMeta +
+            '<div class="med-wl-hero-actions">' +
+               '<button class="med-wl-hero-btn rx" onclick="openRxOnlyOrderModal()">📋 Upload Prescription</button>' +
+            '</div>' +
+         '</div>' +
+         '<div class="med-wl-nav-search">' +
+            '<input type="text" id="wlNavSearch" name="wl-search" placeholder="Search medicines, vitamins…" autocomplete="one-time-code" oninput="wlSearch()" />' +
+            '<span>🔍</span>' +
+         '</div>' +
+      '</div>';
+
+   // ── Assemble: hero + filter-bar + sidebar + grid ──
    var fullPage =
+      heroCard +
       filterBar +
       '<div class="wl-main-layout">' +
          sidebarHtml +
@@ -17451,6 +17475,9 @@ function loadSettingsForm() {
    if (scrollBgCustom) scrollBgCustom.value = s.scrollAdBgCustom || '#ffffff';
    setVal('set-scrollAdBadge', s.scrollAdBadgeText || '');
    setVal('set-scrollAdCta',   s.scrollAdCtaText   || '');
+
+   // Home page banner
+   if (typeof _initBannerFields === 'function') _initBannerFields(s);
 }
 
 // ── MENU ITEMS MANAGER ──
@@ -17581,9 +17608,19 @@ function saveAdSettings() {
    s.scrollAdBgCustom = _v('set-scrollAdBgCustom', '#ffffff');
    s.scrollAdBadgeText= _v('set-scrollAdBadge', '');
    s.scrollAdCtaText  = _v('set-scrollAdCta', '');
+
+   // Home page banner carousel
+   var bannerOnEl = document.getElementById('set-bannerOn');
+   s.bannerOn        = bannerOnEl ? bannerOnEl.checked : false;
+   s.bannerHeight    = _v('set-bannerHeight',    '320px');
+   s.bannerOverlay   = parseFloat(_v('set-bannerOverlay',   '0.45')) || 0;
+   s.bannerInterval  = parseInt(_v('set-bannerInterval',   '5000'),  10) || 5000;
+   s.bannerTextColor = _v('set-bannerTextColor', 'white');
+   s.bannerSlides    = (typeof _bannerSlides !== 'undefined') ? _bannerSlides : (s.bannerSlides || []);
+
    _db.settings = s;
    AppDB.saveSettings(s);
-   showAdminToast('✅ Ads saved! Refresh the store to see changes.');
+   showAdminToast('✅ Saved! Refresh the store to see changes.');
 }
 
 // ── APPLY SITE SETTINGS (called on home.html) ──
@@ -17778,6 +17815,92 @@ function loadSiteSettings() {
          }, 5000);
       }
    }
+
+   // ── Home page banner carousel ──
+   (function() {
+      var wrap = document.getElementById('homeBannerWrap');
+      if (!wrap) return;
+      var slides = (s.bannerOn && s.bannerSlides && s.bannerSlides.length) ? s.bannerSlides : [];
+      if (!slides.length) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+
+      var textCol  = s.bannerTextColor === 'dark' ? '#0f172a' : '#ffffff';
+      var btnCol   = textCol === '#0f172a' ? '#0f172a' : '#ffffff';
+      var btnTxt   = textCol === '#0f172a' ? '#ffffff' : '#0f172a';
+      var overlay  = parseFloat(s.bannerOverlay) || 0;
+      var height   = s.bannerHeight  || '320px';
+      var interval = parseInt(s.bannerInterval, 10) || 5000;
+
+      function _buildSlide(sl, idx) {
+         var mediaHtml = '';
+         if (sl.type === 'video') {
+            var ytMatch = sl.mediaUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+            if (ytMatch) {
+               mediaHtml = '<iframe src="https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1&mute=1&loop=1&playlist=' + ytMatch[1] + '&controls=0&modestbranding=1" ' +
+                  'style="position:absolute;inset:0;width:100%;height:100%;border:none" allow="autoplay" allowfullscreen></iframe>';
+            } else {
+               mediaHtml = '<video src="' + sl.mediaUrl + '" autoplay muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>';
+            }
+         } else {
+            mediaHtml = '<div style="position:absolute;inset:0;background-image:url(' + sl.mediaUrl + ');background-size:cover;background-position:center;transition:opacity 0.6s"></div>';
+         }
+         var overlayHtml = overlay > 0 ? '<div style="position:absolute;inset:0;background:rgba(0,0,0,' + overlay + ')"></div>' : '';
+         var ctaHtml = '';
+         if (sl.ctaText) {
+            var action = sl.ctaLink
+               ? 'window.open(\'' + sl.ctaLink.replace(/'/g, "\\'") + '\',\'_blank\')'
+               : 'document.getElementById(\'productsSection\')&&document.getElementById(\'productsSection\').scrollIntoView({behavior:\'smooth\'})';
+            ctaHtml = '<button onclick="' + action + '" style="margin-top:14px;padding:10px 28px;border-radius:30px;border:none;background:' + btnCol + ';color:' + btnTxt + ';font-weight:800;font-size:0.88rem;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.2)">' + sl.ctaText + '</button>';
+         }
+         var textHtml = (sl.headline || sl.subtext || sl.ctaText)
+            ? '<div style="position:relative;z-index:2;padding:28px 5%;max-width:700px">' +
+                 (sl.headline ? '<h2 style="margin:0 0 8px;font-size:clamp(1.3rem,3vw,2rem);font-weight:900;color:' + textCol + ';line-height:1.2;text-shadow:0 2px 8px rgba(0,0,0,0.3)">' + sl.headline + '</h2>' : '') +
+                 (sl.subtext  ? '<p style="margin:0;font-size:0.9rem;color:' + textCol + ';opacity:0.9;text-shadow:0 1px 4px rgba(0,0,0,0.2)">' + sl.subtext + '</p>' : '') +
+                 ctaHtml +
+              '</div>'
+            : '';
+         return '<div class="hbc-slide" data-idx="' + idx + '" style="position:absolute;inset:0;opacity:' + (idx === 0 ? '1' : '0') + ';transition:opacity 0.7s ease;pointer-events:' + (idx === 0 ? 'auto' : 'none') + ';display:flex;align-items:center">' +
+            mediaHtml + overlayHtml + textHtml +
+         '</div>';
+      }
+
+      var dotsHtml = slides.length > 1
+         ? '<div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:7px;z-index:5">' +
+              slides.map(function(_,i){ return '<button class="hbc-dot" data-i="' + i + '" onclick="window._hbcGoto(' + i + ')" style="width:' + (i===0?'22':'8') + 'px;height:8px;border-radius:4px;border:none;background:' + (i===0?'#fff':'rgba(255,255,255,0.45)') + ';cursor:pointer;transition:all 0.3s;padding:0"></button>'; }).join('') +
+           '</div>'
+         : '';
+
+      var arrowsHtml = slides.length > 1
+         ? '<button onclick="window._hbcGoto((window._hbcIdx-1+' + slides.length + ')%' + slides.length + ')" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(0,0,0,0.32);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.1rem;cursor:pointer;line-height:36px;text-align:center">‹</button>' +
+           '<button onclick="window._hbcGoto((window._hbcIdx+1)%' + slides.length + ')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(0,0,0,0.32);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.1rem;cursor:pointer;line-height:36px;text-align:center">›</button>'
+         : '';
+
+      wrap.innerHTML =
+         '<div style="position:relative;width:100%;height:' + height + ';border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.13)">' +
+            slides.map(_buildSlide).join('') +
+            arrowsHtml + dotsHtml +
+         '</div>';
+      wrap.classList.remove('hidden');
+
+      window._hbcIdx = 0;
+      window._hbcGoto = function(to) {
+         var slideEls = wrap.querySelectorAll('.hbc-slide');
+         var dotEls   = wrap.querySelectorAll('.hbc-dot');
+         slideEls[window._hbcIdx].style.opacity = '0';
+         slideEls[window._hbcIdx].style.pointerEvents = 'none';
+         if (dotEls[window._hbcIdx]) { dotEls[window._hbcIdx].style.width='8px'; dotEls[window._hbcIdx].style.background='rgba(255,255,255,0.45)'; }
+         window._hbcIdx = to;
+         slideEls[window._hbcIdx].style.opacity = '1';
+         slideEls[window._hbcIdx].style.pointerEvents = 'auto';
+         if (dotEls[window._hbcIdx]) { dotEls[window._hbcIdx].style.width='22px'; dotEls[window._hbcIdx].style.background='#fff'; }
+      };
+
+      if (window._hbcTimer) clearInterval(window._hbcTimer);
+      if (slides.length > 1) {
+         window._hbcTimer = setInterval(function() {
+            window._hbcGoto((window._hbcIdx + 1) % slides.length);
+         }, interval);
+      }
+   })();
 }
 
 // ── PROFILE PAGE ──

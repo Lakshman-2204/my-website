@@ -529,9 +529,204 @@
                   <p class="admin-page-sub">Control the fixed promo and rotating carousel shown on the home page.</p>
                </div>
             </div>
-            <button class="admin-add-main-btn" onclick="saveAdSettings()">💾 Save Ads</button>
+            <button class="admin-add-main-btn" onclick="saveAdSettings()">💾 Save All</button>
          </div>
          <div class="settings-content">
+
+            <!-- HOME PAGE BANNER CAROUSEL -->
+            <div class="settings-card">
+               <div class="settings-card-header" style="display:flex;align-items:center;justify-content:space-between">
+                  <span>🎠 Home Page Banner — carousel slideshow</span>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;font-weight:700">
+                     <input type="checkbox" id="set-bannerOn" style="width:16px;height:16px;cursor:pointer"> Enable
+                  </label>
+               </div>
+
+               <!-- Global options -->
+               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+                  <div class="sp-field">
+                     <label>Slide height</label>
+                     <select id="set-bannerHeight" style="width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.85rem">
+                        <option value="220px">Compact (220px)</option>
+                        <option value="320px" selected>Medium (320px)</option>
+                        <option value="420px">Tall (420px)</option>
+                        <option value="520px">Full (520px)</option>
+                     </select>
+                  </div>
+                  <div class="sp-field">
+                     <label>Overlay darkness</label>
+                     <select id="set-bannerOverlay" style="width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.85rem">
+                        <option value="0">None</option>
+                        <option value="0.25">Light (25%)</option>
+                        <option value="0.45" selected>Medium (45%)</option>
+                        <option value="0.65">Dark (65%)</option>
+                     </select>
+                  </div>
+                  <div class="sp-field">
+                     <label>Auto-rotate every</label>
+                     <select id="set-bannerInterval" style="width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.85rem">
+                        <option value="3000">3 seconds</option>
+                        <option value="5000" selected>5 seconds</option>
+                        <option value="7000">7 seconds</option>
+                        <option value="10000">10 seconds</option>
+                     </select>
+                  </div>
+                  <div class="sp-field">
+                     <label>Text color</label>
+                     <select id="set-bannerTextColor" style="width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.85rem">
+                        <option value="white" selected>White</option>
+                        <option value="dark">Dark</option>
+                     </select>
+                  </div>
+               </div>
+
+               <!-- Slide list -->
+               <div id="bannerSlideList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+                  <p style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:16px 0">No slides yet — add one below.</p>
+               </div>
+
+               <!-- Add slide form -->
+               <div style="background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:16px">
+                  <div style="font-size:0.78rem;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:0.07em;margin-bottom:12px">➕ Add Slide</div>
+
+                  <div class="sp-field" style="margin-bottom:10px">
+                     <label>Media type</label>
+                     <div style="display:flex;gap:16px;margin-top:4px">
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:0.88rem">
+                           <input type="radio" name="newSlideType" id="newSlideTypeImage" value="image" checked onchange="_toggleNewSlideType()"> 🖼️ Image
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:0.88rem">
+                           <input type="radio" name="newSlideType" id="newSlideTypeVideo" value="video" onchange="_toggleNewSlideType()"> 🎬 Video
+                        </label>
+                     </div>
+                  </div>
+
+                  <div id="newSlideImageWrap">
+                     <div class="sp-field" style="margin-bottom:10px">
+                        <label>Image URL <small style="color:#64748b">(Unsplash, Cloudinary, any direct .jpg/.png)</small></label>
+                        <input type="url" id="new-slide-img" placeholder="https://images.unsplash.com/photo-…" oninput="_previewNewSlide()" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                     </div>
+                     <div id="newSlideImgPreview" style="display:none;margin-bottom:10px">
+                        <img id="newSlideImgEl" src="" alt="" style="max-height:140px;border-radius:8px;object-fit:cover;width:100%">
+                     </div>
+                  </div>
+
+                  <div id="newSlideVideoWrap" style="display:none">
+                     <div class="sp-field" style="margin-bottom:10px">
+                        <label>Video URL <small style="color:#64748b">(YouTube or direct .mp4)</small></label>
+                        <input type="url" id="new-slide-video" placeholder="https://www.youtube.com/watch?v=…" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                     </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+                     <div class="sp-field">
+                        <label>Headline <small style="color:#64748b">(optional)</small></label>
+                        <input type="text" id="new-slide-headline" placeholder="e.g. Summer Health Fest — 30% Off" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                     </div>
+                     <div class="sp-field">
+                        <label>Subtext <small style="color:#64748b">(optional)</small></label>
+                        <input type="text" id="new-slide-subtext" placeholder="Valid till 30 June · Code HEALTH30" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                     </div>
+                     <div class="sp-field">
+                        <label>CTA Button text</label>
+                        <input type="text" id="new-slide-cta" placeholder="Shop Now →" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                     </div>
+                     <div class="sp-field">
+                        <label>CTA Link <small style="color:#64748b">(leave blank → scroll to shop)</small></label>
+                        <input type="url" id="new-slide-ctalink" placeholder="https://…" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem">
+                     </div>
+                  </div>
+
+                  <button onclick="_addBannerSlide()" style="background:#0f172a;color:#fff;border:none;padding:9px 22px;border-radius:8px;font-weight:700;font-size:0.88rem;cursor:pointer">+ Add Slide</button>
+               </div>
+            </div><!-- /settings-card banner -->
+
+            <script>
+               var _bannerSlides = [];
+
+               function _toggleNewSlideType() {
+                  var isVideo = document.getElementById('newSlideTypeVideo').checked;
+                  document.getElementById('newSlideImageWrap').style.display = isVideo ? 'none' : '';
+                  document.getElementById('newSlideVideoWrap').style.display = isVideo ? '' : 'none';
+               }
+               function _previewNewSlide() {
+                  var url = document.getElementById('new-slide-img').value.trim();
+                  var wrap = document.getElementById('newSlideImgPreview');
+                  var img  = document.getElementById('newSlideImgEl');
+                  if (url) { img.src = url; wrap.style.display = ''; } else { wrap.style.display = 'none'; }
+               }
+               function _addBannerSlide() {
+                  var isVideo = document.getElementById('newSlideTypeVideo').checked;
+                  var mediaUrl = isVideo
+                     ? document.getElementById('new-slide-video').value.trim()
+                     : document.getElementById('new-slide-img').value.trim();
+                  if (!mediaUrl) { alert('Please enter a media URL for the slide.'); return; }
+                  _bannerSlides.push({
+                     type:     isVideo ? 'video' : 'image',
+                     mediaUrl: mediaUrl,
+                     headline: document.getElementById('new-slide-headline').value.trim(),
+                     subtext:  document.getElementById('new-slide-subtext').value.trim(),
+                     ctaText:  document.getElementById('new-slide-cta').value.trim(),
+                     ctaLink:  document.getElementById('new-slide-ctalink').value.trim(),
+                  });
+                  // clear form
+                  ['new-slide-img','new-slide-video','new-slide-headline','new-slide-subtext','new-slide-cta','new-slide-ctalink'].forEach(function(id){
+                     var el = document.getElementById(id); if (el) el.value = '';
+                  });
+                  document.getElementById('newSlideImgPreview').style.display = 'none';
+                  document.getElementById('newSlideTypeImage').checked = true;
+                  _toggleNewSlideType();
+                  _renderBannerSlideList();
+               }
+               function _deleteBannerSlide(idx) {
+                  _bannerSlides.splice(idx, 1);
+                  _renderBannerSlideList();
+               }
+               function _moveBannerSlide(idx, dir) {
+                  var to = idx + dir;
+                  if (to < 0 || to >= _bannerSlides.length) return;
+                  var tmp = _bannerSlides[idx]; _bannerSlides[idx] = _bannerSlides[to]; _bannerSlides[to] = tmp;
+                  _renderBannerSlideList();
+               }
+               function _renderBannerSlideList() {
+                  var list = document.getElementById('bannerSlideList');
+                  if (!list) return;
+                  if (!_bannerSlides.length) {
+                     list.innerHTML = '<p style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:16px 0">No slides yet — add one below.</p>';
+                     return;
+                  }
+                  list.innerHTML = _bannerSlides.map(function(sl, i) {
+                     var thumb = sl.type === 'image' && sl.mediaUrl
+                        ? '<img src="' + sl.mediaUrl + '" style="width:72px;height:52px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display=\'none\'">'
+                        : '<div style="width:72px;height:52px;border-radius:6px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">🎬</div>';
+                     var label = sl.headline || (sl.type === 'video' ? '🎬 Video slide' : '🖼️ Image slide');
+                     return '<div style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px">' +
+                        thumb +
+                        '<div style="flex:1;min-width:0">' +
+                           '<div style="font-weight:700;font-size:0.88rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + label + '</div>' +
+                           (sl.subtext ? '<div style="font-size:0.75rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + sl.subtext + '</div>' : '') +
+                           '<div style="font-size:0.7rem;color:#94a3b8;margin-top:2px">' + (sl.ctaText ? '🔘 ' + sl.ctaText : 'No CTA') + '</div>' +
+                        '</div>' +
+                        '<div style="display:flex;gap:6px;flex-shrink:0">' +
+                           (i > 0 ? '<button onclick="_moveBannerSlide(' + i + ',-1)" title="Move up" style="background:#f1f5f9;border:none;border-radius:6px;padding:4px 8px;cursor:pointer">↑</button>' : '') +
+                           (i < _bannerSlides.length-1 ? '<button onclick="_moveBannerSlide(' + i + ',1)" title="Move down" style="background:#f1f5f9;border:none;border-radius:6px;padding:4px 8px;cursor:pointer">↓</button>' : '') +
+                           '<button onclick="_deleteBannerSlide(' + i + ')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:4px 8px;font-weight:700;cursor:pointer">✕</button>' +
+                        '</div>' +
+                     '</div>';
+                  }).join('');
+               }
+               function _initBannerFields(s) {
+                  var el = document.getElementById('set-bannerOn');
+                  if (el) el.checked = !!s.bannerOn;
+                  var _sv = function(id, v) { var e = document.getElementById(id); if (e) e.value = v || ''; };
+                  _sv('set-bannerHeight',    s.bannerHeight    || '320px');
+                  _sv('set-bannerOverlay',   s.bannerOverlay   !== undefined ? String(s.bannerOverlay) : '0.45');
+                  _sv('set-bannerInterval',  s.bannerInterval  ? String(s.bannerInterval) : '5000');
+                  _sv('set-bannerTextColor', s.bannerTextColor || 'white');
+                  _bannerSlides = (s.bannerSlides && Array.isArray(s.bannerSlides)) ? s.bannerSlides.slice() : [];
+                  _renderBannerSlideList();
+               }
+            </script>
 
             <!-- EMOJI QUICK-INSERT (shared) -->
             <div class="settings-card" style="padding:14px 20px">

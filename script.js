@@ -5486,6 +5486,11 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             '<div class="med-wl-hero-tag">24×7 PHARMACY &nbsp;·&nbsp; 🚚 Free delivery over ₹499</div>' +
             '<h2 class="med-wl-hero-name">' + sp.name + '</h2>' +
             (sp.timing ? '<div class="med-wl-hero-meta">🕐 ' + sp.timing + (sp.address ? ' &nbsp;📍 ' + sp.address : '') + '</div>' : '') +
+            (sp.door_delivery
+               ? (sp.delivery_paused
+                  ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">⏸ Delivery paused — Pickup only</div>'
+                  : '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">🚚 Home delivery available</div>')
+               : '') +
             '<div class="med-wl-hero-actions">' +
                rxHeroBtn + visitHeroBtn +
             '</div>' +
@@ -6357,12 +6362,18 @@ function buildWLPage(sp, vendor) {
          (sp.address ? '📍 ' + sp.address : '') +
       '</div>';
    }
+   var heroDeliveryBadge = sp.door_delivery
+      ? (sp.delivery_paused
+         ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">⏸ Delivery paused — Pickup only</div>'
+         : '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">🚚 Home delivery available</div>')
+      : '';
    var heroCard =
       '<div class="med-wl-hero">' +
          '<div class="med-wl-hero-left">' +
             '<div class="med-wl-hero-tag">' + heroAnnounce + '</div>' +
             '<h2 class="med-wl-hero-name">' + displayName + '</h2>' +
             heroMeta +
+            heroDeliveryBadge +
             '<div class="med-wl-hero-actions">' +
                '<button class="med-wl-hero-btn rx" onclick="openRxOnlyOrderModal()">📋 Upload Prescription</button>' +
             '</div>' +

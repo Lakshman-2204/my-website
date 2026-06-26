@@ -17866,9 +17866,8 @@ function loadSiteSettings() {
                mediaHtml = '<video src="' + sl.mediaUrl + '" autoplay muted loop playsinline style="' + POS_ABS + 'width:100%;height:100%;object-fit:' + (sl.imageFit === 'contain' ? 'contain' : 'cover') + '"></video>';
             }
          } else {
-            var bgSize = sl.imageFit || 'cover';
-            var bgColor = bgSize === 'contain' ? 'background-color:#0f172a;' : '';
-            mediaHtml = '<div style="' + POS_ABS + bgColor + 'background-image:url(\'' + sl.mediaUrl + '\');background-size:' + bgSize + ';background-position:center;background-repeat:no-repeat"></div>';
+            var fit = sl.imageFit === 'contain' ? 'contain' : sl.imageFit === '100% 100%' ? 'fill' : 'cover';
+            mediaHtml = '<img src="' + sl.mediaUrl + '" style="' + POS_ABS + 'width:100%;height:100%;object-fit:' + fit + ';object-position:center">';
          }
          var overlayHtml = overlay > 0 ? '<div style="' + POS_ABS + 'background:rgba(0,0,0,' + overlay + ')"></div>' : '';
          var ctaHtml = '';

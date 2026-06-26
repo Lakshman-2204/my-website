@@ -10943,36 +10943,25 @@ async function renderStoreDashboard() {
          '</div>';
    }
 
-   var storesHtml =
-      '<div style="margin-bottom:24px">' +
-         '<div style="font-weight:800;font-size:0.9rem;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">My Stores</div>' +
-         '<div style="display:flex;flex-direction:column;gap:10px">' +
-         myStores.map(function(store) {
-            var paused = !!store.delivery_paused;
-            var dlvBg    = paused ? '#fee2e2' : '#dcfce7';
-            var dlvColor = paused ? '#b91c1c' : '#15803d';
-            var dlvLabel = paused ? '▶ Resume Delivery' : '⏸ Pause Delivery';
-            var dlvBtn   = store.door_delivery
-               ? '<button style="background:' + dlvBg + ';color:' + dlvColor + ';border:none;border-radius:8px;padding:7px 14px;font-size:0.8rem;font-weight:700;cursor:pointer" onclick="_dashToggleDelivery(\'' + store.id + '\')">' + dlvLabel + '</button>'
-               : '';
-            return '<div style="background:#fff;border-radius:12px;padding:14px 18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-               '<div style="flex:1;min-width:160px">' +
-                  '<div style="font-weight:700;font-size:0.9rem;color:#0f172a">' + (store.brandEmoji || '🏪') + ' ' + store.name + '</div>' +
-                  (store.area ? '<div style="font-size:0.74rem;color:#64748b;margin-top:2px">📍 ' + store.area + '</div>' : '') +
-               '</div>' +
-               '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-                  dlvBtn +
-                  '<button style="background:#f3e8ff;color:#7c3aed;border:none;border-radius:8px;padding:7px 14px;font-size:0.8rem;font-weight:700;cursor:pointer" onclick="_dashOpenAds(\'' + store.id + '\')">📢 Ads</button>' +
-                  '<button style="background:#e0f2fe;color:#0891b2;border:none;border-radius:8px;padding:7px 14px;font-size:0.8rem;font-weight:700;cursor:pointer" onclick="_dashOpenBanners(\'' + store.id + '\')">🎠 Banners</button>' +
-               '</div>' +
-            '</div>';
-         }).join('') +
-         '</div>' +
-      '</div>';
+   var headingBtns = myStores.map(function(store) {
+      var paused = !!store.delivery_paused;
+      var dlvBg    = paused ? '#fee2e2' : '#dcfce7';
+      var dlvColor = paused ? '#b91c1c' : '#15803d';
+      var dlvLabel = paused ? '▶ Resume Delivery' : '⏸ Pause Delivery';
+      var dlvBtn   = store.door_delivery
+         ? '<button style="background:' + dlvBg + ';color:' + dlvColor + ';border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashToggleDelivery(\'' + store.id + '\')">' + dlvLabel + '</button>'
+         : '';
+      return dlvBtn +
+         '<button style="background:#f3e8ff;color:#7c3aed;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenAds(\'' + store.id + '\')">📢 Ads</button>' +
+         '<button style="background:#e0f2fe;color:#0891b2;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenBanners(\'' + store.id + '\')">🎠 Banners</button>';
+   }).join('');
 
    container.innerHTML = '<div style="max-width:1100px">' +
-      '<h2 style="margin:0 0 20px;font-size:1.2rem;font-weight:800;color:#1e293b">🏪 Store Dashboard</h2>' +
-      storesHtml + statsHtml + recentHtml + '</div>';
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px">' +
+         '<h2 style="margin:0;font-size:1.2rem;font-weight:800;color:#1e293b;flex:1;min-width:160px">🏪 Store Dashboard</h2>' +
+         '<div style="display:flex;gap:8px;flex-wrap:wrap">' + headingBtns + '</div>' +
+      '</div>' +
+      statsHtml + recentHtml + '</div>';
 }
 async function _dashToggleDelivery(storeId) {
    var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });

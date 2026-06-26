@@ -5350,6 +5350,7 @@ function wlCard(item, catKey) {
       '<div class="wl-card-body">' +
          '<div class="wl-card-stars">★★★★★</div>' +
          '<div class="wl-card-name">' + itemName + '</div>' +
+         _rxStockTags(item) +
          '<div class="wl-card-price-row">' +
             (isLiveSale && mrp > price
                ? '<span class="wl-card-mrp">₹' + mrp + '</span><span class="wl-card-price">₹' + price + '</span><span class="wl-card-offpct">' + p + '% off</span>'
@@ -6194,6 +6195,13 @@ async function _activateWhiteLabel(vendor) {
       });
 
       if (sp) {
+         try {
+            var wlBatches = await AppDB.getBatchesForStore(sp.id);
+            _currentStockByProduct = {};
+            (wlBatches || []).forEach(function(b) {
+               (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
+            });
+         } catch(e) { _currentStockByProduct = {}; }
          buildWLPage(sp, resolvedVendor);
          // Live-refresh when owner edits products
          _liveSubscribe('storeProdsWL', 'products', async function() {
@@ -6202,6 +6210,13 @@ async function _activateWhiteLabel(vendor) {
                _db.storeProducts = prods;
                _applyStoreProdsToProducts();
             }
+            try {
+               var wlB = await AppDB.getBatchesForStore(sp.id);
+               _currentStockByProduct = {};
+               (wlB || []).forEach(function(b) {
+                  (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
+               });
+            } catch(e) {}
             var freshSp = (_storeProvidersCache || []).find(function(x) { return x.id === sp.id; }) || sp;
             buildWLPage(freshSp, resolvedVendor);
          });
@@ -11253,7 +11268,7 @@ async function renderStoreDashboard() {
                      '<td style="padding:9px 14px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (itemList||'—') + '</td>' +
                      '<td style="padding:9px 14px;text-align:right;font-weight:700">' + fmt(o.total||o.amount||0) + '</td>' +
                      '<td style="padding:9px 14px"><span style="background:' + statusColor + '20;color:' + statusColor + ';font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px">' + (o.status||'—') + '</span></td>' +
-                     '<td style="padding:9px 14px;color:#94a3b8">' + ((o.date||o.createdAt||'').slice(0,10)||'—') + '</td>' +
+                     '<td style="padding:9px 14px;color:#94a3b8;white-space:nowrap">' + (function(d){ if(!d) return '—'; try { var p=new Date(d); if(!isNaN(p)) return p.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})+' '+p.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}); } catch(e){} return d.slice(0,16); })(o.date||o.createdAt||'') + '</td>' +
                   '</tr>';
                }).join('') +
                '</tbody></table>' +
@@ -11273,9 +11288,16 @@ async function renderStoreDashboard() {
          '<button style="background:#e0f2fe;color:#0891b2;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenBanners(\'' + store.id + '\')">🎠 Banners</button>';
    }).join('');
 
+   var _now = new Date();
+   var _dateStr = _now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+   var _timeStr = _now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
    container.innerHTML = '<div style="max-width:1100px">' +
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px">' +
-         '<h2 style="margin:0;font-size:1.2rem;font-weight:800;color:#1e293b;flex:1;min-width:160px">🏪 Store Dashboard</h2>' +
+         '<div style="flex:1;min-width:160px">' +
+            '<h2 style="margin:0 0 2px;font-size:1.2rem;font-weight:800;color:#1e293b">🏪 Store Dashboard</h2>' +
+            '<div style="font-size:0.78rem;color:#64748b;font-weight:600">📅 ' + _dateStr + ' &nbsp;·&nbsp; 🕐 ' + _timeStr + '</div>' +
+         '</div>' +
          '<div style="display:flex;gap:8px;flex-wrap:wrap">' + headingBtns + '</div>' +
       '</div>' +
       statsHtml + recentHtml + '</div>';

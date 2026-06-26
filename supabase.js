@@ -1523,6 +1523,12 @@ window.AppDB = {
       return true;
    },
 
+   async setStoreBanners(storeId, bannersJson) {
+      const { error } = await _sb.from('store_providers').update({ store_banners: bannersJson }).eq('id', storeId);
+      if (error) { console.error('setStoreBanners:', error.message); return false; }
+      return true;
+   },
+
    async deleteStoreProvider(id) {
       const { error } = await _sb.from('store_providers').delete().eq('id', id);
       if (error) { console.error('deleteStoreProvider:', error.message); return false; }

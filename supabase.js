@@ -1403,17 +1403,16 @@ window.AppDB = {
    async uploadBannerImage(file) {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = 'banner-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-      const opts = { cacheControl: '3600', upsert: false, contentType: file.type || ('image/' + ext) };
-      let { error } = await _sb.storage.from('banners').upload(path, file, opts);
-      if (error && (error.message || '').toLowerCase().includes('bucket')) {
-         // Bucket missing — create it as public then retry once
-         await _sb.storage.createBucket('banners', { public: true });
-         const retry = await _sb.storage.from('banners').upload(path, file, opts);
-         error = retry.error;
+      const opts = { cacheControl: '3600', upsert: true, contentType: file.type || ('image/' + ext) };
+      // Ensure bucket exists (no-op if already present)
+      const { error: bucketErr } = await _sb.storage.createBucket('banners', { public: true });
+      if (bucketErr && !bucketErr.message.includes('already exists') && !bucketErr.message.includes('duplicate')) {
+         console.warn('banners bucket:', bucketErr.message);
       }
-      if (error) { console.error('uploadBannerImage:', error.message); return null; }
-      const { data } = _sb.storage.from('banners').getPublicUrl(path);
-      return data && data.publicUrl ? data.publicUrl : null;
+      const { data, error } = await _sb.storage.from('banners').upload(path, file, opts);
+      if (error) { console.error('uploadBannerImage:', error.message, error); throw new Error(error.message); }
+      const { data: urlData } = _sb.storage.from('banners').getPublicUrl(path);
+      return urlData && urlData.publicUrl ? urlData.publicUrl : null;
    },
 
    // ── APT CATEGORIES (admin-managed) ─────────────

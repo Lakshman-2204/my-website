@@ -4763,7 +4763,19 @@ function _setStoresChromeMode(on) {
 async function showStoresList() {
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
-   document.getElementById('productTitle').textContent = '🏪 Stores';
+   applyStoreTheme({ primaryColor: '#00BCD4' });
+   var hdr = document.getElementById('productsHeader');
+   if (hdr) {
+      hdr.style.display = '';
+      if (!document.getElementById('productTitle')) {
+         hdr.innerHTML = '<h2 id="productTitle">🏪 Stores</h2>' +
+            '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+               '<button class="btn-back" onclick="goHome()">← Back to Home</button>' +
+            '</div>';
+      }
+   }
+   var pt = document.getElementById('productTitle');
+   if (pt) pt.textContent = '🏪 Stores';
    // Live-refresh when any store changes (e.g., owner pauses delivery): force
    // the cache to reload, then re-call this render.
    _liveSubscribe('storeProvsCustomer', 'store_providers', async function() {
@@ -6050,6 +6062,12 @@ async function _activateWhiteLabel(vendor) {
             var freshSp = (_storeProvidersCache || []).find(function(x) { return x.id === sp.id; }) || sp;
             buildWLPage(freshSp, resolvedVendor);
          });
+         // Live-refresh when owner updates banners or ads
+         _liveSubscribe('storeProvWL', 'store_providers', async function() {
+            await loadStoreProviders(true);
+            var freshSp = (_storeProvidersCache || []).find(function(x) { return x.id === sp.id; }) || sp;
+            buildWLPage(freshSp, resolvedVendor);
+         });
       } else {
          // No matching store provider found — show a clear message
          document.getElementById('heroSection') && document.getElementById('heroSection').classList.add('hidden');
@@ -6127,12 +6145,6 @@ function buildWLPage(sp, vendor) {
          '<div class="wl-sidebar-box">' +
             '<div class="wl-sidebar-title">🏷️ Categories</div>' +
             '<div class="wl-sidebar-cats" id="wl-sidebar-cats">' + sidebarCats + '</div>' +
-         '</div>' +
-         '<div class="wl-sidebar-promo">' +
-            '<div style="font-size:1.8rem;margin-bottom:8px">📋</div>' +
-            '<div style="font-weight:800;font-size:0.9rem;color:#fff">Upload Prescription</div>' +
-            '<div style="font-size:0.75rem;color:rgba(255,255,255,0.8);margin:4px 0 12px">Get 20% off on all Rx medicines</div>' +
-            '<button style="background:#fff;color:var(--store-primary);border:none;padding:7px 16px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer">Upload Now →</button>' +
          '</div>' +
       '</aside>';
 
@@ -10127,6 +10139,22 @@ function _sbRenderList() {
    }).join('');
 }
 
+function _sbToggleType() {
+   var isVideo = (document.querySelector('input[name="sb-new-type"]:checked') || {}).value === 'video';
+   var imgFields   = document.getElementById('sb-image-fields');
+   var vidFields   = document.getElementById('sb-video-fields');
+   var fitField    = document.getElementById('sb-fit-field');
+   var radios      = document.querySelectorAll('label:has(input[name="sb-new-type"])');
+   if (imgFields) imgFields.style.display = isVideo ? 'none' : '';
+   if (vidFields) vidFields.style.display = isVideo ? '' : 'none';
+   if (fitField)  fitField.style.display  = isVideo ? 'none' : '';
+   document.querySelectorAll('input[name="sb-new-type"]').forEach(function(r) {
+      var lbl = r.closest('label');
+      if (!lbl) return;
+      if (r.checked) { lbl.style.borderColor='#0891b2'; lbl.style.background='#e0f2fe'; lbl.style.color='#0891b2'; }
+      else           { lbl.style.borderColor='#cbd5e1'; lbl.style.background='#f8fafc'; lbl.style.color='#64748b'; }
+   });
+}
 function _sbPreview() {
    var url = (document.getElementById('sb-new-img') || {}).value || '';
    var wrap = document.getElementById('sb-img-preview');
@@ -10156,19 +10184,25 @@ async function _sbHandleUpload(input) {
 }
 
 function addStoreBannerSlide() {
-   var mediaUrl = (document.getElementById('sb-new-img') || {}).value || '';
+   var type = (document.querySelector('input[name="sb-new-type"]:checked') || {}).value || 'image';
+   var mediaUrl = type === 'video'
+      ? ((document.getElementById('sb-new-video') || {}).value || '').trim()
+      : ((document.getElementById('sb-new-img')   || {}).value || '').trim();
    _sbSlides.push({
-      type: 'image',
-      mediaUrl: mediaUrl.trim(),
+      type:     type,
+      mediaUrl: mediaUrl,
       headline: (document.getElementById('sb-new-headline') || {}).value || '',
       subtext:  (document.getElementById('sb-new-subtext')  || {}).value || '',
       ctaText:  (document.getElementById('sb-new-cta')      || {}).value || '',
       imageFit: (document.getElementById('sb-new-fit')      || {}).value || 'cover',
    });
-   ['sb-new-img','sb-new-headline','sb-new-subtext','sb-new-cta'].forEach(function(id){ var el=document.getElementById(id);if(el)el.value=''; });
+   ['sb-new-img','sb-new-video','sb-new-headline','sb-new-subtext','sb-new-cta'].forEach(function(id){ var el=document.getElementById(id);if(el)el.value=''; });
    var fitEl = document.getElementById('sb-new-fit'); if (fitEl) fitEl.value = 'cover';
    var prev = document.getElementById('sb-img-preview'); if (prev) prev.style.display = 'none';
    var stat = document.getElementById('sb-upload-status'); if (stat) stat.textContent = '';
+   // Reset type back to image
+   var imgRadio = document.querySelector('input[name="sb-new-type"][value="image"]');
+   if (imgRadio) { imgRadio.checked = true; _sbToggleType(); }
    _sbRenderList();
 }
 

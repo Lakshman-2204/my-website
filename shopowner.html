@@ -1647,8 +1647,18 @@
             <div style="background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:10px;padding:14px">
                <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:0.07em;margin-bottom:10px">➕ Add Slide</div>
 
-               <div class="sp-field" style="margin-bottom:10px">
-                  <label>Image</label>
+               <!-- Media type toggle -->
+               <div style="display:flex;gap:8px;margin-bottom:12px">
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem;font-weight:600;padding:6px 14px;border-radius:8px;border:1.5px solid #0891b2;background:#e0f2fe;color:#0891b2">
+                     <input type="radio" name="sb-new-type" value="image" checked onchange="_sbToggleType()" style="accent-color:#0891b2"> 🖼️ Image
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem;font-weight:600;padding:6px 14px;border-radius:8px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#64748b">
+                     <input type="radio" name="sb-new-type" value="video" onchange="_sbToggleType()" style="accent-color:#7c3aed"> 🎬 Video
+                  </label>
+               </div>
+
+               <!-- Image fields -->
+               <div id="sb-image-fields" style="margin-bottom:10px">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                      <label style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1.5px dashed #94a3b8;border-radius:7px;padding:7px 14px;cursor:pointer;font-size:0.82rem;font-weight:600;color:#334155">
                         📁 Upload
@@ -1660,6 +1670,12 @@
                   <div id="sb-img-preview" style="display:none;margin-top:6px">
                      <img id="sb-img-el" src="" alt="" style="max-height:100px;border-radius:7px;object-fit:cover;width:100%">
                   </div>
+               </div>
+
+               <!-- Video fields -->
+               <div id="sb-video-fields" style="display:none;margin-bottom:10px">
+                  <input type="url" id="sb-new-video" placeholder="YouTube URL or direct video link…" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.85rem">
+                  <div style="font-size:0.72rem;color:#94a3b8;margin-top:4px">Supports YouTube links and direct .mp4 / .webm URLs</div>
                </div>
 
                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
@@ -1675,7 +1691,7 @@
                      <label>CTA Button</label>
                      <input type="text" id="sb-new-cta" placeholder="Shop Now →" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.85rem">
                   </div>
-                  <div class="sp-field">
+                  <div class="sp-field" id="sb-fit-field">
                      <label>Image fit</label>
                      <select id="sb-new-fit" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.85rem">
                         <option value="cover">Fill (crop)</option>

@@ -861,6 +861,146 @@ async function _ensureCustomerPhone(user) {
 }
 
 // ── CASH ON DELIVERY ──
+// ── CART CHECKOUT MODAL ──────────────────────────────────────────────────────
+function openCartCheckout() {
+   if (!cart || !cart.length) { showToast('Your cart is empty.'); return; }
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { window.location.href = 'login.html'; return; }
+
+   // Populate items list
+   var totalItems = cart.reduce(function(s, c) { return s + c.qty; }, 0);
+   var totalCost  = cart.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
+   var fmt = function(n) { return '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 }); };
+
+   var el = document.getElementById('coSummaryLine');
+   if (el) el.textContent = totalItems + ' item' + (totalItems !== 1 ? 's' : '') + ' · ' + fmt(totalCost);
+
+   var list = document.getElementById('coItemsList');
+   if (list) {
+      list.innerHTML = cart.map(function(c) {
+         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc">' +
+            '<span style="color:#1e293b;font-weight:600">' + c.name + ' <span style="color:#94a3b8;font-weight:400">×' + c.qty + '</span></span>' +
+            '<span style="font-weight:700;color:#0f172a">' + fmt(c.price * c.qty) + '</span>' +
+         '</div>';
+      }).join('') +
+      '<div style="display:flex;justify-content:space-between;padding:8px 0 0;font-weight:900;color:#1e293b">' +
+         '<span>Total</span><span style="color:#1a73e8">' + fmt(totalCost) + '</span>' +
+      '</div>';
+   }
+
+   // Find store UPI VPA for the first store in cart
+   var storeId = null;
+   cart.some(function(c) { if (c.store_provider_id) { storeId = c.store_provider_id; return true; } });
+   var store = storeId && (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
+   var upiVpa = (store && store.upi_vpa) || null;
+   window._coUpiVpa = upiVpa;
+
+   var upiPanel = document.getElementById('coUPIPanel');
+   var vpaEl    = document.getElementById('coUPIVpa');
+   if (vpaEl) vpaEl.textContent = upiVpa || 'No UPI ID configured — contact store';
+
+   _coShowPanel('pick');
+   document.getElementById('cartCheckoutOverlay').classList.remove('hidden');
+   closeCart();
+}
+
+function closeCartCheckout() {
+   document.getElementById('cartCheckoutOverlay').classList.add('hidden');
+}
+
+function _coShowPanel(which) {
+   ['coPickPanel','coCODPanel','coUPIPanel','coSuccessPanel'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+   });
+   var show = { pick:'coPickPanel', cod:'coCODPanel', upi:'coUPIPanel', success:'coSuccessPanel' }[which];
+   if (show) document.getElementById(show).classList.remove('hidden');
+}
+
+function _coBack() { _coShowPanel('pick'); }
+
+function _coCOD() { _coShowPanel('cod'); }
+
+function _coMakePayment() {
+   if (!window._coUpiVpa) {
+      alert('This store has not set up a UPI ID yet. Please use Cash on Delivery or contact the store.');
+      return;
+   }
+   var txnEl = document.getElementById('coTxnId');
+   if (txnEl) txnEl.value = '';
+   _coShowPanel('upi');
+}
+
+async function _coPlaceOrder(paymentMode, txnId) {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   if (!user) { showToast('Please login to place an order.'); return; }
+   var phone = await _ensureCustomerPhone(user);
+   if (!phone) return;
+
+   var now = new Date();
+   var yy = String(now.getFullYear()).slice(2);
+   var mm = String(now.getMonth() + 1).padStart(2, '0');
+   var dd = String(now.getDate()).padStart(2, '0');
+   var dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+   var groups = {};
+   var groupKeys = [];
+   cart.forEach(function(c) {
+      var key = c.store_provider_id || c.storeId || '__platform__';
+      if (!groups[key]) {
+         groups[key] = { storeId: c.storeId || null, storeName: c.storeName || getStoreName(c.storeId), store_provider_id: c.store_provider_id || null, items: [] };
+         groupKeys.push(key);
+      }
+      groups[key].items.push(c);
+   });
+
+   var placed = 0;
+   for (var ki = 0; ki < groupKeys.length; ki++) {
+      var grp     = groups[groupKeys[ki]];
+      var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+      var total   = grp.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
+      var order   = {
+         orderId: orderId, order_id: orderId,
+         date: dateStr,
+         customerName:  user.name  || user.email.split('@')[0],
+         customerEmail: user.email,
+         customerPhone: phone,
+         items: grp.items.map(function(c) { return { id: c.id, name: c.name, price: c.price, qty: c.qty, img: c.img }; }),
+         total: total,
+         amount: total,
+         status: 'Pending Pickup',
+         method: paymentMode,
+         payment_mode: paymentMode,
+         txn_ref: txnId || null,
+         storeId: grp.storeId,
+         storeName: grp.storeName,
+         store_provider_id: grp.store_provider_id
+      };
+      _db.orders.unshift(order);
+      await AppDB.insertOrder(order);
+      placed++;
+   }
+
+   cart = [];
+   updateCartUI();
+   localStorage.removeItem('cart');
+
+   var isUPI = paymentMode !== 'COD';
+   var titleEl = document.getElementById('coSuccessTitle');
+   var msgEl   = document.getElementById('coSuccessMsg');
+   if (titleEl) titleEl.textContent = isUPI ? '✅ Order placed — payment sent for verification' : '✅ Order placed!';
+   if (msgEl)   msgEl.textContent   = isUPI
+      ? 'The store will verify your transaction ID and dispatch your order shortly.'
+      : placed + ' order' + (placed > 1 ? 's' : '') + ' placed. The store will confirm and arrange delivery — pay cash or UPI on arrival.';
+   _coShowPanel('success');
+}
+
+async function _coSubmitPayment() {
+   var txnId = (document.getElementById('coTxnId') || {}).value.trim();
+   if (!txnId) { alert('Please paste your Transaction / UTR ID before confirming.'); return; }
+   await _coPlaceOrder('UPI', txnId);
+}
+
 function _cartCOD() {
    if (!cart || !cart.length) { showToast('Your cart is empty.'); return; }
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
@@ -3693,6 +3833,8 @@ function openStoreProviderModal(providerId) {
    document.getElementById('storeProvDoorDelivery').checked  = p ? !!p.door_delivery : false;
    document.getElementById('storeProvCommissionType').value  = (p && p.commission_type)  || 'percent';
    document.getElementById('storeProvCommissionValue').value = (p && p.commission_value != null) ? p.commission_value : '';
+   var upiEl = document.getElementById('storeProvUpiVpa');
+   if (upiEl) upiEl.value = p ? (p.upi_vpa || '') : '';
    _storeProvCommissionTypeChanged();
 
    // Owner dropdown (current storeowners)
@@ -3758,7 +3900,8 @@ async function saveStoreProvider() {
       door_delivery:    document.getElementById('storeProvDoorDelivery').checked,
       commission_type:  document.getElementById('storeProvCommissionType').value || 'percent',
       commission_value: parseFloat(document.getElementById('storeProvCommissionValue').value) || 0,
-      owner_email:      document.getElementById('storeProvOwner').value || ''
+      owner_email:      document.getElementById('storeProvOwner').value || '',
+      upi_vpa:          (document.getElementById('storeProvUpiVpa') || {}).value ? document.getElementById('storeProvUpiVpa').value.trim() : undefined
    };
    var ok = await AppDB.upsertStoreProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }

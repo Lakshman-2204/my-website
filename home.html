@@ -566,12 +566,65 @@
             <div class="summary-row"><span>Total Items:</span><span id="cartTotalItems">0</span></div>
             <div class="summary-row total-row"><span>Total Cost:</span><span id="cartTotalCost">₹0</span></div>
          </div>
-         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button class="btn-cod" onclick="_cartCOD()">🚚 Cash on Delivery</button>
-            <button class="btn-makeorder" onclick="makeOrder()" style="margin:0">📋 Order Summary</button>
-         </div>
-         <button class="btn-checkout disabled" disabled title="Online payment coming soon">🔒 Pay Online — Coming Soon</button>
+         <button class="btn-makeorder" onclick="openCartCheckout()" style="width:100%;margin:0">🛒 Checkout →</button>
          <button class="btn-clear" onclick="clearCart()">🗑️ Clear Cart</button>
+      </div>
+   </div>
+
+   <!-- CART CHECKOUT MODAL -->
+   <div id="cartCheckoutOverlay" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)closeCartCheckout()">
+      <div style="background:#fff;border-radius:20px;width:100%;max-width:440px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+         <!-- Header -->
+         <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;padding:18px 20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+               <div style="font-weight:900;font-size:1rem">🛒 Order Summary</div>
+               <div id="coSummaryLine" style="font-size:0.78rem;opacity:0.75;margin-top:2px"></div>
+            </div>
+            <button onclick="closeCartCheckout()" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:700">✕</button>
+         </div>
+         <!-- Items list -->
+         <div id="coItemsList" style="max-height:180px;overflow-y:auto;padding:12px 20px;border-bottom:1px solid #f1f5f9;font-size:0.83rem"></div>
+         <!-- Payment choice -->
+         <div id="coPickPanel" style="padding:20px">
+            <p style="font-size:0.85rem;color:#64748b;font-weight:600;margin-bottom:12px">How would you like to pay?</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+               <button onclick="_coCOD()" style="background:#f1f5f9;color:#1e293b;border:2px solid #e2e8f0;border-radius:12px;padding:16px 10px;cursor:pointer;font-weight:800;font-size:0.88rem;transition:all 0.2s" onmouseover="this.style.borderColor='#64748b'" onmouseout="this.style.borderColor='#e2e8f0'">
+                  <div style="font-size:1.6rem;margin-bottom:6px">🚚</div>
+                  Cash on Delivery
+                  <div style="font-size:0.68rem;font-weight:600;color:#94a3b8;margin-top:4px">Pay when delivered</div>
+               </button>
+               <button onclick="_coMakePayment()" style="background:linear-gradient(135deg,#1a73e8,#0e4cb5);color:#fff;border:2px solid transparent;border-radius:12px;padding:16px 10px;cursor:pointer;font-weight:800;font-size:0.88rem">
+                  <div style="font-size:1.6rem;margin-bottom:6px">💳</div>
+                  Make Payment
+                  <div style="font-size:0.68rem;font-weight:600;opacity:0.8;margin-top:4px">UPI transfer now</div>
+               </button>
+            </div>
+         </div>
+         <!-- COD confirmation -->
+         <div id="coCODPanel" class="hidden" style="padding:24px 20px;text-align:center">
+            <div style="font-size:2.5rem;margin-bottom:10px">✅</div>
+            <h3 style="color:#15803d;font-weight:900;margin-bottom:8px">Cash on Delivery</h3>
+            <p style="color:#64748b;font-size:0.84rem;margin-bottom:20px">Your order will be placed and the store will confirm and deliver. Pay by cash or UPI when the delivery arrives.</p>
+            <button onclick="_coPlaceOrder('COD',null)" style="background:#15803d;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-weight:800;font-size:0.9rem;cursor:pointer;width:100%">📋 Confirm & Place Order</button>
+            <button onclick="_coBack()" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;margin-top:10px;cursor:pointer">← Back</button>
+         </div>
+         <!-- UPI payment panel -->
+         <div id="coUPIPanel" class="hidden" style="padding:20px">
+            <p style="font-size:0.82rem;color:#64748b;margin-bottom:12px">1. Transfer the amount to this UPI ID using any payment app:</p>
+            <div id="coUPIVpa" style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:10px;padding:12px 16px;text-align:center;font-weight:900;font-size:1.05rem;color:#15803d;letter-spacing:0.03em;margin-bottom:16px;word-break:break-all"></div>
+            <p style="font-size:0.82rem;color:#64748b;margin-bottom:6px;font-weight:600">2. Paste your Transaction / UTR ID:</p>
+            <input type="text" id="coTxnId" placeholder="e.g. T230621XXXXXX" style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.88rem;font-weight:600;letter-spacing:0.03em" oninput="this.style.borderColor=this.value.trim()?'#1a73e8':'#cbd5e1'">
+            <div style="font-size:0.71rem;color:#94a3b8;margin-top:4px">Find this in your UPI app → Transaction History → Reference / UTR number</div>
+            <button onclick="_coSubmitPayment()" style="background:#1a73e8;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:0.9rem;cursor:pointer;width:100%;margin-top:14px">✅ Payment Done — Place Order</button>
+            <button onclick="_coBack()" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;margin-top:8px;cursor:pointer;display:block;width:100%;text-align:center">← Back</button>
+         </div>
+         <!-- Success panel -->
+         <div id="coSuccessPanel" class="hidden" style="padding:28px 20px;text-align:center">
+            <div style="font-size:3rem;margin-bottom:10px">🎉</div>
+            <h3 id="coSuccessTitle" style="font-weight:900;margin-bottom:8px;color:#0f172a"></h3>
+            <p id="coSuccessMsg" style="color:#64748b;font-size:0.84rem;margin-bottom:20px"></p>
+            <button onclick="closeCartCheckout()" style="background:#1a73e8;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-weight:800;font-size:0.9rem;cursor:pointer">Done</button>
+         </div>
       </div>
    </div>
 

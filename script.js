@@ -17611,8 +17611,7 @@ function saveAdSettings() {
 
    // Home page banner carousel
    var bannerOnEl = document.getElementById('set-bannerOn');
-   // checkbox = "Disable banner" — checked means bannerOn=false (hidden)
-   s.bannerOn = bannerOnEl ? !bannerOnEl.checked : true;
+   s.bannerOn = bannerOnEl ? bannerOnEl.checked : true;
    s.bannerHeight    = _v('set-bannerHeight',    '320px');
    s.bannerOverlay   = parseFloat(_v('set-bannerOverlay',   '0.45')) || 0;
    s.bannerInterval  = parseInt(_v('set-bannerInterval',   '5000'),  10) || 5000;

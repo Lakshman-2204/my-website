@@ -7635,6 +7635,8 @@ async function checkShopOwnerLogin() {
    if (schedTab)  schedTab.classList.toggle('hidden',  !ownsHospital);
    var walkinTab = document.getElementById('shop-tab-walkin');
    if (walkinTab) walkinTab.classList.toggle('hidden', !ownsStores);
+   var billsTab = document.getElementById('shop-tab-bills');
+   if (billsTab) billsTab.classList.toggle('hidden', !ownsStores);
    // Rename the products tab depending on how many stores the owner runs:
    //   1 store  → "🛍️ Products"      (skips the picker, goes straight in)
    //   2+ stores → "🏪 My Stores"     (shows the picker)
@@ -9680,9 +9682,11 @@ async function generatePrintableBill() {
    if (!billNo) {
       var seq = await _bumpStoreBillSeq(store.id || 'STORE');
       var storeCode = _shortCode(store.name || 'STORE');
-      var catCode   = (store.category || 'STORE').slice(0,3).toUpperCase();
-      var yy        = String(new Date().getFullYear()).slice(2);
-      billNo = storeCode + '/' + catCode + '/' + yy + '/' + String(seq).padStart(4, '0');
+      var _bn = new Date();
+      var _byy = String(_bn.getFullYear()).slice(2);
+      var _bmm = String(_bn.getMonth() + 1).padStart(2, '0');
+      var _bdd = String(_bn.getDate()).padStart(2, '0');
+      billNo = storeCode + '-' + _byy + _bmm + _bdd + '-' + String(seq).padStart(5, '0');
       _billOrder.bill_number = billNo;
       // Persist bill_number + the items+allocations snapshot on the order so
       // (a) the stock deduction on Delivered/Picked up uses the exact batches
@@ -9730,7 +9734,12 @@ async function generatePrintableBill() {
 
 // Lightweight per-store bill counter stored in localStorage keyed by store id
 function _bumpStoreBillSeq(storeId) {
-   var k = 'billseq:' + storeId + ':' + new Date().getFullYear();
+   var now = new Date();
+   var yy = String(now.getFullYear()).slice(2);
+   var mm = String(now.getMonth() + 1).padStart(2, '0');
+   var dd = String(now.getDate()).padStart(2, '0');
+   var dateKey = yy + mm + dd;
+   var k = 'billseq:' + storeId + ':' + dateKey;
    var n = parseInt(localStorage.getItem(k) || '0', 10) + 1;
    localStorage.setItem(k, String(n));
    return Promise.resolve(n);
@@ -10301,7 +10310,7 @@ function switchShopTab(tab) {
    if (tab === 'patients-out') { patientsSub = 'out'; tab = 'patients'; }
    else if (tab === 'patients-in') { patientsSub = 'in';  tab = 'patients'; }
 
-   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'admissions', 'revenue', 'beds', 'staff', 'schedule', 'products'].forEach(function(t) {
+   ['dashboard', 'orders', 'appointments', 'doctors', 'patients', 'admissions', 'revenue', 'beds', 'staff', 'schedule', 'products', 'bills'].forEach(function(t) {
       var panel = document.getElementById('shop-panel-' + t);
       var btn   = document.getElementById('shop-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
@@ -10329,7 +10338,7 @@ function switchShopTab(tab) {
    if (titleEl) {
       var titleMap = { dashboard: 'Dashboard', orders: 'Orders', appointments: 'Appointments',
                        doctors: 'Doctors', admissions: 'Admissions', revenue: 'Revenue',
-                       staff: 'Staff', schedule: 'Schedule', products: 'My Stores' };
+                       staff: 'Staff', schedule: 'Schedule', products: 'My Stores', bills: 'Bills Register' };
       if (tab === 'patients') {
          titleEl.textContent = patientsSub === 'in' ? 'In-patients' : 'Out-patients';
       } else {
@@ -10342,6 +10351,7 @@ function switchShopTab(tab) {
    if (tab !== 'products') _currentMyStoreId = null;
    if (tab === 'dashboard')    (window._ownsStores && !window._ownsHospital) ? renderStoreDashboard() : renderShopOverview();
    if (tab === 'products')     renderStoreOwnerProducts();
+   if (tab === 'bills')        renderBillsRegister();
    if (tab === 'appointments') {
       _shopAptsCache = null;
       // Reset the date filter to "Today" each time the owner re-enters the
@@ -10898,6 +10908,136 @@ function setShopAptDoctor(doctorName) {
 }
 
 // ── STORE OWNER DASHBOARD ────────────────────────────────────────────────────
+async function renderBillsRegister() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var container = document.getElementById('shopBillsContent');
+   if (!container) return;
+
+   // Set date input to today if not already set
+   var dateEl = document.getElementById('billsRegDate');
+   if (dateEl && !dateEl.value) dateEl.value = _todayLocalYmd();
+   var selectedDate = (dateEl && dateEl.value) || _todayLocalYmd();
+
+   container.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:30px">Loading…</p>';
+
+   await loadStoreProviders(true);
+   var myStores = (_storeProvidersCache || []).filter(function(s) {
+      return (s.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
+   });
+   if (!myStores.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:30px">No stores linked to your account.</p>'; return; }
+
+   var storeIds = myStores.map(function(s) { return s.id; });
+   var allOrders = (_db.orders || []).filter(function(o) {
+      if (!storeIds.some(function(id) { return id === o.store_provider_id; })) return false;
+      var d = (o.date || o.createdAt || '');
+      // date field can be "26 Jun 2026, 10:30 AM" or "2026-06-26T..." — normalise
+      var ymd = '';
+      if (d.match(/^\d{4}-\d{2}-\d{2}/)) {
+         ymd = d.slice(0, 10);
+      } else {
+         try { ymd = new Date(d).toISOString().slice(0, 10); } catch(e) {}
+      }
+      return ymd === selectedDate;
+   });
+
+   // Sort: bills with a number first (by bill_number), then by time
+   allOrders.sort(function(a, b) {
+      var an = a.bill_number || '', bn = b.bill_number || '';
+      if (an && bn) return an < bn ? -1 : an > bn ? 1 : 0;
+      if (an) return -1;
+      if (bn) return 1;
+      return (a.date || '') < (b.date || '') ? -1 : 1;
+   });
+
+   var fmt = function(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); };
+
+   var statusStyle = function(s) {
+      var m = { Completed:'#15803d:#dcfce7', Delivered:'#15803d:#dcfce7', Cancelled:'#b91c1c:#fee2e2',
+                'Pending Pickup':'#92400e:#fef3c7', Confirmed:'#1d4ed8:#dbeafe', Packed:'#7c3aed:#f3e8ff',
+                'Out for Delivery':'#0369a1:#e0f2fe' };
+      var p = (m[s] || '#64748b:#f1f5f9').split(':');
+      return 'color:' + p[0] + ';background:' + p[1] + ';';
+   };
+
+   var billed = allOrders.filter(function(o) { return o.bill_number; });
+   var unbilled = allOrders.filter(function(o) { return !o.bill_number; });
+   var total = allOrders.reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
+   var done  = allOrders.filter(function(o) { return o.status === 'Completed' || o.status === 'Delivered'; }).length;
+
+   var summaryHtml =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px">' +
+         _storeStat('📒', 'Total Bills', allOrders.length, '#1a73e8') +
+         _storeStat('✅', 'Completed', done, '#15803d') +
+         _storeStat('⏳', 'Pending', allOrders.length - done, '#ef6c00') +
+         _storeStat('💰', 'Day Revenue', fmt(total), '#7c3aed') +
+      '</div>';
+
+   function rowsHtml(orders) {
+      if (!orders.length) return '<tr><td colspan="7" style="padding:20px;text-align:center;color:#94a3b8">None</td></tr>';
+      return orders.map(function(o, idx) {
+         var isDone = o.status === 'Completed' || o.status === 'Delivered';
+         var tick = isDone ? '✅' : '⬜';
+         var timeStr = '';
+         try {
+            var raw = o.date || o.createdAt || '';
+            var parsed = new Date(raw);
+            if (!isNaN(parsed)) timeStr = parsed.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+            else {
+               var m = raw.match(/(\d{1,2}:\d{2}\s*[AP]M)/i);
+               if (m) timeStr = m[1];
+            }
+         } catch(e) {}
+         var billNo = o.bill_number
+            ? '<span style="font-family:monospace;font-weight:800;color:#0f172a">' + o.bill_number + '</span>'
+            : '<span style="color:#94a3b8;font-size:0.75rem">—</span>';
+         var type = o.walk_in ? '🧾 Walk-in' : '🌐 Online';
+         var items = (o.items || []).length;
+         var amt = o.total || o.amount || 0;
+         var bg = (idx % 2 === 0) ? '#fff' : '#f8fafc';
+         return '<tr style="background:' + bg + (isDone ? '' : '') + '">' +
+            '<td style="padding:10px 12px;text-align:center;font-size:1rem">' + tick + '</td>' +
+            '<td style="padding:10px 12px">' + billNo + '</td>' +
+            '<td style="padding:10px 12px;font-size:0.78rem;color:#64748b">' + (timeStr || '—') + '</td>' +
+            '<td style="padding:10px 12px;font-size:0.78rem">' + type + '</td>' +
+            '<td style="padding:10px 12px;font-size:0.82rem;font-weight:600;color:#1e293b">' + (o.customerName || 'Walk-in') + '</td>' +
+            '<td style="padding:10px 12px;font-size:0.78rem;color:#64748b;text-align:center">' + items + ' item' + (items !== 1 ? 's' : '') + '</td>' +
+            '<td style="padding:10px 12px;font-weight:700;color:#0f172a;text-align:right">' + fmt(amt) + '</td>' +
+            '<td style="padding:10px 12px;text-align:center"><span style="font-size:0.72rem;font-weight:700;padding:3px 9px;border-radius:20px;' + statusStyle(o.status) + '">' + (o.status || '—') + '</span></td>' +
+         '</tr>';
+      }).join('');
+   }
+
+   var tableHead =
+      '<thead><tr style="background:#f1f5f9;font-size:0.72rem;text-transform:uppercase;color:#64748b;letter-spacing:0.06em">' +
+         '<th style="padding:10px 12px;text-align:center">✓</th>' +
+         '<th style="padding:10px 12px">Bill #</th>' +
+         '<th style="padding:10px 12px">Time</th>' +
+         '<th style="padding:10px 12px">Type</th>' +
+         '<th style="padding:10px 12px">Customer</th>' +
+         '<th style="padding:10px 12px;text-align:center">Items</th>' +
+         '<th style="padding:10px 12px;text-align:right">Amount</th>' +
+         '<th style="padding:10px 12px;text-align:center">Status</th>' +
+      '</tr></thead>';
+
+   var tableHtml =
+      '<div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden">' +
+         (unbilled.length
+            ? '<div style="background:#fef9c3;padding:8px 16px;font-size:0.78rem;color:#92400e;font-weight:600">⚠️ ' + unbilled.length + ' order(s) not yet billed (bill number assigned when you print the bill)</div>'
+            : '') +
+         '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+            tableHead +
+            '<tbody>' + rowsHtml(allOrders) + '</tbody>' +
+            '<tfoot><tr style="background:#f8fafc;font-weight:800;border-top:2px solid #e2e8f0">' +
+               '<td colspan="6" style="padding:10px 14px;text-align:right;font-size:0.82rem;color:#64748b">Day Total</td>' +
+               '<td style="padding:10px 14px;font-size:0.95rem;color:#7c3aed;text-align:right">' + fmt(total) + '</td>' +
+               '<td></td>' +
+            '</tr></tfoot>' +
+         '</table>' +
+      '</div>';
+
+   container.innerHTML = summaryHtml + (allOrders.length ? tableHtml : '<p style="color:#94a3b8;text-align:center;padding:40px">No orders on ' + selectedDate + '</p>');
+}
+
 async function renderStoreDashboard() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
    var container = document.getElementById('shopDashboardContent');

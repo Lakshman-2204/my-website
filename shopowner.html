@@ -309,6 +309,7 @@
          <button class="shop-side-item hidden" id="shop-tab-staff"        onclick="switchShopTab('staff')"><span class="ssi-icon">👥</span><span>Staff</span></button>
          <button class="shop-side-item hidden" id="shop-tab-schedule"     onclick="switchShopTab('schedule')"><span class="ssi-icon">📞</span><span>Schedule</span></button>
          <button class="shop-side-item hidden" id="shop-tab-products"     onclick="switchShopTab('products')"><span class="ssi-icon">🏪</span><span>My Stores</span></button>
+         <button class="shop-side-item hidden" id="shop-tab-bills" onclick="switchShopTab('bills')"><span class="ssi-icon">📒</span><span>Bills</span></button>
          <button class="shop-side-item shop-side-item-cta hidden" id="shop-tab-walkin" onclick="openWalkinBillFromTab()"><span class="ssi-icon">🧾</span><span>Walk-in Bill</span></button>
          <div style="flex:1"></div>
          <button class="shop-side-item shop-side-item-foot" onclick="window.location='profile.html'"><span class="ssi-icon">⚙️</span><span>My Profile</span></button>
@@ -1479,6 +1480,23 @@
          <div class="admin-modal-footer">
             <button class="admin-modal-btn-cancel" onclick="closeAptDoctorModal()">Cancel</button>
             <button class="admin-modal-btn-save"   onclick="saveAptDoctor()">💾 Save</button>
+         </div>
+      </div>
+   </div>
+
+   <!-- BILLS REGISTER PANEL -->
+   <div id="shop-panel-bills" class="hidden">
+      <div style="padding:20px 24px">
+         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+            <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#1e293b;flex:1">📒 Bills Register</h3>
+            <div style="display:flex;align-items:center;gap:8px">
+               <label style="font-size:0.8rem;color:#64748b;font-weight:600">Date:</label>
+               <input type="date" id="billsRegDate" style="padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.85rem;font-weight:600" onchange="renderBillsRegister()">
+            </div>
+            <button onclick="window.print()" style="background:#1a73e8;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:700;cursor:pointer">🖨️ Print</button>
+         </div>
+         <div id="shopBillsContent">
+            <p style="color:#94a3b8;text-align:center;padding:40px">Loading…</p>
          </div>
       </div>
    </div>

@@ -6225,12 +6225,22 @@ async function _activateWhiteLabel(vendor) {
             var freshSp = (_storeProvidersCache || []).find(function(x) { return x.id === sp.id; }) || sp;
             buildWLPage(freshSp, resolvedVendor);
          });
-         // Live-refresh when owner updates banners or ads
+         // Live-refresh when owner updates banners, ads, or delivery status
          _liveSubscribe('storeProvWL', 'store_providers', async function() {
             await loadStoreProviders(true);
             var freshSp = (_storeProvidersCache || []).find(function(x) { return x.id === sp.id; }) || sp;
             buildWLPage(freshSp, resolvedVendor);
          });
+         // Broadcast channel — instant cross-tab update without needing table Realtime config
+         try {
+            _sb.channel('wl-sp-' + sp.id)
+               .on('broadcast', { event: 'sp-changed' }, async function() {
+                  await loadStoreProviders(true);
+                  var freshSp = (_storeProvidersCache || []).find(function(x) { return x.id === sp.id; }) || sp;
+                  buildWLPage(freshSp, resolvedVendor);
+               })
+               .subscribe();
+         } catch(e) {}
       } else {
          // No matching store provider found — show a clear message
          document.getElementById('heroSection') && document.getElementById('heroSection').classList.add('hidden');
@@ -6364,8 +6374,8 @@ function buildWLPage(sp, vendor) {
    }
    var heroDeliveryBadge = sp.door_delivery
       ? (sp.delivery_paused
-         ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">⏸ Delivery paused — Pickup only</div>'
-         : '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">🚚 Home delivery available</div>')
+         ? '<div style="display:inline-flex;align-items:center;gap:6px;width:fit-content;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">⏸ Delivery paused — Pickup only</div>'
+         : '<div style="display:inline-flex;align-items:center;gap:6px;width:fit-content;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">🚚 Home delivery available</div>')
       : '';
    var heroCard =
       '<div class="med-wl-hero">' +
@@ -10398,7 +10408,8 @@ async function saveStoreBanners() {
    if (ok) {
       if (_currentStoreProvider) _currentStoreProvider.store_banners = json;
       closeStoreBannersModal();
-      alert('✅ Banners saved! Refresh the store page to see changes.');
+      _wlBroadcast(storeId);
+      alert('✅ Banners saved!');
    } else {
       alert('❌ Failed to save banners.');
    }
@@ -10710,6 +10721,21 @@ let _shopAptsCache = null;
 //
 // We store the channel on window so navigating away cleans it up naturally,
 // and re-calling with a new callback just replaces what runs on change.
+// Broadcast a store-provider-changed event to any WL page open for this store.
+// Uses Supabase Broadcast (no table Realtime config needed, works cross-origin).
+function _wlBroadcast(storeId) {
+   if (!storeId) return;
+   try {
+      var ch = _sb.channel('wl-sp-' + storeId);
+      ch.subscribe(function(status) {
+         if (status === 'SUBSCRIBED') {
+            ch.send({ type: 'broadcast', event: 'sp-changed', payload: {} });
+            setTimeout(function() { try { _sb.removeChannel(ch); } catch(e) {} }, 2000);
+         }
+      });
+   } catch(e) {}
+}
+
 function _liveSubscribe(key, table, callback) {
    var holder = '_rt_' + key;
    if (window[holder]) {
@@ -11325,6 +11351,7 @@ async function _dashToggleDelivery(storeId) {
    if (!ok) { alert('Failed to update delivery setting.'); return; }
    store.delivery_paused = nextPaused;
    renderStoreDashboard();
+   _wlBroadcast(storeId);
 }
 function _dashOpenAds(storeId) {
    var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });

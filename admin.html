@@ -1763,6 +1763,21 @@
                   <input type="url" id="storeProvImage" placeholder="https://…/banner.jpg"/>
                </div>
                <div class="modal-field">
+                  <label>Hero Tag <small style="font-weight:400;color:#aaa">(top line shown in store hero card)</small></label>
+                  <input type="text" id="storeProvHeroTag" placeholder="24×7 PHARMACY · 🚚 Free delivery over ₹499"/>
+               </div>
+               <div class="modal-field">
+                  <label>Store Logo <small style="font-weight:400;color:#aaa">(shown in hero circle — paste URL or upload)</small></label>
+                  <div style="display:flex;gap:8px;align-items:center">
+                     <input type="url" id="storeProvLogoUrl" placeholder="https://…/logo.png" style="flex:1"/>
+                     <input type="file" id="storeProvLogoFile" accept="image/*" style="display:none" onchange="_provLogoFileChanged(this)"/>
+                     <button type="button" onclick="document.getElementById('storeProvLogoFile').click()" style="white-space:nowrap;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#f9fafb;font-size:0.82rem">📁 Upload</button>
+                  </div>
+                  <div id="storeProvLogoPreview" style="margin-top:8px;display:none">
+                     <img id="storeProvLogoImg" style="height:64px;width:64px;border-radius:50%;border:2px solid #e5e7eb;object-fit:cover"/>
+                  </div>
+               </div>
+               <div class="modal-field">
                   <label>Store Owner <small style="font-weight:400;color:#aaa">(store-owner who manages this store)</small></label>
                   <select id="storeProvOwner" class="modal-select">
                      <option value="">— Not assigned (admin manages) —</option>

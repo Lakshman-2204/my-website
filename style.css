@@ -8614,6 +8614,9 @@ body.profile-page { background: #e8edf5; }
    color: #fff; display: flex; align-items: center; gap: 24px; padding: 22px 28px;
 }
 .med-wl-hero-left { flex: 1; display: flex; flex-direction: column; }
+.med-wl-hero-right { display:flex; align-items:center; justify-content:center; flex-shrink:0; padding:0 8px; }
+.med-wl-hero-logo { width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid rgba(255,255,255,0.5); box-shadow:0 4px 16px rgba(0,0,0,0.18); background:#fff; }
+.med-wl-hero-logo-placeholder { width:110px; height:110px; border-radius:50%; background:rgba(255,255,255,0.15); border:3px solid rgba(255,255,255,0.4); display:flex; align-items:center; justify-content:center; font-size:2.8rem; }
 .med-wl-hero-tag { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; opacity: 0.8; text-transform: uppercase; margin-bottom: 6px; }
 .med-wl-hero-name { font-size: 1.6rem; font-weight: 900; margin: 0 0 6px; text-transform: capitalize; }
 .med-wl-hero-meta { font-size: 0.8rem; opacity: 0.85; margin-bottom: 18px; }

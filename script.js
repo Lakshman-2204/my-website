@@ -5488,8 +5488,8 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             (sp.timing ? '<div class="med-wl-hero-meta">🕐 ' + sp.timing + (sp.address ? ' &nbsp;📍 ' + sp.address : '') + '</div>' : '') +
             (sp.door_delivery
                ? (sp.delivery_paused
-                  ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">⏸ Delivery paused — Pickup only</div>'
-                  : '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">🚚 Home delivery available</div>')
+                  ? '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">⏸ Delivery paused — Pickup only</div>'
+                  : '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">🚚 Home delivery available</div>')
                : '') +
             '<div class="med-wl-hero-actions">' +
                rxHeroBtn + visitHeroBtn +

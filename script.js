@@ -11357,7 +11357,8 @@ async function renderStoreDashboard() {
          : '';
       return dlvBtn +
          '<button style="background:#f3e8ff;color:#7c3aed;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenAds(\'' + store.id + '\')">📢 Ads</button>' +
-         '<button style="background:#e0f2fe;color:#0891b2;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenBanners(\'' + store.id + '\')">🎠 Banners</button>';
+         '<button style="background:#e0f2fe;color:#0891b2;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenBanners(\'' + store.id + '\')">🎠 Banners</button>' +
+         '<button style="background:#f0fdf4;color:#15803d;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="openMyStoreProfile(\'' + store.id + '\')">✏️ Profile</button>';
    }).join('');
 
    var _now = new Date();
@@ -11374,6 +11375,82 @@ async function renderStoreDashboard() {
       '</div>' +
       statsHtml + recentHtml + '</div>';
 }
+function openMyStoreProfile(storeId) {
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
+   if (!store) return;
+   document.getElementById('mySpId').value        = store.id;
+   document.getElementById('mySpName').value      = store.name       || '';
+   document.getElementById('mySpTagline').value   = store.tagline    || '';
+   document.getElementById('mySpAddress').value   = store.address    || '';
+   document.getElementById('mySpTiming').value    = store.timing     || '';
+   document.getElementById('mySpPhone').value     = store.phone      || '';
+   document.getElementById('mySpUpiVpa').value    = store.upi_vpa    || '';
+   document.getElementById('mySpGstin').value     = store.gstin      || '';
+   document.getElementById('mySpForm20').value    = store.form20_no  || '';
+   document.getElementById('mySpForm21').value    = store.form21_no  || '';
+   document.getElementById('mySpFssai').value     = store.fssai_no   || '';
+   document.getElementById('mySpHeroTag').value   = store.hero_tag   || '';
+   document.getElementById('mySpLogoUrl').value   = store.logo_url   || '';
+   var img = document.getElementById('mySpLogoImg');
+   var preview = document.getElementById('mySpLogoPreview');
+   if (img && preview) {
+      if (store.logo_url) { img.src = store.logo_url; preview.style.display = ''; }
+      else { preview.style.display = 'none'; }
+   }
+   document.getElementById('myStoreProfileModal').classList.remove('hidden');
+}
+
+function closeMyStoreProfile() {
+   document.getElementById('myStoreProfileModal').classList.add('hidden');
+}
+
+function _mySpLogoFileChanged(input) {
+   var file = input.files && input.files[0];
+   if (!file) return;
+   var reader = new FileReader();
+   reader.onload = function(e) {
+      var dataUrl = e.target.result;
+      document.getElementById('mySpLogoUrl').value = dataUrl;
+      var img = document.getElementById('mySpLogoImg');
+      var preview = document.getElementById('mySpLogoPreview');
+      if (img && preview) { img.src = dataUrl; preview.style.display = ''; }
+   };
+   reader.readAsDataURL(file);
+}
+
+async function saveMyStoreProfile() {
+   var storeId = document.getElementById('mySpId').value;
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
+   if (!store) return;
+   var name = document.getElementById('mySpName').value.trim();
+   if (!name) { alert('Store name is required.'); return; }
+   var updated = Object.assign({}, store, {
+      name:      name,
+      tagline:   document.getElementById('mySpTagline').value.trim(),
+      address:   document.getElementById('mySpAddress').value.trim(),
+      timing:    document.getElementById('mySpTiming').value.trim(),
+      phone:     document.getElementById('mySpPhone').value.trim(),
+      upi_vpa:   document.getElementById('mySpUpiVpa').value.trim()  || undefined,
+      gstin:     document.getElementById('mySpGstin').value.trim().toUpperCase()  || undefined,
+      form20_no: document.getElementById('mySpForm20').value.trim()  || undefined,
+      form21_no: document.getElementById('mySpForm21').value.trim()  || undefined,
+      fssai_no:  document.getElementById('mySpFssai').value.trim()   || undefined,
+      hero_tag:  document.getElementById('mySpHeroTag').value.trim() || undefined,
+      logo_url:  document.getElementById('mySpLogoUrl').value.trim() || undefined
+   });
+   var ok = await AppDB.upsertStoreProvider(updated);
+   if (!ok) { alert('Failed to save. Please try again.'); return; }
+   Object.assign(store, updated);
+   closeMyStoreProfile();
+   renderStoreDashboard();
+   _wlBroadcast(storeId);
+   // Refresh profile page store card if visible
+   var myStores = (_storeProvidersCache || []).filter(function(s) {
+      return s.owner_email && _currentUser && (s.owner_email.toLowerCase() === (_currentUser.email || '').toLowerCase());
+   });
+   _renderMyStoresInProfile(myStores);
+}
+
 async function _dashToggleDelivery(storeId) {
    var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
    if (!store) return;
@@ -18763,7 +18840,10 @@ function _renderMyStoresInProfile(stores) {
       var cat = meta[s.category] || {};
       return '' +
          '<div class="mystore-block">' +
-            '<div class="mystore-title">' + (cat.icon || s.icon || '🏪') + ' ' + esc(s.name) + ' <span class="mystore-cat">· ' + esc(cat.label || s.category) + '</span></div>' +
+            '<div class="mystore-title" style="display:flex;align-items:center;gap:10px">' +
+               '<span>' + (cat.icon || s.icon || '🏪') + ' ' + esc(s.name) + ' <span class="mystore-cat">· ' + esc(cat.label || s.category) + '</span></span>' +
+               '<button onclick="openMyStoreProfile(\'' + s.id + '\')" style="margin-left:auto;padding:4px 12px;font-size:0.75rem;font-weight:700;border:none;border-radius:6px;background:#f0fdf4;color:#15803d;cursor:pointer">✏️ Edit</button>' +
+            '</div>' +
             '<div class="mystore-grid">' +
                '<div><label>GSTIN</label><span>' + missing(s.gstin) + '</span></div>' +
                '<div><label>Form 20 No.</label><span>' + missing(s.form20_no) + '</span></div>' +

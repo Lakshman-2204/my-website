@@ -11375,7 +11375,49 @@ async function renderStoreDashboard() {
       '</div>' +
       statsHtml + recentHtml + '</div>';
 }
+function _ensureMyStoreProfileModal() {
+   if (document.getElementById('myStoreProfileModal')) return;
+   var div = document.createElement('div');
+   div.innerHTML =
+      '<div id="myStoreProfileModal" class="modal-overlay hidden" onclick="if(event.target===this)closeMyStoreProfile()">' +
+         '<div class="modal-box" style="max-width:480px;width:95%">' +
+            '<div class="modal-header"><span>✏️ Edit Store Profile</span><button class="modal-close" onclick="closeMyStoreProfile()">✕</button></div>' +
+            '<div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:18px">' +
+               '<input type="hidden" id="mySpId"/>' +
+               '<div class="modal-field"><label>Store Name</label><input type="text" id="mySpName" placeholder="Kumar Medical Store"/></div>' +
+               '<div class="modal-field"><label>Tagline <small style="font-weight:400;color:#aaa">(short description)</small></label><input type="text" id="mySpTagline"/></div>' +
+               '<div class="modal-field"><label>Address</label><input type="text" id="mySpAddress"/></div>' +
+               '<div class="modal-field"><label>Timing</label><input type="text" id="mySpTiming" placeholder="24x7 / Mon–Sat 9am–9pm"/></div>' +
+               '<div class="modal-field"><label>Phone</label><input type="tel" id="mySpPhone"/></div>' +
+               '<div class="modal-field"><label>UPI ID / VPA <small style="font-weight:400;color:#aaa">(for online payments)</small></label><input type="text" id="mySpUpiVpa" placeholder="storename@ybl" style="font-family:monospace"/></div>' +
+               '<div class="modal-field"><label>GSTIN <small style="font-weight:400;color:#aaa">(15-char tax ID)</small></label><input type="text" id="mySpGstin" placeholder="22AAAAA0000A1Z5" maxlength="15" style="font-family:monospace;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>' +
+               '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+                  '<div class="modal-field"><label>Form 20 No.</label><input type="text" id="mySpForm20" placeholder="optional"/></div>' +
+                  '<div class="modal-field"><label>Form 21 No.</label><input type="text" id="mySpForm21" placeholder="optional"/></div>' +
+               '</div>' +
+               '<div class="modal-field"><label>FSSAI No. <small style="font-weight:400;color:#aaa">(14-digit)</small></label><input type="text" id="mySpFssai" placeholder="optional" maxlength="14" style="font-family:monospace"/></div>' +
+               '<hr style="border:none;border-top:1px solid #eee;margin:2px 0"/>' +
+               '<div class="modal-field"><label>Hero Tag <small style="font-weight:400;color:#aaa">(top line in store hero card)</small></label><input type="text" id="mySpHeroTag" placeholder="24×7 PHARMACY · 🚚 Free delivery over ₹499"/></div>' +
+               '<div class="modal-field"><label>Store Logo <small style="font-weight:400;color:#aaa">(shown in hero circle)</small></label>' +
+                  '<div style="display:flex;gap:8px;align-items:center">' +
+                     '<input type="url" id="mySpLogoUrl" placeholder="https://…/logo.png" style="flex:1"/>' +
+                     '<input type="file" id="mySpLogoFile" accept="image/*" style="display:none" onchange="_mySpLogoFileChanged(this)"/>' +
+                     '<button type="button" onclick="document.getElementById(\'mySpLogoFile\').click()" style="white-space:nowrap;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#f9fafb;font-size:0.82rem">📁 Upload</button>' +
+                  '</div>' +
+                  '<div id="mySpLogoPreview" style="margin-top:8px;display:none"><img id="mySpLogoImg" style="height:64px;width:64px;border-radius:50%;border:2px solid #e5e7eb;object-fit:cover"/></div>' +
+               '</div>' +
+               '<div style="display:flex;justify-content:flex-end;gap:10px;padding-top:4px">' +
+                  '<button onclick="closeMyStoreProfile()" style="padding:9px 18px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-weight:600">Cancel</button>' +
+                  '<button onclick="saveMyStoreProfile()" style="padding:9px 22px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-weight:700;cursor:pointer">💾 Save</button>' +
+               '</div>' +
+            '</div>' +
+         '</div>' +
+      '</div>';
+   document.body.appendChild(div.firstChild);
+}
+
 function openMyStoreProfile(storeId) {
+   _ensureMyStoreProfileModal();
    var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
    if (!store) return;
    document.getElementById('mySpId').value        = store.id;

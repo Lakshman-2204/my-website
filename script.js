@@ -18750,9 +18750,9 @@ function loadSiteSettings() {
 
 function _defaultPromoSlides() {
    return [
-      {badge:'Introducing',    title:'Physiotherapy at Home',    sub:"Pain you can't explain? Find out what's wrong.",     btn:'BOOK FREE CONSULTATION', bg1:'#104c64', bg2:'#1e293b', icon:'🧘‍♀️'},
-      {badge:'Seasonal Health', title:'Seasonal Fevers Checkup', sub:'At-Home Tests For Dengue, Malaria, Typhoid & More.', btn:'BOOK NOW',               bg1:'#0d7e68', bg2:'#00a676', icon:'👨‍⚕️'},
-      {badge:'Exclusive Pack',  title:'BUY 1 GET 1 FREE',        sub:'On Full Body Health & Blood Diagnostic Checkups.',   btn:'PROCEED',                bg1:'#0369a1', bg2:'#0284c7', icon:'🧪'}
+      {badge:'Introducing',    title:'Physiotherapy at Home',    sub:"Pain you can't explain? Find out what's wrong.",     btn:'BOOK FREE CONSULTATION', link:'', bg1:'#104c64', bg2:'#1e293b', icon:'🧘‍♀️'},
+      {badge:'Seasonal Health', title:'Seasonal Fevers Checkup', sub:'At-Home Tests For Dengue, Malaria, Typhoid & More.', btn:'BOOK NOW',               link:'', bg1:'#0d7e68', bg2:'#00a676', icon:'👨‍⚕️'},
+      {badge:'Exclusive Pack',  title:'BUY 1 GET 1 FREE',        sub:'On Full Body Health & Blood Diagnostic Checkups.',   btn:'PROCEED',                link:'', bg1:'#0369a1', bg2:'#0284c7', icon:'🧪'}
    ];
 }
 
@@ -18774,7 +18774,8 @@ function _psRenderList() {
             '<div class="ps-field" style="flex:3"><label>Subtext</label><input type="text" id="ps-' + i + '-sub" value="' + _psEsc(sl.sub) + '" placeholder="Short description…"/></div>' +
          '</div>' +
          '<div class="ps-row">' +
-            '<div class="ps-field" style="flex:2"><label>CTA Button</label><input type="text" id="ps-' + i + '-btn" value="' + _psEsc(sl.btn) + '" placeholder="LEARN MORE"/></div>' +
+            '<div class="ps-field" style="flex:2"><label>CTA Button Text</label><input type="text" id="ps-' + i + '-btn" value="' + _psEsc(sl.btn) + '" placeholder="LEARN MORE"/></div>' +
+            '<div class="ps-field" style="flex:3"><label>CTA Link (URL)</label><input type="text" id="ps-' + i + '-link" value="' + _psEsc(sl.link) + '" placeholder="https://… or leave blank"/></div>' +
             '<div class="ps-field" style="min-width:70px;flex:0"><label>Icon</label><input type="text" id="ps-' + i + '-icon" value="' + _psEsc(sl.icon) + '" placeholder="🏥" maxlength="4"/></div>' +
             '<div class="ps-field" style="min-width:60px;flex:0"><label>BG Left</label><input type="color" id="ps-' + i + '-bg1" value="' + (sl.bg1 || '#104c64') + '"/></div>' +
             '<div class="ps-field" style="min-width:60px;flex:0"><label>BG Right</label><input type="color" id="ps-' + i + '-bg2" value="' + (sl.bg2 || '#1e293b') + '"/></div>' +
@@ -18786,7 +18787,7 @@ function _psRenderList() {
 function _psEsc(v) { return String(v || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
 function _psAddSlide() {
-   _psSlides.push({badge:'', title:'', sub:'', btn:'', icon:'🏥', bg1:'#104c64', bg2:'#1e293b'});
+   _psSlides.push({badge:'', title:'', sub:'', btn:'', link:'', icon:'🏥', bg1:'#104c64', bg2:'#1e293b'});
    _psRenderList();
 }
 
@@ -18798,7 +18799,7 @@ function _psRemoveSlide(i) {
 function _psGetSlides() {
    return _psSlides.map(function(_, i) {
       var g = function(field) { var el = document.getElementById('ps-' + i + '-' + field); return el ? el.value.trim() : ''; };
-      return { badge: g('badge'), title: g('title'), sub: g('sub'), btn: g('btn'), icon: g('icon'), bg1: g('bg1') || '#104c64', bg2: g('bg2') || '#1e293b' };
+      return { badge: g('badge'), title: g('title'), sub: g('sub'), btn: g('btn'), link: g('link'), icon: g('icon'), bg1: g('bg1') || '#104c64', bg2: g('bg2') || '#1e293b' };
    });
 }
 
@@ -18817,7 +18818,7 @@ function renderPromoStream(s) {
             (sl.badge ? '<span class="promo-stream-badge">' + esc(sl.badge) + '</span>' : '') +
             '<h3 class="promo-stream-title">' + esc(sl.title) + '</h3>' +
             '<p class="promo-stream-sub">' + esc(sl.sub) + '</p>' +
-            '<button class="promo-stream-btn">' + esc(sl.btn || 'Learn More') + '</button>' +
+            (sl.btn ? '<button class="promo-stream-btn" onclick="' + (sl.link ? 'window.open(\'' + (sl.link).replace(/'/g,"\\'") + '\',\'_blank\')' : 'document.getElementById(\'wl-prod-grid\')&&document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})') + '">' + esc(sl.btn) + '</button>' : '') +
          '</div>' +
          '<div class="promo-stream-icon">' + (sl.icon || '🏥') + '</div>' +
       '</div>';

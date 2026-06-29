@@ -18280,19 +18280,11 @@ function loadSettingsForm() {
    // Home page banner
    if (typeof _initBannerFields === 'function') _initBannerFields(s);
 
-   // Promo stream slides
-   var ps = Array.isArray(s.promoSlides) ? s.promoSlides : _defaultPromoSlides();
-   [1,2,3].forEach(function(i) {
-      var sl = ps[i-1] || {};
-      var sv = function(id, v) { var el = document.getElementById(id); if (el) el.value = v; };
-      sv('set-ps' + i + '-badge', sl.badge || '');
-      sv('set-ps' + i + '-title', sl.title || '');
-      sv('set-ps' + i + '-sub',   sl.sub   || '');
-      sv('set-ps' + i + '-btn',   sl.btn   || '');
-      sv('set-ps' + i + '-icon',  sl.icon  || '');
-      sv('set-ps' + i + '-bg1',   sl.bg1   || '#104c64');
-      sv('set-ps' + i + '-bg2',   sl.bg2   || '#1e293b');
-   });
+   // Promo stream
+   var promoEnabledEl = document.getElementById('set-promoEnabled');
+   if (promoEnabledEl) promoEnabledEl.checked = s.promoEnabled !== false;
+   _psSlides = Array.isArray(s.promoSlides) && s.promoSlides.length ? s.promoSlides : _defaultPromoSlides();
+   _psRenderList();
 }
 
 // ── MENU ITEMS MANAGER ──
@@ -18429,17 +18421,9 @@ function saveAdSettings() {
    s.scrollAdCtaText  = _v('set-scrollAdCta', '');
 
    // Promo stream slides
-   s.promoSlides = [1,2,3].map(function(i) {
-      return {
-         badge: _v('set-ps' + i + '-badge', ''),
-         title: _v('set-ps' + i + '-title', ''),
-         sub:   _v('set-ps' + i + '-sub',   ''),
-         btn:   _v('set-ps' + i + '-btn',   ''),
-         icon:  _v('set-ps' + i + '-icon',  ''),
-         bg1:   _v('set-ps' + i + '-bg1',   '#104c64'),
-         bg2:   _v('set-ps' + i + '-bg2',   '#1e293b')
-      };
-   });
+   var promoEnabledSaveEl = document.getElementById('set-promoEnabled');
+   s.promoEnabled = promoEnabledSaveEl ? promoEnabledSaveEl.checked : true;
+   s.promoSlides  = _psGetSlides();
 
    // Home page banner carousel
    var bannerOnEl = document.getElementById('set-bannerOn');
@@ -18772,9 +18756,58 @@ function _defaultPromoSlides() {
    ];
 }
 
+// ── PROMO STREAM ADMIN MANAGEMENT ────────────────────────────────────────
+var _psSlides = [];
+
+function _psRenderList() {
+   var list = document.getElementById('psSlideList');
+   if (!list) return;
+   if (!_psSlides.length) { list.innerHTML = '<div style="color:#94a3b8;font-size:0.85rem;padding:8px 0">No slides yet — click ＋ Add Slide to begin.</div>'; return; }
+   list.innerHTML = _psSlides.map(function(sl, i) {
+      return '<div class="ps-slide-block">' +
+         '<div class="ps-slide-num"><span>Slide ' + (i + 1) + '</span>' +
+            (_psSlides.length > 1 ? '<button class="ps-remove-btn" onclick="_psRemoveSlide(' + i + ')">✕ Remove</button>' : '') +
+         '</div>' +
+         '<div class="ps-row">' +
+            '<div class="ps-field"><label>Badge</label><input type="text" id="ps-' + i + '-badge" value="' + _psEsc(sl.badge) + '" placeholder="Introducing"/></div>' +
+            '<div class="ps-field" style="flex:2"><label>Title</label><input type="text" id="ps-' + i + '-title" value="' + _psEsc(sl.title) + '" placeholder="Physiotherapy at Home"/></div>' +
+            '<div class="ps-field" style="flex:3"><label>Subtext</label><input type="text" id="ps-' + i + '-sub" value="' + _psEsc(sl.sub) + '" placeholder="Short description…"/></div>' +
+         '</div>' +
+         '<div class="ps-row">' +
+            '<div class="ps-field" style="flex:2"><label>CTA Button</label><input type="text" id="ps-' + i + '-btn" value="' + _psEsc(sl.btn) + '" placeholder="LEARN MORE"/></div>' +
+            '<div class="ps-field" style="min-width:70px;flex:0"><label>Icon</label><input type="text" id="ps-' + i + '-icon" value="' + _psEsc(sl.icon) + '" placeholder="🏥" maxlength="4"/></div>' +
+            '<div class="ps-field" style="min-width:60px;flex:0"><label>BG Left</label><input type="color" id="ps-' + i + '-bg1" value="' + (sl.bg1 || '#104c64') + '"/></div>' +
+            '<div class="ps-field" style="min-width:60px;flex:0"><label>BG Right</label><input type="color" id="ps-' + i + '-bg2" value="' + (sl.bg2 || '#1e293b') + '"/></div>' +
+         '</div>' +
+      '</div>';
+   }).join('');
+}
+
+function _psEsc(v) { return String(v || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function _psAddSlide() {
+   _psSlides.push({badge:'', title:'', sub:'', btn:'', icon:'🏥', bg1:'#104c64', bg2:'#1e293b'});
+   _psRenderList();
+}
+
+function _psRemoveSlide(i) {
+   _psSlides.splice(i, 1);
+   _psRenderList();
+}
+
+function _psGetSlides() {
+   return _psSlides.map(function(_, i) {
+      var g = function(field) { var el = document.getElementById('ps-' + i + '-' + field); return el ? el.value.trim() : ''; };
+      return { badge: g('badge'), title: g('title'), sub: g('sub'), btn: g('btn'), icon: g('icon'), bg1: g('bg1') || '#104c64', bg2: g('bg2') || '#1e293b' };
+   });
+}
+
 function renderPromoStream(s) {
-   var track = document.getElementById('promoStreamTrack');
+   var section = document.getElementById('promoStreamSection');
+   var track   = document.getElementById('promoStreamTrack');
    if (!track) return;
+   if (s && s.promoEnabled === false) { if (section) section.style.display = 'none'; return; }
+   if (section) section.style.display = '';
    var slides = (s && Array.isArray(s.promoSlides) && s.promoSlides.some(function(sl){return sl.title;}))
       ? s.promoSlides : _defaultPromoSlides();
    var esc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };

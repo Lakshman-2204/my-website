@@ -967,50 +967,56 @@
                <p style="font-size:0.8rem;color:#64748b;margin:0 0 16px">3 cards scroll continuously on the homepage. Each has a badge, title, subtext, CTA, gradient colors and an emoji icon.</p>
                <style>
                   .ps-slide-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:12px}
-                  .ps-slide-block strong{font-size:0.82rem;color:#475569;display:block;margin-bottom:10px}
-                  .ps-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-                  .ps-row .input-group{min-width:150px}
+                  .ps-slide-block b{font-size:0.82rem;color:#475569;display:block;margin-bottom:12px;font-weight:700}
+                  .ps-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+                  .ps-field{display:flex;flex-direction:column;gap:4px;min-width:140px;flex:1}
+                  .ps-field label{font-size:0.75rem;font-weight:700;color:#64748b;white-space:nowrap}
+                  .ps-field input[type=text],.ps-field input[type=url]{padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.88rem;width:100%;box-sizing:border-box}
+                  .ps-field input[type=color]{width:44px;height:34px;border:1px solid #cbd5e1;border-radius:7px;cursor:pointer;padding:2px}
                </style>
+
                <div class="ps-slide-block">
-                  <strong>Slide 1</strong>
+                  <b>Slide 1</b>
                   <div class="ps-row">
-                     <div class="input-group"><label>Badge</label><input type="text" id="set-ps1-badge" placeholder="Introducing"/></div>
-                     <div class="input-group"><label>Title</label><input type="text" id="set-ps1-title" placeholder="Physiotherapy at Home"/></div>
-                     <div class="input-group" style="flex:2"><label>Subtext</label><input type="text" id="set-ps1-sub" placeholder="Pain you can't explain?"/></div>
+                     <div class="ps-field"><label>Badge</label><input type="text" id="set-ps1-badge" placeholder="Introducing"/></div>
+                     <div class="ps-field" style="flex:2"><label>Title</label><input type="text" id="set-ps1-title" placeholder="Physiotherapy at Home"/></div>
+                     <div class="ps-field" style="flex:3"><label>Subtext</label><input type="text" id="set-ps1-sub" placeholder="Pain you can't explain? Find out what's wrong."/></div>
                   </div>
                   <div class="ps-row">
-                     <div class="input-group"><label>CTA Button</label><input type="text" id="set-ps1-btn" placeholder="BOOK FREE CONSULTATION"/></div>
-                     <div class="input-group"><label>Icon</label><input type="text" id="set-ps1-icon" placeholder="🧘‍♀️" maxlength="4"/></div>
-                     <div class="input-group"><label>BG Left</label><input type="color" id="set-ps1-bg1" value="#104c64"/></div>
-                     <div class="input-group"><label>BG Right</label><input type="color" id="set-ps1-bg2" value="#1e293b"/></div>
+                     <div class="ps-field" style="flex:2"><label>CTA Button</label><input type="text" id="set-ps1-btn" placeholder="BOOK FREE CONSULTATION"/></div>
+                     <div class="ps-field" style="min-width:70px;flex:0"><label>Icon</label><input type="text" id="set-ps1-icon" placeholder="🧘‍♀️" maxlength="4"/></div>
+                     <div class="ps-field" style="min-width:60px;flex:0"><label>BG Left</label><input type="color" id="set-ps1-bg1" value="#104c64"/></div>
+                     <div class="ps-field" style="min-width:60px;flex:0"><label>BG Right</label><input type="color" id="set-ps1-bg2" value="#1e293b"/></div>
                   </div>
                </div>
+
                <div class="ps-slide-block">
-                  <strong>Slide 2</strong>
+                  <b>Slide 2</b>
                   <div class="ps-row">
-                     <div class="input-group"><label>Badge</label><input type="text" id="set-ps2-badge" placeholder="Seasonal Health"/></div>
-                     <div class="input-group"><label>Title</label><input type="text" id="set-ps2-title" placeholder="Seasonal Fevers Checkup"/></div>
-                     <div class="input-group" style="flex:2"><label>Subtext</label><input type="text" id="set-ps2-sub" placeholder="At-Home Tests For Dengue, Malaria…"/></div>
+                     <div class="ps-field"><label>Badge</label><input type="text" id="set-ps2-badge" placeholder="Seasonal Health"/></div>
+                     <div class="ps-field" style="flex:2"><label>Title</label><input type="text" id="set-ps2-title" placeholder="Seasonal Fevers Checkup"/></div>
+                     <div class="ps-field" style="flex:3"><label>Subtext</label><input type="text" id="set-ps2-sub" placeholder="At-Home Tests For Dengue, Malaria, Typhoid &amp; More."/></div>
                   </div>
                   <div class="ps-row">
-                     <div class="input-group"><label>CTA Button</label><input type="text" id="set-ps2-btn" placeholder="BOOK NOW"/></div>
-                     <div class="input-group"><label>Icon</label><input type="text" id="set-ps2-icon" placeholder="👨‍⚕️" maxlength="4"/></div>
-                     <div class="input-group"><label>BG Left</label><input type="color" id="set-ps2-bg1" value="#0d7e68"/></div>
-                     <div class="input-group"><label>BG Right</label><input type="color" id="set-ps2-bg2" value="#00a676"/></div>
+                     <div class="ps-field" style="flex:2"><label>CTA Button</label><input type="text" id="set-ps2-btn" placeholder="BOOK NOW"/></div>
+                     <div class="ps-field" style="min-width:70px;flex:0"><label>Icon</label><input type="text" id="set-ps2-icon" placeholder="👨‍⚕️" maxlength="4"/></div>
+                     <div class="ps-field" style="min-width:60px;flex:0"><label>BG Left</label><input type="color" id="set-ps2-bg1" value="#0d7e68"/></div>
+                     <div class="ps-field" style="min-width:60px;flex:0"><label>BG Right</label><input type="color" id="set-ps2-bg2" value="#00a676"/></div>
                   </div>
                </div>
+
                <div class="ps-slide-block">
-                  <strong>Slide 3</strong>
+                  <b>Slide 3</b>
                   <div class="ps-row">
-                     <div class="input-group"><label>Badge</label><input type="text" id="set-ps3-badge" placeholder="Exclusive Pack"/></div>
-                     <div class="input-group"><label>Title</label><input type="text" id="set-ps3-title" placeholder="BUY 1 GET 1 FREE"/></div>
-                     <div class="input-group" style="flex:2"><label>Subtext</label><input type="text" id="set-ps3-sub" placeholder="On Full Body Health &amp; Blood Checkups."/></div>
+                     <div class="ps-field"><label>Badge</label><input type="text" id="set-ps3-badge" placeholder="Exclusive Pack"/></div>
+                     <div class="ps-field" style="flex:2"><label>Title</label><input type="text" id="set-ps3-title" placeholder="BUY 1 GET 1 FREE"/></div>
+                     <div class="ps-field" style="flex:3"><label>Subtext</label><input type="text" id="set-ps3-sub" placeholder="On Full Body Health &amp; Blood Diagnostic Checkups."/></div>
                   </div>
                   <div class="ps-row">
-                     <div class="input-group"><label>CTA Button</label><input type="text" id="set-ps3-btn" placeholder="PROCEED"/></div>
-                     <div class="input-group"><label>Icon</label><input type="text" id="set-ps3-icon" placeholder="🧪" maxlength="4"/></div>
-                     <div class="input-group"><label>BG Left</label><input type="color" id="set-ps3-bg1" value="#0369a1"/></div>
-                     <div class="input-group"><label>BG Right</label><input type="color" id="set-ps3-bg2" value="#0284c7"/></div>
+                     <div class="ps-field" style="flex:2"><label>CTA Button</label><input type="text" id="set-ps3-btn" placeholder="PROCEED"/></div>
+                     <div class="ps-field" style="min-width:70px;flex:0"><label>Icon</label><input type="text" id="set-ps3-icon" placeholder="🧪" maxlength="4"/></div>
+                     <div class="ps-field" style="min-width:60px;flex:0"><label>BG Left</label><input type="color" id="set-ps3-bg1" value="#0369a1"/></div>
+                     <div class="ps-field" style="min-width:60px;flex:0"><label>BG Right</label><input type="color" id="set-ps3-bg2" value="#0284c7"/></div>
                   </div>
                </div>
             </div>

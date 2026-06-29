@@ -11377,43 +11377,52 @@ async function renderStoreDashboard() {
 }
 function _ensureMyStoreProfileModal() {
    if (document.getElementById('myStoreProfileModal')) return;
-   var div = document.createElement('div');
-   div.innerHTML =
-      '<div id="myStoreProfileModal" class="modal-overlay hidden" onclick="if(event.target===this)closeMyStoreProfile()">' +
-         '<div class="modal-box" style="max-width:480px;width:95%">' +
-            '<div class="modal-header"><span>✏️ Edit Store Profile</span><button class="modal-close" onclick="closeMyStoreProfile()">✕</button></div>' +
-            '<div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:18px">' +
-               '<input type="hidden" id="mySpId"/>' +
-               '<div class="modal-field"><label>Store Name</label><input type="text" id="mySpName" placeholder="Kumar Medical Store"/></div>' +
-               '<div class="modal-field"><label>Tagline <small style="font-weight:400;color:#aaa">(short description)</small></label><input type="text" id="mySpTagline"/></div>' +
-               '<div class="modal-field"><label>Address</label><input type="text" id="mySpAddress"/></div>' +
-               '<div class="modal-field"><label>Timing</label><input type="text" id="mySpTiming" placeholder="24x7 / Mon–Sat 9am–9pm"/></div>' +
-               '<div class="modal-field"><label>Phone</label><input type="tel" id="mySpPhone"/></div>' +
-               '<div class="modal-field"><label>UPI ID / VPA <small style="font-weight:400;color:#aaa">(for online payments)</small></label><input type="text" id="mySpUpiVpa" placeholder="storename@ybl" style="font-family:monospace"/></div>' +
-               '<div class="modal-field"><label>GSTIN <small style="font-weight:400;color:#aaa">(15-char tax ID)</small></label><input type="text" id="mySpGstin" placeholder="22AAAAA0000A1Z5" maxlength="15" style="font-family:monospace;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>' +
-               '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-                  '<div class="modal-field"><label>Form 20 No.</label><input type="text" id="mySpForm20" placeholder="optional"/></div>' +
-                  '<div class="modal-field"><label>Form 21 No.</label><input type="text" id="mySpForm21" placeholder="optional"/></div>' +
+   var el = document.createElement('div');
+   el.id = 'myStoreProfileModal';
+   el.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);align-items:center;justify-content:center';
+   el.onclick = function(e) { if (e.target === el) closeMyStoreProfile(); };
+   var f = function(lbl, id, attrs) {
+      return '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:0.78rem;font-weight:700;color:#374151">' + lbl + '</label>' +
+         '<input ' + attrs + ' id="' + id + '" style="padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:0.9rem;width:100%;box-sizing:border-box"/></div>';
+   };
+   el.innerHTML =
+      '<div style="background:#fff;border-radius:14px;width:95%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.18)">' +
+         '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #f1f5f9">' +
+            '<span style="font-weight:800;font-size:1rem">✏️ Edit Store Profile</span>' +
+            '<button onclick="closeMyStoreProfile()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#64748b;line-height:1">✕</button>' +
+         '</div>' +
+         '<div style="display:flex;flex-direction:column;gap:13px;padding:18px 20px">' +
+            '<input type="hidden" id="mySpId"/>' +
+            f('Store Name', 'mySpName', 'type="text" placeholder="Kumar Medical Store"') +
+            f('Tagline <small style="font-weight:400;color:#9ca3af">(short description)</small>', 'mySpTagline', 'type="text"') +
+            f('Address', 'mySpAddress', 'type="text"') +
+            f('Timing', 'mySpTiming', 'type="text" placeholder="24x7 / Mon–Sat 9am–9pm"') +
+            f('Phone', 'mySpPhone', 'type="tel"') +
+            f('UPI ID / VPA <small style="font-weight:400;color:#9ca3af">(for online payments)</small>', 'mySpUpiVpa', 'type="text" placeholder="storename@ybl" style="font-family:monospace;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:0.9rem;width:100%;box-sizing:border-box"') +
+            f('GSTIN <small style="font-weight:400;color:#9ca3af">(15-char tax ID)</small>', 'mySpGstin', 'type="text" maxlength="15" placeholder="22AAAAA0000A1Z5" oninput="this.value=this.value.toUpperCase()" style="font-family:monospace;text-transform:uppercase;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:0.9rem;width:100%;box-sizing:border-box"') +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+               f('Form 20 No.', 'mySpForm20', 'type="text" placeholder="optional"') +
+               f('Form 21 No.', 'mySpForm21', 'type="text" placeholder="optional"') +
+            '</div>' +
+            f('FSSAI No. <small style="font-weight:400;color:#9ca3af">(14-digit)</small>', 'mySpFssai', 'type="text" maxlength="14" placeholder="optional" style="font-family:monospace;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:0.9rem;width:100%;box-sizing:border-box"') +
+            '<hr style="border:none;border-top:1px solid #f1f5f9;margin:2px 0"/>' +
+            f('Hero Tag <small style="font-weight:400;color:#9ca3af">(top line in store hero card)</small>', 'mySpHeroTag', 'type="text" placeholder="24×7 PHARMACY · 🚚 Free delivery over ₹499"') +
+            '<div style="display:flex;flex-direction:column;gap:4px">' +
+               '<label style="font-size:0.78rem;font-weight:700;color:#374151">Store Logo <small style="font-weight:400;color:#9ca3af">(shown in hero circle)</small></label>' +
+               '<div style="display:flex;gap:8px;align-items:center">' +
+                  '<input type="url" id="mySpLogoUrl" placeholder="https://…/logo.png" style="flex:1;padding:8px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:0.9rem;min-width:0"/>' +
+                  '<input type="file" id="mySpLogoFile" accept="image/*" style="display:none" onchange="_mySpLogoFileChanged(this)"/>' +
+                  '<button type="button" onclick="document.getElementById(\'mySpLogoFile\').click()" style="white-space:nowrap;padding:7px 12px;border:1px solid #d1d5db;border-radius:7px;cursor:pointer;background:#f9fafb;font-size:0.82rem">📁 Upload</button>' +
                '</div>' +
-               '<div class="modal-field"><label>FSSAI No. <small style="font-weight:400;color:#aaa">(14-digit)</small></label><input type="text" id="mySpFssai" placeholder="optional" maxlength="14" style="font-family:monospace"/></div>' +
-               '<hr style="border:none;border-top:1px solid #eee;margin:2px 0"/>' +
-               '<div class="modal-field"><label>Hero Tag <small style="font-weight:400;color:#aaa">(top line in store hero card)</small></label><input type="text" id="mySpHeroTag" placeholder="24×7 PHARMACY · 🚚 Free delivery over ₹499"/></div>' +
-               '<div class="modal-field"><label>Store Logo <small style="font-weight:400;color:#aaa">(shown in hero circle)</small></label>' +
-                  '<div style="display:flex;gap:8px;align-items:center">' +
-                     '<input type="url" id="mySpLogoUrl" placeholder="https://…/logo.png" style="flex:1"/>' +
-                     '<input type="file" id="mySpLogoFile" accept="image/*" style="display:none" onchange="_mySpLogoFileChanged(this)"/>' +
-                     '<button type="button" onclick="document.getElementById(\'mySpLogoFile\').click()" style="white-space:nowrap;padding:6px 12px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#f9fafb;font-size:0.82rem">📁 Upload</button>' +
-                  '</div>' +
-                  '<div id="mySpLogoPreview" style="margin-top:8px;display:none"><img id="mySpLogoImg" style="height:64px;width:64px;border-radius:50%;border:2px solid #e5e7eb;object-fit:cover"/></div>' +
-               '</div>' +
-               '<div style="display:flex;justify-content:flex-end;gap:10px;padding-top:4px">' +
-                  '<button onclick="closeMyStoreProfile()" style="padding:9px 18px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-weight:600">Cancel</button>' +
-                  '<button onclick="saveMyStoreProfile()" style="padding:9px 22px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-weight:700;cursor:pointer">💾 Save</button>' +
-               '</div>' +
+               '<div id="mySpLogoPreview" style="margin-top:8px;display:none"><img id="mySpLogoImg" style="height:64px;width:64px;border-radius:50%;border:2px solid #e5e7eb;object-fit:cover"/></div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:flex-end;gap:10px;padding-top:4px">' +
+               '<button onclick="closeMyStoreProfile()" style="padding:9px 18px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-weight:600;font-size:0.9rem">Cancel</button>' +
+               '<button onclick="saveMyStoreProfile()" style="padding:9px 22px;border:none;border-radius:8px;background:#0891b2;color:#fff;font-weight:700;cursor:pointer;font-size:0.9rem">💾 Save</button>' +
             '</div>' +
          '</div>' +
       '</div>';
-   document.body.appendChild(div.firstChild);
+   document.body.appendChild(el);
 }
 
 function openMyStoreProfile(storeId) {
@@ -11439,11 +11448,13 @@ function openMyStoreProfile(storeId) {
       if (store.logo_url) { img.src = store.logo_url; preview.style.display = ''; }
       else { preview.style.display = 'none'; }
    }
-   document.getElementById('myStoreProfileModal').classList.remove('hidden');
+   var modal = document.getElementById('myStoreProfileModal');
+   modal.style.display = 'flex';
 }
 
 function closeMyStoreProfile() {
-   document.getElementById('myStoreProfileModal').classList.add('hidden');
+   var modal = document.getElementById('myStoreProfileModal');
+   if (modal) modal.style.display = 'none';
 }
 
 function _mySpLogoFileChanged(input) {
@@ -18268,6 +18279,20 @@ function loadSettingsForm() {
 
    // Home page banner
    if (typeof _initBannerFields === 'function') _initBannerFields(s);
+
+   // Promo stream slides
+   var ps = Array.isArray(s.promoSlides) ? s.promoSlides : _defaultPromoSlides();
+   [1,2,3].forEach(function(i) {
+      var sl = ps[i-1] || {};
+      var sv = function(id, v) { var el = document.getElementById(id); if (el) el.value = v; };
+      sv('set-ps' + i + '-badge', sl.badge || '');
+      sv('set-ps' + i + '-title', sl.title || '');
+      sv('set-ps' + i + '-sub',   sl.sub   || '');
+      sv('set-ps' + i + '-btn',   sl.btn   || '');
+      sv('set-ps' + i + '-icon',  sl.icon  || '');
+      sv('set-ps' + i + '-bg1',   sl.bg1   || '#104c64');
+      sv('set-ps' + i + '-bg2',   sl.bg2   || '#1e293b');
+   });
 }
 
 // ── MENU ITEMS MANAGER ──
@@ -18402,6 +18427,19 @@ function saveAdSettings() {
    s.scrollAdBgCustom = _v('set-scrollAdBgCustom', '#ffffff');
    s.scrollAdBadgeText= _v('set-scrollAdBadge', '');
    s.scrollAdCtaText  = _v('set-scrollAdCta', '');
+
+   // Promo stream slides
+   s.promoSlides = [1,2,3].map(function(i) {
+      return {
+         badge: _v('set-ps' + i + '-badge', ''),
+         title: _v('set-ps' + i + '-title', ''),
+         sub:   _v('set-ps' + i + '-sub',   ''),
+         btn:   _v('set-ps' + i + '-btn',   ''),
+         icon:  _v('set-ps' + i + '-icon',  ''),
+         bg1:   _v('set-ps' + i + '-bg1',   '#104c64'),
+         bg2:   _v('set-ps' + i + '-bg2',   '#1e293b')
+      };
+   });
 
    // Home page banner carousel
    var bannerOnEl = document.getElementById('set-bannerOn');
@@ -18721,6 +18759,37 @@ function loadSiteSettings() {
          }, interval);
       }
    })();
+
+   // Promo stream marquee
+   renderPromoStream(s);
+}
+
+function _defaultPromoSlides() {
+   return [
+      {badge:'Introducing',    title:'Physiotherapy at Home',    sub:"Pain you can't explain? Find out what's wrong.",     btn:'BOOK FREE CONSULTATION', bg1:'#104c64', bg2:'#1e293b', icon:'🧘‍♀️'},
+      {badge:'Seasonal Health', title:'Seasonal Fevers Checkup', sub:'At-Home Tests For Dengue, Malaria, Typhoid & More.', btn:'BOOK NOW',               bg1:'#0d7e68', bg2:'#00a676', icon:'👨‍⚕️'},
+      {badge:'Exclusive Pack',  title:'BUY 1 GET 1 FREE',        sub:'On Full Body Health & Blood Diagnostic Checkups.',   btn:'PROCEED',                bg1:'#0369a1', bg2:'#0284c7', icon:'🧪'}
+   ];
+}
+
+function renderPromoStream(s) {
+   var track = document.getElementById('promoStreamTrack');
+   if (!track) return;
+   var slides = (s && Array.isArray(s.promoSlides) && s.promoSlides.some(function(sl){return sl.title;}))
+      ? s.promoSlides : _defaultPromoSlides();
+   var esc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+   var cardsHtml = slides.map(function(sl) {
+      return '<div class="promo-stream-card" style="background:linear-gradient(135deg,' + (sl.bg1||'#104c64') + ' 0%,' + (sl.bg2||'#1e293b') + ' 100%)">' +
+         '<div class="promo-stream-content">' +
+            (sl.badge ? '<span class="promo-stream-badge">' + esc(sl.badge) + '</span>' : '') +
+            '<h3 class="promo-stream-title">' + esc(sl.title) + '</h3>' +
+            '<p class="promo-stream-sub">' + esc(sl.sub) + '</p>' +
+            '<button class="promo-stream-btn">' + esc(sl.btn || 'Learn More') + '</button>' +
+         '</div>' +
+         '<div class="promo-stream-icon">' + (sl.icon || '🏥') + '</div>' +
+      '</div>';
+   }).join('');
+   track.innerHTML = cardsHtml + cardsHtml; // duplicate for seamless loop
 }
 
 // ── PROFILE PAGE ──

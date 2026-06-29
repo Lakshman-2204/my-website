@@ -8671,3 +8671,55 @@ body.profile-page { background: #e8edf5; }
    .wl-card-img-wrap { height: 100px; }
    .wl-card-img { height: 72px; width: 72px; }
 }
+
+/* ── DYNAMIC PROMO STREAM MARQUEE ───────────────────────────────────────── */
+.promo-stream-track {
+   display: flex;
+   gap: 16px;
+   width: max-content;
+   animation: promoMarqueeLeft 35s linear infinite;
+   padding-bottom: 4px;
+}
+.promo-stream-track:hover { animation-play-state: paused; }
+@keyframes promoMarqueeLeft {
+   0%   { transform: translateX(0); }
+   100% { transform: translateX(-50%); }
+}
+.promo-stream-card {
+   width: 380px;
+   border-radius: 14px;
+   padding: 22px 24px;
+   color: #fff;
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   box-shadow: 0 4px 18px rgba(0,0,0,0.1);
+   flex-shrink: 0;
+}
+.promo-stream-content { max-width: 68%; }
+.promo-stream-badge {
+   background: rgba(255,255,255,0.2);
+   padding: 3px 10px;
+   font-size: 0.68rem;
+   font-weight: 800;
+   border-radius: 4px;
+   display: inline-block;
+   margin-bottom: 8px;
+   text-transform: uppercase;
+   letter-spacing: 0.5px;
+}
+.promo-stream-title { font-size: 1.1rem; font-weight: 800; margin: 0 0 6px; line-height: 1.3; }
+.promo-stream-sub   { font-size: 0.79rem; opacity: 0.92; margin: 0 0 13px; line-height: 1.4; }
+.promo-stream-btn {
+   background: rgba(255,255,255,0.18);
+   color: #fff;
+   border: 1.5px solid rgba(255,255,255,0.4);
+   padding: 7px 16px;
+   border-radius: 6px;
+   font-weight: 700;
+   font-size: 0.76rem;
+   cursor: pointer;
+   transition: background 0.2s;
+}
+.promo-stream-btn:hover { background: rgba(255,255,255,0.3); }
+.promo-stream-icon { font-size: 3.4rem; opacity: 0.88; user-select: none; flex-shrink: 0; }

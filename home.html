@@ -403,34 +403,9 @@
             </div>
          </div>
 
-         <!-- TWO AD PANELS side by side -->
-         <div id="adPanelsRow" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-
-            <!-- FIXED AD PANEL -->
-            <div id="fixedAdPanel" class="ad-panel-card" style="border-radius:16px;border:1px solid #e2e8f0;padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:220px;box-shadow:0 4px 16px rgba(0,0,0,0.07)">
-               <div style="padding:10px 14px;background:rgba(0,0,0,0.06);border-bottom:1px solid rgba(0,0,0,0.08);display:flex;align-items:center">
-                  <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:inherit;opacity:0.5">📌 Featured Offer</span>
-               </div>
-               <div id="fixedAdCard" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 20px;gap:12px;border-left:5px solid #2563eb;position:relative">
-                  <div id="fixedAdBadge" style="background:#2563eb;color:#fff;font-size:0.7rem;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase">Limited Time Offer</div>
-                  <div id="fixedAdText" style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1.3;word-break:break-word;width:100%">[ No offer configured ]</div>
-                  <div id="fixedAdCta" style="background:#0f172a;color:#fff;font-size:0.8rem;font-weight:700;padding:8px 22px;border-radius:30px;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;cursor:pointer">Claim Offer</div>
-               </div>
-            </div>
-
-            <!-- SCROLLING CAROUSEL AD PANEL -->
-            <div id="scrollingAdPanel" class="ad-panel-card" style="border-radius:16px;border:1px solid #e2e8f0;padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:220px;box-shadow:0 4px 16px rgba(0,0,0,0.07)">
-               <div style="padding:10px 14px;background:rgba(0,0,0,0.06);border-bottom:1px solid rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:space-between">
-                  <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:inherit;opacity:0.5">🔄 Rotating Offers</span>
-                  <span id="scrollAdDots" style="display:flex;gap:5px;align-items:center"></span>
-               </div>
-               <div id="scrollAdCard" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 20px;gap:12px;border-left:5px solid #2563eb">
-                  <div id="scrollAdBadge" style="background:#2563eb;color:#fff;font-size:0.7rem;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase">Campaign Spotlight</div>
-                  <div id="scrollAdText" style="font-size:1.4rem;font-weight:800;color:#0f172a;line-height:1.3;word-break:break-word;width:100%;transition:opacity 0.4s,transform 0.4s">[ No offers configured ]</div>
-                  <div id="scrollAdCta" style="background:#0f172a;color:#fff;font-size:0.8rem;font-weight:700;padding:8px 22px;border-radius:30px;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;cursor:pointer">Claim Offer</div>
-               </div>
-            </div>
-
+         <!-- DYNAMIC PROMO STREAM -->
+         <div id="promoStreamSection" style="overflow:hidden;border-radius:16px;width:100%">
+            <div id="promoStreamTrack" class="promo-stream-track"></div>
          </div>
 
          <!-- FEATURED TICKERS -->

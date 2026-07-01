@@ -3786,6 +3786,7 @@ async function renderStoreProvidersAdmin() {
                 '<div class="apt-provider-footer">' +
                    '<span style="font-family:ui-monospace,monospace;color:#888;font-size:0.75rem">ID: ' + p.id + '</span>' +
                    '<div style="display:flex;gap:6px">' +
+                      '<button class="apt-view-btn" style="background:#7c3aed;color:#fff" onclick="openStoreTemplate(\'' + pid + '\')">🎨 Template</button>' +
                       '<button class="apt-view-btn" onclick="openStoreProviderModal(\'' + pid + '\')">✏️ Edit</button>' +
                       '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreProviderUi(\'' + pid + '\')">🗑</button>' +
                    '</div>' +
@@ -6429,10 +6430,93 @@ function buildWLPage(sp, vendor) {
          '</div>' +
       '</div>';
 
+   // ── Apply store template settings ──
+   var _tpl = (sp && sp.template) ? sp.template : {};
+   var _tplEsc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+
+   // Theme colour override on hero
+   if (_tpl.themeColor) {
+      heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="background:' + _tpl.themeColor + '">');
+   }
+   // Rx button style override
+   if (_tpl.rxBtnBg || _tpl.rxBtnTextColor) {
+      var rxStyle = 'background:' + (_tpl.rxBtnBg||'#fff') + ';color:' + (_tpl.rxBtnTextColor||'#1e293b');
+      heroCard = heroCard.replace('class="med-wl-hero-btn rx"', 'class="med-wl-hero-btn rx" style="' + rxStyle + '"');
+   }
+   // Rx verification badge
+   var rxBadgeHtml = (_tpl.rxBadgeEnabled)
+      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:8px;padding:5px 12px;font-size:0.78rem;font-weight:700;margin-top:8px">🏥 Govt Approved Digital Pharmacy</div>'
+      : '';
+   // Live counter badge
+   var liveCounterHtml = (_tpl.liveCounterEnabled && _tpl.liveCounterText)
+      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(15,23,42,0.65);color:#22c55e;border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:700;margin-top:8px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block">●</span>' + _tplEsc(_tpl.liveCounterText) + '</div>'
+      : '';
+   if (rxBadgeHtml || liveCounterHtml) {
+      heroCard = heroCard.replace('</div>' + '<div class="med-wl-hero-right">', rxBadgeHtml + liveCounterHtml + '</div><div class="med-wl-hero-right">');
+   }
+
+   // Emergency ribbon
+   var emergencyBar = (_tpl.emergencyEnabled && _tpl.emergencyText)
+      ? '<div style="background:' + (_tpl.emergencyBg||'#dc2626') + ';color:' + (_tpl.emergencyFg||'#fff') + ';text-align:center;padding:7px 16px;font-size:12px;font-weight:700;letter-spacing:0.3px">' + _tplEsc(_tpl.emergencyText) + '</div>'
+      : '';
+   // Ticker bar
+   var _tickerBg = _tpl.tickerBgMode === 'same-theme' ? (_tpl.themeColor || '#0f172a')
+                 : _tpl.tickerBgMode === 'custom'      ? (_tpl.tickerBgColor || '#0f172a')
+                 : '#0f172a';
+   var _tickerFg = _tpl.tickerBgMode === 'same-theme' ? '#ffffff' : (_tpl.tickerFgColor || '#fde047');
+   var _tickerSpd = (_tpl.tickerSpeed || 18) + 's';
+   var _tickerCls = _tpl.tickerEffect === 'pulse' ? 'wl-ticker-pulse'
+                  : _tpl.tickerEffect === 'fade'  ? 'wl-ticker-fade'
+                  : 'wl-ticker-marquee';
+   var _tickerContent = _tpl.tickerEffect === 'marquee'
+      ? (_tplEsc(_tpl.tickerText||'') + ' &nbsp;·&nbsp; ' + _tplEsc(_tpl.tickerText||''))
+      : _tplEsc(_tpl.tickerText||'');
+   var tickerBar = (_tpl.tickerEnabled && _tpl.tickerText)
+      ? '<div style="background:' + _tickerBg + ';color:' + _tickerFg + ';padding:9px 20px;overflow:hidden;font-size:13px;font-weight:700">' +
+        '<div class="' + _tickerCls + '" style="animation-duration:' + _tickerSpd + '">' + _tickerContent + '</div></div>'
+      : '';
+   // Compliance bar
+   var complianceBar = (_tpl.complianceEnabled && _tpl.complianceText)
+      ? '<div style="background:#fffbeb;border-bottom:1px solid #fef3c7;color:#92400e;text-align:center;padding:6px 16px;font-size:11px;font-weight:600">' + _tplEsc(_tpl.complianceText) + '</div>'
+      : '';
+   // Offer cards carousel
+   var offerCardsHtml = '';
+   if (_tpl.promoCards && _tpl.promoCards.length) {
+      var _layoutGrid = _tpl.layoutMode === 'grid';
+      var _spd = _tpl.scrollSpeed || 1;
+      var cardsMarkup = _tpl.promoCards.map(function(c) {
+         var onclick = c.link ? 'window.open(\'' + (c.link||'').replace(/'/g,"\\'") + '\',\'_blank\')' : '';
+         return '<div class="wl-offer-card" style="background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';' + (_layoutGrid ? '' : 'flex-shrink:0') + '">' +
+            '<div>' +
+               '<h4 style="margin:0 0 4px;font-size:16px;font-weight:800;color:#fff">' + _tplEsc(c.heading) + '</h4>' +
+               '<p style="margin:0;font-size:12px;opacity:0.9;color:#fff">' + _tplEsc(c.paragraph) + '</p>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">' +
+               '<span style="font-weight:700;font-size:12px;color:rgba(255,255,255,0.85)">' + _tplEsc(c.badge||'') + '</span>' +
+               (c.actionText ? '<button class="wl-offer-card-btn"' + (onclick?' onclick="'+onclick+'"':'') + '>' + _tplEsc(c.actionText) + '</button>' : '') +
+            '</div>' +
+            '<div style="position:absolute;right:-10px;bottom:-10px;font-size:80px;opacity:0.15;user-select:none">' + (c.icon||'🏥') + '</div>' +
+         '</div>';
+      }).join('');
+      var carouselStyle = _layoutGrid
+         ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding:18px 0'
+         : 'display:flex;gap:18px;overflow-x:auto;padding:18px 0;cursor:grab;scroll-behavior:smooth';
+      offerCardsHtml =
+         '<div style="padding:0 0 4px;overflow:hidden">' +
+            '<div class="wl-offer-carousel" style="' + carouselStyle + '" data-speed="' + _spd + '">' +
+               cardsMarkup +
+            '</div>' +
+         '</div>';
+   }
+
    // ── Assemble: hero + filter-bar + sidebar + grid ──
    var _wlSbc = _buildStoreCarousel(sp);
    var fullPage =
+      emergencyBar +
       heroCard +
+      complianceBar +
+      tickerBar +
+      offerCardsHtml +
       (_wlSbc.hasSlides ? _wlSbc.html : '') +
       filterBar +
       '<div class="wl-main-layout">' +
@@ -6471,6 +6555,22 @@ function buildWLPage(sp, vendor) {
    }
    container.innerHTML = fullPage;
    _sbcInit('sbc-' + sp.id);
+
+   // Auto-scroll offer cards carousel (if carousel mode)
+   if (_tpl.promoCards && _tpl.promoCards.length && _tpl.layoutMode !== 'grid') {
+      var _carousel = container.querySelector('.wl-offer-carousel');
+      if (_carousel) {
+         var _spd = parseInt(_carousel.dataset.speed || 1, 10);
+         var _isDragging = false, _startX = 0, _scrollLeft = 0;
+         _carousel.addEventListener('mousedown', function(e) { _isDragging = true; _startX = e.pageX - _carousel.offsetLeft; _scrollLeft = _carousel.scrollLeft; _carousel.style.cursor = 'grabbing'; });
+         _carousel.addEventListener('mouseleave', function() { _isDragging = false; _carousel.style.cursor = 'grab'; });
+         _carousel.addEventListener('mouseup', function() { _isDragging = false; _carousel.style.cursor = 'grab'; });
+         _carousel.addEventListener('mousemove', function(e) { if (!_isDragging) return; e.preventDefault(); _carousel.scrollLeft = _scrollLeft - (e.pageX - _carousel.offsetLeft - _startX) * 1.5; });
+         var _autoScroll = setInterval(function() { if (!_isDragging) { _carousel.scrollLeft += _spd; if (_carousel.scrollLeft >= _carousel.scrollWidth - _carousel.clientWidth) _carousel.scrollLeft = 0; } }, 30);
+         _carousel.addEventListener('mouseenter', function() { clearInterval(_autoScroll); });
+         _carousel.addEventListener('mouseleave', function() { _autoScroll = setInterval(function() { if (!_isDragging) { _carousel.scrollLeft += _spd; if (_carousel.scrollLeft >= _carousel.scrollWidth - _carousel.clientWidth) _carousel.scrollLeft = 0; } }, 30); });
+      }
+   }
 
    // Start countdown timer (24h from now)
    var end = Date.now() + 24 * 3600 * 1000;
@@ -18824,6 +18924,383 @@ function renderPromoStream(s) {
       '</div>';
    }).join('');
    track.innerHTML = cardsHtml + cardsHtml; // duplicate for seamless loop
+}
+
+// ── STORE TEMPLATE CUSTOMIZER ─────────────────────────────────────────────
+var _stmStoreId = null;
+var _stmCards   = [];
+var _stmBgMode  = 'black';
+var _stmTheme   = null;
+
+function openStoreTemplate(storeId) {
+   _stmStoreId = storeId;
+   var sp = _storeGetProvider(storeId);
+   var t  = (sp && sp.template) ? sp.template : {};
+   _stmCards  = Array.isArray(t.promoCards) && t.promoCards.length ? JSON.parse(JSON.stringify(t.promoCards)) : _stmDefaultCards();
+   _stmBgMode = t.tickerBgMode || 'black';
+   _stmTheme  = t.themeColor   || null;
+   _ensureStoreTemplateModal();
+   var nameEl = document.getElementById('stmStoreName');
+   if (nameEl) nameEl.textContent = sp ? sp.name : '';
+   _stmLoadForm(sp || {}, t);
+   document.getElementById('storeTemplateModal').style.display = 'flex';
+   _stmSwitchTab('stmTabColor');
+}
+
+function closeStoreTemplate() {
+   var m = document.getElementById('storeTemplateModal');
+   if (m) m.style.display = 'none';
+}
+
+async function saveStoreTemplate() {
+   if (!_stmStoreId) return;
+   var t   = _stmCollect();
+   var sp  = _storeGetProvider(_stmStoreId);
+   if (!sp) return;
+   var upd = Object.assign({}, sp, { template: t });
+   await AppDB.upsertStoreProvider(upd);
+   var idx = (_storeProvidersCache || []).findIndex(function(p) { return p.id === _stmStoreId; });
+   if (idx >= 0) _storeProvidersCache[idx] = upd;
+   if (typeof _wlBroadcast === 'function') _wlBroadcast(_stmStoreId);
+   closeStoreTemplate();
+   var toast = document.createElement('div');
+   toast.textContent = '✅ Template saved!';
+   toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;z-index:9999;font-size:0.9rem;box-shadow:0 4px 20px rgba(0,0,0,0.3)';
+   document.body.appendChild(toast);
+   setTimeout(function() { toast.remove(); }, 2500);
+}
+
+function _stmDefaultCards() {
+   return [
+      { heading:'Seasonal Fevers Checkup',   paragraph:'At-Home Tests For Dengue, Malaria, Typhoid & More.', badge:'Starting ₹1199', actionText:'BOOK NOW',  link:'', gradient:'linear-gradient(135deg,#0f766e,#115e59)', icon:'🩺' },
+      { heading:'BUY 1 GET 1 FREE',           paragraph:'On Full Body Health & Blood Diagnostic Checkups.',   badge:'*T&C Apply',    actionText:'PROCEED',    link:'', gradient:'linear-gradient(135deg,#0369a1,#0284c7)', icon:'🧪' },
+      { heading:'Free Home Delivery',         paragraph:'On orders above ₹499. Same-day dispatch available.', badge:'All orders',    actionText:'SHOP NOW',   link:'', gradient:'linear-gradient(135deg,#7c3aed,#4f46e5)', icon:'🚚' }
+   ];
+}
+
+function _stmLoadForm(sp, t) {
+   function el(id) { return document.getElementById(id); }
+   function setVal(id, v) { var e = el(id); if (e) e.value = v; }
+   function setChk(id, v) { var e = el(id); if (e) e.checked = !!v; }
+   _stmTheme = t.themeColor || null;
+   document.querySelectorAll('.stm-color-box').forEach(function(b) {
+      b.style.outline = (b.dataset.color === _stmTheme) ? '3px solid #0f172a' : 'none';
+   });
+   setVal('stmCustomSolid',     (_stmTheme && _stmTheme.startsWith('#')) ? _stmTheme : '#17a2b8');
+   setVal('stmTitleColor',       t.bannerTitleColor  || '#ffffff');
+   setVal('stmTitleSize',        t.bannerTitleSize   || 26);
+   setVal('stmRxBtnBg',          t.rxBtnBg           || '#ffffff');
+   setVal('stmRxBtnText',        t.rxBtnTextColor    || '#1e293b');
+   setChk('stmTickerOn',         t.tickerEnabled);
+   setVal('stmTickerText',       t.tickerText || ('⚡ Welcome to ' + (sp.name || 'our store') + '!'));
+   setVal('stmTickerEffect',     t.tickerEffect      || 'marquee');
+   setVal('stmTickerSpeed',      t.tickerSpeed       || 18);
+   setVal('stmTickerBgMode',     _stmBgMode);
+   setVal('stmTickerBgColor',    t.tickerBgColor     || '#0f172a');
+   setVal('stmTickerFgColor',    t.tickerFgColor     || '#fde047');
+   _stmTickerBgModeChange(_stmBgMode);
+   setVal('stmLayoutMode',       t.layoutMode        || 'carousel');
+   setVal('stmScrollSpeed',      t.scrollSpeed       || 1);
+   setChk('stmLiveCounterOn',    t.liveCounterEnabled);
+   setVal('stmLiveCounterText',  t.liveCounterText   || '142 people looking at this store right now');
+   setChk('stmRxBadgeOn',        t.rxBadgeEnabled);
+   setChk('stmEmergencyOn',      t.emergencyEnabled);
+   setVal('stmEmergencyText',    t.emergencyText     || ('🚨 EMERGENCY: Call ' + (sp.phone || '') + ' for critical medicines'));
+   setVal('stmEmergencyBg',      t.emergencyBg       || '#dc2626');
+   setVal('stmEmergencyFg',      t.emergencyFg       || '#ffffff');
+   setChk('stmComplianceOn',     t.complianceEnabled);
+   setVal('stmComplianceText',   t.complianceText    || '⚠️ NOTICE: Controlled substances & schedules are subject to strict legal dispensing rules.');
+   _stmRenderCards();
+}
+
+function _stmCollect() {
+   function val(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; }
+   function chk(id) { var e = document.getElementById(id); return e ? e.checked : false; }
+   return {
+      themeColor:          _stmTheme || val('stmCustomSolid') || '#17a2b8',
+      bannerTitleColor:    val('stmTitleColor')    || '#ffffff',
+      bannerTitleSize:     parseInt(val('stmTitleSize'))  || 26,
+      rxBtnBg:             val('stmRxBtnBg')       || '#ffffff',
+      rxBtnTextColor:      val('stmRxBtnText')     || '#1e293b',
+      tickerEnabled:       chk('stmTickerOn'),
+      tickerText:          val('stmTickerText'),
+      tickerEffect:        val('stmTickerEffect')  || 'marquee',
+      tickerSpeed:         parseInt(val('stmTickerSpeed')) || 18,
+      tickerBgMode:        _stmBgMode,
+      tickerBgColor:       val('stmTickerBgColor') || '#0f172a',
+      tickerFgColor:       val('stmTickerFgColor') || '#fde047',
+      layoutMode:          val('stmLayoutMode')    || 'carousel',
+      scrollSpeed:         parseInt(val('stmScrollSpeed')) || 1,
+      liveCounterEnabled:  chk('stmLiveCounterOn'),
+      liveCounterText:     val('stmLiveCounterText'),
+      rxBadgeEnabled:      chk('stmRxBadgeOn'),
+      emergencyEnabled:    chk('stmEmergencyOn'),
+      emergencyText:       val('stmEmergencyText'),
+      emergencyBg:         val('stmEmergencyBg')   || '#dc2626',
+      emergencyFg:         val('stmEmergencyFg')   || '#ffffff',
+      complianceEnabled:   chk('stmComplianceOn'),
+      complianceText:      val('stmComplianceText'),
+      promoCards:          _stmGetCards()
+   };
+}
+
+function _stmSetColor(color, boxEl) {
+   _stmTheme = color;
+   document.querySelectorAll('.stm-color-box').forEach(function(b) { b.style.outline = 'none'; });
+   if (boxEl) boxEl.style.outline = '3px solid #0f172a';
+}
+
+function _stmApplyGradient() {
+   var l = document.getElementById('stmGradLeft');
+   var r = document.getElementById('stmGradRight');
+   if (l && r) _stmTheme = 'linear-gradient(45deg,' + l.value + ',' + r.value + ')';
+}
+
+function _stmTickerBgModeChange(mode) {
+   _stmBgMode = mode;
+   var sel = document.getElementById('stmTickerBgMode');
+   if (sel && sel.value !== mode) sel.value = mode;
+   var row = document.getElementById('stmTickerCustomColors');
+   if (row) row.style.display = (mode === 'custom') ? 'flex' : 'none';
+}
+
+function _stmSwitchTab(tabId) {
+   document.querySelectorAll('.stm-tab-btn').forEach(function(b) {
+      b.style.background = 'none'; b.style.color = '#475569'; b.style.borderLeft = '4px solid transparent';
+   });
+   document.querySelectorAll('.stm-panel').forEach(function(p) { p.style.display = 'none'; });
+   var panel = document.getElementById(tabId);
+   if (panel) panel.style.display = 'block';
+   var btn = document.querySelector('[data-stm-tab="' + tabId + '"]');
+   if (btn) { btn.style.background = '#f1f5f9'; btn.style.color = '#0284c7'; btn.style.borderLeft = '4px solid #0284c7'; }
+}
+
+function _stmRenderCards() {
+   var list = document.getElementById('stmCardList');
+   if (!list) return;
+   if (!_stmCards.length) {
+      list.innerHTML = '<div style="color:#94a3b8;padding:16px;font-size:0.85rem;text-align:center">No cards — click ＋ Add Card</div>';
+      return;
+   }
+   var grads = [
+      {v:'linear-gradient(135deg,#0f766e,#115e59)',l:'Dark Teal'},
+      {v:'linear-gradient(135deg,#0369a1,#0284c7)',l:'Ocean Blue'},
+      {v:'linear-gradient(135deg,#7c3aed,#4f46e5)',l:'Royal Indigo'},
+      {v:'linear-gradient(135deg,#db2777,#9d174d)',l:'Magenta'},
+      {v:'linear-gradient(135deg,#b45309,#78350f)',l:'Warm Amber'},
+      {v:'linear-gradient(135deg,#0d7e68,#00a676)',l:'Emerald'},
+      {v:'linear-gradient(135deg,#0f172a,#1e293b)',l:'Dark Navy'}
+   ];
+   var e = _stmEsc;
+   var inp = 'style="width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.84rem;box-sizing:border-box"';
+   var lbl = 'style="font-size:0.73rem;font-weight:700;color:#64748b;display:block;margin-bottom:3px"';
+   list.innerHTML = _stmCards.map(function(c, i) {
+      var gOpts = grads.map(function(g) { return '<option value="' + g.v + '"' + (c.gradient===g.v?' selected':'') + '>' + g.l + '</option>'; }).join('');
+      return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px">' +
+         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+            '<span style="font-size:0.78rem;font-weight:700;color:#475569">Card ' + (i+1) + '</span>' +
+            (_stmCards.length > 1 ? '<button onclick="_stmRemoveCard(' + i + ')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:3px 10px;font-size:0.74rem;font-weight:700;cursor:pointer">✕ Remove</button>' : '') +
+         '</div>' +
+         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">' +
+            '<div><label ' + lbl + '>Title</label><input type="text" id="stmc-' + i + '-heading" value="' + e(c.heading) + '" ' + inp + '></div>' +
+            '<div><label ' + lbl + '>Subtitle</label><input type="text" id="stmc-' + i + '-paragraph" value="' + e(c.paragraph) + '" ' + inp + '></div>' +
+         '</div>' +
+         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">' +
+            '<div><label ' + lbl + '>Button Text</label><input type="text" id="stmc-' + i + '-actionText" value="' + e(c.actionText) + '" ' + inp + '></div>' +
+            '<div><label ' + lbl + '>Link URL</label><input type="text" id="stmc-' + i + '-link" value="' + e(c.link||'') + '" placeholder="https://…" ' + inp + '></div>' +
+            '<div><label ' + lbl + '>Icon</label><input type="text" id="stmc-' + i + '-icon" value="' + e(c.icon||'🏥') + '" maxlength="4" ' + inp + '></div>' +
+         '</div>' +
+         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            '<div><label ' + lbl + '>Badge Text</label><input type="text" id="stmc-' + i + '-badge" value="' + e(c.badge||'') + '" ' + inp + '></div>' +
+            '<div><label ' + lbl + '>Background</label><select id="stmc-' + i + '-gradient" style="width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.84rem">' + gOpts + '</select></div>' +
+         '</div>' +
+      '</div>';
+   }).join('');
+}
+
+function _stmEsc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function _stmAddCard() {
+   _stmCards.push({ heading:'New Offer', paragraph:'Description here.', badge:'', actionText:'EXPLORE', link:'', gradient:'linear-gradient(135deg,#0369a1,#0284c7)', icon:'🏥' });
+   _stmRenderCards();
+}
+
+function _stmRemoveCard(i) {
+   _stmCards.splice(i, 1);
+   _stmRenderCards();
+}
+
+function _stmGetCards() {
+   return _stmCards.map(function(_, i) {
+      var g = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value.trim() : ''; };
+      return { heading: g('heading'), paragraph: g('paragraph'), actionText: g('actionText'), link: g('link'), icon: g('icon'), badge: g('badge'), gradient: g('gradient') };
+   });
+}
+
+function _ensureStoreTemplateModal() {
+   if (document.getElementById('storeTemplateModal')) return;
+
+   var COLOR_PRESETS = [
+      '#17a2b8','#0284c7','#0d9488','#16a34a','#4f46e5','#7c3aed','#db2777','#e11d48',
+      'linear-gradient(45deg,#ffd700,#ffa500)','linear-gradient(45deg,#00f2fe,#4facfe)',
+      'linear-gradient(45deg,#11998e,#38ef7d)','linear-gradient(45deg,#ff416c,#ff4b2b)',
+      'linear-gradient(45deg,#8a2be2,#4b0082)','linear-gradient(45deg,#ff00cc,#3333ff)',
+      'linear-gradient(135deg,#0f172a,#1e293b)','linear-gradient(135deg,#e2e8f0,#94a3b8)'
+   ];
+   var colorBoxesHtml = COLOR_PRESETS.map(function(c) {
+      var safe = c.replace(/'/g,"\\'");
+      return '<div class="stm-color-box" data-color="' + c + '" onclick="_stmSetColor(\'' + safe + '\',this)" ' +
+         'style="height:40px;border-radius:8px;cursor:pointer;background:' + c + ';outline:none;transition:transform 0.15s" ' +
+         'onmouseover="this.style.transform=\'scale(1.06)\'" onmouseout="this.style.transform=\'scale(1)\'"></div>';
+   }).join('');
+
+   var tabBtnBase = 'class="stm-tab-btn" style="width:100%;padding:11px 18px;border:none;background:none;text-align:left;font-weight:600;color:#475569;cursor:pointer;display:flex;align-items:center;gap:9px;font-size:13px;border-left:4px solid transparent;font-family:inherit"';
+   var tabs = [
+      {id:'stmTabColor',  label:'🎨 Colors & Theme'},
+      {id:'stmTabBanner', label:'🖼️ Header Banner'},
+      {id:'stmTabTicker', label:'📢 Ticker Bar'},
+      {id:'stmTabLayout', label:'📐 Layout'},
+      {id:'stmTabCards',  label:'🃏 Offer Cards'},
+      {id:'stmTabRx',     label:'💊 Rx Addons'}
+   ];
+   var sidebarHtml = tabs.map(function(t) {
+      return '<button ' + tabBtnBase + ' data-stm-tab="' + t.id + '" onclick="_stmSwitchTab(\'' + t.id + '\')">' + t.label + '</button>';
+   }).join('');
+
+   var fld  = 'style="margin-bottom:14px"';
+   var lbl  = 'style="display:block;font-weight:700;font-size:0.8rem;color:#334155;margin-bottom:5px"';
+   var inp  = 'style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.88rem;box-sizing:border-box;font-family:inherit"';
+   var sel  = 'style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.88rem;background:#fff;font-family:inherit"';
+   var card = 'style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px"';
+   var clrPick = 'style="width:44px;height:36px;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;padding:2px"';
+   var rowFlex = 'style="display:flex;align-items:center;gap:10px"';
+
+   var panelColor =
+      '<h4 style="margin:0 0 14px;color:#0f172a">Store Colour Palette</h4>' +
+      '<label style="font-size:0.78rem;font-weight:700;color:#475569;display:block;margin-bottom:6px">Preset Colours & Gradients</label>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">' + colorBoxesHtml + '</div>' +
+      '<div ' + card + '>' +
+         '<div style="font-weight:700;font-size:0.82rem;color:#0f172a;margin-bottom:10px">🎯 Custom Colour Picker</div>' +
+         '<div ' + rowFlex + ' style="margin-bottom:10px">' +
+            '<label style="min-width:130px;font-size:0.82rem;font-weight:600;color:#475569">Solid Colour:</label>' +
+            '<input type="color" id="stmCustomSolid" value="#17a2b8" oninput="_stmTheme=this.value" ' + clrPick + '>' +
+            '<span style="font-size:0.78rem;color:#94a3b8">Pick any solid colour</span>' +
+         '</div>' +
+         '<hr style="border:0;border-top:1px dashed #e2e8f0;margin:10px 0">' +
+         '<div style="font-size:0.82rem;font-weight:700;color:#475569;margin-bottom:8px">Gradient Builder</div>' +
+         '<div ' + rowFlex + ' style="flex-wrap:wrap;gap:14px">' +
+            '<div ' + rowFlex + '><label style="font-size:0.8rem;color:#64748b;white-space:nowrap">Left:</label><input type="color" id="stmGradLeft" value="#00f2fe" ' + clrPick + '></div>' +
+            '<div ' + rowFlex + '><label style="font-size:0.8rem;color:#64748b;white-space:nowrap">Right:</label><input type="color" id="stmGradRight" value="#4facfe" ' + clrPick + '></div>' +
+            '<button onclick="_stmApplyGradient()" style="padding:7px 14px;background:#0f172a;color:#fff;border:none;border-radius:7px;font-size:0.82rem;font-weight:700;cursor:pointer">Apply Gradient</button>' +
+         '</div>' +
+      '</div>';
+
+   var panelBanner =
+      '<h4 style="margin:0 0 14px;color:#0f172a">Hero Banner Styles</h4>' +
+      '<div ' + card + '><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
+         '<div ' + fld + '><label ' + lbl + '>Store Name Colour</label><input type="color" id="stmTitleColor" value="#ffffff" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:7px;cursor:pointer;padding:2px"></div>' +
+         '<div ' + fld + '><label ' + lbl + '>Store Name Size (px) <span id="stmTitleSizeVal" style="color:#0284c7">26</span></label><input type="range" id="stmTitleSize" min="18" max="42" value="26" oninput="document.getElementById(\'stmTitleSizeVal\').textContent=this.value" ' + inp + '></div>' +
+         '<div ' + fld + '><label ' + lbl + '>Rx Button Background</label><input type="color" id="stmRxBtnBg" value="#ffffff" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:7px;cursor:pointer;padding:2px"></div>' +
+         '<div ' + fld + '><label ' + lbl + '>Rx Button Text Colour</label><input type="color" id="stmRxBtnText" value="#1e293b" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:7px;cursor:pointer;padding:2px"></div>' +
+      '</div></div>';
+
+   var panelTicker =
+      '<h4 style="margin:0 0 14px;color:#0f172a">Scrolling Ticker Bar</h4>' +
+      '<div ' + card + '>' +
+         '<div ' + rowFlex + ' style="margin-bottom:14px"><input type="checkbox" id="stmTickerOn" style="width:16px;height:16px;cursor:pointer">' +
+         '<label for="stmTickerOn" style="font-weight:700;font-size:0.88rem;cursor:pointer">Enable Ticker Bar on store page</label></div>' +
+         '<div ' + fld + '><label ' + lbl + '>Ticker Message</label><textarea id="stmTickerText" rows="2" ' + inp + '></textarea></div>' +
+         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">' +
+            '<div><label ' + lbl + '>Animation Effect</label><select id="stmTickerEffect" ' + sel + '>' +
+               '<option value="marquee">Continuous Marquee Scroll</option>' +
+               '<option value="pulse">Pulse Flash Alert</option>' +
+               '<option value="fade">Smooth Fade Loop</option>' +
+            '</select></div>' +
+            '<div><label ' + lbl + '>Speed <span id="stmTickerSpeedVal" style="color:#0284c7">18</span>s (lower = faster)</label>' +
+            '<input type="range" id="stmTickerSpeed" min="5" max="40" value="18" oninput="document.getElementById(\'stmTickerSpeedVal\').textContent=this.value" ' + inp + '></div>' +
+         '</div>' +
+         '<div ' + fld + '><label ' + lbl + '>Background Mode</label>' +
+         '<select id="stmTickerBgMode" onchange="_stmTickerBgModeChange(this.value)" ' + sel + '>' +
+            '<option value="black">Fixed Dark (#0f172a)</option>' +
+            '<option value="same-theme">Same as Store Theme Colour</option>' +
+            '<option value="custom">Custom Colours</option>' +
+         '</select></div>' +
+         '<div id="stmTickerCustomColors" style="display:none;flex-direction:column;gap:10px">' +
+            '<div ' + rowFlex + '><label style="min-width:130px;font-size:0.82rem;font-weight:600;color:#475569">Strip Background:</label><input type="color" id="stmTickerBgColor" value="#0f172a" ' + clrPick + '></div>' +
+            '<div ' + rowFlex + '><label style="min-width:130px;font-size:0.82rem;font-weight:600;color:#475569">Text Colour:</label><input type="color" id="stmTickerFgColor" value="#fde047" ' + clrPick + '></div>' +
+         '</div>' +
+      '</div>';
+
+   var panelLayout =
+      '<h4 style="margin:0 0 14px;color:#0f172a">Layout & Display</h4>' +
+      '<div ' + card + '>' +
+         '<div ' + fld + '><label ' + lbl + '>Offer Cards Display Mode</label><select id="stmLayoutMode" ' + sel + '><option value="carousel">Auto-Scroll Carousel</option><option value="grid">Static 3-Column Grid</option></select></div>' +
+         '<div ' + fld + '><label ' + lbl + '>Carousel Speed <span id="stmScrollSpeedVal" style="color:#0284c7">1</span></label>' +
+         '<input type="range" id="stmScrollSpeed" min="1" max="5" value="1" oninput="document.getElementById(\'stmScrollSpeedVal\').textContent=this.value" ' + inp + '>' +
+         '<p style="font-size:0.75rem;color:#94a3b8;margin:4px 0 0">Fine-tune horizontal scroll drift speed.</p></div>' +
+      '</div>' +
+      '<div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:10px;padding:14px 16px;margin-bottom:14px">' +
+         '<div ' + rowFlex + ' style="margin-bottom:8px"><input type="checkbox" id="stmLiveCounterOn" style="width:16px;height:16px;cursor:pointer">' +
+         '<label for="stmLiveCounterOn" style="font-weight:700;font-size:0.88rem;cursor:pointer;color:#c2410c">Show Live Customer Counter Badge</label></div>' +
+         '<div ' + fld + '><label ' + lbl + '>Badge Text</label><input type="text" id="stmLiveCounterText" ' + inp + '></div>' +
+         '<p style="font-size:0.75rem;color:#92400e;margin:4px 0 0">A pulsing live-traffic badge in the store hero — increases purchase trust.</p>' +
+      '</div>';
+
+   var panelCards =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+         '<h4 style="margin:0;color:#0f172a">Offer Cards Carousel</h4>' +
+         '<button onclick="_stmAddCard()" style="padding:7px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer">＋ Add Card</button>' +
+      '</div>' +
+      '<p style="margin:0 0 14px;font-size:0.8rem;color:#64748b">Cards scroll horizontally on the store page, below the hero banner. Each has a title, subtitle, CTA button, gradient background and icon.</p>' +
+      '<div id="stmCardList"></div>';
+
+   var panelRx =
+      '<h4 style="margin:0 0 14px;color:#059669">Pharmacy Compliance & Addons</h4>' +
+      '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;margin-bottom:14px">' +
+         '<div ' + rowFlex + ' style="margin-bottom:4px"><input type="checkbox" id="stmRxBadgeOn" style="width:16px;height:16px;cursor:pointer">' +
+         '<label for="stmRxBadgeOn" style="font-weight:700;font-size:0.88rem;cursor:pointer;color:#166534">Show Verified Digital Pharmacy Badge in Hero</label></div>' +
+         '<p style="margin:6px 0 0;font-size:0.75rem;color:#15803d">Displays a "Govt Approved Digital Pharmacy" trust badge inside the store hero.</p>' +
+      '</div>' +
+      '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin-bottom:14px">' +
+         '<div ' + rowFlex + ' style="margin-bottom:10px"><input type="checkbox" id="stmEmergencyOn" style="width:16px;height:16px;cursor:pointer">' +
+         '<label for="stmEmergencyOn" style="font-weight:700;font-size:0.88rem;cursor:pointer;color:#991b1b">Show Emergency Hotline Ribbon (top of page)</label></div>' +
+         '<div ' + fld + '><label ' + lbl + '>Ribbon Text</label><input type="text" id="stmEmergencyText" placeholder="🚨 EMERGENCY: Call..." ' + inp + '></div>' +
+         '<div ' + rowFlex + ' style="gap:18px">' +
+            '<div ' + rowFlex + '><label style="font-size:0.82rem;font-weight:600;color:#475569;white-space:nowrap">Ribbon Colour:</label><input type="color" id="stmEmergencyBg" value="#dc2626" ' + clrPick + '></div>' +
+            '<div ' + rowFlex + '><label style="font-size:0.82rem;font-weight:600;color:#475569;white-space:nowrap">Text Colour:</label><input type="color" id="stmEmergencyFg" value="#ffffff" ' + clrPick + '></div>' +
+         '</div>' +
+      '</div>' +
+      '<div style="background:#fcf8e3;border:1px solid #faebcc;border-radius:10px;padding:14px 16px">' +
+         '<div ' + rowFlex + ' style="margin-bottom:10px"><input type="checkbox" id="stmComplianceOn" style="width:16px;height:16px;cursor:pointer">' +
+         '<label for="stmComplianceOn" style="font-weight:700;font-size:0.88rem;cursor:pointer;color:#8a6d3b">Show Legal Compliance Notice Bar</label></div>' +
+         '<div><label ' + lbl + '>Notice Text</label><input type="text" id="stmComplianceText" placeholder="⚠️ NOTICE: ..." ' + inp + '></div>' +
+      '</div>';
+
+   var panelMap = { stmTabColor: panelColor, stmTabBanner: panelBanner, stmTabTicker: panelTicker, stmTabLayout: panelLayout, stmTabCards: panelCards, stmTabRx: panelRx };
+   var panelsHtml = tabs.map(function(t, i) {
+      return '<div id="' + t.id + '" class="stm-panel" style="display:' + (i===0?'block':'none') + '">' + panelMap[t.id] + '</div>';
+   }).join('');
+
+   var modal = document.createElement('div');
+   modal.id = 'storeTemplateModal';
+   modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:1200;justify-content:center;align-items:center';
+   modal.innerHTML =
+      '<div style="background:#fff;width:1080px;max-width:96vw;border-radius:16px;overflow:hidden;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.3)">' +
+         '<div style="background:#0f172a;color:#fff;padding:15px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">' +
+            '<div><div style="font-size:1rem;font-weight:800">🎨 Store Template Customizer</div>' +
+            '<div id="stmStoreName" style="font-size:0.78rem;color:#94a3b8;margin-top:2px"></div></div>' +
+            '<button onclick="closeStoreTemplate()" style="background:none;border:none;color:#94a3b8;font-size:28px;cursor:pointer;line-height:1;padding:0">×</button>' +
+         '</div>' +
+         '<div style="display:flex;flex:1;overflow:hidden">' +
+            '<div style="width:210px;background:#f8fafc;border-right:1px solid #e2e8f0;flex-shrink:0;overflow-y:auto">' + sidebarHtml + '</div>' +
+            '<div style="flex:1;padding:22px 26px;overflow-y:auto">' + panelsHtml + '</div>' +
+         '</div>' +
+         '<div style="padding:13px 22px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc;flex-shrink:0">' +
+            '<button onclick="closeStoreTemplate()" style="padding:9px 20px;background:#e2e8f0;color:#475569;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.88rem">Cancel</button>' +
+            '<button onclick="saveStoreTemplate()" style="padding:9px 22px;background:#0284c7;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:0.88rem">💾 Save Template</button>' +
+         '</div>' +
+      '</div>';
+   document.body.appendChild(modal);
 }
 
 // ── PROFILE PAGE ──

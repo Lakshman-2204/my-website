@@ -5682,14 +5682,19 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
       setTimeout(function() {
          var _c = document.querySelector('.wl-offer-carousel');
          if (!_c) return;
+         // Duplicate cards so there's always overflow to scroll (handles case where all cards fit on screen)
+         var _origKids = Array.from(_c.children);
+         _origKids.forEach(function(k){ _c.appendChild(k.cloneNode(true)); });
+         _origKids.forEach(function(k){ _c.appendChild(k.cloneNode(true)); });
          var _spd = parseInt(_c.dataset.speed||2,10) * 2, _drag = false, _sx = 0, _sl = 0;
          _c.addEventListener('mousedown', function(e){_drag=true;_sx=e.pageX-_c.offsetLeft;_sl=_c.scrollLeft;_c.style.cursor='grabbing';});
          _c.addEventListener('mouseleave', function(){_drag=false;_c.style.cursor='grab';});
          _c.addEventListener('mouseup', function(){_drag=false;_c.style.cursor='grab';});
          _c.addEventListener('mousemove', function(e){if(!_drag)return;e.preventDefault();_c.scrollLeft=_sl-(e.pageX-_c.offsetLeft-_sx)*1.5;});
-         var _t = setInterval(function(){if(!_drag){_c.scrollLeft+=_spd;if(_c.scrollLeft>=_c.scrollWidth-_c.clientWidth)_c.scrollLeft=0;}},30);
+         var _half = _c.scrollWidth / 3;
+         var _t = setInterval(function(){if(!_drag){_c.scrollLeft+=_spd;if(_c.scrollLeft>=_half*2)_c.scrollLeft=_half;}},30);
          _c.addEventListener('mouseenter',function(){clearInterval(_t);});
-         _c.addEventListener('mouseleave',function(){_t=setInterval(function(){if(!_drag){_c.scrollLeft+=_spd;if(_c.scrollLeft>=_c.scrollWidth-_c.clientWidth)_c.scrollLeft=0;}},30);});
+         _c.addEventListener('mouseleave',function(){_t=setInterval(function(){if(!_drag){_c.scrollLeft+=_spd;if(_c.scrollLeft>=_half*2)_c.scrollLeft=_half;}},30);});
       }, 200);
    }
 
@@ -6654,15 +6659,20 @@ function buildWLPage(sp, vendor) {
    if (_tpl.promoCards && _tpl.promoCards.length && _tpl.layoutMode !== 'grid') {
       var _carousel = container.querySelector('.wl-offer-carousel');
       if (_carousel) {
+         // Duplicate cards so there's always overflow (handles case where all fit on screen)
+         var _ck = Array.from(_carousel.children);
+         _ck.forEach(function(k){ _carousel.appendChild(k.cloneNode(true)); });
+         _ck.forEach(function(k){ _carousel.appendChild(k.cloneNode(true)); });
          var _spd = parseInt(_carousel.dataset.speed || 2, 10) * 2;
          var _isDragging = false, _startX = 0, _scrollLeft = 0;
+         var _wlHalf = _carousel.scrollWidth / 3;
          _carousel.addEventListener('mousedown', function(e) { _isDragging = true; _startX = e.pageX - _carousel.offsetLeft; _scrollLeft = _carousel.scrollLeft; _carousel.style.cursor = 'grabbing'; });
          _carousel.addEventListener('mouseleave', function() { _isDragging = false; _carousel.style.cursor = 'grab'; });
          _carousel.addEventListener('mouseup', function() { _isDragging = false; _carousel.style.cursor = 'grab'; });
          _carousel.addEventListener('mousemove', function(e) { if (!_isDragging) return; e.preventDefault(); _carousel.scrollLeft = _scrollLeft - (e.pageX - _carousel.offsetLeft - _startX) * 1.5; });
-         var _autoScroll = setInterval(function() { if (!_isDragging) { _carousel.scrollLeft += _spd; if (_carousel.scrollLeft >= _carousel.scrollWidth - _carousel.clientWidth) _carousel.scrollLeft = 0; } }, 30);
+         var _autoScroll = setInterval(function() { if (!_isDragging) { _carousel.scrollLeft += _spd; if (_carousel.scrollLeft >= _wlHalf * 2) _carousel.scrollLeft = _wlHalf; } }, 30);
          _carousel.addEventListener('mouseenter', function() { clearInterval(_autoScroll); });
-         _carousel.addEventListener('mouseleave', function() { _autoScroll = setInterval(function() { if (!_isDragging) { _carousel.scrollLeft += _spd; if (_carousel.scrollLeft >= _carousel.scrollWidth - _carousel.clientWidth) _carousel.scrollLeft = 0; } }, 30); });
+         _carousel.addEventListener('mouseleave', function() { _autoScroll = setInterval(function() { if (!_isDragging) { _carousel.scrollLeft += _spd; if (_carousel.scrollLeft >= _wlHalf * 2) _carousel.scrollLeft = _wlHalf; } }, 30); });
       }
    }
 

@@ -5647,7 +5647,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
       }).join('');
       var _carouselStyle2 = _grid2
          ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0'
-         : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;scroll-behavior:smooth;-webkit-overflow-scrolling:touch';
+         : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;-webkit-overflow-scrolling:touch';
       _offerCards2 =
          '<div style="padding:0 48px 8px;background:#f8fafc">' +
             '<div class="wl-offer-carousel" style="' + _carouselStyle2 + '" data-speed="' + (_tpl2.scrollSpeed||2) + '">' +
@@ -6582,7 +6582,7 @@ function buildWLPage(sp, vendor) {
       }).join('');
       var carouselStyle = _layoutGrid
          ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0'
-         : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;scroll-behavior:smooth;-webkit-overflow-scrolling:touch';
+         : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;-webkit-overflow-scrolling:touch';
       offerCardsHtml =
          '<div style="padding:0 48px 8px;background:#f8fafc">' +
             '<div class="wl-offer-carousel" style="' + carouselStyle + '" data-speed="' + _spd + '">' +

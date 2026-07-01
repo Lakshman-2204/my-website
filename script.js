@@ -5288,7 +5288,7 @@ async function showStoreProvider(providerId) {
          } catch(e) {}
          return reg[_storeDomain] || null;
       })() : null;
-      var _tplForTheme = (sp && sp.template) ? sp.template : {};
+      var _tplForTheme = (p && p.template) ? p.template : {};
       applyStoreTheme({ primaryColor: (_tplForTheme.themeColor || (_storeVendorConfig && _storeVendorConfig.primaryColor) || '#00BCD4') });
    }
 

@@ -19033,12 +19033,14 @@ function closeStoreTemplate() {
 async function saveStoreTemplate() {
    if (!_stmStoreId) return;
    var t   = _stmCollect();
-   var sp  = _storeGetProvider(_stmStoreId);
-   if (!sp) return;
-   var upd = Object.assign({}, sp, { template: t });
-   await AppDB.upsertStoreProvider(upd);
-   var idx = (_storeProvidersCache || []).findIndex(function(p) { return p.id === _stmStoreId; });
-   if (idx >= 0) _storeProvidersCache[idx] = upd;
+   var err = await AppDB.saveStoreTemplate(_stmStoreId, t);
+   if (err) {
+      alert('❌ Failed to save template.\n\nError: ' + err + '\n\nMake sure you have run this SQL in Supabase:\nALTER TABLE store_providers ADD COLUMN IF NOT EXISTS template jsonb;');
+      return;
+   }
+   // Update local cache directly — no full re-fetch needed
+   var sp = _storeGetProvider(_stmStoreId);
+   if (sp) sp.template = t;
    if (typeof _wlBroadcast === 'function') _wlBroadcast(_stmStoreId);
    closeStoreTemplate();
    var toast = document.createElement('div');

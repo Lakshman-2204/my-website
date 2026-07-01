@@ -1508,6 +1508,14 @@ window.AppDB = {
       return true;
    },
 
+   async saveStoreTemplate(storeId, template) {
+      const { error } = await _sb.from('store_providers')
+         .update({ template })
+         .eq('id', storeId);
+      if (error) { console.error('saveStoreTemplate:', error.message); return error.message; }
+      return null;
+   },
+
    // Owner-side toggle: pause / resume home delivery for one store. Owner
    // shouldn't touch admin-only fields (commission etc.) so we use a narrow
    // partial update instead of going through upsertStoreProvider.

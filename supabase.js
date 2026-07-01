@@ -1498,7 +1498,10 @@ window.AppDB = {
          commission_value: typeof p.commission_value === 'number' ? p.commission_value : (parseFloat(p.commission_value) || 0),
          door_delivery:    !!p.door_delivery,
          delivery_paused:  !!p.delivery_paused,
-         owner_email:      (p.owner_email || '').toLowerCase()
+         owner_email:      (p.owner_email || '').toLowerCase(),
+         hero_tag:         p.hero_tag      || null,
+         logo_url:         p.logo_url      || null,
+         template:         p.template      || null
       };
       const { error } = await _sb.from('store_providers').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertStoreProvider:', error.message); return false; }

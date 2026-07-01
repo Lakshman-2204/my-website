@@ -5597,9 +5597,87 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
       '</section>';
 
+   // ── Apply store template ──
+   var _tpl2 = (sp && sp.template) ? sp.template : {};
+   var _e2   = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+
+   if (_tpl2.themeColor) {
+      heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="background:' + _tpl2.themeColor + '">');
+   }
+   if (_tpl2.rxBtnBg || _tpl2.rxBtnTextColor) {
+      var _rxStyle2 = 'background:' + (_tpl2.rxBtnBg||'#fff') + ';color:' + (_tpl2.rxBtnTextColor||'#1e293b');
+      heroCard = heroCard.replace('class="med-wl-hero-btn rx"', 'class="med-wl-hero-btn rx" style="' + _rxStyle2 + '"');
+   }
+   var _rxBadge2 = _tpl2.rxBadgeEnabled
+      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:8px;padding:5px 12px;font-size:0.78rem;font-weight:700;margin-top:8px">🏥 Govt Approved Digital Pharmacy</div>'
+      : '';
+   var _liveCounter2 = (_tpl2.liveCounterEnabled && _tpl2.liveCounterText)
+      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(15,23,42,0.65);color:#22c55e;border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:700;margin-top:8px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block">●</span>' + _e2(_tpl2.liveCounterText) + '</div>'
+      : '';
+   if (_rxBadge2 || _liveCounter2) {
+      heroCard = heroCard.replace('</div>' + '<div class="med-wl-hero-right">', _rxBadge2 + _liveCounter2 + '</div><div class="med-wl-hero-right">');
+   }
+
+   var _emergency2 = (_tpl2.emergencyEnabled && _tpl2.emergencyText)
+      ? '<div style="background:' + (_tpl2.emergencyBg||'#dc2626') + ';color:' + (_tpl2.emergencyFg||'#fff') + ';text-align:center;padding:7px 16px;font-size:12px;font-weight:700;letter-spacing:0.3px">' + _e2(_tpl2.emergencyText) + '</div>'
+      : '';
+   var _tickerBg2  = _tpl2.tickerBgMode === 'same-theme' ? (_tpl2.themeColor||'#0f172a') : _tpl2.tickerBgMode === 'custom' ? (_tpl2.tickerBgColor||'#0f172a') : '#0f172a';
+   var _tickerFg2  = _tpl2.tickerBgMode === 'same-theme' ? '#fff' : (_tpl2.tickerFgColor||'#fde047');
+   var _tickerCls2 = _tpl2.tickerEffect === 'pulse' ? 'wl-ticker-pulse' : _tpl2.tickerEffect === 'fade' ? 'wl-ticker-fade' : 'wl-ticker-marquee';
+   var _tickerTxt2 = _tpl2.tickerEffect === 'marquee' ? (_e2(_tpl2.tickerText||'') + ' &nbsp;·&nbsp; ' + _e2(_tpl2.tickerText||'')) : _e2(_tpl2.tickerText||'');
+   var _ticker2    = (_tpl2.tickerEnabled && _tpl2.tickerText)
+      ? '<div style="background:' + _tickerBg2 + ';color:' + _tickerFg2 + ';padding:9px 20px;overflow:hidden;font-size:13px;font-weight:700">' +
+        '<div class="' + _tickerCls2 + '" style="animation-duration:' + (_tpl2.tickerSpeed||18) + 's">' + _tickerTxt2 + '</div></div>'
+      : '';
+   var _compliance2 = (_tpl2.complianceEnabled && _tpl2.complianceText)
+      ? '<div style="background:#fffbeb;border-bottom:1px solid #fef3c7;color:#92400e;text-align:center;padding:6px 16px;font-size:11px;font-weight:600">' + _e2(_tpl2.complianceText) + '</div>'
+      : '';
+   var _offerCards2 = '';
+   if (_tpl2.promoCards && _tpl2.promoCards.length) {
+      var _grid2 = _tpl2.layoutMode === 'grid';
+      var _cardsMarkup2 = _tpl2.promoCards.map(function(c) {
+         var oc = c.link ? 'window.open(\'' + (c.link||'').replace(/'/g,"\\'") + '\',\'_blank\')' : '';
+         return '<div class="wl-offer-card" style="background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';' + (_grid2?'':'flex-shrink:0') + '">' +
+            '<div><h4 style="margin:0 0 4px;font-size:16px;font-weight:800;color:#fff">' + _e2(c.heading) + '</h4>' +
+            '<p style="margin:0;font-size:12px;opacity:0.9;color:#fff">' + _e2(c.paragraph) + '</p></div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">' +
+               '<span style="font-weight:700;font-size:12px;color:rgba(255,255,255,0.85)">' + _e2(c.badge||'') + '</span>' +
+               (c.actionText ? '<button class="wl-offer-card-btn"' + (oc?' onclick="'+oc+'"':'') + '>' + _e2(c.actionText) + '</button>' : '') +
+            '</div>' +
+            '<div style="position:absolute;right:-10px;bottom:-10px;font-size:80px;opacity:0.15;user-select:none">' + (c.icon||'🏥') + '</div>' +
+         '</div>';
+      }).join('');
+      _offerCards2 =
+         '<div style="padding:0 0 4px;overflow:hidden">' +
+            '<div class="wl-offer-carousel" style="' + (_grid2 ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding:18px 0' : 'display:flex;gap:18px;overflow-x:auto;padding:18px 0;cursor:grab') + '" data-speed="' + (_tpl2.scrollSpeed||1) + '">' +
+               _cardsMarkup2 +
+            '</div>' +
+         '</div>';
+   }
+
    var _sbcResult = _buildStoreCarousel(sp);
-   return heroCard + (_sbcResult.hasSlides ? _sbcResult.html : '') + adsBannerHtml + filterBar +
+   var _assembled = _emergency2 + heroCard + _compliance2 + _ticker2 + _offerCards2 +
+      (_sbcResult.hasSlides ? _sbcResult.html : '') + adsBannerHtml + filterBar +
       '<div class="wl-main-layout">' + sidebar + mainContent + '</div>';
+
+   // Wire up offer card auto-scroll after DOM insertion (deferred)
+   if (_tpl2.promoCards && _tpl2.promoCards.length && _tpl2.layoutMode !== 'grid') {
+      setTimeout(function() {
+         var _c = document.querySelector('#medWlContainer .wl-offer-carousel') || document.querySelector('.wl-offer-carousel');
+         if (!_c || _c._scrollWired) return;
+         _c._scrollWired = true;
+         var _spd = parseInt(_c.dataset.speed||1,10), _drag = false, _sx = 0, _sl = 0;
+         _c.addEventListener('mousedown', function(e){_drag=true;_sx=e.pageX-_c.offsetLeft;_sl=_c.scrollLeft;_c.style.cursor='grabbing';});
+         _c.addEventListener('mouseleave', function(){_drag=false;_c.style.cursor='grab';});
+         _c.addEventListener('mouseup', function(){_drag=false;_c.style.cursor='grab';});
+         _c.addEventListener('mousemove', function(e){if(!_drag)return;e.preventDefault();_c.scrollLeft=_sl-(e.pageX-_c.offsetLeft-_sx)*1.5;});
+         var _t = setInterval(function(){if(!_drag){_c.scrollLeft+=_spd;if(_c.scrollLeft>=_c.scrollWidth-_c.clientWidth)_c.scrollLeft=0;}},30);
+         _c.addEventListener('mouseenter',function(){clearInterval(_t);});
+         _c.addEventListener('mouseleave',function(){_t=setInterval(function(){if(!_drag){_c.scrollLeft+=_spd;if(_c.scrollLeft>=_c.scrollWidth-_c.clientWidth)_c.scrollLeft=0;}},30);});
+      }, 100);
+   }
+
+   return _assembled;
 }
 
 function medWlSearch() {

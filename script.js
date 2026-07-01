@@ -5288,7 +5288,8 @@ async function showStoreProvider(providerId) {
          } catch(e) {}
          return reg[_storeDomain] || null;
       })() : null;
-      applyStoreTheme(_storeVendorConfig || { primaryColor: '#00BCD4' });
+      var _tplForTheme = (sp && sp.template) ? sp.template : {};
+      applyStoreTheme({ primaryColor: (_tplForTheme.themeColor || (_storeVendorConfig && _storeVendorConfig.primaryColor) || '#00BCD4') });
    }
 
    // Hero banner + trust badges (CSS classes, no inline styles)
@@ -5648,8 +5649,8 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0'
          : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;scroll-behavior:smooth;-webkit-overflow-scrolling:touch';
       _offerCards2 =
-         '<div style="padding:0 48px 8px;overflow:hidden;background:#f8fafc">' +
-            '<div class="wl-offer-carousel" style="' + _carouselStyle2 + '" data-speed="' + (_tpl2.scrollSpeed||1) + '">' +
+         '<div style="padding:0 48px 8px;background:#f8fafc">' +
+            '<div class="wl-offer-carousel" style="' + _carouselStyle2 + '" data-speed="' + (_tpl2.scrollSpeed||2) + '">' +
                _cardsMarkup2 +
             '</div>' +
          '</div>';
@@ -5679,10 +5680,9 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
    // Wire up offer card auto-scroll after DOM insertion (deferred)
    if (_tpl2.promoCards && _tpl2.promoCards.length && _tpl2.layoutMode !== 'grid') {
       setTimeout(function() {
-         var _c = document.querySelector('#medWlContainer .wl-offer-carousel') || document.querySelector('.wl-offer-carousel');
-         if (!_c || _c._scrollWired) return;
-         _c._scrollWired = true;
-         var _spd = parseInt(_c.dataset.speed||1,10), _drag = false, _sx = 0, _sl = 0;
+         var _c = document.querySelector('.wl-offer-carousel');
+         if (!_c) return;
+         var _spd = parseInt(_c.dataset.speed||2,10) * 2, _drag = false, _sx = 0, _sl = 0;
          _c.addEventListener('mousedown', function(e){_drag=true;_sx=e.pageX-_c.offsetLeft;_sl=_c.scrollLeft;_c.style.cursor='grabbing';});
          _c.addEventListener('mouseleave', function(){_drag=false;_c.style.cursor='grab';});
          _c.addEventListener('mouseup', function(){_drag=false;_c.style.cursor='grab';});
@@ -5690,7 +5690,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          var _t = setInterval(function(){if(!_drag){_c.scrollLeft+=_spd;if(_c.scrollLeft>=_c.scrollWidth-_c.clientWidth)_c.scrollLeft=0;}},30);
          _c.addEventListener('mouseenter',function(){clearInterval(_t);});
          _c.addEventListener('mouseleave',function(){_t=setInterval(function(){if(!_drag){_c.scrollLeft+=_spd;if(_c.scrollLeft>=_c.scrollWidth-_c.clientWidth)_c.scrollLeft=0;}},30);});
-      }, 100);
+      }, 200);
    }
 
    return _assembled;
@@ -6491,6 +6491,8 @@ function buildWLPage(sp, vendor) {
    // ── Load template first, build hero in one pass (no string patching) ──
    var _tpl = (sp && sp.template) ? sp.template : {};
    var _tplEsc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+   // Override CSS variable with template color so nav, filter chips, footer links use the right color
+   if (_tpl.themeColor) applyStoreTheme({ primaryColor: _tpl.themeColor });
 
    var _wlHeroBg = _tpl.bannerMedia
       ? 'background:linear-gradient(rgba(0,0,0,0.48),rgba(0,0,0,0.48)),url(' + _tpl.bannerMedia + ') center/cover no-repeat'
@@ -6582,7 +6584,7 @@ function buildWLPage(sp, vendor) {
          ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0'
          : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;scroll-behavior:smooth;-webkit-overflow-scrolling:touch';
       offerCardsHtml =
-         '<div style="padding:0 48px 8px;overflow:hidden;background:#f8fafc">' +
+         '<div style="padding:0 48px 8px;background:#f8fafc">' +
             '<div class="wl-offer-carousel" style="' + carouselStyle + '" data-speed="' + _spd + '">' +
                cardsMarkup +
             '</div>' +
@@ -6652,7 +6654,7 @@ function buildWLPage(sp, vendor) {
    if (_tpl.promoCards && _tpl.promoCards.length && _tpl.layoutMode !== 'grid') {
       var _carousel = container.querySelector('.wl-offer-carousel');
       if (_carousel) {
-         var _spd = parseInt(_carousel.dataset.speed || 1, 10);
+         var _spd = parseInt(_carousel.dataset.speed || 2, 10) * 2;
          var _isDragging = false, _startX = 0, _scrollLeft = 0;
          _carousel.addEventListener('mousedown', function(e) { _isDragging = true; _startX = e.pageX - _carousel.offsetLeft; _scrollLeft = _carousel.scrollLeft; _carousel.style.cursor = 'grabbing'; });
          _carousel.addEventListener('mouseleave', function() { _isDragging = false; _carousel.style.cursor = 'grab'; });
@@ -7145,7 +7147,7 @@ var _wlRows = [];   // working copy: [{domain,vendorId,brandName,brandEmoji,prim
 
 async function _wlLoadAndRender() {
    var tbody = document.getElementById('wlDomainBody');
-   if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:#94a3b8">Loading…</td></tr>';
+   if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:#94a3b8">Loading…</td></tr>';
 
    // Always fetch fresh from Supabase so we never show stale data
    try {
@@ -7163,7 +7165,7 @@ async function _wlLoadAndRender() {
       _wlRows = Object.keys(VENDOR_REGISTRY).map(function(domain) {
          var v = VENDOR_REGISTRY[domain];
          return { domain: domain, vendorId: v.vendorId, brandName: v.brandName,
-                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#00BCD4',
+                  brandEmoji: v.brandEmoji || '🏪',
                   heroTag: v.heroTag || '', heroSub: v.heroSub || '', titleSuffix: v.titleSuffix || '' };
       });
    }
@@ -7178,7 +7180,7 @@ function _wlLoad() {
       : Object.keys(VENDOR_REGISTRY).map(function(domain) {
          var v = VENDOR_REGISTRY[domain];
          return { domain: domain, vendorId: v.vendorId, brandName: v.brandName,
-                  brandEmoji: v.brandEmoji || '🏪', primaryColor: v.primaryColor || '#00BCD4',
+                  brandEmoji: v.brandEmoji || '🏪',
                   heroTag: v.heroTag || '', heroSub: v.heroSub || '', titleSuffix: v.titleSuffix || '' };
       });
 }
@@ -7198,22 +7200,6 @@ function _wlRenderTable() {
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.vendorId) + '" placeholder="owner@email.com" oninput="_wlRows[' + i + '].vendorId=this.value"/></td>' +
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.brandName) + '" placeholder="Kumar Medical" oninput="_wlRows[' + i + '].brandName=this.value"/></td>' +
          '<td style="' + cellStyle + ';width:64px"><input style="' + inputStyle + ';text-align:center" value="' + _esc(r.brandEmoji) + '" placeholder="⚕️" oninput="_wlRows[' + i + '].brandEmoji=this.value"/></td>' +
-         '<td style="' + cellStyle + ';min-width:160px">' +
-            '<div style="display:flex;gap:6px;align-items:center">' +
-               '<input type="color" id="wlColor_' + i + '" value="' + (r.primaryColor || '#00BCD4') + '" ' +
-                  'style="width:36px;height:32px;padding:2px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;flex-shrink:0" ' +
-                  'oninput="_wlRows[' + i + '].primaryColor=this.value;document.getElementById(\'wlPreset_' + i + '\').value=\'custom\'" />' +
-               '<select id="wlPreset_' + i + '" style="flex:1;padding:5px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.78rem" ' +
-                  'onchange="var v=this.value;if(v!==\'custom\'){_wlRows[' + i + '].primaryColor=v;document.getElementById(\'wlColor_' + i + '\').value=v}">' +
-                  '<option value="custom">Custom</option>' +
-                  '<option value="#00BCD4" ' + (r.primaryColor==='#00BCD4'?'selected':'') + '>🩵 Cyan Blue</option>' +
-                  '<option value="#0284c7" ' + (r.primaryColor==='#0284c7'?'selected':'') + '>🔵 Clinical Blue</option>' +
-                  '<option value="#b91c1c" ' + (r.primaryColor==='#b91c1c'?'selected':'') + '>🔴 Emergency Red</option>' +
-                  '<option value="#7c3aed" ' + (r.primaryColor==='#7c3aed'?'selected':'') + '>🟣 Premium Purple</option>' +
-                  '<option value="#f59e0b" ' + (r.primaryColor==='#f59e0b'?'selected':'') + '>🟡 Amber Orange</option>' +
-               '</select>' +
-            '</div>' +
-         '</td>' +
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.heroTag) + '" placeholder="Upto 50% Off Today!!" oninput="_wlRows[' + i + '].heroTag=this.value"/></td>' +
          '<td style="' + cellStyle + '"><input style="' + inputStyle + '" value="' + _esc(r.heroSub) + '" placeholder="Best deals delivered to your door." oninput="_wlRows[' + i + '].heroSub=this.value"/></td>' +
          '<td style="' + cellStyle + ';width:36px;text-align:center"><button onclick="_wlDeleteRow(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:1rem;color:#ef4444" title="Remove">🗑️</button></td>' +
@@ -7222,7 +7208,7 @@ function _wlRenderTable() {
 }
 
 function _wlAddRow() {
-   _wlRows.push({ domain: '', vendorId: '', brandName: '', brandEmoji: '🏪', primaryColor: '#0ea5e9', titleSuffix: '' });
+   _wlRows.push({ domain: '', vendorId: '', brandName: '', brandEmoji: '🏪', titleSuffix: '' });
    _wlRenderTable();
    // scroll to new row
    var tbody = document.getElementById('wlDomainBody');
@@ -7247,7 +7233,7 @@ function _wlSave() {
       valid.forEach(function(r) {
          VENDOR_REGISTRY[r.domain.replace(/^www\./,'').toLowerCase()] = {
             vendorId: r.vendorId, brandName: r.brandName, brandEmoji: r.brandEmoji,
-            primaryColor: r.primaryColor, titleSuffix: r.titleSuffix
+            titleSuffix: r.titleSuffix
          };
       });
    }

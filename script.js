@@ -5601,7 +5601,10 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
    var _tpl2 = (sp && sp.template) ? sp.template : {};
    var _e2   = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
 
-   if (_tpl2.themeColor) {
+   if (_tpl2.bannerMedia) {
+      var _bgCss2 = 'background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url(' + _tpl2.bannerMedia + ') center/cover no-repeat';
+      heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="' + _bgCss2 + '">');
+   } else if (_tpl2.themeColor) {
       heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="background:' + _tpl2.themeColor + '">');
    }
    if (_tpl2.rxBtnBg || _tpl2.rxBtnTextColor) {
@@ -5656,9 +5659,25 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
    }
 
    var _sbcResult = _buildStoreCarousel(sp);
-   var _assembled = _emergency2 + heroCard + _compliance2 + _ticker2 + _offerCards2 +
-      (_sbcResult.hasSlides ? _sbcResult.html : '') + adsBannerHtml + filterBar +
-      '<div class="wl-main-layout">' + sidebar + mainContent + '</div>';
+   var _sbcHtml2  = _sbcResult.hasSlides ? _sbcResult.html : '';
+   var _catH2     = _tpl2.categoryLayout === 'horizontal';
+   var _sidebarPart = _catH2 ? '' : sidebar;
+   var _horzBar2  = _catH2
+      ? '<div class="wl-filter-bar" style="flex-wrap:wrap;gap:8px">' + catBtns.replace(/class="wl-sidebar-cat/g, 'class="wl-filter-btn') + '</div>'
+      : '';
+   var _mainOpen2 = _catH2 ? '<div style="width:100%">' : '<div class="wl-main-layout">';
+   var _above2    = ((_tpl2.searchOrder || 'above') === 'above') ? (_compliance2 + _ticker2 + _offerCards2 + _sbcHtml2 + adsBannerHtml) : '';
+   var _below2    = ((_tpl2.searchOrder || 'above') === 'below')  ? (_compliance2 + _ticker2 + _offerCards2 + _sbcHtml2 + adsBannerHtml) : '';
+   var _assembled = _emergency2 + heroCard + _above2 + _horzBar2 + filterBar + _below2 +
+      _mainOpen2 + _sidebarPart +
+      '<section class="wl-main-content"' + (_catH2 ? ' style="width:100%"' : '') + '>' +
+         '<div class="wl-catalog-header">' +
+            '<h2 class="wl-catalog-title">Our Catalog</h2>' +
+            '<p class="wl-catalog-sub">Tap ADD TO CART to add items directly to your basket</p>' +
+         '</div>' +
+         '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
+      '</section>' +
+      '</div>';
 
    // Wire up offer card auto-scroll after DOM insertion (deferred)
    if (_tpl2.promoCards && _tpl2.promoCards.length && _tpl2.layoutMode !== 'grid') {
@@ -6512,8 +6531,11 @@ function buildWLPage(sp, vendor) {
    var _tpl = (sp && sp.template) ? sp.template : {};
    var _tplEsc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
 
-   // Theme colour override on hero
-   if (_tpl.themeColor) {
+   // Theme colour or banner media override on hero
+   if (_tpl.bannerMedia) {
+      var _bgCss = 'background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url(' + _tpl.bannerMedia + ') center/cover no-repeat';
+      heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="' + _bgCss + '">');
+   } else if (_tpl.themeColor) {
       heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="background:' + _tpl.themeColor + '">');
    }
    // Rx button style override
@@ -6587,19 +6609,30 @@ function buildWLPage(sp, vendor) {
          '</div>';
    }
 
-   // ── Assemble: hero + filter-bar + sidebar + grid ──
+   // ── Category layout: vertical sidebar vs horizontal chips ──
+   var _catHorizontal = _tpl.categoryLayout === 'horizontal';
+   var _sidebarSection = _catHorizontal ? '' : sidebarHtml;
+   var _horzCatBar = _catHorizontal
+      ? '<div class="wl-filter-bar" style="flex-wrap:wrap;gap:8px">' + sidebarCats.replace(/class="wl-sidebar-cat/g, 'class="wl-filter-btn') + '</div>'
+      : '';
+   var _mainLayoutOpen  = _catHorizontal ? '<div style="width:100%">' : '<div class="wl-main-layout">';
+
+   // ── Search order: offer cards above or below filter bar ──
    var _wlSbc = _buildStoreCarousel(sp);
+   var _sbcHtml = _wlSbc.hasSlides ? _wlSbc.html : '';
+   var _aboveFilter = ((_tpl.searchOrder || 'above') === 'above') ? (complianceBar + tickerBar + offerCardsHtml + _sbcHtml) : '';
+   var _belowFilter = ((_tpl.searchOrder || 'above') === 'below')  ? (complianceBar + tickerBar + offerCardsHtml + _sbcHtml) : '';
+
    var fullPage =
       emergencyBar +
       heroCard +
-      complianceBar +
-      tickerBar +
-      offerCardsHtml +
-      (_wlSbc.hasSlides ? _wlSbc.html : '') +
+      _aboveFilter +
+      _horzCatBar +
       filterBar +
-      '<div class="wl-main-layout">' +
-         sidebarHtml +
-         '<section class="wl-main-content">' +
+      _belowFilter +
+      _mainLayoutOpen +
+         _sidebarSection +
+         '<section class="wl-main-content"' + (_catHorizontal ? ' style="width:100%"' : '') + '>' +
             '<div class="wl-catalog-header">' +
                '<div>' +
                   '<h2 class="wl-catalog-title">Our Catalog</h2>' +
@@ -19005,10 +19038,11 @@ function renderPromoStream(s) {
 }
 
 // ── STORE TEMPLATE CUSTOMIZER ─────────────────────────────────────────────
-var _stmStoreId = null;
-var _stmCards   = [];
-var _stmBgMode  = 'black';
-var _stmTheme   = null;
+var _stmStoreId    = null;
+var _stmCards      = [];
+var _stmBgMode     = 'black';
+var _stmTheme      = null;
+var _stmBannerMedia = null;  // base64 data URL or http URL
 
 function openStoreTemplate(storeId) {
    _stmStoreId = storeId;
@@ -19079,8 +19113,23 @@ function _stmLoadForm(sp, t) {
    setVal('stmTickerBgColor',    t.tickerBgColor     || '#0f172a');
    setVal('stmTickerFgColor',    t.tickerFgColor     || '#fde047');
    _stmTickerBgModeChange(_stmBgMode);
+   _stmBannerMedia = t.bannerMedia || null;
+   var bannerUrlEl = el('stmBannerUrl');
+   if (bannerUrlEl) {
+      if (_stmBannerMedia && _stmBannerMedia.startsWith('http')) {
+         bannerUrlEl.value = _stmBannerMedia;
+         _stmShowBannerPreview(_stmBannerMedia, 'image');
+      } else if (_stmBannerMedia) {
+         _stmShowBannerPreview(_stmBannerMedia, _stmBannerMedia.startsWith('data:video') ? 'video' : 'image');
+      } else {
+         bannerUrlEl.value = '';
+         _stmHideBannerPreview();
+      }
+   }
    setVal('stmLayoutMode',       t.layoutMode        || 'carousel');
    setVal('stmScrollSpeed',      t.scrollSpeed       || 1);
+   setVal('stmSearchOrder',      t.searchOrder       || 'above');
+   setVal('stmCategoryLayout',   t.categoryLayout    || 'horizontal');
    setChk('stmLiveCounterOn',    t.liveCounterEnabled);
    setVal('stmLiveCounterText',  t.liveCounterText   || '142 people looking at this store right now');
    setChk('stmRxBadgeOn',        t.rxBadgeEnabled);
@@ -19109,8 +19158,11 @@ function _stmCollect() {
       tickerBgMode:        _stmBgMode,
       tickerBgColor:       val('stmTickerBgColor') || '#0f172a',
       tickerFgColor:       val('stmTickerFgColor') || '#fde047',
+      bannerMedia:         _stmBannerMedia || null,
       layoutMode:          val('stmLayoutMode')    || 'carousel',
       scrollSpeed:         parseInt(val('stmScrollSpeed')) || 1,
+      searchOrder:         val('stmSearchOrder')   || 'above',
+      categoryLayout:      val('stmCategoryLayout')|| 'horizontal',
       liveCounterEnabled:  chk('stmLiveCounterOn'),
       liveCounterText:     val('stmLiveCounterText'),
       rxBadgeEnabled:      chk('stmRxBadgeOn'),
@@ -19122,6 +19174,54 @@ function _stmCollect() {
       complianceText:      val('stmComplianceText'),
       promoCards:          _stmGetCards()
    };
+}
+
+function _stmBannerFileChanged(input) {
+   var file = input.files[0];
+   if (!file) return;
+   var reader = new FileReader();
+   reader.onload = function(e) {
+      _stmBannerMedia = e.target.result;
+      _stmShowBannerPreview(e.target.result, file.type.startsWith('video/') ? 'video' : 'image');
+   };
+   reader.readAsDataURL(file);
+}
+
+function _stmBannerUrlChanged(url) {
+   _stmBannerMedia = url || null;
+   if (url) _stmShowBannerPreview(url, 'image');
+   else _stmHideBannerPreview();
+}
+
+function _stmShowBannerPreview(src, type) {
+   var wrap = document.getElementById('stmBannerPreviewWrap');
+   var img  = document.getElementById('stmBannerPreviewImg');
+   var vid  = document.getElementById('stmBannerPreviewVid');
+   if (!wrap) return;
+   wrap.style.display = 'block';
+   if (type === 'video') {
+      img.style.display = 'none'; vid.style.display = 'block'; vid.src = src;
+   } else {
+      vid.style.display = 'none'; img.style.display = 'block'; img.src = src;
+   }
+}
+
+function _stmHideBannerPreview() {
+   var wrap = document.getElementById('stmBannerPreviewWrap');
+   if (wrap) { wrap.style.display = 'none'; }
+   var img = document.getElementById('stmBannerPreviewImg');
+   var vid = document.getElementById('stmBannerPreviewVid');
+   if (img) { img.src = ''; img.style.display = 'none'; }
+   if (vid) { vid.src = ''; vid.style.display = 'none'; }
+}
+
+function _stmClearBannerMedia() {
+   _stmBannerMedia = null;
+   var f = document.getElementById('stmBannerFile');
+   if (f) f.value = '';
+   var u = document.getElementById('stmBannerUrl');
+   if (u) u.value = '';
+   _stmHideBannerPreview();
 }
 
 function _stmSetColor(color, boxEl) {
@@ -19153,6 +19253,91 @@ function _stmSwitchTab(tabId) {
    if (panel) panel.style.display = 'block';
    var btn = document.querySelector('[data-stm-tab="' + tabId + '"]');
    if (btn) { btn.style.background = '#f1f5f9'; btn.style.color = '#0284c7'; btn.style.borderLeft = '4px solid #0284c7'; }
+   if (tabId === 'stmTabPreview') _stmRenderPreview();
+}
+
+function _stmRenderPreview() {
+   var out = document.getElementById('stmPreviewOutput');
+   if (!out) return;
+   var t   = _stmCollect();
+   var sp  = _storeGetProvider(_stmStoreId) || {};
+   var esc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+
+   // Emergency ribbon
+   var emergency = (t.emergencyEnabled && t.emergencyText)
+      ? '<div style="background:' + t.emergencyBg + ';color:' + t.emergencyFg + ';text-align:center;padding:7px 16px;font-size:12px;font-weight:700">' + esc(t.emergencyText) + '</div>'
+      : '';
+
+   // Hero
+   var titleStyle = 'color:' + t.bannerTitleColor + ';font-size:' + t.bannerTitleSize + 'px;margin:0 0 8px;font-weight:800';
+   var rxStyle    = 'background:' + t.rxBtnBg + ';color:' + t.rxBtnTextColor + ';padding:8px 14px;border-radius:6px;border:none;font-weight:600;font-size:12px;cursor:pointer';
+   var rxBadge    = t.rxBadgeEnabled ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(14,165,233,0.18);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;margin-top:6px">🏥 Govt Approved Digital Pharmacy</div>' : '';
+   var liveBadge  = (t.liveCounterEnabled && t.liveCounterText) ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(15,23,42,0.7);color:#22c55e;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;margin-top:6px">● ' + esc(t.liveCounterText) + '</div>' : '';
+   var heroBg;
+   if (t.bannerMedia) {
+      heroBg = 'background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url(' + t.bannerMedia + ') center/cover no-repeat';
+   } else {
+      heroBg = 'background:' + (t.themeColor||'#17a2b8');
+   }
+   var hero = '<div style="' + heroBg + ';padding:32px 28px;position:relative;overflow:hidden">' +
+      '<div style="' + titleStyle + '">' + esc(sp.name || 'Store Name') + '</div>' +
+      '<div style="font-size:12px;color:rgba(255,255,255,0.85);margin-bottom:14px">' +
+         (sp.timing ? '🕐 ' + esc(sp.timing) + '  ' : '') +
+         (sp.address ? '📍 ' + esc(sp.address) : '') +
+      '</div>' +
+      '<button style="' + rxStyle + '">📋 Upload Prescription</button>' +
+      (rxBadge ? '<br>' + rxBadge : '') +
+      (liveBadge ? '<br>' + liveBadge : '') +
+      '<div style="position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:56px;opacity:0.15">' + (sp.icon||'🏪') + '</div>' +
+   '</div>';
+
+   // Compliance
+   var compliance = (t.complianceEnabled && t.complianceText)
+      ? '<div style="background:#fffbeb;border-bottom:1px solid #fef3c7;color:#92400e;text-align:center;padding:6px 16px;font-size:11px;font-weight:600">' + esc(t.complianceText) + '</div>'
+      : '';
+
+   // Ticker
+   var tickerBg  = t.tickerBgMode === 'same-theme' ? (t.themeColor||'#0f172a') : t.tickerBgMode === 'custom' ? t.tickerBgColor : '#0f172a';
+   var tickerFg  = t.tickerBgMode === 'same-theme' ? '#fff' : t.tickerFgColor;
+   var tickerCls = t.tickerEffect === 'pulse' ? 'wl-ticker-pulse' : t.tickerEffect === 'fade' ? 'wl-ticker-fade' : 'wl-ticker-marquee';
+   var tickerTxt = t.tickerEffect === 'marquee' ? esc(t.tickerText) + ' &nbsp;·&nbsp; ' + esc(t.tickerText) : esc(t.tickerText);
+   var ticker = (t.tickerEnabled && t.tickerText)
+      ? '<div style="background:' + tickerBg + ';color:' + tickerFg + ';padding:9px 20px;overflow:hidden;font-size:13px;font-weight:700">' +
+        '<div class="' + tickerCls + '" style="animation-duration:' + (t.tickerSpeed||18) + 's">' + tickerTxt + '</div></div>'
+      : '';
+
+   // Search bar
+   var search = '<div style="background:#fff;padding:20px 28px 10px">' +
+      '<div style="display:flex;align-items:center;background:#fff;border-radius:50px;padding:4px 6px 4px 16px;border:2px solid ' + (t.themeColor||'#17a2b8') + ';max-width:600px;margin:0 auto">' +
+         '<span style="color:#94a3b8;margin-right:10px">🔍</span>' +
+         '<span style="flex:1;font-size:14px;color:#94a3b8">Search for Medicine, Shampoo, Lab Tests...</span>' +
+         '<button style="background:' + (t.themeColor||'#17a2b8') + ';color:#fff;border:none;padding:9px 22px;border-radius:50px;font-size:13px;font-weight:600;cursor:pointer">Search</button>' +
+      '</div></div>';
+
+   // Offer cards
+   var cards = '';
+   if (t.promoCards && t.promoCards.length) {
+      var cardsHtml = t.promoCards.map(function(c) {
+         return '<div style="min-width:260px;max-width:260px;height:130px;border-radius:12px;padding:18px;background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';color:#fff;flex-shrink:0;position:relative;overflow:hidden;box-sizing:border-box">' +
+            '<div style="font-size:15px;font-weight:800;margin-bottom:4px;line-height:1.3">' + esc(c.heading) + '</div>' +
+            '<div style="font-size:11px;opacity:0.88;margin-bottom:8px">' + esc(c.paragraph) + '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+               '<span style="font-size:11px;font-weight:700;opacity:0.8">' + esc(c.badge||'') + '</span>' +
+               (c.actionText ? '<button style="background:rgba(255,255,255,0.2);color:#fff;border:1.5px solid rgba(255,255,255,0.4);padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">' + esc(c.actionText) + '</button>' : '') +
+            '</div>' +
+            '<div style="position:absolute;right:-8px;bottom:-8px;font-size:64px;opacity:0.14">' + (c.icon||'🏥') + '</div>' +
+         '</div>';
+      }).join('');
+      cards = '<div style="padding:16px 20px 8px;background:#fff">' +
+         '<div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:6px">' + cardsHtml + '</div>' +
+      '</div>';
+   }
+
+   // Footer label
+   var label = '<div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:10px 20px;font-size:11px;color:#94a3b8;text-align:center">📱 Live Storefront Interface Screen Output — reflects your current settings</div>';
+
+   var contentOrder = (t.searchOrder === 'below') ? (cards + search) : (search + cards);
+   out.innerHTML = emergency + hero + compliance + ticker + contentOrder + label;
 }
 
 function _stmRenderCards() {
@@ -19218,7 +19403,10 @@ function _stmGetCards() {
 }
 
 function _ensureStoreTemplateModal() {
-   if (document.getElementById('storeTemplateModal')) return;
+   var _STM_VER = 3;
+   var existing = document.getElementById('storeTemplateModal');
+   if (existing && parseInt(existing.dataset.ver||0) === _STM_VER) return;
+   if (existing) existing.remove();
 
    var COLOR_PRESETS = [
       '#17a2b8','#0284c7','#0d9488','#16a34a','#4f46e5','#7c3aed','#db2777','#e11d48',
@@ -19236,12 +19424,13 @@ function _ensureStoreTemplateModal() {
 
    var tabBtnBase = 'class="stm-tab-btn" style="width:100%;padding:11px 18px;border:none;background:none;text-align:left;font-weight:600;color:#475569;cursor:pointer;display:flex;align-items:center;gap:9px;font-size:13px;border-left:4px solid transparent;font-family:inherit"';
    var tabs = [
-      {id:'stmTabColor',  label:'🎨 Colors & Theme'},
-      {id:'stmTabBanner', label:'🖼️ Header Banner'},
-      {id:'stmTabTicker', label:'📢 Ticker Bar'},
-      {id:'stmTabLayout', label:'📐 Layout'},
-      {id:'stmTabCards',  label:'🃏 Offer Cards'},
-      {id:'stmTabRx',     label:'💊 Rx Addons'}
+      {id:'stmTabColor',   label:'🎨 Colors & Theme'},
+      {id:'stmTabBanner',  label:'🖼️ Header Banner'},
+      {id:'stmTabTicker',  label:'📢 Ticker Bar'},
+      {id:'stmTabLayout',  label:'📐 Layout'},
+      {id:'stmTabCards',   label:'🃏 Offer Cards'},
+      {id:'stmTabRx',      label:'💊 Rx Addons'},
+      {id:'stmTabPreview', label:'👁️ Live Preview'}
    ];
    var sidebarHtml = tabs.map(function(t) {
       return '<button ' + tabBtnBase + ' data-stm-tab="' + t.id + '" onclick="_stmSwitchTab(\'' + t.id + '\')">' + t.label + '</button>';
@@ -19282,7 +19471,24 @@ function _ensureStoreTemplateModal() {
          '<div ' + fld + '><label ' + lbl + '>Store Name Size (px) <span id="stmTitleSizeVal" style="color:#0284c7">26</span></label><input type="range" id="stmTitleSize" min="18" max="42" value="26" oninput="document.getElementById(\'stmTitleSizeVal\').textContent=this.value" ' + inp + '></div>' +
          '<div ' + fld + '><label ' + lbl + '>Rx Button Background</label><input type="color" id="stmRxBtnBg" value="#ffffff" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:7px;cursor:pointer;padding:2px"></div>' +
          '<div ' + fld + '><label ' + lbl + '>Rx Button Text Colour</label><input type="color" id="stmRxBtnText" value="#1e293b" style="width:100%;height:38px;border:1px solid #cbd5e1;border-radius:7px;cursor:pointer;padding:2px"></div>' +
-      '</div></div>';
+      '</div></div>' +
+      '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px 16px;margin-bottom:14px">' +
+         '<h5 style="margin:0 0 12px;color:#0369a1;font-size:0.88rem">📸 Background Image / Video</h5>' +
+         '<p style="margin:0 0 10px;font-size:0.77rem;color:#64748b">Upload a custom image or video to use as the hero background (replaces solid colour). Max recommended size: 2 MB.</p>' +
+         '<div ' + fld + '><label ' + lbl + '>Upload file (image or video)</label>' +
+            '<input type="file" id="stmBannerFile" accept="image/*,video/*" onchange="_stmBannerFileChanged(this)" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.83rem;box-sizing:border-box;background:#fff"></div>' +
+         '<div style="text-align:center;margin:6px 0;font-size:0.78rem;color:#94a3b8">— OR enter URL —</div>' +
+         '<div ' + fld + '><label ' + lbl + '>Image URL</label>' +
+            '<input type="text" id="stmBannerUrl" placeholder="https://example.com/banner.jpg" oninput="_stmBannerUrlChanged(this.value)" ' + inp + '></div>' +
+         '<div id="stmBannerPreviewWrap" style="display:none;margin-top:10px;border-radius:8px;overflow:hidden;max-height:140px;text-align:center;background:#0f172a">' +
+            '<img id="stmBannerPreviewImg" src="" style="display:none;max-height:140px;width:100%;object-fit:cover">' +
+            '<video id="stmBannerPreviewVid" src="" muted autoplay loop playsinline style="display:none;max-height:140px;width:100%;object-fit:cover"></video>' +
+         '</div>' +
+         '<div style="margin-top:8px;display:flex;gap:10px">' +
+            '<button onclick="_stmClearBannerMedia()" style="padding:6px 14px;background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer">✕ Clear Media</button>' +
+            '<span style="font-size:0.75rem;color:#94a3b8;align-self:center">Overlaid with a dark gradient so text stays readable.</span>' +
+         '</div>' +
+      '</div>';
 
    var panelTicker =
       '<h4 style="margin:0 0 14px;color:#0f172a">Scrolling Ticker Bar</h4>' +
@@ -19318,6 +19524,20 @@ function _ensureStoreTemplateModal() {
          '<div ' + fld + '><label ' + lbl + '>Carousel Speed <span id="stmScrollSpeedVal" style="color:#0284c7">1</span></label>' +
          '<input type="range" id="stmScrollSpeed" min="1" max="5" value="1" oninput="document.getElementById(\'stmScrollSpeedVal\').textContent=this.value" ' + inp + '>' +
          '<p style="font-size:0.75rem;color:#94a3b8;margin:4px 0 0">Fine-tune horizontal scroll drift speed.</p></div>' +
+      '</div>' +
+      '<div ' + card + '>' +
+         '<div ' + fld + '><label ' + lbl + '>Search Bar Position</label>' +
+         '<select id="stmSearchOrder" ' + sel + '>' +
+            '<option value="above">Search Bar above Offer Cards</option>' +
+            '<option value="below">Search Bar below Offer Cards</option>' +
+         '</select>' +
+         '<p style="font-size:0.75rem;color:#94a3b8;margin:4px 0 0">Controls whether the search box appears before or after the scrolling offer card strip.</p></div>' +
+         '<div ' + fld + '><label ' + lbl + '>Category Filter Style</label>' +
+         '<select id="stmCategoryLayout" ' + sel + '>' +
+            '<option value="horizontal">Horizontal chips (row of tags below search)</option>' +
+            '<option value="vertical">Vertical sidebar (left column)</option>' +
+         '</select>' +
+         '<p style="font-size:0.75rem;color:#94a3b8;margin:4px 0 0">Horizontal chips suit wide screens. Vertical sidebar gives a classic browsing feel.</p></div>' +
       '</div>' +
       '<div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:10px;padding:14px 16px;margin-bottom:14px">' +
          '<div ' + rowFlex + ' style="margin-bottom:8px"><input type="checkbox" id="stmLiveCounterOn" style="width:16px;height:16px;cursor:pointer">' +
@@ -19356,13 +19576,18 @@ function _ensureStoreTemplateModal() {
          '<div><label ' + lbl + '>Notice Text</label><input type="text" id="stmComplianceText" placeholder="⚠️ NOTICE: ..." ' + inp + '></div>' +
       '</div>';
 
-   var panelMap = { stmTabColor: panelColor, stmTabBanner: panelBanner, stmTabTicker: panelTicker, stmTabLayout: panelLayout, stmTabCards: panelCards, stmTabRx: panelRx };
+   var panelPreview = '<div id="stmPreviewOutput" style="background:#f1f5f9;border-radius:12px;overflow:hidden;min-height:300px"><div style="color:#94a3b8;text-align:center;padding:60px;font-size:0.9rem">Click the button below to render a preview with your current settings.</div></div>' +
+      '<div style="margin-top:14px;text-align:center"><button onclick="_stmRenderPreview()" style="padding:10px 28px;background:#0284c7;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.88rem;cursor:pointer">🔄 Refresh Preview</button>' +
+      '<span style="font-size:0.78rem;color:#94a3b8;margin-left:12px">Updates with your current form values</span></div>';
+
+   var panelMap = { stmTabColor: panelColor, stmTabBanner: panelBanner, stmTabTicker: panelTicker, stmTabLayout: panelLayout, stmTabCards: panelCards, stmTabRx: panelRx, stmTabPreview: panelPreview };
    var panelsHtml = tabs.map(function(t, i) {
       return '<div id="' + t.id + '" class="stm-panel" style="display:' + (i===0?'block':'none') + '">' + panelMap[t.id] + '</div>';
    }).join('');
 
    var modal = document.createElement('div');
    modal.id = 'storeTemplateModal';
+   modal.dataset.ver = _STM_VER;
    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:1200;justify-content:center;align-items:center';
    modal.innerHTML =
       '<div style="background:#fff;width:1080px;max-width:96vw;border-radius:16px;overflow:hidden;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.3)">' +

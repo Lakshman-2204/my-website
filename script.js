@@ -19259,85 +19259,129 @@ function _stmSwitchTab(tabId) {
 function _stmRenderPreview() {
    var out = document.getElementById('stmPreviewOutput');
    if (!out) return;
-   var t   = _stmCollect();
-   var sp  = _storeGetProvider(_stmStoreId) || {};
-   var esc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+   var t  = _stmCollect();
+   var sp = _storeGetProvider(_stmStoreId) || {};
+   var E  = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+   var theme = t.themeColor || '#17a2b8';
 
-   // Emergency ribbon
+   // ── Emergency ribbon ──
    var emergency = (t.emergencyEnabled && t.emergencyText)
-      ? '<div style="background:' + t.emergencyBg + ';color:' + t.emergencyFg + ';text-align:center;padding:7px 16px;font-size:12px;font-weight:700">' + esc(t.emergencyText) + '</div>'
+      ? '<div style="background:' + t.emergencyBg + ';color:' + t.emergencyFg + ';text-align:center;padding:8px 20px;font-size:12px;font-weight:700;letter-spacing:0.3px">' + E(t.emergencyText) + '</div>'
       : '';
 
-   // Hero
-   var titleStyle = 'color:' + t.bannerTitleColor + ';font-size:' + t.bannerTitleSize + 'px;margin:0 0 8px;font-weight:800';
-   var rxStyle    = 'background:' + t.rxBtnBg + ';color:' + t.rxBtnTextColor + ';padding:8px 14px;border-radius:6px;border:none;font-weight:600;font-size:12px;cursor:pointer';
-   var rxBadge    = t.rxBadgeEnabled ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(14,165,233,0.18);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;margin-top:6px">🏥 Govt Approved Digital Pharmacy</div>' : '';
-   var liveBadge  = (t.liveCounterEnabled && t.liveCounterText) ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(15,23,42,0.7);color:#22c55e;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:700;margin-top:6px">● ' + esc(t.liveCounterText) + '</div>' : '';
-   var heroBg;
-   if (t.bannerMedia) {
-      heroBg = 'background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url(' + t.bannerMedia + ') center/cover no-repeat';
-   } else {
-      heroBg = 'background:' + (t.themeColor||'#17a2b8');
-   }
-   var hero = '<div style="' + heroBg + ';padding:32px 28px;position:relative;overflow:hidden">' +
-      '<div style="' + titleStyle + '">' + esc(sp.name || 'Store Name') + '</div>' +
-      '<div style="font-size:12px;color:rgba(255,255,255,0.85);margin-bottom:14px">' +
-         (sp.timing ? '🕐 ' + esc(sp.timing) + '  ' : '') +
-         (sp.address ? '📍 ' + esc(sp.address) : '') +
-      '</div>' +
-      '<button style="' + rxStyle + '">📋 Upload Prescription</button>' +
-      (rxBadge ? '<br>' + rxBadge : '') +
-      (liveBadge ? '<br>' + liveBadge : '') +
-      '<div style="position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:56px;opacity:0.15">' + (sp.icon||'🏪') + '</div>' +
-   '</div>';
+   // ── Hero ──
+   var heroBg = t.bannerMedia
+      ? 'background:linear-gradient(rgba(0,0,0,0.5),rgba(0,0,0,0.5)),url(' + t.bannerMedia + ') center/cover no-repeat'
+      : 'background:' + theme;
+   var nameColor = t.bannerTitleColor || '#ffffff';
+   var nameSize  = (t.bannerTitleSize || 26) + 'px';
+   var rxBtnStyle = 'display:inline-flex;align-items:center;gap:6px;background:' + (t.rxBtnBg||'#ffffff') + ';color:' + (t.rxBtnTextColor||'#1e293b') + ';border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px';
+   var rxBadgeHtml = t.rxBadgeEnabled
+      ? '<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(14,165,233,0.18);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;margin-top:10px">🏥 Govt Approved Digital Pharmacy</div>'
+      : '';
 
-   // Compliance
+   var hero =
+      '<div style="' + heroBg + ';padding:36px 40px 32px;position:relative">' +
+         '<h2 style="margin:0 0 10px;font-size:' + nameSize + ';font-weight:900;color:' + nameColor + ';line-height:1.1">' + E(sp.name || 'Store Name') + '</h2>' +
+         '<div style="display:flex;align-items:center;gap:20px;font-size:13px;color:rgba(255,255,255,0.88);margin-bottom:4px">' +
+            (sp.timing ? '<span>🕐 ' + E(sp.timing) + '</span>' : '') +
+            (sp.address ? '<span>📍 ' + E(sp.address) + '</span>' : '') +
+         '</div>' +
+         (sp.door_delivery ? '<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,200,120,0.18);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;margin:8px 0 0">🚚 Home delivery available</div>' : '') +
+         '<div>' +
+            '<button style="' + rxBtnStyle + '">📋 Upload Prescription File (.pdf, .png, .jpg)</button>' +
+         '</div>' +
+         (rxBadgeHtml ? '<div>' + rxBadgeHtml + '</div>' : '') +
+      '</div>';
+
+   // ── Compliance bar ──
    var compliance = (t.complianceEnabled && t.complianceText)
-      ? '<div style="background:#fffbeb;border-bottom:1px solid #fef3c7;color:#92400e;text-align:center;padding:6px 16px;font-size:11px;font-weight:600">' + esc(t.complianceText) + '</div>'
+      ? '<div style="background:#fffbeb;border-bottom:2px solid #fef3c7;color:#92400e;text-align:center;padding:7px 20px;font-size:11px;font-weight:600">' + E(t.complianceText) + '</div>'
       : '';
 
-   // Ticker
-   var tickerBg  = t.tickerBgMode === 'same-theme' ? (t.themeColor||'#0f172a') : t.tickerBgMode === 'custom' ? t.tickerBgColor : '#0f172a';
-   var tickerFg  = t.tickerBgMode === 'same-theme' ? '#fff' : t.tickerFgColor;
-   var tickerCls = t.tickerEffect === 'pulse' ? 'wl-ticker-pulse' : t.tickerEffect === 'fade' ? 'wl-ticker-fade' : 'wl-ticker-marquee';
-   var tickerTxt = t.tickerEffect === 'marquee' ? esc(t.tickerText) + ' &nbsp;·&nbsp; ' + esc(t.tickerText) : esc(t.tickerText);
+   // ── Ticker ──
+   var tBg  = t.tickerBgMode === 'same-theme' ? theme : t.tickerBgMode === 'custom' ? (t.tickerBgColor||'#0f172a') : '#0f172a';
+   var tFg  = t.tickerBgMode === 'same-theme' ? '#fff' : (t.tickerFgColor||'#fde047');
+   var tCls = t.tickerEffect === 'pulse' ? 'wl-ticker-pulse' : t.tickerEffect === 'fade' ? 'wl-ticker-fade' : 'wl-ticker-marquee';
+   var tTxt = t.tickerEffect === 'marquee' ? E(t.tickerText) + ' &nbsp;·&nbsp; ⚡ &nbsp;·&nbsp; ' + E(t.tickerText) : E(t.tickerText);
    var ticker = (t.tickerEnabled && t.tickerText)
-      ? '<div style="background:' + tickerBg + ';color:' + tickerFg + ';padding:9px 20px;overflow:hidden;font-size:13px;font-weight:700">' +
-        '<div class="' + tickerCls + '" style="animation-duration:' + (t.tickerSpeed||18) + 's">' + tickerTxt + '</div></div>'
+      ? '<div style="background:' + tBg + ';color:' + tFg + ';padding:10px 24px;overflow:hidden;font-size:13px;font-weight:700">' +
+           '<div class="' + tCls + '" style="animation-duration:' + (t.tickerSpeed||18) + 's">' + tTxt + '</div>' +
+        '</div>'
       : '';
 
-   // Search bar
-   var search = '<div style="background:#fff;padding:20px 28px 10px">' +
-      '<div style="display:flex;align-items:center;background:#fff;border-radius:50px;padding:4px 6px 4px 16px;border:2px solid ' + (t.themeColor||'#17a2b8') + ';max-width:600px;margin:0 auto">' +
-         '<span style="color:#94a3b8;margin-right:10px">🔍</span>' +
-         '<span style="flex:1;font-size:14px;color:#94a3b8">Search for Medicine, Shampoo, Lab Tests...</span>' +
-         '<button style="background:' + (t.themeColor||'#17a2b8') + ';color:#fff;border:none;padding:9px 22px;border-radius:50px;font-size:13px;font-weight:600;cursor:pointer">Search</button>' +
-      '</div></div>';
+   // ── Live counter ──
+   var liveCounter = (t.liveCounterEnabled && t.liveCounterText)
+      ? '<div style="background:#fff;padding:10px 40px 0">' +
+           '<div style="background:#1e293b;border-radius:50px;padding:8px 20px;display:flex;align-items:center;gap:10px;max-width:520px">' +
+              '<span style="color:#22c55e;font-size:10px">●</span>' +
+              '<span style="color:#22c55e;font-size:12px;font-weight:700">' + E(t.liveCounterText) + '</span>' +
+           '</div>' +
+        '</div>'
+      : '';
 
-   // Offer cards
+   // ── Search bar (standalone pill below hero) ──
+   var search =
+      '<div style="background:#f8fafc;padding:22px 40px 14px">' +
+         '<div style="display:flex;align-items:center;background:#ffffff;border-radius:50px;padding:5px 6px 5px 18px;border:1.5px solid #e2e8f0;max-width:680px;margin:0 auto;box-shadow:0 2px 8px rgba(0,0,0,0.06)">' +
+            '<span style="color:#94a3b8;margin-right:10px;font-size:15px">🔍</span>' +
+            '<span style="flex:1;font-size:13px;color:#94a3b8">Search for Medicine, Shampoo, Lab Tests...</span>' +
+            '<button style="background:' + theme + ';color:#fff;border:none;padding:9px 26px;border-radius:50px;font-size:13px;font-weight:700;cursor:pointer">Search</button>' +
+         '</div>' +
+      '</div>';
+
+   // ── Offer cards (Gemini style — tall, solid CTA button) ──
    var cards = '';
    if (t.promoCards && t.promoCards.length) {
-      var cardsHtml = t.promoCards.map(function(c) {
-         return '<div style="min-width:260px;max-width:260px;height:130px;border-radius:12px;padding:18px;background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';color:#fff;flex-shrink:0;position:relative;overflow:hidden;box-sizing:border-box">' +
-            '<div style="font-size:15px;font-weight:800;margin-bottom:4px;line-height:1.3">' + esc(c.heading) + '</div>' +
-            '<div style="font-size:11px;opacity:0.88;margin-bottom:8px">' + esc(c.paragraph) + '</div>' +
-            '<div style="display:flex;justify-content:space-between;align-items:center">' +
-               '<span style="font-size:11px;font-weight:700;opacity:0.8">' + esc(c.badge||'') + '</span>' +
-               (c.actionText ? '<button style="background:rgba(255,255,255,0.2);color:#fff;border:1.5px solid rgba(255,255,255,0.4);padding:4px 12px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer">' + esc(c.actionText) + '</button>' : '') +
+      var accentColors = ['#7c3aed','#0ea5e9','#059669','#dc2626','#d97706'];
+      var cardsHtml = t.promoCards.map(function(c, i) {
+         var accent = accentColors[i % accentColors.length];
+         return '<div style="min-width:320px;max-width:320px;border-radius:16px;padding:22px 24px 18px;background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';color:#fff;flex-shrink:0;position:relative;overflow:hidden;box-sizing:border-box;border-left:5px solid ' + accent + '">' +
+            '<div style="font-size:16px;font-weight:900;margin-bottom:6px;line-height:1.25">' + E(c.heading) + '</div>' +
+            '<div style="font-size:12px;opacity:0.88;margin-bottom:16px;line-height:1.5">' + E(c.paragraph) + '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto">' +
+               '<span style="font-size:12px;font-weight:700;opacity:0.85">' + E(c.badge||'') + '</span>' +
+               (c.actionText ? '<button style="background:' + accent + ';color:#fff;border:none;padding:7px 18px;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;letter-spacing:0.5px">' + E(c.actionText) + '</button>' : '') +
             '</div>' +
-            '<div style="position:absolute;right:-8px;bottom:-8px;font-size:64px;opacity:0.14">' + (c.icon||'🏥') + '</div>' +
+            '<div style="position:absolute;right:-12px;bottom:-12px;font-size:90px;opacity:0.12;user-select:none">' + (c.icon||'🏥') + '</div>' +
          '</div>';
       }).join('');
-      cards = '<div style="padding:16px 20px 8px;background:#fff">' +
-         '<div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:6px">' + cardsHtml + '</div>' +
-      '</div>';
+      cards =
+         '<div style="background:#f8fafc;padding:4px 40px 20px">' +
+            '<div style="display:flex;gap:16px;overflow-x:auto;padding:10px 0 6px;scroll-behavior:smooth">' + cardsHtml + '</div>' +
+         '</div>';
    }
 
-   // Footer label
-   var label = '<div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:10px 20px;font-size:11px;color:#94a3b8;text-align:center">📱 Live Storefront Interface Screen Output — reflects your current settings</div>';
+   // ── Filter bar mock ──
+   var filterBar =
+      '<div style="background:#ffffff;padding:12px 40px;display:flex;align-items:center;gap:8px;border-top:1px solid #e2e8f0;flex-wrap:wrap">' +
+         '<span style="font-size:12px;font-weight:700;color:#64748b">🔥 FILTERS:</span>' +
+         '<button style="background:' + theme + ';color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">View All</button>' +
+         '<button style="background:#fee2e2;color:#b91c1c;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">🔥 Live Sale Only</button>' +
+         '<button style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer">Regular</button>' +
+      '</div>';
 
-   var contentOrder = (t.searchOrder === 'below') ? (cards + search) : (search + cards);
-   out.innerHTML = emergency + hero + compliance + ticker + contentOrder + label;
+   // ── Product grid mock ──
+   var gridMock =
+      '<div style="background:#f8fafc;padding:20px 40px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px">' +
+         [['💊','Paracetamol 500mg','₹22'],['🩺','BP Monitor','₹1,499'],['🧴','Antiseptic Lotion','₹85']].map(function(r) {
+            return '<div style="background:#fff;border-radius:10px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,0.07)">' +
+               '<div style="font-size:28px;text-align:center;margin-bottom:8px">' + r[0] + '</div>' +
+               '<div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:4px">' + r[1] + '</div>' +
+               '<div style="font-size:13px;font-weight:800;color:' + theme + ';margin-bottom:8px">' + r[2] + '</div>' +
+               '<button style="width:100%;background:' + theme + ';color:#fff;border:none;border-radius:7px;padding:7px;font-size:12px;font-weight:700;cursor:pointer">ADD TO CART</button>' +
+            '</div>';
+         }).join('') +
+      '</div>';
+
+   // ── Label ──
+   var label = '<div style="background:#0f172a;color:#64748b;padding:10px 20px;font-size:11px;text-align:center">📱 Live Storefront Interface Screen Output — reflects your current settings</div>';
+
+   // ── Assembly respecting searchOrder ──
+   var aboveFilter = (t.searchOrder !== 'below') ? (search + cards) : '';
+   var belowFilter = (t.searchOrder === 'below')  ? (cards + search) : '';
+
+   out.innerHTML = emergency + hero + liveCounter + compliance + ticker + aboveFilter + filterBar + belowFilter + gridMock + label;
 }
 
 function _stmRenderCards() {

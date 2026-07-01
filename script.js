@@ -5499,32 +5499,45 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
 
    if (!allItems.length) return '<p style="color:#888;padding:40px;text-align:center">No products in this store yet.</p>';
 
-   // Hero — Gemini template style (full-width, no right-side logo circle)
+   // Load template first so hero is built in one pass (no string patching)
+   var _tpl2 = (sp && sp.template) ? sp.template : {};
+   var _e2   = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+
    var _rxOnclick = rxBtn ? 'openRxOnlyOrderModal()' : '';
    var _visitHref = domainBtn ? (domainBtn.match(/href="([^"]+)"/) || [])[1] || '#' : '';
+
+   var _heroBg2 = _tpl2.bannerMedia
+      ? 'background:linear-gradient(rgba(0,0,0,0.48),rgba(0,0,0,0.48)),url(' + _tpl2.bannerMedia + ') center/cover no-repeat'
+      : (_tpl2.themeColor ? 'background:' + _tpl2.themeColor : 'background:#17a2b8');
+
+   var _uploadBtnStyle = 'display:inline-flex;align-items:center;gap:7px;background:' + (_tpl2.rxBtnBg||'#ffffff') + ';color:' + (_tpl2.rxBtnTextColor||'#1e293b') + ';border:none;border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)';
+
    var heroCard =
-      '<div class="med-wl-hero" style="padding:40px 48px 36px;position:relative;overflow:hidden">' +
-         '<div style="font-size:0.72rem;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-bottom:12px">' + (sp.hero_tag || '24×7 PHARMACY &nbsp;·&nbsp; 🚚 Free delivery over ₹499') + '</div>' +
-         '<h2 style="margin:0 0 10px;font-size:2rem;font-weight:900;color:#fff;line-height:1.1">' + sp.name + '</h2>' +
+      '<div style="' + _heroBg2 + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
+         '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl2.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + sp.name + '</h2>' +
          (sp.timing || sp.address
-            ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:14px">' +
+            ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:16px">' +
                  (sp.timing  ? '<span>🕐 ' + sp.timing  + '</span>' : '') +
                  (sp.address ? '<span>📍 ' + sp.address + '</span>' : '') +
               '</div>'
-            : '') +
+            : '<div style="margin-bottom:16px"></div>') +
          (sp.door_delivery
             ? (sp.delivery_paused
-               ? '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin-bottom:14px">⏸ Delivery paused — Pickup only</div>'
-               : '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin-bottom:14px">🚚 Home delivery available</div>')
+               ? '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin-bottom:12px">⏸ Delivery paused — Pickup only</div><br>'
+               : '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin-bottom:12px">🚚 Home delivery available</div><br>')
             : '') +
          '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
-            (_rxOnclick ? '<button onclick="' + _rxOnclick + '" style="display:inline-flex;align-items:center;gap:7px;background:#fff;color:#1e293b;border:none;border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)">📋 Upload Prescription File (.pdf, .png, .jpg)</button>' : '') +
-            (_visitHref && _visitHref !== '#' ? '<a href="' + _visitHref + '" target="_blank" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)">🌐 Visit Website ↗</a>' : '') +
+            (_rxOnclick ? '<button onclick="' + _rxOnclick + '" style="' + _uploadBtnStyle + '">📋 Upload Prescription File (.pdf, .png, .jpg)</button>' : '') +
+            (_tpl2.rxBadgeEnabled ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1.5px solid rgba(14,165,233,0.4);color:#e0f2fe;border-radius:9px;padding:10px 18px;font-size:0.84rem;font-weight:700">🏥 Govt Approved Digital Pharmacy</div>' : '') +
+            (_visitHref && _visitHref !== '#' ? '<a href="' + _visitHref + '" target="_blank" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;text-decoration:none">🌐 Visit Website ↗</a>' : '') +
          '</div>' +
-         (sp.logo_url ? '<div style="position:absolute;right:48px;top:50%;transform:translateY(-50%);width:80px;height:80px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3);box-shadow:0 4px 16px rgba(0,0,0,0.2)"><img src="' + sp.logo_url + '" style="width:100%;height:100%;object-fit:cover"></div>' : '') +
+         (_tpl2.liveCounterEnabled && _tpl2.liveCounterText
+            ? '<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(15,23,42,0.7);color:#22c55e;border-radius:50px;padding:8px 18px;font-size:0.82rem;font-weight:700;margin-top:14px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block;font-size:10px">●</span>' + _e2(_tpl2.liveCounterText) + '</div>'
+            : '') +
+         (sp.logo_url ? '<div style="position:absolute;right:48px;top:32px;width:72px;height:72px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3)"><img src="' + sp.logo_url + '" style="width:100%;height:100%;object-fit:cover"></div>' : '') +
       '</div>';
 
-   // Standalone search bar (below hero, Gemini style)
+   // Standalone search bar (below ticker, above offer cards)
    var _searchBar =
       '<div style="background:#f8fafc;padding:22px 48px 16px">' +
          '<div style="display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px 8px 6px 20px;border:1.5px solid #e2e8f0;max-width:720px;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
@@ -5598,30 +5611,6 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
       '</section>';
 
-   // ── Apply store template ──
-   var _tpl2 = (sp && sp.template) ? sp.template : {};
-   var _e2   = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-
-   if (_tpl2.bannerMedia) {
-      var _bgCss2 = 'background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url(' + _tpl2.bannerMedia + ') center/cover no-repeat';
-      heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="' + _bgCss2 + '">');
-   } else if (_tpl2.themeColor) {
-      heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="background:' + _tpl2.themeColor + '">');
-   }
-   if (_tpl2.rxBtnBg || _tpl2.rxBtnTextColor) {
-      var _rxStyle2 = 'background:' + (_tpl2.rxBtnBg||'#fff') + ';color:' + (_tpl2.rxBtnTextColor||'#1e293b');
-      heroCard = heroCard.replace('class="med-wl-hero-btn rx"', 'class="med-wl-hero-btn rx" style="' + _rxStyle2 + '"');
-   }
-   var _rxBadge2 = _tpl2.rxBadgeEnabled
-      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:8px;padding:5px 12px;font-size:0.78rem;font-weight:700;margin-top:8px">🏥 Govt Approved Digital Pharmacy</div>'
-      : '';
-   var _liveCounter2 = (_tpl2.liveCounterEnabled && _tpl2.liveCounterText)
-      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(15,23,42,0.65);color:#22c55e;border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:700;margin-top:8px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block">●</span>' + _e2(_tpl2.liveCounterText) + '</div>'
-      : '';
-   if (_rxBadge2 || _liveCounter2) {
-      heroCard = heroCard.replace('</div>' + '<div class="med-wl-hero-right">', _rxBadge2 + _liveCounter2 + '</div><div class="med-wl-hero-right">');
-   }
-
    var _emergency2 = (_tpl2.emergencyEnabled && _tpl2.emergencyText)
       ? '<div style="background:' + (_tpl2.emergencyBg||'#dc2626') + ';color:' + (_tpl2.emergencyFg||'#fff') + ';text-align:center;padding:7px 16px;font-size:12px;font-weight:700;letter-spacing:0.3px">' + _e2(_tpl2.emergencyText) + '</div>'
       : '';
@@ -5674,18 +5663,9 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
       ? '<div class="wl-filter-bar" style="flex-wrap:wrap;gap:8px">' + catBtns.replace(/class="wl-sidebar-cat/g, 'class="wl-filter-btn') + '</div>'
       : '';
    var _mainOpen2 = _catH2 ? '<div style="width:100%">' : '<div class="wl-main-layout">';
-   var _liveCounter2 = (_tpl2.liveCounterEnabled && _tpl2.liveCounterText)
-      ? '<div style="padding:0 48px 10px;background:#f8fafc"><div style="background:#1e293b;border-radius:50px;padding:9px 22px;display:inline-flex;align-items:center;gap:10px;max-width:520px"><span style="color:#22c55e;font-size:10px;animation:blink 1.5s linear infinite;display:inline-block">●</span><span style="color:#22c55e;font-size:13px;font-weight:700">' + _e2(_tpl2.liveCounterText) + '</span></div></div>'
-      : '';
-   var _rxBadge2Gemini = _tpl2.rxBadgeEnabled
-      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:8px;padding:5px 12px;font-size:0.78rem;font-weight:700;margin-top:8px">🏥 Govt Approved Digital Pharmacy</div>'
-      : '';
-   if (_rxBadge2Gemini) {
-      heroCard = heroCard.replace('</div>\n      </div>', _rxBadge2Gemini + '</div>\n      </div>');
-   }
-   var _above2    = ((_tpl2.searchOrder || 'above') === 'above') ? (_liveCounter2 + _compliance2 + _ticker2 + _offerCards2 + _sbcHtml2 + adsBannerHtml) : '';
-   var _below2    = ((_tpl2.searchOrder || 'above') === 'below')  ? (_liveCounter2 + _compliance2 + _ticker2 + _offerCards2 + _sbcHtml2 + adsBannerHtml) : '';
-   var _assembled = _emergency2 + heroCard + _searchBar + _above2 + _horzBar2 + filterBar + _below2 +
+   // Order: emergency → hero (live counter inside) → ticker → compliance → search → offer cards → sbc → ads → filter → catalog
+   var _cardsBlock2 = _offerCards2 + _sbcHtml2 + adsBannerHtml;
+   var _assembled = _emergency2 + heroCard + _ticker2 + _compliance2 + _searchBar + _cardsBlock2 + _horzBar2 + filterBar +
       _mainOpen2 + _sidebarPart +
       '<section class="wl-main-content"' + (_catH2 ? ' style="width:100%"' : '') + '>' +
          '<div class="wl-catalog-header">' +
@@ -6508,73 +6488,48 @@ function buildWLPage(sp, vendor) {
          '<div class="wl-footer-bottom">© 2026 ' + displayName + '. All rights reserved.</div>' +
       '</footer>';
 
-   // ── Hero card (mirrors main platform medical store hero) ──
-   var heroAnnounce = sp.hero_tag || '24×7 PHARMACY &nbsp;·&nbsp; 🚚 Free delivery over ₹499';
-   var heroMeta = '';
-   if (sp.timing || sp.address) {
-      heroMeta = '<div class="med-wl-hero-meta">' +
-         (sp.timing  ? '🕐 ' + sp.timing  : '') +
-         (sp.timing && sp.address ? ' &nbsp;&nbsp;' : '') +
-         (sp.address ? '📍 ' + sp.address : '') +
-      '</div>';
-   }
-   var heroDeliveryBadge = sp.door_delivery
-      ? (sp.delivery_paused
-         ? '<div style="display:inline-flex;align-items:center;gap:6px;width:fit-content;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">⏸ Delivery paused — Pickup only</div>'
-         : '<div style="display:inline-flex;align-items:center;gap:6px;width:fit-content;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">🚚 Home delivery available</div>')
-      : '';
-   var wlLogoHtml = sp.logo_url
-      ? '<img src="' + sp.logo_url + '" class="med-wl-hero-logo" alt="logo"/>'
-      : '<div class="med-wl-hero-logo-placeholder">' + (sp.icon || '🏪') + '</div>';
+   // ── Load template first, build hero in one pass (no string patching) ──
+   var _tpl = (sp && sp.template) ? sp.template : {};
+   var _tplEsc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+
+   var _wlHeroBg = _tpl.bannerMedia
+      ? 'background:linear-gradient(rgba(0,0,0,0.48),rgba(0,0,0,0.48)),url(' + _tpl.bannerMedia + ') center/cover no-repeat'
+      : (_tpl.themeColor ? 'background:' + _tpl.themeColor : 'background:#17a2b8');
+   var _wlUploadStyle = 'display:inline-flex;align-items:center;gap:7px;background:' + (_tpl.rxBtnBg||'#ffffff') + ';color:' + (_tpl.rxBtnTextColor||'#1e293b') + ';border:none;border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)';
+
    var heroCard =
-      '<div class="med-wl-hero" style="padding:40px 48px 36px;position:relative;overflow:hidden">' +
-         '<div style="font-size:0.72rem;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-bottom:12px">' + heroAnnounce + '</div>' +
-         '<h2 style="margin:0 0 10px;font-size:2rem;font-weight:900;color:#fff;line-height:1.1">' + displayName + '</h2>' +
-         (heroMeta ? heroMeta.replace('class="med-wl-hero-meta"','style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:14px"') : '') +
-         heroDeliveryBadge +
-         '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">' +
-            '<button onclick="openRxOnlyOrderModal()" style="display:inline-flex;align-items:center;gap:7px;background:#fff;color:#1e293b;border:none;border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)">📋 Upload Prescription File (.pdf, .png, .jpg)</button>' +
+      '<div style="' + _wlHeroBg + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
+         '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + displayName + '</h2>' +
+         (sp.timing || sp.address
+            ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:16px">' +
+                 (sp.timing  ? '<span>🕐 ' + sp.timing  + '</span>' : '') +
+                 (sp.address ? '<span>📍 ' + sp.address + '</span>' : '') +
+              '</div>'
+            : '<div style="margin-bottom:16px"></div>') +
+         (sp.door_delivery
+            ? (sp.delivery_paused
+               ? '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin-bottom:12px">⏸ Delivery paused — Pickup only</div><br>'
+               : '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin-bottom:12px">🚚 Home delivery available</div><br>')
+            : '') +
+         '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+            '<button onclick="openRxOnlyOrderModal()" style="' + _wlUploadStyle + '">📋 Upload Prescription File (.pdf, .png, .jpg)</button>' +
+            (_tpl.rxBadgeEnabled ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1.5px solid rgba(14,165,233,0.4);color:#e0f2fe;border-radius:9px;padding:10px 18px;font-size:0.84rem;font-weight:700">🏥 Govt Approved Digital Pharmacy</div>' : '') +
          '</div>' +
-         (sp.logo_url ? '<div style="position:absolute;right:48px;top:50%;transform:translateY(-50%);width:80px;height:80px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3);box-shadow:0 4px 16px rgba(0,0,0,0.2)"><img src="' + sp.logo_url + '" style="width:100%;height:100%;object-fit:cover"></div>' : '') +
+         (_tpl.liveCounterEnabled && _tpl.liveCounterText
+            ? '<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(15,23,42,0.7);color:#22c55e;border-radius:50px;padding:8px 18px;font-size:0.82rem;font-weight:700;margin-top:14px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block;font-size:10px">●</span>' + _tplEsc(_tpl.liveCounterText) + '</div>'
+            : '') +
+         (sp.logo_url ? '<div style="position:absolute;right:48px;top:32px;width:72px;height:72px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3)"><img src="' + sp.logo_url + '" style="width:100%;height:100%;object-fit:cover"></div>' : '') +
       '</div>';
 
-   // Standalone search bar below hero
+   // Standalone search bar (below ticker, above offer cards)
    var _wlSearchBar =
       '<div style="background:#f8fafc;padding:22px 48px 16px">' +
          '<div style="display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px 8px 6px 20px;border:1.5px solid #e2e8f0;max-width:720px;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
             '<span style="color:#94a3b8;font-size:15px;margin-right:10px">🔍</span>' +
             '<input type="text" id="wlNavSearch" name="wl-search" placeholder="Search for Medicine, Shampoo, Lab Tests..." autocomplete="one-time-code" oninput="wlSearch()" style="flex:1;border:none;outline:none;font-size:14px;color:#1e293b;background:transparent"/>' +
-            '<button style="background:var(--store-primary,#17a2b8);color:#fff;border:none;padding:10px 28px;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">Search</button>' +
+            '<button style="background:' + (_tpl.themeColor||'#17a2b8') + ';color:#fff;border:none;padding:10px 28px;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">Search</button>' +
          '</div>' +
       '</div>';
-
-   // ── Apply store template settings ──
-   var _tpl = (sp && sp.template) ? sp.template : {};
-   var _tplEsc = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-
-   // Theme colour or banner media override on hero
-   if (_tpl.bannerMedia) {
-      var _bgCss = 'background:linear-gradient(rgba(0,0,0,0.55),rgba(0,0,0,0.55)),url(' + _tpl.bannerMedia + ') center/cover no-repeat';
-      heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="' + _bgCss + '">');
-   } else if (_tpl.themeColor) {
-      heroCard = heroCard.replace('<div class="med-wl-hero">', '<div class="med-wl-hero" style="background:' + _tpl.themeColor + '">');
-   }
-   // Rx button style override
-   if (_tpl.rxBtnBg || _tpl.rxBtnTextColor) {
-      var rxStyle = 'background:' + (_tpl.rxBtnBg||'#fff') + ';color:' + (_tpl.rxBtnTextColor||'#1e293b');
-      heroCard = heroCard.replace('class="med-wl-hero-btn rx"', 'class="med-wl-hero-btn rx" style="' + rxStyle + '"');
-   }
-   // Rx verification badge
-   var rxBadgeHtml = (_tpl.rxBadgeEnabled)
-      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:8px;padding:5px 12px;font-size:0.78rem;font-weight:700;margin-top:8px">🏥 Govt Approved Digital Pharmacy</div>'
-      : '';
-   // Live counter badge
-   var liveCounterHtml = (_tpl.liveCounterEnabled && _tpl.liveCounterText)
-      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(15,23,42,0.65);color:#22c55e;border-radius:20px;padding:4px 12px;font-size:0.75rem;font-weight:700;margin-top:8px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block">●</span>' + _tplEsc(_tpl.liveCounterText) + '</div>'
-      : '';
-   if (rxBadgeHtml || liveCounterHtml) {
-      heroCard = heroCard.replace('</div>' + '<div class="med-wl-hero-right">', rxBadgeHtml + liveCounterHtml + '</div><div class="med-wl-hero-right">');
-   }
 
    // Emergency ribbon
    var emergencyBar = (_tpl.emergencyEnabled && _tpl.emergencyText)
@@ -6642,25 +6597,20 @@ function buildWLPage(sp, vendor) {
       : '';
    var _mainLayoutOpen  = _catHorizontal ? '<div style="width:100%">' : '<div class="wl-main-layout">';
 
-   // ── Live counter ──
-   var _liveCounterWL = (_tpl.liveCounterEnabled && _tpl.liveCounterText)
-      ? '<div style="padding:0 48px 10px;background:#f8fafc"><div style="background:#1e293b;border-radius:50px;padding:9px 22px;display:inline-flex;align-items:center;gap:10px;max-width:520px"><span style="color:#22c55e;font-size:10px;animation:blink 1.5s linear infinite;display:inline-block">●</span><span style="color:#22c55e;font-size:13px;font-weight:700">' + _tplEsc(_tpl.liveCounterText) + '</span></div></div>'
-      : '';
-
-   // ── Search order: offer cards above or below filter bar ──
+   // ── Assemble: emergency → hero (live counter inside) → ticker → compliance → search → offer cards → filter → catalog ──
    var _wlSbc = _buildStoreCarousel(sp);
    var _sbcHtml = _wlSbc.hasSlides ? _wlSbc.html : '';
-   var _aboveFilter = ((_tpl.searchOrder || 'above') === 'above') ? (_liveCounterWL + complianceBar + tickerBar + offerCardsHtml + _sbcHtml) : '';
-   var _belowFilter = ((_tpl.searchOrder || 'above') === 'below')  ? (_liveCounterWL + complianceBar + tickerBar + offerCardsHtml + _sbcHtml) : '';
 
    var fullPage =
       emergencyBar +
       heroCard +
+      tickerBar +
+      complianceBar +
       _wlSearchBar +
-      _aboveFilter +
+      offerCardsHtml +
+      _sbcHtml +
       _horzCatBar +
       filterBar +
-      _belowFilter +
       _mainLayoutOpen +
          _sidebarSection +
          '<section class="wl-main-content"' + (_catHorizontal ? ' style="width:100%"' : '') + '>' +

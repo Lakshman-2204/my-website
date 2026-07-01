@@ -5499,37 +5499,38 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
 
    if (!allItems.length) return '<p style="color:#888;padding:40px;text-align:center">No products in this store yet.</p>';
 
-   // Hero card — single compact block, no separate announce/nav bars
-   var rxHeroBtn = rxBtn
-      ? rxBtn.replace('class="rx-only-btn"', 'class="med-wl-hero-btn rx"')
-             .replace(/>📋 Prescription</, '>📋 Upload Prescription<')
-      : '';
-   var visitHeroBtn = domainBtn
-      ? domainBtn.replace('class="store-hero-outline-btn"', 'class="med-wl-hero-btn visit"')
-      : '';
-
-   var heroLogoHtml = sp.logo_url
-      ? '<img src="' + sp.logo_url + '" class="med-wl-hero-logo" alt="logo"/>'
-      : '<div class="med-wl-hero-logo-placeholder">' + (sp.icon || '🏪') + '</div>';
+   // Hero — Gemini template style (full-width, no right-side logo circle)
+   var _rxOnclick = rxBtn ? 'openRxOnlyOrderModal()' : '';
+   var _visitHref = domainBtn ? (domainBtn.match(/href="([^"]+)"/) || [])[1] || '#' : '';
    var heroCard =
-      '<div class="med-wl-hero">' +
-         '<div class="med-wl-hero-left">' +
-            '<div class="med-wl-hero-tag">' + (sp.hero_tag || '24×7 PHARMACY &nbsp;·&nbsp; 🚚 Free delivery over ₹499') + '</div>' +
-            '<h2 class="med-wl-hero-name">' + sp.name + '</h2>' +
-            (sp.timing ? '<div class="med-wl-hero-meta">🕐 ' + sp.timing + (sp.address ? ' &nbsp;📍 ' + sp.address : '') + '</div>' : '') +
-            (sp.door_delivery
-               ? (sp.delivery_paused
-                  ? '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">⏸ Delivery paused — Pickup only</div>'
-                  : '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin:8px 0">🚚 Home delivery available</div>')
-               : '') +
-            '<div class="med-wl-hero-actions">' +
-               rxHeroBtn + visitHeroBtn +
-            '</div>' +
+      '<div class="med-wl-hero" style="padding:40px 48px 36px;position:relative;overflow:hidden">' +
+         '<div style="font-size:0.72rem;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-bottom:12px">' + (sp.hero_tag || '24×7 PHARMACY &nbsp;·&nbsp; 🚚 Free delivery over ₹499') + '</div>' +
+         '<h2 style="margin:0 0 10px;font-size:2rem;font-weight:900;color:#fff;line-height:1.1">' + sp.name + '</h2>' +
+         (sp.timing || sp.address
+            ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:14px">' +
+                 (sp.timing  ? '<span>🕐 ' + sp.timing  + '</span>' : '') +
+                 (sp.address ? '<span>📍 ' + sp.address + '</span>' : '') +
+              '</div>'
+            : '') +
+         (sp.door_delivery
+            ? (sp.delivery_paused
+               ? '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(198,40,40,0.15);color:#ffcccc;border:1px solid rgba(255,100,100,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin-bottom:14px">⏸ Delivery paused — Pickup only</div>'
+               : '<div style="display:inline-flex;width:fit-content;align-items:center;gap:6px;background:rgba(0,180,100,0.15);color:#a7f3d0;border:1px solid rgba(0,200,120,0.3);border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;margin-bottom:14px">🚚 Home delivery available</div>')
+            : '') +
+         '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+            (_rxOnclick ? '<button onclick="' + _rxOnclick + '" style="display:inline-flex;align-items:center;gap:7px;background:#fff;color:#1e293b;border:none;border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)">📋 Upload Prescription File (.pdf, .png, .jpg)</button>' : '') +
+            (_visitHref && _visitHref !== '#' ? '<a href="' + _visitHref + '" target="_blank" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)">🌐 Visit Website ↗</a>' : '') +
          '</div>' +
-         '<div class="med-wl-hero-right">' + heroLogoHtml + '</div>' +
-         '<div class="med-wl-nav-search">' +
-            '<input type="text" id="medWlSearch" name="med-search" placeholder="Search medicines, vitamins…" autocomplete="one-time-code" oninput="medWlSearch()" />' +
-            '<span>🔍</span>' +
+         (sp.logo_url ? '<div style="position:absolute;right:48px;top:50%;transform:translateY(-50%);width:80px;height:80px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3);box-shadow:0 4px 16px rgba(0,0,0,0.2)"><img src="' + sp.logo_url + '" style="width:100%;height:100%;object-fit:cover"></div>' : '') +
+      '</div>';
+
+   // Standalone search bar (below hero, Gemini style)
+   var _searchBar =
+      '<div style="background:#f8fafc;padding:22px 48px 16px">' +
+         '<div style="display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px 8px 6px 20px;border:1.5px solid #e2e8f0;max-width:720px;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
+            '<span style="color:#94a3b8;font-size:15px;margin-right:10px">🔍</span>' +
+            '<input type="text" id="medWlSearch" name="med-search" placeholder="Search for Medicine, Shampoo, Lab Tests..." autocomplete="one-time-code" oninput="medWlSearch()" style="flex:1;border:none;outline:none;font-size:14px;color:#1e293b;background:transparent"/>' +
+            '<button style="background:var(--store-primary,#17a2b8);color:#fff;border:none;padding:10px 28px;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">Search</button>' +
          '</div>' +
       '</div>';
 
@@ -5638,21 +5639,28 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
    var _offerCards2 = '';
    if (_tpl2.promoCards && _tpl2.promoCards.length) {
       var _grid2 = _tpl2.layoutMode === 'grid';
-      var _cardsMarkup2 = _tpl2.promoCards.map(function(c) {
-         var oc = c.link ? 'window.open(\'' + (c.link||'').replace(/'/g,"\\'") + '\',\'_blank\')' : '';
-         return '<div class="wl-offer-card" style="background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';' + (_grid2?'':'flex-shrink:0') + '">' +
-            '<div><h4 style="margin:0 0 4px;font-size:16px;font-weight:800;color:#fff">' + _e2(c.heading) + '</h4>' +
-            '<p style="margin:0;font-size:12px;opacity:0.9;color:#fff">' + _e2(c.paragraph) + '</p></div>' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">' +
-               '<span style="font-weight:700;font-size:12px;color:rgba(255,255,255,0.85)">' + _e2(c.badge||'') + '</span>' +
-               (c.actionText ? '<button class="wl-offer-card-btn"' + (oc?' onclick="'+oc+'"':'') + '>' + _e2(c.actionText) + '</button>' : '') +
+      var _accents2 = ['#7c3aed','#0ea5e9','#059669','#dc2626','#d97706','#0284c7'];
+      var _cardsMarkup2 = _tpl2.promoCards.map(function(c, ci) {
+         var _acc2 = _accents2[ci % _accents2.length];
+         var oc = c.link ? 'window.open(\'' + (c.link||'').replace(/'/g,"\\'") + '\',\'_blank\')' : 'document.getElementById(\'wl-prod-grid\')&&document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})';
+         return '<div style="min-width:340px;max-width:340px;height:185px;border-radius:16px;padding:24px 26px 20px;background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';color:#fff;flex-shrink:0;position:relative;overflow:hidden;box-sizing:border-box;border-left:5px solid ' + _acc2 + ';display:flex;flex-direction:column;justify-content:space-between">' +
+            '<div>' +
+               '<h4 style="margin:0 0 6px;font-size:17px;font-weight:900;color:#fff;line-height:1.25">' + _e2(c.heading) + '</h4>' +
+               '<p style="margin:0;font-size:12.5px;opacity:0.88;color:#fff;line-height:1.5">' + _e2(c.paragraph) + '</p>' +
             '</div>' +
-            '<div style="position:absolute;right:-10px;bottom:-10px;font-size:80px;opacity:0.15;user-select:none">' + (c.icon||'🏥') + '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+               '<span style="font-weight:700;font-size:12px;color:rgba(255,255,255,0.85)">' + _e2(c.badge||'') + '</span>' +
+               (c.actionText ? '<button onclick="' + oc + '" style="background:' + _acc2 + ';color:#fff;border:none;padding:8px 20px;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;letter-spacing:0.5px">' + _e2(c.actionText) + '</button>' : '') +
+            '</div>' +
+            '<div style="position:absolute;right:-14px;bottom:-14px;font-size:100px;opacity:0.1;user-select:none">' + (c.icon||'🏥') + '</div>' +
          '</div>';
       }).join('');
+      var _carouselStyle2 = _grid2
+         ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0'
+         : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;scroll-behavior:smooth;-webkit-overflow-scrolling:touch';
       _offerCards2 =
-         '<div style="padding:0 0 4px;overflow:hidden">' +
-            '<div class="wl-offer-carousel" style="' + (_grid2 ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding:18px 0' : 'display:flex;gap:18px;overflow-x:auto;padding:18px 0;cursor:grab') + '" data-speed="' + (_tpl2.scrollSpeed||1) + '">' +
+         '<div style="padding:0 48px 8px;overflow:hidden;background:#f8fafc">' +
+            '<div class="wl-offer-carousel" style="' + _carouselStyle2 + '" data-speed="' + (_tpl2.scrollSpeed||1) + '">' +
                _cardsMarkup2 +
             '</div>' +
          '</div>';
@@ -5666,9 +5674,18 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
       ? '<div class="wl-filter-bar" style="flex-wrap:wrap;gap:8px">' + catBtns.replace(/class="wl-sidebar-cat/g, 'class="wl-filter-btn') + '</div>'
       : '';
    var _mainOpen2 = _catH2 ? '<div style="width:100%">' : '<div class="wl-main-layout">';
-   var _above2    = ((_tpl2.searchOrder || 'above') === 'above') ? (_compliance2 + _ticker2 + _offerCards2 + _sbcHtml2 + adsBannerHtml) : '';
-   var _below2    = ((_tpl2.searchOrder || 'above') === 'below')  ? (_compliance2 + _ticker2 + _offerCards2 + _sbcHtml2 + adsBannerHtml) : '';
-   var _assembled = _emergency2 + heroCard + _above2 + _horzBar2 + filterBar + _below2 +
+   var _liveCounter2 = (_tpl2.liveCounterEnabled && _tpl2.liveCounterText)
+      ? '<div style="padding:0 48px 10px;background:#f8fafc"><div style="background:#1e293b;border-radius:50px;padding:9px 22px;display:inline-flex;align-items:center;gap:10px;max-width:520px"><span style="color:#22c55e;font-size:10px;animation:blink 1.5s linear infinite;display:inline-block">●</span><span style="color:#22c55e;font-size:13px;font-weight:700">' + _e2(_tpl2.liveCounterText) + '</span></div></div>'
+      : '';
+   var _rxBadge2Gemini = _tpl2.rxBadgeEnabled
+      ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.3);color:#e0f2fe;border-radius:8px;padding:5px 12px;font-size:0.78rem;font-weight:700;margin-top:8px">🏥 Govt Approved Digital Pharmacy</div>'
+      : '';
+   if (_rxBadge2Gemini) {
+      heroCard = heroCard.replace('</div>\n      </div>', _rxBadge2Gemini + '</div>\n      </div>');
+   }
+   var _above2    = ((_tpl2.searchOrder || 'above') === 'above') ? (_liveCounter2 + _compliance2 + _ticker2 + _offerCards2 + _sbcHtml2 + adsBannerHtml) : '';
+   var _below2    = ((_tpl2.searchOrder || 'above') === 'below')  ? (_liveCounter2 + _compliance2 + _ticker2 + _offerCards2 + _sbcHtml2 + adsBannerHtml) : '';
+   var _assembled = _emergency2 + heroCard + _searchBar + _above2 + _horzBar2 + filterBar + _below2 +
       _mainOpen2 + _sidebarPart +
       '<section class="wl-main-content"' + (_catH2 ? ' style="width:100%"' : '') + '>' +
          '<div class="wl-catalog-header">' +
@@ -6510,20 +6527,24 @@ function buildWLPage(sp, vendor) {
       ? '<img src="' + sp.logo_url + '" class="med-wl-hero-logo" alt="logo"/>'
       : '<div class="med-wl-hero-logo-placeholder">' + (sp.icon || '🏪') + '</div>';
    var heroCard =
-      '<div class="med-wl-hero">' +
-         '<div class="med-wl-hero-left">' +
-            '<div class="med-wl-hero-tag">' + heroAnnounce + '</div>' +
-            '<h2 class="med-wl-hero-name">' + displayName + '</h2>' +
-            heroMeta +
-            heroDeliveryBadge +
-            '<div class="med-wl-hero-actions">' +
-               '<button class="med-wl-hero-btn rx" onclick="openRxOnlyOrderModal()">📋 Upload Prescription</button>' +
-            '</div>' +
+      '<div class="med-wl-hero" style="padding:40px 48px 36px;position:relative;overflow:hidden">' +
+         '<div style="font-size:0.72rem;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-bottom:12px">' + heroAnnounce + '</div>' +
+         '<h2 style="margin:0 0 10px;font-size:2rem;font-weight:900;color:#fff;line-height:1.1">' + displayName + '</h2>' +
+         (heroMeta ? heroMeta.replace('class="med-wl-hero-meta"','style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:14px"') : '') +
+         heroDeliveryBadge +
+         '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">' +
+            '<button onclick="openRxOnlyOrderModal()" style="display:inline-flex;align-items:center;gap:7px;background:#fff;color:#1e293b;border:none;border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)">📋 Upload Prescription File (.pdf, .png, .jpg)</button>' +
          '</div>' +
-         '<div class="med-wl-hero-right">' + wlLogoHtml + '</div>' +
-         '<div class="med-wl-nav-search">' +
-            '<input type="text" id="wlNavSearch" name="wl-search" placeholder="Search medicines, vitamins…" autocomplete="one-time-code" oninput="wlSearch()" />' +
-            '<span>🔍</span>' +
+         (sp.logo_url ? '<div style="position:absolute;right:48px;top:50%;transform:translateY(-50%);width:80px;height:80px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3);box-shadow:0 4px 16px rgba(0,0,0,0.2)"><img src="' + sp.logo_url + '" style="width:100%;height:100%;object-fit:cover"></div>' : '') +
+      '</div>';
+
+   // Standalone search bar below hero
+   var _wlSearchBar =
+      '<div style="background:#f8fafc;padding:22px 48px 16px">' +
+         '<div style="display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px 8px 6px 20px;border:1.5px solid #e2e8f0;max-width:720px;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
+            '<span style="color:#94a3b8;font-size:15px;margin-right:10px">🔍</span>' +
+            '<input type="text" id="wlNavSearch" name="wl-search" placeholder="Search for Medicine, Shampoo, Lab Tests..." autocomplete="one-time-code" oninput="wlSearch()" style="flex:1;border:none;outline:none;font-size:14px;color:#1e293b;background:transparent"/>' +
+            '<button style="background:var(--store-primary,#17a2b8);color:#fff;border:none;padding:10px 28px;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">Search</button>' +
          '</div>' +
       '</div>';
 
@@ -6584,25 +6605,29 @@ function buildWLPage(sp, vendor) {
    if (_tpl.promoCards && _tpl.promoCards.length) {
       var _layoutGrid = _tpl.layoutMode === 'grid';
       var _spd = _tpl.scrollSpeed || 1;
-      var cardsMarkup = _tpl.promoCards.map(function(c) {
-         var onclick = c.link ? 'window.open(\'' + (c.link||'').replace(/'/g,"\\'") + '\',\'_blank\')' : '';
-         return '<div class="wl-offer-card" style="background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';' + (_layoutGrid ? '' : 'flex-shrink:0') + '">' +
+      var _wlAccents = ['#7c3aed','#0ea5e9','#059669','#dc2626','#d97706','#0284c7'];
+      var cardsMarkup = _tpl.promoCards.map(function(c, ci) {
+         var _acc = _wlAccents[ci % _wlAccents.length];
+         var onclick = c.link
+            ? 'window.open(\'' + (c.link||'').replace(/'/g,"\\'") + '\',\'_blank\')'
+            : 'document.getElementById(\'wl-prod-grid\')&&document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})';
+         return '<div style="min-width:340px;max-width:340px;height:185px;border-radius:16px;padding:24px 26px 20px;background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';color:#fff;flex-shrink:0;position:relative;overflow:hidden;box-sizing:border-box;border-left:5px solid ' + _acc + ';display:flex;flex-direction:column;justify-content:space-between">' +
             '<div>' +
-               '<h4 style="margin:0 0 4px;font-size:16px;font-weight:800;color:#fff">' + _tplEsc(c.heading) + '</h4>' +
-               '<p style="margin:0;font-size:12px;opacity:0.9;color:#fff">' + _tplEsc(c.paragraph) + '</p>' +
+               '<h4 style="margin:0 0 6px;font-size:17px;font-weight:900;color:#fff;line-height:1.25">' + _tplEsc(c.heading) + '</h4>' +
+               '<p style="margin:0;font-size:12.5px;opacity:0.88;color:#fff;line-height:1.5">' + _tplEsc(c.paragraph) + '</p>' +
             '</div>' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
                '<span style="font-weight:700;font-size:12px;color:rgba(255,255,255,0.85)">' + _tplEsc(c.badge||'') + '</span>' +
-               (c.actionText ? '<button class="wl-offer-card-btn"' + (onclick?' onclick="'+onclick+'"':'') + '>' + _tplEsc(c.actionText) + '</button>' : '') +
+               (c.actionText ? '<button onclick="' + onclick + '" style="background:' + _acc + ';color:#fff;border:none;padding:8px 20px;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;letter-spacing:0.5px">' + _tplEsc(c.actionText) + '</button>' : '') +
             '</div>' +
-            '<div style="position:absolute;right:-10px;bottom:-10px;font-size:80px;opacity:0.15;user-select:none">' + (c.icon||'🏥') + '</div>' +
+            '<div style="position:absolute;right:-14px;bottom:-14px;font-size:100px;opacity:0.1;user-select:none">' + (c.icon||'🏥') + '</div>' +
          '</div>';
       }).join('');
       var carouselStyle = _layoutGrid
-         ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding:18px 0'
-         : 'display:flex;gap:18px;overflow-x:auto;padding:18px 0;cursor:grab;scroll-behavior:smooth';
+         ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0'
+         : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;scroll-behavior:smooth;-webkit-overflow-scrolling:touch';
       offerCardsHtml =
-         '<div style="padding:0 0 4px;overflow:hidden">' +
+         '<div style="padding:0 48px 8px;overflow:hidden;background:#f8fafc">' +
             '<div class="wl-offer-carousel" style="' + carouselStyle + '" data-speed="' + _spd + '">' +
                cardsMarkup +
             '</div>' +
@@ -6617,15 +6642,21 @@ function buildWLPage(sp, vendor) {
       : '';
    var _mainLayoutOpen  = _catHorizontal ? '<div style="width:100%">' : '<div class="wl-main-layout">';
 
+   // ── Live counter ──
+   var _liveCounterWL = (_tpl.liveCounterEnabled && _tpl.liveCounterText)
+      ? '<div style="padding:0 48px 10px;background:#f8fafc"><div style="background:#1e293b;border-radius:50px;padding:9px 22px;display:inline-flex;align-items:center;gap:10px;max-width:520px"><span style="color:#22c55e;font-size:10px;animation:blink 1.5s linear infinite;display:inline-block">●</span><span style="color:#22c55e;font-size:13px;font-weight:700">' + _tplEsc(_tpl.liveCounterText) + '</span></div></div>'
+      : '';
+
    // ── Search order: offer cards above or below filter bar ──
    var _wlSbc = _buildStoreCarousel(sp);
    var _sbcHtml = _wlSbc.hasSlides ? _wlSbc.html : '';
-   var _aboveFilter = ((_tpl.searchOrder || 'above') === 'above') ? (complianceBar + tickerBar + offerCardsHtml + _sbcHtml) : '';
-   var _belowFilter = ((_tpl.searchOrder || 'above') === 'below')  ? (complianceBar + tickerBar + offerCardsHtml + _sbcHtml) : '';
+   var _aboveFilter = ((_tpl.searchOrder || 'above') === 'above') ? (_liveCounterWL + complianceBar + tickerBar + offerCardsHtml + _sbcHtml) : '';
+   var _belowFilter = ((_tpl.searchOrder || 'above') === 'below')  ? (_liveCounterWL + complianceBar + tickerBar + offerCardsHtml + _sbcHtml) : '';
 
    var fullPage =
       emergencyBar +
       heroCard +
+      _wlSearchBar +
       _aboveFilter +
       _horzCatBar +
       filterBar +

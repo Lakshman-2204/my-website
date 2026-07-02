@@ -688,9 +688,16 @@ function updateCartUI() {
    var totalItems = cart.reduce(function(s, c) { return s + c.qty; }, 0);
    var totalCost  = cart.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
 
-   document.getElementById('cartBadge').textContent     = totalItems;
-   document.getElementById('cartTotalItems').textContent = totalItems;
-   document.getElementById('cartTotalCost').textContent  = '₹' + totalCost.toLocaleString('en-IN');
+   var _cbadge = document.getElementById('cartBadge');
+   var _cTotalItems = document.getElementById('cartTotalItems');
+   var _cTotalCost  = document.getElementById('cartTotalCost');
+   if (_cbadge) _cbadge.textContent = totalItems;
+   if (_cTotalItems) _cTotalItems.textContent = totalItems;
+   if (_cTotalCost)  _cTotalCost.textContent  = '₹' + totalCost.toLocaleString('en-IN');
+
+   // Update WL nav cart counter
+   var _wlCartEl = document.getElementById('_wl_cart');
+   if (_wlCartEl) _wlCartEl.innerHTML = '🛒 Cart' + (totalItems > 0 ? ' <strong style="background:#fff;color:var(--store-primary);border-radius:10px;padding:1px 7px;font-size:0.78rem">' + totalItems + '</strong>' : '');
 
    // Sync hero cart sidebar
    var heroSub = document.getElementById('heroCartSubtotal');

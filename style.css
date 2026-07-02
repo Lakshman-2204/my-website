@@ -8672,6 +8672,24 @@ body.profile-page { background: #e8edf5; }
    .wl-card-img { height: 72px; width: 72px; }
 }
 
+/* ── WL Hero + Carousel mobile ── */
+@media (max-width: 768px) {
+   .wl-hero-section { padding: 24px 20px 20px !important; }
+   .wl-hero-section h2 { font-size: 1.45rem !important; }
+   .wl-offer-carousel { padding-left: 16px !important; padding-right: 16px !important; }
+   .wl-offer-carousel-wrap { padding-top: 16px !important; }
+   .wl-offer-carousel > div { min-width: 280px !important; max-width: 280px !important; }
+   /* Search bar side padding */
+   [style*="padding:22px 48px"] { padding-left: 16px !important; padding-right: 16px !important; }
+   [style*="padding:0 48px"] { padding-left: 16px !important; padding-right: 16px !important; }
+}
+@media (max-width: 480px) {
+   .wl-hero-section { padding: 18px 14px 16px !important; }
+   .wl-hero-section h2 { font-size: 1.2rem !important; }
+   .wl-offer-carousel > div { min-width: 230px !important; max-width: 230px !important; height: 160px !important; }
+   .wl-prod-grid { grid-template-columns: 1fr 1fr !important; }
+}
+
 /* ── DYNAMIC PROMO STREAM MARQUEE ───────────────────────────────────────── */
 .promo-stream-track {
    display: flex;

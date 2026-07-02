@@ -5321,7 +5321,7 @@ async function showStoreProvider(providerId) {
       // Hide productsHeader — WL layout replaces it
       var hdr2 = document.getElementById('productsHeader');
       if (hdr2) hdr2.style.display = 'none';
-      var _mwlResult = buildMedicalWLLayout(p, rxBtn, domainBtn);
+      var _mwlResult = buildMedicalWLLayout(p, rxBtn, domainBtn, backBtn);
       grid.innerHTML = '<div id="storeProviderProducts">' + _mwlResult + '</div>';
       var srch = document.getElementById('medWlSearch');
       if (srch) srch.addEventListener('input', medWlSearch);
@@ -5483,7 +5483,7 @@ function _sbcInit(cid) {
 }
 
 // WL-style layout for medical stores on the main platform.
-function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
+function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
    // Collect all items for this store across all categories
    var storeCats = [];
    Object.entries(products).forEach(function(entry) {
@@ -5507,14 +5507,18 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
    var _rxOnclick = rxBtn ? 'openRxOnlyOrderModal()' : '';
    var _visitHref = domainBtn ? (domainBtn.match(/href="([^"]+)"/) || [])[1] || '#' : '';
 
-   var _heroBg2 = _tpl2.bannerMedia
+   var _isVideo2 = _tpl2.bannerMedia && _tpl2.bannerMedia.startsWith('data:video');
+   var _heroBg2 = (_tpl2.bannerMedia && !_isVideo2)
       ? 'background:linear-gradient(rgba(0,0,0,0.48),rgba(0,0,0,0.48)),url(' + _tpl2.bannerMedia + ') center/cover no-repeat'
       : (_tpl2.themeColor ? 'background:' + _tpl2.themeColor : 'background:#17a2b8');
 
    var _uploadBtnStyle = 'display:inline-flex;align-items:center;gap:7px;background:' + (_tpl2.rxBtnBg||'#ffffff') + ';color:' + (_tpl2.rxBtnTextColor||'#1e293b') + ';border:none;border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)';
 
    var heroCard =
-      '<div style="' + _heroBg2 + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
+      '<div class="wl-hero-section" style="' + _heroBg2 + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
+         (_isVideo2 ? '<video autoplay muted loop playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0"><source src="' + _tpl2.bannerMedia + '"></video><div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.48);z-index:1"></div>' : '') +
+         '<div style="position:relative;z-index:2">' +
+         (backBtn ? '<div style="margin-bottom:14px">' + backBtn + '</div>' : '') +
          '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl2.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + sp.name + '</h2>' +
          (sp.timing || sp.address
             ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:16px">' +
@@ -5536,7 +5540,8 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             ? '<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(15,23,42,0.7);color:#22c55e;border-radius:50px;padding:8px 18px;font-size:0.82rem;font-weight:700;margin-top:14px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block;font-size:10px">●</span>' + _e2(_tpl2.liveCounterText) + '</div>'
             : '') +
          (sp.logo_url ? '<div style="position:absolute;right:48px;top:32px;width:72px;height:72px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3)"><img src="' + sp.logo_url + '" style="width:100%;height:100%;object-fit:cover"></div>' : '') +
-      '</div>';
+         '</div>' + // close z-index:2 content wrapper (for video overlay)
+      '</div>'; // close hero
 
    // Standalone search bar (below ticker, above offer cards)
    var _searchBar =
@@ -5645,15 +5650,28 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
             '<div style="position:absolute;right:-14px;bottom:-14px;font-size:100px;opacity:0.1;user-select:none">' + (c.icon||'🏥') + '</div>' +
          '</div>';
       }).join('');
-      var _carouselStyle2 = _grid2
-         ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0'
-         : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;-webkit-overflow-scrolling:touch';
-      _offerCards2 =
-         '<div style="padding:0 48px 8px;background:#f8fafc">' +
-            '<div class="wl-offer-carousel" style="' + _carouselStyle2 + '" data-speed="' + (_tpl2.scrollSpeed||2) + '">' +
-               _cardsMarkup2 +
-            '</div>' +
-         '</div>';
+      if (_grid2) {
+         _offerCards2 =
+            '<div style="padding:0 48px 8px;background:#f8fafc">' +
+               '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0">' +
+                  _cardsMarkup2 +
+               '</div>' +
+            '</div>';
+      } else {
+         var _dur2 = Math.max(6, 36 - (_tpl2.scrollSpeed||2) * 4) + 's';
+         if (!document.getElementById('_wlCarouselStyle')) {
+            var _wlSt = document.createElement('style');
+            _wlSt.id = '_wlCarouselStyle';
+            _wlSt.textContent = '@keyframes _wlCarouselScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}';
+            document.head.appendChild(_wlSt);
+         }
+         _offerCards2 =
+            '<div class="wl-offer-carousel-wrap" style="overflow:hidden;background:#f8fafc;padding:20px 0 8px">' +
+               '<div class="wl-offer-carousel" style="display:flex;gap:20px;padding:0 48px;width:max-content;animation:_wlCarouselScroll ' + _dur2 + ' linear infinite" onmouseenter="this.style.animationPlayState=\'paused\'" onmouseleave="this.style.animationPlayState=\'running\'">' +
+                  _cardsMarkup2 + _cardsMarkup2 +
+               '</div>' +
+            '</div>';
+      }
    }
 
    var _sbcResult = _buildStoreCarousel(sp);
@@ -5676,40 +5694,6 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn) {
          '<div class="wl-prod-grid" id="wl-prod-grid">' + cardHtml + '</div>' +
       '</section>' +
       '</div>';
-
-   // Wire up offer card auto-scroll after DOM insertion (deferred)
-   if (_tpl2.promoCards && _tpl2.promoCards.length && _tpl2.layoutMode !== 'grid') {
-      setTimeout(function() {
-         var _c = document.querySelector('.wl-offer-carousel');
-         if (!_c) return;
-         // Triple cards for seamless infinite loop: [A][B][C] — always scroll within B, reset seamlessly
-         var _origKids = Array.from(_c.children);
-         _origKids.forEach(function(k){ _c.appendChild(k.cloneNode(true)); });
-         _origKids.forEach(function(k){ _c.appendChild(k.cloneNode(true)); });
-         var _half = _c.scrollWidth / 3;
-         _c.scrollLeft = _half; // start in the middle copy
-         var _spd = parseInt(_c.dataset.speed||2,10) * 2, _drag = false, _sx = 0, _sl = 0;
-         _c.addEventListener('mousedown', function(e){_drag=true;_sx=e.pageX-_c.offsetLeft;_sl=_c.scrollLeft;_c.style.cursor='grabbing';});
-         _c.addEventListener('mouseleave', function(){_drag=false;_c.style.cursor='grab';});
-         _c.addEventListener('mouseup', function(){_drag=false;_c.style.cursor='grab';});
-         _c.addEventListener('mousemove', function(e){if(!_drag)return;e.preventDefault();_c.scrollLeft=_sl-(e.pageX-_c.offsetLeft-_sx)*1.5;});
-         var _t = setInterval(function(){
-            if(!_drag){
-               _c.scrollLeft+=_spd;
-               if(_c.scrollLeft>=_half*2)_c.scrollLeft=_half; // seamless: end of B → start of B
-               if(_c.scrollLeft<_half)_c.scrollLeft=_half;   // guard: if dragged back into A → snap to B
-            }
-         },30);
-         _c.addEventListener('mouseenter',function(){clearInterval(_t);});
-         _c.addEventListener('mouseleave',function(){_t=setInterval(function(){
-            if(!_drag){
-               _c.scrollLeft+=_spd;
-               if(_c.scrollLeft>=_half*2)_c.scrollLeft=_half;
-               if(_c.scrollLeft<_half)_c.scrollLeft=_half;
-            }
-         },30);});
-      }, 200);
-   }
 
    return _assembled;
 }
@@ -6512,13 +6496,16 @@ function buildWLPage(sp, vendor) {
    // Override CSS variable with template color so nav, filter chips, footer links use the right color
    if (_tpl.themeColor) applyStoreTheme({ primaryColor: _tpl.themeColor });
 
-   var _wlHeroBg = _tpl.bannerMedia
+   var _wlIsVideo = _tpl.bannerMedia && _tpl.bannerMedia.startsWith('data:video');
+   var _wlHeroBg = (_tpl.bannerMedia && !_wlIsVideo)
       ? 'background:linear-gradient(rgba(0,0,0,0.48),rgba(0,0,0,0.48)),url(' + _tpl.bannerMedia + ') center/cover no-repeat'
       : (_tpl.themeColor ? 'background:' + _tpl.themeColor : 'background:#17a2b8');
    var _wlUploadStyle = 'display:inline-flex;align-items:center;gap:7px;background:' + (_tpl.rxBtnBg||'#ffffff') + ';color:' + (_tpl.rxBtnTextColor||'#1e293b') + ';border:none;border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.12)';
 
    var heroCard =
-      '<div style="' + _wlHeroBg + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
+      '<div class="wl-hero-section" style="' + _wlHeroBg + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
+         (_wlIsVideo ? '<video autoplay muted loop playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0"><source src="' + _tpl.bannerMedia + '"></video><div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.48);z-index:1"></div>' : '') +
+         '<div style="position:relative;z-index:2">' +
          '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + displayName + '</h2>' +
          (sp.timing || sp.address
             ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:16px">' +
@@ -6539,6 +6526,7 @@ function buildWLPage(sp, vendor) {
             ? '<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(15,23,42,0.7);color:#22c55e;border-radius:50px;padding:8px 18px;font-size:0.82rem;font-weight:700;margin-top:14px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block;font-size:10px">●</span>' + _tplEsc(_tpl.liveCounterText) + '</div>'
             : '') +
          (sp.logo_url ? '<div style="position:absolute;right:48px;top:32px;width:72px;height:72px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.3)"><img src="' + sp.logo_url + '" style="width:100%;height:100%;object-fit:cover"></div>' : '') +
+         '</div>' +
       '</div>';
 
    // Standalone search bar (below ticker, above offer cards)
@@ -6598,15 +6586,28 @@ function buildWLPage(sp, vendor) {
             '<div style="position:absolute;right:-14px;bottom:-14px;font-size:100px;opacity:0.1;user-select:none">' + (c.icon||'🏥') + '</div>' +
          '</div>';
       }).join('');
-      var carouselStyle = _layoutGrid
-         ? 'display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0'
-         : 'display:flex;gap:20px;overflow-x:auto;padding:20px 0;cursor:grab;-webkit-overflow-scrolling:touch';
-      offerCardsHtml =
-         '<div style="padding:0 48px 8px;background:#f8fafc">' +
-            '<div class="wl-offer-carousel" style="' + carouselStyle + '" data-speed="' + _spd + '">' +
-               cardsMarkup +
-            '</div>' +
-         '</div>';
+      if (_layoutGrid) {
+         offerCardsHtml =
+            '<div style="padding:0 48px 8px;background:#f8fafc">' +
+               '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:20px 0">' +
+                  cardsMarkup +
+               '</div>' +
+            '</div>';
+      } else {
+         var _wlDur = Math.max(6, 36 - _spd * 4) + 's';
+         if (!document.getElementById('_wlCarouselStyle')) {
+            var _wlSt2 = document.createElement('style');
+            _wlSt2.id = '_wlCarouselStyle';
+            _wlSt2.textContent = '@keyframes _wlCarouselScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}';
+            document.head.appendChild(_wlSt2);
+         }
+         offerCardsHtml =
+            '<div class="wl-offer-carousel-wrap" style="overflow:hidden;background:#f8fafc;padding:20px 0 8px">' +
+               '<div class="wl-offer-carousel" style="display:flex;gap:20px;padding:0 48px;width:max-content;animation:_wlCarouselScroll ' + _wlDur + ' linear infinite" onmouseenter="this.style.animationPlayState=\'paused\'" onmouseleave="this.style.animationPlayState=\'running\'">' +
+                  cardsMarkup + cardsMarkup +
+               '</div>' +
+            '</div>';
+      }
    }
 
    // ── Category layout: vertical sidebar vs horizontal chips ──
@@ -6667,40 +6668,6 @@ function buildWLPage(sp, vendor) {
    }
    container.innerHTML = fullPage;
    _sbcInit('sbc-' + sp.id);
-
-   // Auto-scroll offer cards carousel (if carousel mode)
-   if (_tpl.promoCards && _tpl.promoCards.length && _tpl.layoutMode !== 'grid') {
-      var _carousel = container.querySelector('.wl-offer-carousel');
-      if (_carousel) {
-         // Triple cards for seamless infinite loop: [A][B][C] — always scroll within B
-         var _ck = Array.from(_carousel.children);
-         _ck.forEach(function(k){ _carousel.appendChild(k.cloneNode(true)); });
-         _ck.forEach(function(k){ _carousel.appendChild(k.cloneNode(true)); });
-         var _wlHalf = _carousel.scrollWidth / 3;
-         _carousel.scrollLeft = _wlHalf; // start in the middle copy
-         var _spd = parseInt(_carousel.dataset.speed || 2, 10) * 2;
-         var _isDragging = false, _startX = 0, _scrollLeft = 0;
-         _carousel.addEventListener('mousedown', function(e) { _isDragging = true; _startX = e.pageX - _carousel.offsetLeft; _scrollLeft = _carousel.scrollLeft; _carousel.style.cursor = 'grabbing'; });
-         _carousel.addEventListener('mouseleave', function() { _isDragging = false; _carousel.style.cursor = 'grab'; });
-         _carousel.addEventListener('mouseup', function() { _isDragging = false; _carousel.style.cursor = 'grab'; });
-         _carousel.addEventListener('mousemove', function(e) { if (!_isDragging) return; e.preventDefault(); _carousel.scrollLeft = _scrollLeft - (e.pageX - _carousel.offsetLeft - _startX) * 1.5; });
-         var _autoScroll = setInterval(function() {
-            if (!_isDragging) {
-               _carousel.scrollLeft += _spd;
-               if (_carousel.scrollLeft >= _wlHalf * 2) _carousel.scrollLeft = _wlHalf;
-               if (_carousel.scrollLeft < _wlHalf) _carousel.scrollLeft = _wlHalf;
-            }
-         }, 30);
-         _carousel.addEventListener('mouseenter', function() { clearInterval(_autoScroll); });
-         _carousel.addEventListener('mouseleave', function() { _autoScroll = setInterval(function() {
-            if (!_isDragging) {
-               _carousel.scrollLeft += _spd;
-               if (_carousel.scrollLeft >= _wlHalf * 2) _carousel.scrollLeft = _wlHalf;
-               if (_carousel.scrollLeft < _wlHalf) _carousel.scrollLeft = _wlHalf;
-            }
-         }, 30); });
-      }
-   }
 
    // Start countdown timer (24h from now)
    var end = Date.now() + 24 * 3600 * 1000;

@@ -5275,7 +5275,14 @@ async function showStoreProvider(providerId) {
          var _wlUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
          if (_wlUser) _ssoSuffix = '?sso=' + btoa(unescape(encodeURIComponent(JSON.stringify(_wlUser))));
       } catch(e) {}
-      domainBtn = '<a class="store-hero-outline-btn" href="https://' + _storeDomain + '/home.html' + _ssoSuffix + '" target="_blank" rel="noopener">🌐 Visit Website ↗</a>';
+      var _wlHref;
+      if (_storeDomain.startsWith('http://') || _storeDomain.startsWith('https://')) {
+         var _sep = _storeDomain.includes('?') ? '&' : '?';
+         _wlHref = _storeDomain + (_ssoSuffix ? _sep + _ssoSuffix.replace(/^\?/, '') : '');
+      } else {
+         _wlHref = 'https://' + _storeDomain + '/home.html' + _ssoSuffix;
+      }
+      domainBtn = '<a class="store-hero-outline-btn" href="' + _wlHref + '" target="_blank" rel="noopener">🌐 Visit Website ↗</a>';
    }
    // Apply this store's brand theme (color from registry, reset on back/home)
    if (!window._wlMode) {

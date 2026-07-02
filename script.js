@@ -6376,7 +6376,7 @@ async function _activateWhiteLabel(vendor) {
          '<div style="display:flex;align-items:center;gap:8px">' +
             authBtns +
             '<span id="_wl_cart" style="cursor:pointer;font-size:0.82rem;background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px;white-space:nowrap" ' +
-            'onclick="document.getElementById(\'cartBtn\') && document.getElementById(\'cartBtn\').click()">🛒 Cart</span>' +
+            'onclick="showCart()">🛒 Cart</span>' +
          '</div>';
       document.body.insertBefore(standaloneNav, document.body.firstChild);
    }

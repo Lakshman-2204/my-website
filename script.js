@@ -5518,7 +5518,6 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
       '<div class="wl-hero-section" style="' + _heroBg2 + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
          (_isVideo2 ? '<video autoplay muted loop playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0"><source src="' + _tpl2.bannerMedia + '"></video><div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.48);z-index:1"></div>' : '') +
          '<div style="position:relative;z-index:2">' +
-         (backBtn ? '<div style="margin-bottom:12px">' + backBtn + '</div>' : '') +
          '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl2.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + sp.name + '</h2>' +
          (sp.timing || sp.address
             ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:16px">' +
@@ -5543,13 +5542,16 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
          '</div>' + // close z-index:2 content wrapper (for video overlay)
       '</div>'; // close hero
 
-   // Standalone search bar (below ticker, above offer cards)
+   // Standalone search bar with back button on the right
    var _searchBar =
-      '<div style="background:#f8fafc;padding:16px 24px 12px">' +
-         '<div style="display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px 8px 6px 20px;border:1.5px solid #e2e8f0;max-width:720px;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
-            '<span style="color:#94a3b8;font-size:15px;margin-right:10px">🔍</span>' +
-            '<input type="text" id="medWlSearch" name="med-search" placeholder="Search for Medicine, Shampoo, Lab Tests..." autocomplete="one-time-code" oninput="medWlSearch()" style="flex:1;border:none;outline:none;font-size:14px;color:#1e293b;background:transparent"/>' +
-            '<button style="background:var(--store-primary,#17a2b8);color:#fff;border:none;padding:10px 28px;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">Search</button>' +
+      '<div class="wl-search-bar-wrap" style="background:#f8fafc;padding:16px 24px 12px">' +
+         '<div class="wl-search-row" style="display:flex;align-items:center;gap:12px;max-width:760px;margin:0 auto">' +
+            '<div style="flex:1;display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px 8px 6px 20px;border:1.5px solid #e2e8f0;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
+               '<span style="color:#94a3b8;font-size:15px;margin-right:10px">🔍</span>' +
+               '<input type="text" id="medWlSearch" name="med-search" placeholder="Search for Medicine, Shampoo, Lab Tests..." autocomplete="one-time-code" oninput="medWlSearch()" style="flex:1;border:none;outline:none;font-size:14px;color:#1e293b;background:transparent"/>' +
+               '<button style="background:var(--store-primary,#17a2b8);color:#fff;border:none;padding:10px 28px;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">Search</button>' +
+            '</div>' +
+            (backBtn ? backBtn : '') +
          '</div>' +
       '</div>';
 

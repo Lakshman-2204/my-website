@@ -8703,6 +8703,11 @@ body.profile-page { background: #e8edf5; }
 
    /* Hide the mobile-menu-btn — not needed with persistent sidebar */
    .wl-mobile-menu-btn { display: none !important; }
+   /* Search row: stack on mobile — pill full width, back button below aligned left */
+   .wl-search-row { flex-wrap: wrap; }
+   .wl-search-row > div:first-child { width: 100%; }
+   .wl-search-row .store-hero-outline-btn { font-size: 0.75rem !important; padding: 6px 12px !important; }
+   .wl-search-bar-wrap { padding: 12px 14px 10px !important; }
 }
 
 /* ── WL Mobile Category Drawer (kept for possible future use, hidden by default) ── */

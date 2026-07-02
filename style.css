@@ -8654,43 +8654,80 @@ body.profile-page { background: #e8edf5; }
    #homeBannerWrap .hbc-slide h2 { font-size: 1.15rem !important; }
 }
 
-/* ── Responsive ── */
+/* ── Responsive: tablet ── */
 @media (max-width: 960px) {
-   .wl-main-layout { flex-direction: column; padding: 16px; }
-   .wl-sidebar { width: 100%; position: static; flex-direction: row; flex-wrap: wrap; }
-   .wl-sidebar-box { flex: 1; min-width: 200px; }
-   .wl-sidebar-cats { flex-direction: row; flex-wrap: wrap; gap: 6px; }
-   .wl-sidebar-cat { width: auto; }
    .wl-prod-grid { grid-template-columns: repeat(3,1fr); }
    .wl-footer-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
 }
-@media (max-width: 600px) {
-   .wl-main-layout { padding: 12px; gap: 12px; }
-   .wl-prod-grid { grid-template-columns: repeat(2,1fr); gap: 10px; }
+
+/* ── Responsive: mobile — Flipkart-style persistent narrow sidebar ── */
+@media (max-width: 768px) {
+   .wl-main-layout { flex-direction: row; padding: 0; gap: 0; align-items: flex-start; }
+
+   /* Narrow sticky sidebar */
+   .wl-sidebar {
+      width: 88px; min-width: 88px; flex-shrink: 0;
+      position: sticky; top: 0; max-height: 100vh;
+      overflow-y: auto; overflow-x: hidden;
+      background: #f0f2f5; border-right: 1px solid #e2e8f0;
+      flex-direction: column; gap: 0;
+   }
+   .wl-sidebar-box { border-radius: 0; border: none; padding: 0; background: transparent; }
+   .wl-sidebar-title { display: none; }
+   .wl-sidebar-cats { flex-direction: column; gap: 0; }
+
+   /* Each category: icon stacked above label */
+   .wl-sidebar-cat {
+      display: flex; flex-direction: column; align-items: center;
+      width: 100%; padding: 12px 4px 10px;
+      border-radius: 0; border-left: 3px solid transparent;
+      background: transparent; font-size: 0.62rem; font-weight: 500;
+      color: #475569; text-align: center; line-height: 1.3;
+      white-space: normal; word-break: break-word;
+   }
+   .wl-sidebar-cat:hover { background: #fff; color: #1e293b; }
+   .wl-sidebar-cat.active {
+      background: #fff; color: var(--store-primary, #17a2b8);
+      font-weight: 700; border-left-color: var(--store-primary, #17a2b8);
+   }
+
+   /* Product area fills remaining width */
+   .wl-main-content { flex: 1; min-width: 0; padding: 10px 8px; }
+   .wl-prod-grid { grid-template-columns: repeat(2,1fr); gap: 8px; }
    .wl-footer-grid { grid-template-columns: 1fr; }
-   .wl-card-img-wrap { height: 100px; }
-   .wl-card-img { height: 72px; width: 72px; }
+   .wl-card-img-wrap { height: 90px; }
+   .wl-card-img { height: 68px; width: 68px; }
+   .wl-catalog-header { padding: 4px 0 8px; }
+   .wl-catalog-title { font-size: 0.9rem; }
+   .wl-catalog-sub { font-size: 0.7rem; }
+
+   /* Hide the mobile-menu-btn — not needed with persistent sidebar */
+   .wl-mobile-menu-btn { display: none !important; }
 }
+
+/* ── WL Mobile Category Drawer (kept for possible future use, hidden by default) ── */
+.wl-mobile-menu-btn { display: none; }
 
 /* ── WL Hero + Carousel mobile ── */
 @media (max-width: 768px) {
    .wl-hero-section { padding: 20px 16px 18px !important; }
    .wl-hero-section h2 { font-size: 1.35rem !important; }
-   /* Hero action buttons — keep inline, don't stretch full width */
-   .wl-hero-actions { gap: 8px !important; }
-   .wl-hero-actions button, .wl-hero-actions a { font-size: 0.78rem !important; padding: 8px 14px !important; width: auto !important; }
+   /* Back button in hero: small, compact */
+   .wl-hero-section .store-hero-outline-btn { font-size: 0.72rem !important; padding: 5px 10px !important; }
+   /* Hero action buttons: stay in a row, compact */
+   .wl-hero-actions { flex-wrap: wrap; gap: 8px !important; }
+   .wl-hero-actions button, .wl-hero-actions a {
+      font-size: 0.76rem !important; padding: 7px 12px !important; width: auto !important;
+   }
    /* Carousel */
    .wl-offer-carousel { padding-left: 12px !important; padding-right: 12px !important; }
    .wl-offer-carousel-wrap { padding-top: 12px !important; }
-   .wl-offer-carousel > div { min-width: 260px !important; max-width: 260px !important; }
-   /* Search+back row: stack vertically */
-   .wl-search-row { flex-direction: column !important; align-items: stretch !important; padding: 14px 16px 10px !important; }
-   .wl-search-row .store-hero-outline-btn { align-self: flex-start; }
+   .wl-offer-carousel > div { min-width: 240px !important; max-width: 240px !important; }
 }
 @media (max-width: 480px) {
-   .wl-hero-section { padding: 16px 12px 14px !important; }
-   .wl-hero-section h2 { font-size: 1.15rem !important; }
-   .wl-offer-carousel > div { min-width: 220px !important; max-width: 220px !important; height: 160px !important; }
+   .wl-hero-section { padding: 16px 14px 14px !important; }
+   .wl-hero-section h2 { font-size: 1.1rem !important; }
+   .wl-offer-carousel > div { min-width: 200px !important; max-width: 200px !important; height: 150px !important; }
    .wl-prod-grid { grid-template-columns: 1fr 1fr !important; }
 }
 

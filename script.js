@@ -5518,6 +5518,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
       '<div class="wl-hero-section" style="' + _heroBg2 + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
          (_isVideo2 ? '<video autoplay muted loop playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0"><source src="' + _tpl2.bannerMedia + '"></video><div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.48);z-index:1"></div>' : '') +
          '<div style="position:relative;z-index:2">' +
+         (backBtn ? '<div style="margin-bottom:12px">' + backBtn + '</div>' : '') +
          '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl2.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + sp.name + '</h2>' +
          (sp.timing || sp.address
             ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:16px">' +
@@ -5542,16 +5543,13 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
          '</div>' + // close z-index:2 content wrapper (for video overlay)
       '</div>'; // close hero
 
-   // Standalone search bar (below ticker, above offer cards) — with back button on the right
+   // Standalone search bar (below ticker, above offer cards)
    var _searchBar =
-      '<div style="background:#f8fafc;padding:18px 48px 14px">' +
-         '<div class="wl-search-row" style="display:flex;align-items:center;gap:12px;max-width:800px;margin:0 auto">' +
-            '<div style="flex:1;display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px 8px 6px 20px;border:1.5px solid #e2e8f0;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
-               '<span style="color:#94a3b8;font-size:15px;margin-right:10px">🔍</span>' +
-               '<input type="text" id="medWlSearch" name="med-search" placeholder="Search for Medicine, Shampoo, Lab Tests..." autocomplete="one-time-code" oninput="medWlSearch()" style="flex:1;border:none;outline:none;font-size:14px;color:#1e293b;background:transparent"/>' +
-               '<button style="background:var(--store-primary,#17a2b8);color:#fff;border:none;padding:10px 28px;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">Search</button>' +
-            '</div>' +
-            (backBtn ? backBtn : '') +
+      '<div style="background:#f8fafc;padding:16px 24px 12px">' +
+         '<div style="display:flex;align-items:center;background:#fff;border-radius:50px;padding:6px 8px 6px 20px;border:1.5px solid #e2e8f0;max-width:720px;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
+            '<span style="color:#94a3b8;font-size:15px;margin-right:10px">🔍</span>' +
+            '<input type="text" id="medWlSearch" name="med-search" placeholder="Search for Medicine, Shampoo, Lab Tests..." autocomplete="one-time-code" oninput="medWlSearch()" style="flex:1;border:none;outline:none;font-size:14px;color:#1e293b;background:transparent"/>' +
+            '<button style="background:var(--store-primary,#17a2b8);color:#fff;border:none;padding:10px 28px;border-radius:50px;font-size:14px;font-weight:700;cursor:pointer">Search</button>' +
          '</div>' +
       '</div>';
 
@@ -5590,10 +5588,11 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
 
    // Sidebar — department only
    var catBtns =
-      '<button class="wl-sidebar-cat active" onclick="wlFilterCat(\'all\',this)">📦 All Products</button>' +
+      '<button class="wl-sidebar-cat active" onclick="wlFilterCat(\'all\',this)"><span style="font-size:1.4rem;display:block;margin-bottom:3px">📦</span>All</button>' +
       storeCats.map(function(c) {
          return '<button class="wl-sidebar-cat" onclick="wlFilterCat(\'' + c.catKey + '\',this)">' +
-            getCatIcon(c.catKey) + ' ' + c.title + '</button>';
+            '<span style="font-size:1.4rem;display:block;margin-bottom:3px">' + getCatIcon(c.catKey) + '</span>' +
+            c.title + '</button>';
       }).join('');
 
    var sidebar =
@@ -5602,7 +5601,18 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
             '<div class="wl-sidebar-title">🏷️ Categories</div>' +
             '<div class="wl-sidebar-cats" id="wl-sidebar-cats">' + catBtns + '</div>' +
          '</div>' +
-      '</aside>';
+      '</aside>' +
+      // Mobile category drawer (hidden on desktop, shown on mobile via CSS)
+      '<div id="wlCatDrawerOverlay" onclick="wlCloseCatDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1100"></div>' +
+      '<div id="wlCatDrawer" style="position:fixed;top:0;left:-280px;width:260px;height:100%;background:#fff;z-index:1101;transition:left 0.28s cubic-bezier(.4,0,.2,1);box-shadow:4px 0 24px rgba(0,0,0,0.18);display:flex;flex-direction:column">' +
+         '<div style="padding:18px 16px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between">' +
+            '<span style="font-size:0.75rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em">🏷️ Categories</span>' +
+            '<button onclick="wlCloseCatDrawer()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#64748b;line-height:1">✕</button>' +
+         '</div>' +
+         '<div style="flex:1;overflow-y:auto;padding:10px 10px">' +
+            catBtns.replace(/onclick="wlFilterCat\(/g, 'onclick="wlCloseCatDrawer();wlFilterCat(') +
+         '</div>' +
+      '</div>';
 
    // Product cards
    var cardHtml = allItems.map(function(e) {
@@ -5686,9 +5696,15 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
    var _mainOpen2 = _catH2 ? '<div style="width:100%">' : '<div class="wl-main-layout">';
    // Order: emergency → hero (live counter inside) → ticker → compliance → search → offer cards → sbc → ads → filter → catalog
    var _cardsBlock2 = _offerCards2 + _sbcHtml2 + adsBannerHtml;
+   // Mobile "All Menu" floating button — only rendered when sidebar mode (not horizontal)
+   var _mobileMenuBtn = !_catH2
+      ? '<button class="wl-mobile-menu-btn" onclick="wlOpenCatDrawer()">☰ All Menu</button>'
+      : '';
+
    var _assembled = _emergency2 + heroCard + _ticker2 + _compliance2 + _searchBar + _cardsBlock2 + _horzBar2 + filterBar +
       _mainOpen2 + _sidebarPart +
       '<section class="wl-main-content"' + (_catH2 ? ' style="width:100%"' : '') + '>' +
+         _mobileMenuBtn +
          '<div class="wl-catalog-header">' +
             '<h2 class="wl-catalog-title">Our Catalog</h2>' +
             '<p class="wl-catalog-sub">Tap ADD TO CART to add items directly to your basket</p>' +
@@ -6694,6 +6710,20 @@ function wlScroll(id, dir) {
    if (el) el.scrollLeft += dir * 220;
 }
 
+function wlOpenCatDrawer() {
+   var d = document.getElementById('wlCatDrawer');
+   var o = document.getElementById('wlCatDrawerOverlay');
+   if (d) d.style.left = '0';
+   if (o) o.style.display = 'block';
+   document.body.style.overflow = 'hidden';
+}
+function wlCloseCatDrawer() {
+   var d = document.getElementById('wlCatDrawer');
+   var o = document.getElementById('wlCatDrawerOverlay');
+   if (d) d.style.left = '-280px';
+   if (o) o.style.display = 'none';
+   document.body.style.overflow = '';
+}
 function wlFilterCat(catKey, btn) {
    document.querySelectorAll('.wl-sidebar-cat').forEach(function(b) { b.classList.remove('active'); });
    if (btn) btn.classList.add('active');

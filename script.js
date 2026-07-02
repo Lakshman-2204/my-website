@@ -1,3 +1,4 @@
+var _cartKey = 'mystore_cart'; // overridden to 'wl_cart_<vendorId>' in WL mode
 let cart = (function() {
    try { return JSON.parse(localStorage.getItem('mystore_cart')) || []; } catch(e) { return []; }
 })();
@@ -683,7 +684,7 @@ function closeStorePicker() {
 
 // ── CART UI ──
 function updateCartUI() {
-   try { localStorage.setItem('mystore_cart', JSON.stringify(cart)); } catch(e) {}
+   try { localStorage.setItem(_cartKey, JSON.stringify(cart)); } catch(e) {}
    var totalItems = cart.reduce(function(s, c) { return s + c.qty; }, 0);
    var totalCost  = cart.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
 
@@ -6260,6 +6261,15 @@ async function _activateWhiteLabel(vendor) {
    var navbar = document.getElementById('main-global-navbar');
    if (navbar) navbar.style.display = 'none';
 
+   // Isolate cart: use a vendor-specific localStorage key so WL cart ≠ myStore cart
+   var _wlVendorSlug = (vendor.vendorId || 'wl').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+   _cartKey = 'wl_cart_' + _wlVendorSlug;
+   try {
+      var _wlSavedCart = JSON.parse(localStorage.getItem(_cartKey) || '[]');
+      cart.splice(0, cart.length);
+      _wlSavedCart.forEach(function(i) { cart.push(i); });
+   } catch(e) {}
+
    // SSO: if no session in this tab, try localStorage (same-domain cross-tab) or ?sso= token
    try {
       if (!sessionStorage.getItem('loggedInUser')) {
@@ -6282,6 +6292,30 @@ async function _activateWhiteLabel(vendor) {
          history.replaceState(null, '', _cleanUrl || window.location.pathname);
       }
    } catch(e) {}
+
+   // Login gate: if no session after SSO check, show inline login form instead of store
+   var _wlGateUser = null;
+   try { _wlGateUser = JSON.parse(sessionStorage.getItem('loggedInUser')); } catch(e) {}
+   if (!_wlGateUser) {
+      var _wlLoginTarget = encodeURIComponent(window.location.pathname + window.location.search);
+      var prodSecG = document.getElementById('productsSection');
+      if (prodSecG) prodSecG.classList.remove('hidden');
+      var gridG = document.getElementById('productsGrid');
+      if (gridG) gridG.innerHTML =
+         '<div style="max-width:380px;margin:80px auto;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 8px 40px rgba(0,0,0,0.12);text-align:center">' +
+            '<div style="font-size:2.2rem;margin-bottom:8px">' + vendor.brandEmoji + '</div>' +
+            '<h2 style="font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 4px">' + vendor.brandName + '</h2>' +
+            '<p style="font-size:0.85rem;color:#64748b;margin:0 0 28px">Sign in to shop, track orders and more.</p>' +
+            '<input type="email" id="_wlGateEmail" placeholder="Email address" style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;margin-bottom:10px;outline:none"/>' +
+            '<input type="password" id="_wlGatePass" placeholder="Password" style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;margin-bottom:6px;outline:none"/>' +
+            '<p id="_wlGateErr" style="color:#dc2626;font-size:0.78rem;min-height:18px;margin:0 0 14px;text-align:left"></p>' +
+            '<button onclick="_wlGateLogin()" style="width:100%;padding:12px;background:var(--store-primary,#17a2b8);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer">Sign In</button>' +
+            '<div style="margin-top:16px;font-size:0.8rem;color:#64748b">Don\'t have an account? ' +
+               '<a href="login.html?mode=register&returnUrl=' + _wlLoginTarget + '" style="color:var(--store-primary,#17a2b8);font-weight:600">Register here</a>' +
+            '</div>' +
+         '</div>';
+      return; // stop — store loads after login
+   }
    var heroSec = document.getElementById('heroSection');
    if (heroSec) heroSec.style.display = 'none';
    // Show a minimal loading state so page isn't blank
@@ -6318,10 +6352,11 @@ async function _activateWhiteLabel(vendor) {
       ].join(';');
       var wlUser = null;
       try { wlUser = JSON.parse(sessionStorage.getItem('loggedInUser')); } catch(e) {}
+      var _wlReturnUrl = encodeURIComponent(window.location.pathname + window.location.search);
       var authBtns = wlUser
          ? '<span style="font-size:0.82rem;background:rgba(255,255,255,0.2);padding:6px 12px;border-radius:20px;white-space:nowrap">👤 ' + (wlUser.name || wlUser.email.split('@')[0]) + '</span>'
-         : '<button onclick="window.location=\'login.html\'" style="background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.5);padding:6px 16px;border-radius:20px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">Login</button>' +
-           '<button onclick="window.location=\'login.html?mode=register\'" style="background:#fff;color:var(--store-primary);border:none;padding:6px 16px;border-radius:20px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">Register</button>';
+         : '<button onclick="window.location=\'login.html?returnUrl=' + _wlReturnUrl + '\'" style="background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.5);padding:6px 16px;border-radius:20px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">Login</button>' +
+           '<button onclick="window.location=\'login.html?mode=register&returnUrl=' + _wlReturnUrl + '\'" style="background:#fff;color:var(--store-primary);border:none;padding:6px 16px;border-radius:20px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">Register</button>';
       standaloneNav.innerHTML =
          '<span style="font-size:1rem;font-weight:900;white-space:nowrap;letter-spacing:-0.01em">' + vendor.brandEmoji + ' ' + vendor.brandName + '</span>' +
          '<div style="display:flex;align-items:center;gap:8px">' +
@@ -6712,6 +6747,25 @@ function wlScroll(id, dir) {
    if (el) el.scrollLeft += dir * 220;
 }
 
+async function _wlGateLogin() {
+   var email = (document.getElementById('_wlGateEmail') || {}).value || '';
+   var pass  = (document.getElementById('_wlGatePass')  || {}).value || '';
+   var errEl = document.getElementById('_wlGateErr');
+   if (!email || !pass) { if (errEl) errEl.textContent = 'Email and password are required.'; return; }
+   if (errEl) errEl.textContent = 'Signing in…';
+   try {
+      await initDB();
+      var res = await _sb.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: pass });
+      if (res.error || !res.data || !res.data.user) { if (errEl) errEl.textContent = '❌ Incorrect email or password.'; return; }
+      var user = await AppDB.getUserByEmail(email.trim().toLowerCase());
+      if (!user) { if (errEl) errEl.textContent = '❌ Account not found. Please register first.'; return; }
+      sessionStorage.setItem('loggedInUser', JSON.stringify(user));
+      localStorage.setItem('loggedInUser', JSON.stringify(user));
+      // Reload the WL page — now with session set, store will load
+      window.location.reload();
+   } catch(e) { if (errEl) errEl.textContent = '❌ Login failed. Please try again.'; }
+}
+
 function wlOpenCatDrawer() {
    var d = document.getElementById('wlCatDrawer');
    var o = document.getElementById('wlCatDrawerOverlay');
@@ -7027,6 +7081,10 @@ async function login() {
 
    sessionStorage.setItem('loggedInUser', JSON.stringify(user));
    localStorage.setItem('loggedInUser', JSON.stringify(user));   // persist across tabs
+
+   // If came from a WL page, return there
+   var _returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+   if (_returnUrl) { window.location.href = decodeURIComponent(_returnUrl); return; }
 
    // Admin → home.html (can access all pages via dropdown)
    if (isAdmin(user.email)) { window.location.href = 'home.html'; return; }

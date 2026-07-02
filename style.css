@@ -8674,19 +8674,23 @@ body.profile-page { background: #e8edf5; }
 
 /* ── WL Hero + Carousel mobile ── */
 @media (max-width: 768px) {
-   .wl-hero-section { padding: 24px 20px 20px !important; }
-   .wl-hero-section h2 { font-size: 1.45rem !important; }
-   .wl-offer-carousel { padding-left: 16px !important; padding-right: 16px !important; }
-   .wl-offer-carousel-wrap { padding-top: 16px !important; }
-   .wl-offer-carousel > div { min-width: 280px !important; max-width: 280px !important; }
-   /* Search bar side padding */
-   [style*="padding:22px 48px"] { padding-left: 16px !important; padding-right: 16px !important; }
-   [style*="padding:0 48px"] { padding-left: 16px !important; padding-right: 16px !important; }
+   .wl-hero-section { padding: 20px 16px 18px !important; }
+   .wl-hero-section h2 { font-size: 1.35rem !important; }
+   /* Hero action buttons — keep inline, don't stretch full width */
+   .wl-hero-actions { gap: 8px !important; }
+   .wl-hero-actions button, .wl-hero-actions a { font-size: 0.78rem !important; padding: 8px 14px !important; width: auto !important; }
+   /* Carousel */
+   .wl-offer-carousel { padding-left: 12px !important; padding-right: 12px !important; }
+   .wl-offer-carousel-wrap { padding-top: 12px !important; }
+   .wl-offer-carousel > div { min-width: 260px !important; max-width: 260px !important; }
+   /* Search+back row: stack vertically */
+   .wl-search-row { flex-direction: column !important; align-items: stretch !important; padding: 14px 16px 10px !important; }
+   .wl-search-row .store-hero-outline-btn { align-self: flex-start; }
 }
 @media (max-width: 480px) {
-   .wl-hero-section { padding: 18px 14px 16px !important; }
-   .wl-hero-section h2 { font-size: 1.2rem !important; }
-   .wl-offer-carousel > div { min-width: 230px !important; max-width: 230px !important; height: 160px !important; }
+   .wl-hero-section { padding: 16px 12px 14px !important; }
+   .wl-hero-section h2 { font-size: 1.15rem !important; }
+   .wl-offer-carousel > div { min-width: 220px !important; max-width: 220px !important; height: 160px !important; }
    .wl-prod-grid { grid-template-columns: 1fr 1fr !important; }
 }
 

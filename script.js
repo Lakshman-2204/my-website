@@ -1726,7 +1726,8 @@ async function loadAptCategories(force) {
             desc: r.description || '',
             staffLabel: r.staff_label || 'Staff',
             staffIcon:  r.staff_icon  || '👥',
-            sortOrder:  r.sort_order || 100
+            sortOrder:  r.sort_order || 100,
+            themeColor: r.theme_color || ''
          };
       });
       APT_CAT_META = next;
@@ -1744,6 +1745,38 @@ function _staffLabelForCategories(categories) {
       if (meta && meta.staffLabel) return { label: meta.staffLabel, icon: meta.staffIcon || '👥' };
    }
    return { label: 'Staff', icon: '👥' };
+}
+// ── COLOR UTILITIES ────────────────────────────────────────────────────────
+function _hexToHsl(hex) {
+   var r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+   var max = Math.max(r,g,b), min = Math.min(r,g,b), h, s, l = (max+min)/2;
+   if (max === min) { h = s = 0; } else {
+      var d = max - min; s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+      switch(max) { case r: h=(g-b)/d+(g<b?6:0); break; case g: h=(b-r)/d+2; break; case b: h=(r-g)/d+4; break; }
+      h /= 6;
+   }
+   return [Math.round(h*360), Math.round(s*100), Math.round(l*100)];
+}
+function _hslToHex(h, s, l) {
+   s /= 100; l /= 100;
+   var c = (1 - Math.abs(2*l-1)) * s, x = c*(1-Math.abs((h/60)%2-1)), m = l - c/2, r=0, g=0, b=0;
+   if(h<60){r=c;g=x;}else if(h<120){r=x;g=c;}else if(h<180){g=c;b=x;}else if(h<240){g=x;b=c;}else if(h<300){r=x;b=c;}else{r=c;b=x;}
+   var toHex = function(n){ return Math.round((n+m)*255).toString(16).padStart(2,'0'); };
+   return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+function _generateShades(baseHex) {
+   if (!baseHex || !baseHex.startsWith('#')) return [];
+   var hsl = _hexToHsl(baseHex);
+   var h = hsl[0], s = Math.min(hsl[1], 80);
+   return [
+      { label: 'Lightest',    l: 92, hex: _hslToHex(h, Math.max(s-20,15), 92) },
+      { label: 'Light',       l: 80, hex: _hslToHex(h, Math.max(s-10,20), 80) },
+      { label: 'Soft',        l: 65, hex: _hslToHex(h, s, 65) },
+      { label: 'Base',        l: 50, hex: _hslToHex(h, s, 50) },
+      { label: 'Medium',      l: 40, hex: _hslToHex(h, Math.min(s+5,90), 40) },
+      { label: 'Deep',        l: 30, hex: _hslToHex(h, Math.min(s+10,90), 30) },
+      { label: 'Dark',        l: 20, hex: _hslToHex(h, Math.min(s+15,90), 20) },
+   ];
 }
 const APT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -1910,6 +1943,9 @@ function showAptCategory(catKey) {
    window._aptCurrentView = { view: 'providers', catKey: catKey };
    var meta = APT_CAT_META[catKey];
    if (!meta) return;
+   var aptContent = document.getElementById('aptContent');
+   if (aptContent && meta.themeColor) aptContent.style.setProperty('--store-primary', meta.themeColor);
+   else if (aptContent) aptContent.style.removeProperty('--store-primary');
    var providers = _aptProvidersByCat(catKey);
    document.getElementById('aptSectionTitle').textContent = meta.icon + ' ' + meta.label;
    var html = '<button class="apt-back-btn" onclick="showBookAppointment()">‹ All Categories</button>';
@@ -1954,6 +1990,10 @@ function showAptProvider(catKey, providerId) {
    var provider = _aptGetProvider(providerId);
    if (!provider) return;
    var icon = provider.icon || (meta && meta.icon) || '🏥';
+   var _provColor = provider.shade_color || (meta && meta.themeColor) || '';
+   var aptContent = document.getElementById('aptContent');
+   if (aptContent && _provColor) aptContent.style.setProperty('--store-primary', _provColor);
+   else if (aptContent) aptContent.style.removeProperty('--store-primary');
    document.getElementById('aptSectionTitle').textContent = icon + ' ' + provider.name;
    var html = '<button class="apt-back-btn" onclick="showAptCategory(\'' + catKey + '\')">‹ ' + (meta ? meta.label : 'Back') + '</button>' +
               '<div class="apt-provider-info-bar">' +
@@ -2788,7 +2828,8 @@ async function renderAptAdmin() {
       var icon = p.icon || meta.icon;
       var docCount = (p.doctors || []).length;
       var pid = p.id.replace(/'/g, "\\'");
-      html += '<div class="apt-provider-card">' +
+      var _cardColor = p.shade_color || (APT_CAT_META[p.category] && APT_CAT_META[p.category].themeColor) || '';
+      html += '<div class="apt-provider-card"' + (_cardColor ? ' style="--store-primary:' + _cardColor + '"' : '') + '>' +
                 '<div class="apt-provider-body">' +
                   '<div class="apt-provider-top">' +
                      '<div class="apt-provider-icon-box">' + icon + '</div>' +
@@ -2804,6 +2845,7 @@ async function renderAptAdmin() {
                 '<div class="apt-provider-footer">' +
                    '<span>' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + '</span>' +
                    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                      '<button class="apt-view-btn" style="background:' + (p.shade_color || meta.themeColor || '#7c3aed') + ';color:#fff" onclick="openProviderShadeModal(\'' + p.id + '\')">🎨 Color</button>' +
                       '<button class="apt-view-btn" onclick="openAptProviderModal(\'' + pid + '\')">✏️ Edit</button>' +
                       '<button class="apt-view-btn" style="background:#c62828" onclick="deleteAptProvider(\'' + pid + '\')">🗑 Delete</button>' +
                    '</div>' +
@@ -2941,6 +2983,79 @@ async function saveAptProvider() {
    if (!ok) { alert('Failed to save. Check console.'); return; }
    closeAptProviderModal();
    await renderAptAdmin();
+}
+
+function openProviderShadeModal(providerId) {
+   var p = (_aptProvidersCache || []).find(function(x) { return x.id === providerId; });
+   if (!p) return;
+   var cat = APT_CAT_META[p.category] || {};
+   var baseColor = cat.themeColor || '#1a73e8';
+   var shades = _generateShades(baseColor);
+   var current = p.shade_color || baseColor;
+   var existing = document.getElementById('_provShadeModal');
+   if (existing) existing.remove();
+
+   var shadesHtml = shades.map(function(s) {
+      var sel = s.hex.toLowerCase() === current.toLowerCase() ? 'outline:3px solid #0f172a;outline-offset:2px;' : '';
+      return '<div onclick="_provShadePick(\'' + s.hex + '\')" title="' + s.label + '" style="flex:1;min-width:48px;height:48px;border-radius:10px;background:' + s.hex + ';cursor:pointer;' + sel + 'border:2px solid rgba(255,255,255,0.5);box-shadow:0 2px 6px rgba(0,0,0,0.15);display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px">' +
+             '<span style="font-size:0.55rem;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.5);font-weight:700">' + s.label + '</span>' +
+             '</div>';
+   }).join('');
+
+   var m = document.createElement('div');
+   m.id = '_provShadeModal';
+   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+   m.innerHTML =
+      '<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.28);overflow:hidden">' +
+         '<div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between">' +
+            '<div>' +
+               '<div style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em">Provider Color</div>' +
+               '<div style="font-size:1rem;font-weight:800;color:#0f172a;margin-top:2px">' + p.name + '</div>' +
+               (cat.themeColor ? '<div style="font-size:0.75rem;color:#64748b;margin-top:3px">Shades of <span style="color:' + baseColor + ';font-weight:700">' + (cat.label || p.category) + '</span> theme</div>' : '') +
+            '</div>' +
+            '<button onclick="document.getElementById(\'_provShadeModal\').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;line-height:1">×</button>' +
+         '</div>' +
+         '<div style="padding:20px">' +
+            '<div style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">' +
+               (cat.themeColor ? 'Monochromatic Shades' : 'Choose Color (set a category theme first for restricted shades)') +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">' + shadesHtml + '</div>' +
+            '<div style="display:flex;align-items:center;gap:10px">' +
+               '<input type="color" id="_provShadeColorPicker" value="' + current + '" style="width:48px;height:40px;border:none;border-radius:8px;cursor:pointer;padding:2px" oninput="_provShadePick(this.value)">' +
+               '<div id="_provShadePreview" style="flex:1;height:40px;border-radius:8px;background:' + current + ';transition:background 0.2s;display:flex;align-items:center;justify-content:center">' +
+                  '<span id="_provShadePreviewHex" style="color:#fff;font-size:0.82rem;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,0.4)">' + current + '</span>' +
+               '</div>' +
+            '</div>' +
+         '</div>' +
+         '<div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;gap:8px;justify-content:flex-end">' +
+            '<button onclick="document.getElementById(\'_provShadeModal\').remove()" style="padding:9px 20px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer">Cancel</button>' +
+            '<button onclick="saveProviderShade(\'' + providerId + '\')" style="padding:9px 22px;background:' + current + ';color:#fff;border:none;border-radius:8px;font-size:0.88rem;font-weight:700;cursor:pointer" id="_provShadeSaveBtn">💾 Save Color</button>' +
+         '</div>' +
+      '</div>';
+   document.body.appendChild(m);
+}
+
+function _provShadePick(hex) {
+   var picker = document.getElementById('_provShadeColorPicker');
+   var preview = document.getElementById('_provShadePreview');
+   var hexLabel = document.getElementById('_provShadePreviewHex');
+   var saveBtn = document.getElementById('_provShadeSaveBtn');
+   if (picker) picker.value = hex;
+   if (preview) preview.style.background = hex;
+   if (hexLabel) hexLabel.textContent = hex;
+   if (saveBtn) saveBtn.style.background = hex;
+}
+
+async function saveProviderShade(providerId) {
+   var p = (_aptProvidersCache || []).find(function(x) { return x.id === providerId; });
+   if (!p) return;
+   var color = (document.getElementById('_provShadeColorPicker') || {}).value || '';
+   p.shade_color = color;
+   var ok = await AppDB.upsertProvider(p);
+   if (!ok) { alert('Failed to save color.'); return; }
+   document.getElementById('_provShadeModal').remove();
+   await loadAptProviders(true);
+   renderAptAdmin();
 }
 
 async function deleteAptProvider(providerId) {
@@ -3614,15 +3729,16 @@ async function renderAptCategoriesAdmin() {
                      '<div class="apt-provider-icon-box">' + c.icon + '</div>' +
                      '<div style="flex:1;min-width:0">' +
                         '<div class="apt-provider-badges"><span class="apt-prov-cat-badge">' + (c.staffIcon || '') + ' Staff: ' + (c.staffLabel || '') + '</span></div>' +
-                        '<div class="apt-prov-name">' + c.label + '</div>' +
+                        '<div class="apt-prov-name" style="display:flex;align-items:center;gap:6px">' + c.label + (c.themeColor ? '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + c.themeColor + ';border:1px solid rgba(0,0,0,0.15);flex-shrink:0"></span>' : '') + '</div>' +
                         '<div style="font-size:0.8rem;color:#64748b;margin-top:2px">' + (c.desc || '') + '</div>' +
-                        '<div style="font-size:0.72rem;font-family:ui-monospace,monospace;color:#94a3b8;margin-top:4px">ID: ' + k + '</div>' +
+                        '<div style="font-size:0.72rem;font-family:ui-monospace,monospace;color:#94a3b8;margin-top:4px">ID: ' + k + (c.themeColor ? ' · <span style="color:' + c.themeColor + ';font-weight:700">' + c.themeColor + '</span>' : '') + '</div>' +
                      '</div>' +
                   '</div>' +
                 '</div>' +
                 '<div class="apt-provider-footer">' +
                    '<span>' + providerCount + ' provider' + (providerCount === 1 ? '' : 's') + '</span>' +
                    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                      '<button class="apt-view-btn" style="background:#7c3aed;color:#fff" onclick="openAptCategoryTheme(\'' + kid + '\')">🎨 Theme</button>' +
                       '<button class="apt-view-btn" onclick="openAptCategoryModal(\'' + kid + '\')">✏️ Edit</button>' +
                       '<button class="apt-view-btn" style="background:#c62828" onclick="deleteAptCategory(\'' + kid + '\')">🗑 Delete</button>' +
                    '</div>' +
@@ -3672,6 +3788,90 @@ async function saveAptCategory() {
    if (!ok) { alert('Failed to save category.'); return; }
    closeAptCategoryModal();
    await renderAptCategoriesAdmin();
+}
+
+var _PRESET_COLORS = [
+   { name: 'Ocean Blue',   hex: '#1a73e8' },
+   { name: 'Teal',         hex: '#0d9488' },
+   { name: 'Sky',          hex: '#0ea5e9' },
+   { name: 'Emerald',      hex: '#059669' },
+   { name: 'Violet',       hex: '#7c3aed' },
+   { name: 'Rose',         hex: '#e11d48' },
+   { name: 'Pink',         hex: '#db2777' },
+   { name: 'Amber',        hex: '#d97706' },
+   { name: 'Orange',       hex: '#ea580c' },
+   { name: 'Slate',        hex: '#475569' },
+];
+
+function openAptCategoryTheme(catId) {
+   var c = APT_CAT_META[catId];
+   if (!c) return;
+   var existing = document.getElementById('_aptCatThemeModal');
+   if (existing) existing.remove();
+   var current = c.themeColor || '#1a73e8';
+   var presetHtml = _PRESET_COLORS.map(function(p) {
+      var sel = p.hex === current ? 'outline:3px solid #0f172a;outline-offset:2px;' : '';
+      return '<div onclick="_aptCatThemePickPreset(\'' + p.hex + '\')" title="' + p.name + '" style="width:32px;height:32px;border-radius:50%;background:' + p.hex + ';cursor:pointer;flex-shrink:0;' + sel + 'border:2px solid rgba(255,255,255,0.8);box-shadow:0 2px 6px rgba(0,0,0,0.15)"></div>';
+   }).join('');
+   var m = document.createElement('div');
+   m.id = '_aptCatThemeModal';
+   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+   m.innerHTML =
+      '<div style="background:#fff;border-radius:16px;padding:0;max-width:420px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.28);overflow:hidden">' +
+         '<div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between">' +
+            '<div>' +
+               '<div style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em">Theme Color</div>' +
+               '<div style="font-size:1rem;font-weight:800;color:#0f172a;margin-top:2px">' + c.icon + ' ' + c.label + '</div>' +
+            '</div>' +
+            '<button onclick="document.getElementById(\'_aptCatThemeModal\').remove()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;line-height:1">×</button>' +
+         '</div>' +
+         '<div style="padding:20px">' +
+            '<div style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">Preset Colors</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px">' + presetHtml + '</div>' +
+            '<div style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Custom Color</div>' +
+            '<div style="display:flex;align-items:center;gap:10px">' +
+               '<input type="color" id="_aptCatThemeColorPicker" value="' + current + '" style="width:48px;height:40px;border:none;border-radius:8px;cursor:pointer;padding:2px" oninput="_aptCatThemePickPreset(this.value)">' +
+               '<div id="_aptCatThemePreview" style="flex:1;height:40px;border-radius:8px;background:' + current + ';transition:background 0.2s;display:flex;align-items:center;justify-content:center">' +
+                  '<span id="_aptCatThemePreviewHex" style="color:#fff;font-size:0.82rem;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,0.4)">' + current + '</span>' +
+               '</div>' +
+            '</div>' +
+         '</div>' +
+         '<div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;gap:8px;justify-content:flex-end">' +
+            '<button onclick="document.getElementById(\'_aptCatThemeModal\').remove()" style="padding:9px 20px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer">Cancel</button>' +
+            '<button onclick="saveAptCategoryTheme(\'' + catId + '\')" style="padding:9px 22px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:0.88rem;font-weight:700;cursor:pointer">💾 Save Theme</button>' +
+         '</div>' +
+      '</div>';
+   document.body.appendChild(m);
+}
+
+function _aptCatThemePickPreset(hex) {
+   var picker = document.getElementById('_aptCatThemeColorPicker');
+   var preview = document.getElementById('_aptCatThemePreview');
+   var hexLabel = document.getElementById('_aptCatThemePreviewHex');
+   if (picker) picker.value = hex;
+   if (preview) preview.style.background = hex;
+   if (hexLabel) hexLabel.textContent = hex;
+}
+
+async function saveAptCategoryTheme(catId) {
+   var c = APT_CAT_META[catId];
+   if (!c) return;
+   var color = (document.getElementById('_aptCatThemeColorPicker') || {}).value || '';
+   var cat = {
+      id:          catId,
+      label:       c.label,
+      description: c.desc || '',
+      icon:        c.icon || '🏥',
+      staff_label: c.staffLabel || 'Staff',
+      staff_icon:  c.staffIcon  || '👥',
+      sort_order:  c.sortOrder  || 100,
+      theme_color: color
+   };
+   var ok = await AppDB.upsertCategory(cat);
+   if (!ok) { alert('Failed to save theme.'); return; }
+   document.getElementById('_aptCatThemeModal').remove();
+   await loadAptCategories(true);
+   renderAptCategoriesAdmin();
 }
 
 async function deleteAptCategory(id) {

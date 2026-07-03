@@ -43,6 +43,13 @@
          font-weight: 900 !important; letter-spacing: 0.12em !important;
          padding: 14px 18px 4px !important;
       }
+      :root {
+         --bp-primary:       #0891b2;
+         --bp-secondary:     #4f46e5;
+         --bp-header-bg:     linear-gradient(135deg, #0891b2 0%, #4f46e5 100%);
+         --bp-nav-active-bg: linear-gradient(135deg, #0891b2, #4f46e5);
+         --bp-sidebar-bg:    linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+      }
       .shop-side-item {
          color: #94a3b8 !important;
          border-radius: 10px !important;
@@ -54,7 +61,7 @@
          text-align: left !important;
       }
       .shop-side-item:hover { background: rgba(255,255,255,0.08) !important; color: #f1f5f9 !important; }
-      .shop-side-item.active { background: linear-gradient(135deg, #0891b2, #4f46e5) !important; color: #fff !important; box-shadow: 0 4px 12px rgba(8,145,178,0.3) !important; }
+      .shop-side-item.active { background: var(--bp-nav-active-bg, linear-gradient(135deg, #0891b2, #4f46e5)) !important; color: #fff !important; box-shadow: 0 4px 12px color-mix(in srgb, var(--bp-primary, #0891b2) 30%, transparent) !important; }
       .shop-side-item-cta { background: rgba(245,158,11,0.15) !important; color: #fbbf24 !important; border: 1px solid rgba(245,158,11,0.2) !important; }
       .shop-side-item-cta:hover { background: rgba(245,158,11,0.25) !important; color: #fbbf24 !important; }
       .shop-side-item-foot { color: #475569 !important; }
@@ -66,15 +73,16 @@
       }
       .shop-side-subitem:hover { background: rgba(255,255,255,0.06) !important; color: #94a3b8 !important; }
       .shop-side-subitem.active { color: #22d3ee !important; background: rgba(34,211,238,0.08) !important; }
+      .shop-side-nav { background: var(--bp-sidebar-bg, linear-gradient(180deg, #0f172a 0%, #1e293b 100%)) !important; }
       .ssi-icon { font-size: 1rem !important; margin-right: 8px !important; }
       .ssi-chev { margin-left: auto !important; font-size: 0.75rem !important; opacity: 0.5; }
 
       /* ── Topbar redesign ── */
       .shop-topbar {
-         background: linear-gradient(135deg, #0891b2 0%, #4f46e5 100%) !important;
+         background: var(--bp-header-bg, linear-gradient(135deg, #0891b2 0%, #4f46e5 100%)) !important;
          border-bottom: none !important;
          padding: 14px 24px !important;
-         box-shadow: 0 2px 12px rgba(8,145,178,0.2) !important;
+         box-shadow: 0 2px 12px color-mix(in srgb, var(--bp-primary, #0891b2) 20%, transparent) !important;
       }
       .shop-topbar-title { color: #fff !important; font-size: 1.05rem !important; font-weight: 800 !important; }
       .shop-topbar-sub { color: rgba(255,255,255,0.65) !important; }

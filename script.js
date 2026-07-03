@@ -7867,6 +7867,64 @@ function deleteUser(email) {
    renderUserList(_currentUserFilter);
 }
 
+// ── BP Theme UI state ────────────────────────────────────────────────────
+var _udmThemeState = { isPartner: false, themeType: 'dual', primaryColor: '#0891b2', secondaryColor: '#4f46e5', darkMode: true };
+
+function _udmTogglePartner() {
+   _udmThemeState.isPartner = !_udmThemeState.isPartner;
+   var tog = document.getElementById('udm-partner-toggle');
+   var knob = document.getElementById('udm-partner-knob');
+   if (tog)  tog.style.background = _udmThemeState.isPartner ? '#06b6d4' : '#cbd5e1';
+   if (knob) knob.style.transform = _udmThemeState.isPartner ? 'translateX(20px)' : 'translateX(0)';
+}
+function _udmSetThemeType(type) {
+   _udmThemeState.themeType = type;
+   var single = document.getElementById('udm-type-single');
+   var dual   = document.getElementById('udm-type-dual');
+   var sec    = document.getElementById('udm-secondary-wrap');
+   if (single) { single.style.borderColor = type === 'single' ? '#0f172a' : '#e2e8f0'; single.style.color = type === 'single' ? '#0f172a' : '#475569'; }
+   if (dual)   { dual.style.borderColor   = type === 'dual'   ? '#0f172a' : '#e2e8f0'; dual.style.color   = type === 'dual'   ? '#0f172a' : '#475569'; }
+   if (sec)    sec.style.opacity = type === 'dual' ? '1' : '0.35';
+   _udmUpdateThemePreview();
+}
+function _udmColorInput(which, hex) {
+   if (which === 'primary')   { _udmThemeState.primaryColor   = hex; var p = document.getElementById('udm-primary-preview');   var h = document.getElementById('udm-primary-hex');   if (p) p.style.background = hex; if (h) h.textContent = hex; }
+   if (which === 'secondary') { _udmThemeState.secondaryColor = hex; var p = document.getElementById('udm-secondary-preview'); var h = document.getElementById('udm-secondary-hex'); if (p) p.style.background = hex; if (h) h.textContent = hex; }
+   _udmUpdateThemePreview();
+}
+function _udmToggleDark() {
+   _udmThemeState.darkMode = !_udmThemeState.darkMode;
+   var tog  = document.getElementById('udm-dark-toggle');
+   var knob = document.getElementById('udm-dark-knob');
+   if (tog)  tog.style.background = _udmThemeState.darkMode ? '#06b6d4' : '#cbd5e1';
+   if (knob) knob.style.transform = _udmThemeState.darkMode ? 'translateX(0)' : 'translateX(-20px)';
+}
+function _udmUpdateThemePreview() {
+   var bar = document.getElementById('udm-theme-preview-bar');
+   if (!bar) return;
+   var p = _udmThemeState.primaryColor || '#0891b2';
+   var s = _udmThemeState.secondaryColor || '#4f46e5';
+   bar.style.background = _udmThemeState.themeType === 'dual'
+      ? 'linear-gradient(135deg,' + p + ' 0%,' + s + ' 100%)'
+      : p;
+}
+async function savePartnerTheme() {
+   var email = (document.getElementById('udm-email-val') || {}).value || '';
+   if (!email) return;
+   var users = getUsers();
+   var u = users.find(function(x) { return x.email === email; });
+   if (!u) return;
+   u.isPartner     = _udmThemeState.isPartner;
+   u.themeType     = _udmThemeState.themeType;
+   u.primaryColor  = _udmThemeState.primaryColor;
+   u.secondaryColor= _udmThemeState.secondaryColor;
+   u.darkMode      = _udmThemeState.darkMode;
+   var ok = await AppDB.upsertUser(u);
+   if (!ok) { alert('Failed to save theme.'); return; }
+   var btn = document.querySelector('#udm-panel-theme button[onclick="savePartnerTheme()"]');
+   if (btn) { var orig = btn.textContent; btn.textContent = '✅ Saved!'; setTimeout(function() { btn.textContent = orig; }, 1800); }
+}
+
 function showUserDetail(email) {
    var users = getUsers();
    var u = users.find(function(x) { return x.email === email; });
@@ -7958,12 +8016,35 @@ function showUserDetail(email) {
    }
 
    document.getElementById('udm-email-val').value = email;
+   // Populate theme panel
+   _udmThemeState = {
+      isPartner:     u.isPartner     || false,
+      themeType:     u.themeType     || 'dual',
+      primaryColor:  u.primaryColor  || '#0891b2',
+      secondaryColor:u.secondaryColor|| '#4f46e5',
+      darkMode:      u.darkMode !== false
+   };
+   var partnerTog  = document.getElementById('udm-partner-toggle');
+   var partnerKnob = document.getElementById('udm-partner-knob');
+   var darkTog     = document.getElementById('udm-dark-toggle');
+   var darkKnob    = document.getElementById('udm-dark-knob');
+   var priPick     = document.getElementById('udm-primary-color');
+   var secPick     = document.getElementById('udm-secondary-color');
+   if (partnerTog)  partnerTog.style.background  = _udmThemeState.isPartner ? '#06b6d4' : '#cbd5e1';
+   if (partnerKnob) partnerKnob.style.transform  = _udmThemeState.isPartner ? 'translateX(20px)' : 'translateX(0)';
+   if (darkTog)     darkTog.style.background     = _udmThemeState.darkMode  ? '#06b6d4' : '#cbd5e1';
+   if (darkKnob)    darkKnob.style.transform     = _udmThemeState.darkMode  ? 'translateX(0)' : 'translateX(-20px)';
+   if (priPick)     priPick.value  = _udmThemeState.primaryColor;
+   if (secPick)     secPick.value  = _udmThemeState.secondaryColor;
+   _udmColorInput('primary',   _udmThemeState.primaryColor);
+   _udmColorInput('secondary', _udmThemeState.secondaryColor);
+   _udmSetThemeType(_udmThemeState.themeType);
    switchUdmTab('profile');
    document.getElementById('userDetailModal').classList.remove('hidden');
 }
 
 function switchUdmTab(tab) {
-   ['profile', 'orders'].forEach(function(t) {
+   ['profile', 'orders', 'theme'].forEach(function(t) {
       var panel = document.getElementById('udm-panel-' + t);
       var btn   = document.getElementById('udm-tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== tab);
@@ -8323,6 +8404,26 @@ document.addEventListener('click', function () {
    if (dd) dd.classList.remove('open');
 });
 
+function _applyBPTheme(user) {
+   var primary   = (user && user.primaryColor)   || '#0891b2';
+   var secondary = (user && user.secondaryColor) || '#4f46e5';
+   var isDual    = !user || user.themeType !== 'single';
+   var isDark    = !user || user.darkMode !== false;
+   var root      = document.documentElement;
+   var sec       = isDual ? secondary : primary;
+   root.style.setProperty('--bp-primary',        primary);
+   root.style.setProperty('--bp-secondary',      sec);
+   root.style.setProperty('--bp-header-bg',      isDual
+      ? 'linear-gradient(135deg,' + primary + ' 0%,' + sec + ' 100%)'
+      : primary);
+   root.style.setProperty('--bp-nav-active-bg',  isDual
+      ? 'linear-gradient(135deg,' + primary + ',' + sec + ')'
+      : primary);
+   root.style.setProperty('--bp-sidebar-bg',     isDark
+      ? 'linear-gradient(180deg,#0f172a 0%,#1e293b 100%)'
+      : (isDual ? 'linear-gradient(180deg,' + primary + ' 0%,' + sec + ' 100%)' : primary));
+}
+
 async function checkShopOwnerLogin() {
    await initDB();
    await _checkMaintenanceMode();
@@ -8347,6 +8448,12 @@ async function checkShopOwnerLogin() {
       window.location.replace('home.html');
       return;
    }
+   _applyBPTheme(user);
+   // Re-fetch fresh user record so theme changes by admin reflect without re-login
+   AppDB.getUsers().then(function(all) {
+      var fresh = (all || []).find(function(u) { return u.email === user.email; });
+      if (fresh) { _applyBPTheme(fresh); sessionStorage.setItem('loggedInUser', JSON.stringify(fresh)); }
+   });
    var nameEl = document.getElementById('shopOwnerName');
    if (nameEl) nameEl.textContent = user.name;
    var storeBtn = document.getElementById('shopViewStoreBtn');

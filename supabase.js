@@ -22,7 +22,12 @@ function _userFromDB(r) {
             block_appeal_reason: r.block_appeal_reason || '',
             block_appeal_at:     r.block_appeal_at     || null,
             block_appeal_status: r.block_appeal_status || '',
-            appeal_approved_at:  r.appeal_approved_at  || null };
+            appeal_approved_at:  r.appeal_approved_at  || null,
+            isPartner:     r.is_partner     || false,
+            themeType:     r.theme_type     || 'dual',
+            primaryColor:  r.primary_color  || '',
+            secondaryColor:r.secondary_color|| '',
+            darkMode:      r.dark_mode !== false };
 }
 function _userToDB(u) {
    const row = { name: u.name, email: (u.email || '').toLowerCase(),
@@ -38,6 +43,11 @@ function _userToDB(u) {
    if (u.commissionRate === null || typeof u.commissionRate === 'number') {
       row.commission_rate = u.commissionRate;
    }
+   if (typeof u.isPartner === 'boolean')  row.is_partner      = u.isPartner;
+   if (u.themeType)                        row.theme_type      = u.themeType;
+   if (u.primaryColor  !== undefined)      row.primary_color   = u.primaryColor  || null;
+   if (u.secondaryColor !== undefined)     row.secondary_color = u.secondaryColor || null;
+   if (typeof u.darkMode === 'boolean')    row.dark_mode       = u.darkMode;
    return row;
 }
 function _orderFromDB(r) {

@@ -1320,7 +1320,8 @@ window.AppDB = {
          commission_value:   (provider.commission_value != null) ? Number(provider.commission_value) : 0,
          free_followup_days:  (provider.free_followup_days  != null) ? Math.max(0, parseInt(provider.free_followup_days,  10) || 0) : 0,
          free_followup_count: (provider.free_followup_count != null) ? Math.max(1, parseInt(provider.free_followup_count, 10) || 1) : 1,
-         doctors:            provider.doctors     || []
+         doctors:            provider.doctors     || [],
+         shade_color:        provider.shade_color || null
       };
       const { error } = await _sb.from('apt_providers').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertProvider:', error.message); return false; }
@@ -1430,7 +1431,8 @@ window.AppDB = {
          icon:        cat.icon        || '🏥',
          staff_label: cat.staff_label || 'Staff',
          staff_icon:  cat.staff_icon  || '👥',
-         sort_order:  typeof cat.sort_order === 'number' ? cat.sort_order : 100
+         sort_order:  typeof cat.sort_order === 'number' ? cat.sort_order : 100,
+         theme_color: cat.theme_color || null
       };
       const { error } = await _sb.from('apt_categories').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertCategory:', error.message); return false; }

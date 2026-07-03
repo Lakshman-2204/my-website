@@ -11080,7 +11080,9 @@ async function renderShopDoctors() {
                ? '<img class="apt-doc-photo" src="' + d.photo.replace(/"/g,'&quot;') + '" alt="' + d.name + '" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'apt-doc-photo apt-doc-photo-fallback\',textContent:\'' + initials + '\'}))"/>'
                : '<div class="apt-doc-photo apt-doc-photo-fallback">' + initials + '</div>';
             html += '<div class="apt-doc-card">' +
-                      photoBlock +
+                      '<div class="apt-doc-header">' +
+                         '<div class="apt-doc-photo-wrap">' + photoBlock + '</div>' +
+                      '</div>' +
                       '<div class="apt-doc-body">' +
                          '<div class="apt-doc-name">' + d.name + '</div>' +
                          '<div class="apt-doc-qual">' + (d.qual || '') + '</div>' +
@@ -11088,13 +11090,16 @@ async function renderShopDoctors() {
                          modeBadge +
                          '<div class="apt-doc-days">📅 ' + daysSummary + '</div>' +
                          _doctorVacationBanner(d) +
-                         '<div class="apt-doc-footer">' +
+                      '</div>' +
+                      '<div class="apt-doc-footer">' +
+                         '<div>' +
+                            '<div class="apt-doc-fee-label">Fee</div>' +
                             '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
-                            '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' +
-                               '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem;background:#ef6c00" onclick="openDoctorDayCancel(\'' + pid + '\',\'' + did + '\')" title="Cancel all bookings for a day (emergency)">🚨 Day Off</button>' +
-                               '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️ Edit</button>' +
-                               '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem;background:#c62828" onclick="deleteAptDoctor(\'' + pid + '\',\'' + did + '\')">🗑</button>' +
-                            '</div>' +
+                         '</div>' +
+                         '<div style="display:flex;gap:4px;align-items:center">' +
+                            '<button class="apt-view-btn" style="padding:5px 8px;font-size:0.8rem;background:#ef6c00" onclick="openDoctorDayCancel(\'' + pid + '\',\'' + did + '\')" title="Day Off — cancel all bookings for a day">🚨</button>' +
+                            '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️ Edit</button>' +
+                            '<button class="apt-view-btn" style="padding:5px 8px;font-size:0.8rem;background:#c62828" onclick="deleteAptDoctor(\'' + pid + '\',\'' + did + '\')">🗑</button>' +
                          '</div>' +
                       '</div>' +
                    '</div>';
@@ -11577,6 +11582,7 @@ async function renderBillsRegister() {
                if (m) timeStr = m[1];
             }
          } catch(e) {}
+         var oid = (o.orderId || o.order_id || '').replace(/'/g, "\\'");
          var billNo = o.bill_number
             ? '<span style="font-family:monospace;font-weight:800;color:#0f172a">' + o.bill_number + '</span>'
             : '<span style="color:#94a3b8;font-size:0.75rem">—</span>';
@@ -11584,7 +11590,7 @@ async function renderBillsRegister() {
          var items = (o.items || []).length;
          var amt = o.total || o.amount || 0;
          var bg = (idx % 2 === 0) ? '#fff' : '#f8fafc';
-         return '<tr style="background:' + bg + (isDone ? '' : '') + '">' +
+         return '<tr style="background:' + bg + '">' +
             '<td style="padding:10px 12px;text-align:center;font-size:1rem">' + tick + '</td>' +
             '<td style="padding:10px 12px">' + billNo + '</td>' +
             '<td style="padding:10px 12px;font-size:0.78rem;color:#64748b">' + (timeStr || '—') + '</td>' +
@@ -11593,6 +11599,7 @@ async function renderBillsRegister() {
             '<td style="padding:10px 12px;font-size:0.78rem;color:#64748b;text-align:center">' + items + ' item' + (items !== 1 ? 's' : '') + '</td>' +
             '<td style="padding:10px 12px;font-weight:700;color:#0f172a;text-align:right">' + fmt(amt) + '</td>' +
             '<td style="padding:10px 12px;text-align:center"><span style="font-size:0.72rem;font-weight:700;padding:3px 9px;border-radius:20px;' + statusStyle(o.status) + '">' + (o.status || '—') + '</span></td>' +
+            '<td style="padding:10px 12px;text-align:center"><button class="apt-view-btn" style="background:#1a73e8;padding:5px 12px;font-size:0.75rem" onclick="openOrderBillModal(\'' + oid + '\')">📝 Bill</button></td>' +
          '</tr>';
       }).join('');
    }
@@ -11607,6 +11614,7 @@ async function renderBillsRegister() {
          '<th style="padding:10px 12px;text-align:center">Items</th>' +
          '<th style="padding:10px 12px;text-align:right">Amount</th>' +
          '<th style="padding:10px 12px;text-align:center">Status</th>' +
+         '<th style="padding:10px 12px;text-align:center">Actions</th>' +
       '</tr></thead>';
 
    var tableHtml =
@@ -11618,7 +11626,7 @@ async function renderBillsRegister() {
             tableHead +
             '<tbody>' + rowsHtml(allOrders) + '</tbody>' +
             '<tfoot><tr style="background:#f8fafc;font-weight:800;border-top:2px solid #e2e8f0">' +
-               '<td colspan="6" style="padding:10px 14px;text-align:right;font-size:0.82rem;color:#64748b">Day Total</td>' +
+               '<td colspan="7" style="padding:10px 14px;text-align:right;font-size:0.82rem;color:#64748b">Day Total</td>' +
                '<td style="padding:10px 14px;font-size:0.95rem;color:#7c3aed;text-align:right">' + fmt(total) + '</td>' +
                '<td></td>' +
             '</tr></tfoot>' +

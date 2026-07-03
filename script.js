@@ -2778,21 +2778,23 @@ async function renderAptAdmin() {
       var docCount = (p.doctors || []).length;
       var pid = p.id.replace(/'/g, "\\'");
       html += '<div class="apt-provider-card">' +
-                '<div class="apt-provider-top">' +
-                   '<div class="apt-provider-icon">' + icon + '</div>' +
-                   '<div style="flex:1;min-width:0">' +
-                      '<div class="apt-provider-name">' + p.name + '</div>' +
-                      '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
-                      '<div class="apt-provider-tagline" style="margin-top:3px;color:#1a73e8">' + meta.icon + ' ' + meta.label + '</div>' +
-                   '</div>' +
+                '<div class="apt-provider-body">' +
+                  '<div class="apt-provider-top">' +
+                     '<div class="apt-provider-icon-box">' + icon + '</div>' +
+                     '<div style="flex:1;min-width:0">' +
+                        '<div class="apt-provider-badges"><span class="apt-prov-cat-badge">' + meta.icon + ' ' + meta.label + '</span></div>' +
+                        '<div class="apt-prov-name">' + p.name + '</div>' +
+                        '<div style="font-size:0.8rem;color:#64748b;margin-top:2px">' + (p.tagline || '') + '</div>' +
+                     '</div>' +
+                  '</div>' +
+                  (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
+                  (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
                 '</div>' +
-                (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
-                (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
                 '<div class="apt-provider-footer">' +
                    '<span>' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + '</span>' +
-                   '<div style="display:flex;gap:6px">' +
+                   '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
                       '<button class="apt-view-btn" onclick="openAptProviderModal(\'' + pid + '\')">✏️ Edit</button>' +
-                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteAptProvider(\'' + pid + '\')">🗑</button>' +
+                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteAptProvider(\'' + pid + '\')">🗑 Delete</button>' +
                    '</div>' +
                 '</div>' +
                 renderAptAdminDoctors(p) +
@@ -3493,7 +3495,10 @@ async function renderAdminAdmissions() {
          var td = new Date(r.target_discharge + 'T00:00:00');
          dischargeLbl = isNaN(td.getTime()) ? r.target_discharge : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       }
-      var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((today - d) / 86400000));
+      var losEnd = (r.status === 'Discharged' && r.target_discharge)
+         ? new Date(r.target_discharge + 'T00:00:00')
+         : today;
+      var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((losEnd - d) / 86400000));
       var statusCls = r.status === 'Admitted' ? 'confirmed' : 'completed';
       var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
       var aid = r.id.replace(/'/g, "\\'");
@@ -3594,20 +3599,22 @@ async function renderAptCategoriesAdmin() {
       var providerCount = (_aptProvidersCache || []).filter(function(p) { return p.category === k; }).length;
       var kid = k.replace(/'/g, "\\'");
       html += '<div class="apt-provider-card">' +
-                '<div class="apt-provider-top">' +
-                   '<div class="apt-provider-icon">' + c.icon + '</div>' +
-                   '<div style="flex:1;min-width:0">' +
-                      '<div class="apt-provider-name">' + c.label + '</div>' +
-                      '<div class="apt-provider-tagline">' + (c.desc || '') + '</div>' +
-                      '<div class="apt-provider-tagline" style="margin-top:3px;color:#1a73e8">' + c.staffIcon + ' Staff: ' + c.staffLabel + '</div>' +
-                      '<div class="apt-provider-tagline" style="margin-top:3px;font-family:ui-monospace,monospace;color:#888">ID: ' + k + '</div>' +
-                   '</div>' +
+                '<div class="apt-provider-body">' +
+                  '<div class="apt-provider-top">' +
+                     '<div class="apt-provider-icon-box">' + c.icon + '</div>' +
+                     '<div style="flex:1;min-width:0">' +
+                        '<div class="apt-provider-badges"><span class="apt-prov-cat-badge">' + (c.staffIcon || '') + ' Staff: ' + (c.staffLabel || '') + '</span></div>' +
+                        '<div class="apt-prov-name">' + c.label + '</div>' +
+                        '<div style="font-size:0.8rem;color:#64748b;margin-top:2px">' + (c.desc || '') + '</div>' +
+                        '<div style="font-size:0.72rem;font-family:ui-monospace,monospace;color:#94a3b8;margin-top:4px">ID: ' + k + '</div>' +
+                     '</div>' +
+                  '</div>' +
                 '</div>' +
                 '<div class="apt-provider-footer">' +
                    '<span>' + providerCount + ' provider' + (providerCount === 1 ? '' : 's') + '</span>' +
-                   '<div style="display:flex;gap:6px">' +
+                   '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
                       '<button class="apt-view-btn" onclick="openAptCategoryModal(\'' + kid + '\')">✏️ Edit</button>' +
-                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteAptCategory(\'' + kid + '\')">🗑</button>' +
+                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteAptCategory(\'' + kid + '\')">🗑 Delete</button>' +
                    '</div>' +
                 '</div>' +
              '</div>';
@@ -3813,32 +3820,34 @@ async function renderStoreProvidersAdmin() {
       var icon = p.icon || meta.icon;
       var pid  = p.id.replace(/'/g, "\\'");
       html += '<div class="apt-provider-card">' +
-                '<div class="apt-provider-top">' +
-                   '<div class="apt-provider-icon">' + icon + '</div>' +
-                   '<div style="flex:1;min-width:0">' +
-                      '<div class="apt-provider-name">' + p.name + '</div>' +
-                      '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
-                      '<div class="apt-provider-tagline" style="margin-top:3px;color:#1a73e8">' + meta.icon + ' ' + meta.label + '</div>' +
-                   '</div>' +
+                '<div class="apt-provider-body">' +
+                  '<div class="apt-provider-top">' +
+                     '<div class="apt-provider-icon-box">' + icon + '</div>' +
+                     '<div style="flex:1;min-width:0">' +
+                        '<div class="apt-provider-badges"><span class="apt-prov-cat-badge">' + meta.icon + ' ' + meta.label + '</span></div>' +
+                        '<div class="apt-prov-name">' + p.name + '</div>' +
+                        '<div style="font-size:0.8rem;color:#64748b;margin-top:2px">' + (p.tagline || '') + '</div>' +
+                     '</div>' +
+                  '</div>' +
+                  (p.address     ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
+                  (p.timing      ? '<div class="apt-provider-meta">🕒 ' + p.timing + '</div>' : '') +
+                  (p.phone       ? '<div class="apt-provider-meta">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
+                  (p.owner_email ? '<div class="apt-provider-meta">👤 ' + p.owner_email + '</div>' : '') +
+                  (p.door_delivery ? '<div class="apt-provider-meta" style="color:#0a8a3a">🚚 Home delivery</div>' : '') +
+                  ((p.commission_value > 0)
+                     ? '<div class="apt-provider-meta">💼 Commission: ' +
+                         (p.commission_type === 'fixed_monthly'
+                            ? '₹' + Number(p.commission_value).toLocaleString('en-IN') + '/month'
+                            : Number(p.commission_value) + '%') +
+                       '</div>'
+                     : '') +
                 '</div>' +
-                (p.address     ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
-                (p.timing      ? '<div class="apt-provider-meta">🕒 ' + p.timing + '</div>' : '') +
-                (p.phone       ? '<div class="apt-provider-meta">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
-                (p.owner_email ? '<div class="apt-provider-meta">👤 ' + p.owner_email + '</div>' : '') +
-                (p.door_delivery ? '<div class="apt-provider-meta" style="color:#0a8a3a">🚚 Home delivery</div>' : '') +
-                ((p.commission_value > 0)
-                   ? '<div class="apt-provider-meta">💼 Commission: ' +
-                       (p.commission_type === 'fixed_monthly'
-                          ? '₹' + Number(p.commission_value).toLocaleString('en-IN') + '/month'
-                          : Number(p.commission_value) + '%') +
-                     '</div>'
-                   : '') +
                 '<div class="apt-provider-footer">' +
-                   '<span style="font-family:ui-monospace,monospace;color:#888;font-size:0.75rem">ID: ' + p.id + '</span>' +
-                   '<div style="display:flex;gap:6px">' +
+                   '<span style="font-family:ui-monospace,monospace;color:#888;font-size:0.72rem">ID: ' + p.id + '</span>' +
+                   '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
                       '<button class="apt-view-btn" style="background:#7c3aed;color:#fff" onclick="openStoreTemplate(\'' + pid + '\')">🎨 Template</button>' +
                       '<button class="apt-view-btn" onclick="openStoreProviderModal(\'' + pid + '\')">✏️ Edit</button>' +
-                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreProviderUi(\'' + pid + '\')">🗑</button>' +
+                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreProviderUi(\'' + pid + '\')">🗑 Delete</button>' +
                    '</div>' +
                 '</div>' +
              '</div>';
@@ -4134,10 +4143,12 @@ async function renderCatalogItems() {
                  '<td>' + (it.serial_no || '<span style="color:#bbb">—</span>') + '</td>' +
                  '<td>' + (it.batch_no  || '<span style="color:#bbb">—</span>') + '</td>' +
                  attrCells +
-                 '<td>' +
-                    '<button class="apt-view-btn" style="background:#1a73e8" onclick="showCompositionDetails(\'' + iid + '\')" title="Show composition + alternatives">ℹ️</button> ' +
-                    '<button class="apt-view-btn" onclick="openCatalogItemModal(\'' + iid + '\')">✏️</button> ' +
-                    '<button class="apt-view-btn" style="background:#c62828" onclick="deleteCatalogItemUi(\'' + iid + '\')">🗑</button>' +
+                 '<td style="white-space:nowrap">' +
+                    '<div style="display:flex;gap:4px;align-items:center">' +
+                    '<button class="apt-view-btn" style="background:#1a73e8;padding:6px 10px" onclick="showCompositionDetails(\'' + iid + '\')" title="Show composition + alternatives">ℹ️</button>' +
+                    '<button class="apt-view-btn" style="padding:6px 10px" onclick="openCatalogItemModal(\'' + iid + '\')">✏️</button>' +
+                    '<button class="apt-view-btn" style="background:#c62828;padding:6px 10px" onclick="deleteCatalogItemUi(\'' + iid + '\')">🗑</button>' +
+                    '</div>' +
                  '</td>' +
               '</tr>';
    });

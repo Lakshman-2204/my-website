@@ -2807,7 +2807,7 @@ async function renderAptAdmin() {
 function renderAptAdminDoctors(provider) {
    var doctors = provider.doctors || [];
    var pid = provider.id.replace(/'/g, "\\'");
-   var html = '<div style="margin-top:0.9rem;padding-top:0.9rem;border-top:1px solid #f0f0f0">' +
+   var html = '<div style="padding:0.9rem 1.4rem 1rem;border-top:1px solid #f0f0f0">' +
               '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">' +
                  '<strong style="font-size:0.85rem;color:#1a1a2e">Doctors</strong>' +
                  '<button class="apt-view-btn" onclick="openAptDoctorModal(\'' + pid + '\')">➕ Add Doctor</button>' +
@@ -3495,10 +3495,9 @@ async function renderAdminAdmissions() {
          var td = new Date(r.target_discharge + 'T00:00:00');
          dischargeLbl = isNaN(td.getTime()) ? r.target_discharge : td.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       }
-      var losEnd = (r.status === 'Discharged' && r.target_discharge)
-         ? new Date(r.target_discharge + 'T00:00:00')
-         : today;
-      var losDays = isNaN(d.getTime()) ? 0 : Math.max(0, Math.round((losEnd - d) / 86400000));
+      var losEndDate = (r.status === 'Discharged' && r.target_discharge) ? r.target_discharge : todayYmd;
+      var losEndTime = (r.status === 'Discharged') ? r.discharge_time : null;
+      var losDays = isNaN(d.getTime()) ? 0 : _calcLos(r.admit_date, r.admit_time, losEndDate, losEndTime);
       var statusCls = r.status === 'Admitted' ? 'confirmed' : 'completed';
       var loc = (r.ward || '—') + (r.room_bed ? ' · ' + r.room_bed : '');
       var aid = r.id.replace(/'/g, "\\'");

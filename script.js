@@ -1858,6 +1858,14 @@ async function showBookAppointment() {
    await loadAptProviders();
    renderAptCategories();
    window.scrollTo({ top: 0, behavior: 'smooth' });
+   _liveSubscribe('aptProvsCustomer', 'apt_providers', async function() {
+      await loadAptProviders(true);
+      await loadAptCategories(true);
+      var v = window._aptCurrentView;
+      if (!v || v.view === 'categories') { renderAptCategories(); }
+      else if (v.view === 'providers')   { showAptCategory(v.catKey); }
+      else if (v.view === 'doctors')     { showAptProvider(v.catKey, v.providerId); }
+   });
 }
 
 // Inject a "📋 My Appointments" link into the appointment section header (idempotent)
@@ -1880,6 +1888,7 @@ function _addAptHistoryBtn() {
 }
 
 function renderAptCategories() {
+   window._aptCurrentView = { view: 'categories' };
    var html = '<div class="apt-cats-grid">';
    Object.keys(APT_CAT_META).forEach(function(k) {
       var c = APT_CAT_META[k];
@@ -1898,6 +1907,7 @@ function renderAptCategories() {
 }
 
 function showAptCategory(catKey) {
+   window._aptCurrentView = { view: 'providers', catKey: catKey };
    var meta = APT_CAT_META[catKey];
    if (!meta) return;
    var providers = _aptProvidersByCat(catKey);
@@ -1939,6 +1949,7 @@ function showAptCategory(catKey) {
 }
 
 function showAptProvider(catKey, providerId) {
+   window._aptCurrentView = { view: 'doctors', catKey: catKey, providerId: providerId };
    var meta = APT_CAT_META[catKey];
    var provider = _aptGetProvider(providerId);
    if (!provider) return;
@@ -11091,15 +11102,17 @@ async function renderShopDoctors() {
                          '<div class="apt-doc-days">📅 ' + daysSummary + '</div>' +
                          _doctorVacationBanner(d) +
                       '</div>' +
-                      '<div class="apt-doc-footer">' +
-                         '<div>' +
-                            '<div class="apt-doc-fee-label">Fee</div>' +
-                            '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
-                         '</div>' +
-                         '<div style="display:flex;gap:4px;align-items:center">' +
-                            '<button class="apt-view-btn" style="padding:5px 8px;font-size:0.8rem;background:#ef6c00" onclick="openDoctorDayCancel(\'' + pid + '\',\'' + did + '\')" title="Day Off — cancel all bookings for a day">🚨</button>' +
-                            '<button class="apt-view-btn" style="padding:5px 10px;font-size:0.78rem" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️ Edit</button>' +
+                      '<div class="apt-doc-footer" style="flex-direction:column;align-items:stretch;gap:8px">' +
+                         '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                            '<div>' +
+                               '<div class="apt-doc-fee-label">Fee</div>' +
+                               '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
+                            '</div>' +
                             '<button class="apt-view-btn" style="padding:5px 8px;font-size:0.8rem;background:#c62828" onclick="deleteAptDoctor(\'' + pid + '\',\'' + did + '\')">🗑</button>' +
+                         '</div>' +
+                         '<div style="display:flex;gap:6px">' +
+                            '<button class="apt-view-btn" style="flex:1;padding:6px 8px;font-size:0.78rem;background:#ef6c00;text-align:center" onclick="openDoctorDayCancel(\'' + pid + '\',\'' + did + '\')" title="Cancel all bookings for a day">🚨 Day Off</button>' +
+                            '<button class="apt-view-btn" style="flex:1;padding:6px 8px;font-size:0.78rem;text-align:center" onclick="openAptDoctorModal(\'' + pid + '\',\'' + did + '\')">✏️ Edit</button>' +
                          '</div>' +
                       '</div>' +
                    '</div>';

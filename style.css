@@ -1889,7 +1889,7 @@ body.guest .store-section-divider {
 }
 /* Colored header strip */
 .apt-doc-header {
-	height: 88px;
+	height: 108px;
 	background: var(--store-primary, #06b6d4);
 	position: relative;
 	display: flex;
@@ -1899,15 +1899,15 @@ body.guest .store-section-divider {
 /* Circular photo overlapping header */
 .apt-doc-photo-wrap {
 	position: absolute;
-	bottom: -36px;
-	width: 76px;
-	height: 76px;
+	bottom: -50px;
+	width: 100px;
+	height: 100px;
 	border-radius: 50%;
 	background: #fff;
-	padding: 3px;
-	box-shadow: 0 4px 14px rgba(15,23,42,0.15);
+	padding: 4px;
+	box-shadow: 0 6px 18px rgba(15,23,42,0.18);
 	overflow: hidden;
-	border: 2px dashed rgba(15,23,42,0.15);
+	border: 3px solid #fff;
 }
 .apt-doc-photo {
 	width: 100%;
@@ -1924,12 +1924,12 @@ body.guest .store-section-divider {
 	justify-content: center;
 	background: var(--store-primary, #06b6d4);
 	color: #fff;
-	font-size: 1.6rem;
+	font-size: 2.2rem;
 	font-weight: 800;
 	letter-spacing: 0.05em;
 }
 .apt-doc-body {
-	padding: 2.8rem 1rem 0.9rem;
+	padding: 3.6rem 1rem 0.9rem;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -7362,12 +7362,16 @@ body.profile-page { background: #e8edf5; }
 
 .apt-form-label {
    font-size: 0.7rem;
-   font-weight: 700;
-   color: #64748b;
+   font-weight: 800;
+   color: var(--store-primary, #06b6d4);
    text-transform: uppercase;
-   letter-spacing: 0.07em;
+   letter-spacing: 0.1em;
    margin-bottom: 8px;
    display: block;
+   padding: 6px 10px;
+   background: rgba(6,182,212,0.06);
+   border-left: 3px solid var(--store-primary, #06b6d4);
+   border-radius: 0 6px 6px 0;
 }
 
 /* Date buttons */

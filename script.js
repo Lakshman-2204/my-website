@@ -1929,8 +1929,9 @@ function renderAptCategories() {
       var c = APT_CAT_META[k];
       var count = _aptProvidersByCat(k).length;
       var disabled = count === 0;
+      var _catColor = c.themeColor ? ' style="--store-primary:' + c.themeColor + '"' : '';
       html += '<div class="apt-cat-card' + (disabled ? ' apt-cat-disabled' : '') + '"' +
-              (disabled ? '' : ' onclick="showAptCategory(\'' + k + '\')"') + '>' +
+              (disabled ? '' : ' onclick="showAptCategory(\'' + k + '\')"') + _catColor + '>' +
                 '<div class="apt-cat-icon-box">' + c.icon + '</div>' +
                 '<div class="apt-cat-label">' + c.label + '</div>' +
                 '<div class="apt-cat-desc">' + (c.desc || '') + '</div>' +

@@ -5216,25 +5216,30 @@ async function showStoreCategory(catKey) {
       stores.forEach(function(p) {
          var icon = p.icon || meta.icon;
          var pid  = p.id.replace(/'/g, "\\'");
+         var deliveryMeta = p.door_delivery
+            ? (p.delivery_paused
+               ? '<div class="apt-provider-meta" style="color:#c62828;font-weight:600"><span class="apt-mi">⏸</span> Delivery paused · pickup only</div>'
+               : '<div class="apt-provider-meta" style="color:#0a8a3a;font-weight:600"><span class="apt-mi">🚚</span> Home delivery available</div>')
+            : '';
          html += '<div class="apt-provider-card" style="cursor:pointer" onclick="showStoreProvider(\'' + pid + '\')">' +
-                   '<div class="apt-provider-top">' +
-                      '<div class="apt-provider-icon">' + icon + '</div>' +
-                      '<div>' +
-                         '<div class="apt-provider-name">' + p.name + '</div>' +
-                         '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
+                   '<div class="apt-provider-body">' +
+                      '<div class="apt-provider-top">' +
+                         '<div class="apt-provider-icon-box">' + icon + '</div>' +
+                         '<div style="flex:1;min-width:0">' +
+                            '<div class="apt-provider-badges">' +
+                               '<span class="apt-prov-cat-badge">' + meta.label + '</span>' +
+                            '</div>' +
+                            '<div class="apt-prov-name">' + p.name + '</div>' +
+                            (p.tagline ? '<div style="font-size:0.75rem;color:#94a3b8;margin-top:1px">' + p.tagline + '</div>' : '') +
+                         '</div>' +
                       '</div>' +
+                      (p.address ? '<div class="apt-provider-meta"><span class="apt-mi">📍</span>' + _mapsLink(p.address) + '</div>' : '') +
+                      (p.timing  ? '<div class="apt-provider-meta"><span class="apt-mi">🕒</span>' + p.timing + '</div>' : '') +
+                      (p.phone   ? '<div class="apt-provider-meta"><span class="apt-mi">📞</span>' + _phoneLink(p.phone) + '</div>' : '') +
+                      deliveryMeta +
                    '</div>' +
-                   (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
-                   (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
-                   (p.phone   ? '<div class="apt-provider-meta" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
-                   (p.door_delivery
-                      ? (p.delivery_paused
-                         ? '<div class="apt-provider-meta" style="color:#c62828;font-weight:600">⏸ Delivery paused · pickup only</div>'
-                         : '<div class="apt-provider-meta" style="color:#0a8a3a;font-weight:600">🚚 Home delivery available</div>')
-                      : '') +
                    '<div class="apt-provider-footer">' +
-                      '<span>Tap to browse products</span>' +
-                      '<button class="apt-view-btn" onclick="event.stopPropagation();showStoreProvider(\'' + pid + '\')">View Products →</button>' +
+                      '<span class="apt-doc-count">🛍️ Tap card to browse products</span>' +
                    '</div>' +
                  '</div>';
       });

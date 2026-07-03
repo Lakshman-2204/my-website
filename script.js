@@ -1946,8 +1946,7 @@ function showAptCategory(catKey) {
    var meta = APT_CAT_META[catKey];
    if (!meta) return;
    var aptContent = document.getElementById('aptContent');
-   if (aptContent && meta.themeColor) aptContent.style.setProperty('--store-primary', meta.themeColor);
-   else if (aptContent) aptContent.style.removeProperty('--store-primary');
+   if (aptContent) aptContent.style.removeProperty('--store-primary');
    var providers = _aptProvidersByCat(catKey);
    document.getElementById('aptSectionTitle').textContent = meta.icon + ' ' + meta.label;
    var html = '<button class="apt-back-btn" onclick="showBookAppointment()">‹ All Categories</button>';
@@ -1958,7 +1957,8 @@ function showAptCategory(catKey) {
       providers.forEach(function(p) {
          var docCount = (p.doctors || []).length;
          var icon = p.icon || meta.icon;
-         html += '<div class="apt-provider-card">' +
+         var _catCardColor = p.shade_color || '';
+         html += '<div class="apt-provider-card"' + (_catCardColor ? ' style="--store-primary:' + _catCardColor + '"' : '') + '>' +
                    '<div class="apt-provider-body">' +
                       '<div class="apt-provider-top">' +
                          '<div class="apt-provider-icon-box">' + icon + '</div>' +

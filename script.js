@@ -8430,6 +8430,7 @@ function _applyBPTheme(user) {
    var sec       = isDual ? secondary : primary;
    root.style.setProperty('--bp-primary',        primary);
    root.style.setProperty('--bp-secondary',      sec);
+   root.style.setProperty('--store-primary',     primary);
    root.style.setProperty('--bp-header-bg',      isDual
       ? 'linear-gradient(135deg,' + primary + ' 0%,' + sec + ' 100%)'
       : primary);
@@ -11399,8 +11400,7 @@ async function renderShopDoctors() {
       var s     = _staffLabelForCategories([p.category]);
       var pid   = p.id.replace(/'/g, "\\'");
       var docs  = p.doctors || [];
-      var _shopCardColor = p.shade_color || meta.themeColor || '';
-      html += '<div class="apt-provider-card" style="margin-bottom:1rem' + (_shopCardColor ? ';--store-primary:' + _shopCardColor : '') + '">' +
+      html += '<div class="apt-provider-card" style="margin-bottom:1rem">' +
                 '<div class="apt-provider-top">' +
                    '<div class="apt-provider-icon">' + (p.icon || meta.icon || '🏥') + '</div>' +
                    '<div style="flex:1;min-width:0">' +

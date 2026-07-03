@@ -7870,6 +7870,23 @@ function deleteUser(email) {
 // ── BP Theme UI state ────────────────────────────────────────────────────
 var _udmThemeState = { isPartner: false, themeType: 'dual', primaryColor: '#0891b2', secondaryColor: '#4f46e5', darkMode: true };
 
+function _udmApplyPreset(primary, secondary, themeType, darkMode) {
+   _udmThemeState.primaryColor   = primary;
+   _udmThemeState.secondaryColor = secondary;
+   _udmThemeState.themeType      = themeType;
+   _udmThemeState.darkMode       = darkMode;
+   var priPick = document.getElementById('udm-primary-color');
+   var secPick = document.getElementById('udm-secondary-color');
+   if (priPick) priPick.value = primary;
+   if (secPick) secPick.value = secondary;
+   _udmColorInput('primary',   primary);
+   _udmColorInput('secondary', secondary);
+   _udmSetThemeType(themeType);
+   var darkTog  = document.getElementById('udm-dark-toggle');
+   var darkKnob = document.getElementById('udm-dark-knob');
+   if (darkTog)  darkTog.style.background = darkMode ? '#06b6d4' : '#cbd5e1';
+   if (darkKnob) darkKnob.style.transform = darkMode ? 'translateX(0)' : 'translateX(-20px)';
+}
 function _udmTogglePartner() {
    _udmThemeState.isPartner = !_udmThemeState.isPartner;
    var tog = document.getElementById('udm-partner-toggle');

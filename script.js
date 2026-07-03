@@ -6358,23 +6358,30 @@ async function _activateWhiteLabel(vendor) {
    var _wlGateUser = null;
    try { _wlGateUser = JSON.parse(sessionStorage.getItem('loggedInUser')); } catch(e) {}
    if (!_wlGateUser) {
+      applyStoreTheme(vendor); // apply brand color to gate button
+      // Hide all main page content — show ONLY the login gate
+      ['heroSection','productsSection','appointmentSection'].forEach(function(id) {
+         var el = document.getElementById(id);
+         if (el) el.style.display = 'none';
+      });
       var _wlLoginTarget = encodeURIComponent(window.location.pathname + window.location.search);
-      var prodSecG = document.getElementById('productsSection');
-      if (prodSecG) prodSecG.classList.remove('hidden');
-      var gridG = document.getElementById('productsGrid');
-      if (gridG) gridG.innerHTML =
-         '<div style="max-width:380px;margin:80px auto;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 8px 40px rgba(0,0,0,0.12);text-align:center">' +
-            '<div style="font-size:2.2rem;margin-bottom:8px">' + vendor.brandEmoji + '</div>' +
-            '<h2 style="font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 4px">' + vendor.brandName + '</h2>' +
+      var gate = document.createElement('div');
+      gate.id = '_wlGate';
+      gate.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+      gate.innerHTML =
+         '<div style="width:100%;max-width:380px;background:#fff;border-radius:24px;padding:40px 36px;box-shadow:0 20px 60px rgba(0,0,0,0.12);text-align:center">' +
+            '<div style="font-size:2.8rem;margin-bottom:10px">' + vendor.brandEmoji + '</div>' +
+            '<h2 style="font-size:1.4rem;font-weight:800;color:#0f172a;margin:0 0 6px">' + vendor.brandName + '</h2>' +
             '<p style="font-size:0.85rem;color:#64748b;margin:0 0 28px">Sign in to shop, track orders and more.</p>' +
-            '<input type="email" id="_wlGateEmail" placeholder="Email address" style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;margin-bottom:10px;outline:none"/>' +
-            '<input type="password" id="_wlGatePass" placeholder="Password" style="width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;margin-bottom:6px;outline:none"/>' +
+            '<input type="email" id="_wlGateEmail" placeholder="Email address" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;margin-bottom:10px;outline:none"/>' +
+            '<input type="password" id="_wlGatePass" placeholder="Password" onkeydown="if(event.key===\'Enter\')_wlGateLogin()" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.92rem;margin-bottom:6px;outline:none"/>' +
             '<p id="_wlGateErr" style="color:#dc2626;font-size:0.78rem;min-height:18px;margin:0 0 14px;text-align:left"></p>' +
-            '<button onclick="_wlGateLogin()" style="width:100%;padding:12px;background:var(--store-primary,#17a2b8);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer">Sign In</button>' +
-            '<div style="margin-top:16px;font-size:0.8rem;color:#64748b">Don\'t have an account? ' +
+            '<button onclick="_wlGateLogin()" style="width:100%;padding:13px;background:var(--store-primary,#17a2b8);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;transition:opacity 0.15s">Sign In</button>' +
+            '<div style="margin-top:18px;font-size:0.8rem;color:#64748b">Don\'t have an account? ' +
                '<a href="login.html?mode=register&returnUrl=' + _wlLoginTarget + '" style="color:var(--store-primary,#17a2b8);font-weight:600">Register here</a>' +
             '</div>' +
          '</div>';
+      document.body.appendChild(gate);
       return; // stop — store loads after login
    }
    var heroSec = document.getElementById('heroSection');

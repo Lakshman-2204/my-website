@@ -4556,7 +4556,32 @@ body.guest .store-section-divider {
 	border-top: 1px solid #eee;
 	display: flex;
 	gap: 8px;
+	justify-content: flex-end;
 }
+.admin-modal-btn-cancel {
+	padding: 9px 20px;
+	background: #f1f5f9;
+	color: #475569;
+	border: 1px solid #cbd5e1;
+	border-radius: 8px;
+	font-size: 0.88rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+.admin-modal-btn-cancel:hover { background: #e2e8f0; }
+.admin-modal-btn-save {
+	padding: 9px 22px;
+	background: var(--store-primary, #06b6d4);
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+	font-size: 0.88rem;
+	font-weight: 700;
+	cursor: pointer;
+	transition: opacity 0.15s;
+}
+.admin-modal-btn-save:hover { opacity: 0.88; }
 
 .admin-btn-save {
 	flex: 1;

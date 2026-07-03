@@ -1891,14 +1891,16 @@ async function showBookAppointment() {
    await loadAptProviders();
    renderAptCategories();
    window.scrollTo({ top: 0, behavior: 'smooth' });
-   _liveSubscribe('aptProvsCustomer', 'apt_providers', async function() {
-      await loadAptProviders(true);
+   async function _aptCustomerRefresh() {
       await loadAptCategories(true);
+      await loadAptProviders(true);
       var v = window._aptCurrentView;
       if (!v || v.view === 'categories') { renderAptCategories(); }
       else if (v.view === 'providers')   { showAptCategory(v.catKey); }
       else if (v.view === 'doctors')     { showAptProvider(v.catKey, v.providerId); }
-   });
+   }
+   _liveSubscribe('aptProvsCustomer', 'apt_providers', _aptCustomerRefresh);
+   _liveSubscribe('aptCatsCustomer',  'apt_categories', _aptCustomerRefresh);
 }
 
 // Inject a "📋 My Appointments" link into the appointment section header (idempotent)
@@ -11248,9 +11250,14 @@ async function renderShopDoctors() {
    var container = document.getElementById('shopDoctorsContent');
    if (!user || !container) return;
    _liveSubscribe('shopDocs', 'apt_providers', renderShopDoctors);
+   _liveSubscribe('shopDocs_cats', 'apt_categories', async function() {
+      await loadAptCategories(true);
+      renderShopDoctors();
+   });
    container.innerHTML = '<div class="shop-empty">Loading…</div>';
 
-   // Always re-fetch providers so edits show up immediately
+   // Always re-fetch providers and categories so color/edits show up immediately
+   await loadAptCategories(true);
    await loadAptProviders(true);
    var mine = (_aptProvidersCache || []).filter(function(p) {
       return (p.owner_email || '').toLowerCase() === user.email.toLowerCase() ||
@@ -11267,7 +11274,8 @@ async function renderShopDoctors() {
       var s     = _staffLabelForCategories([p.category]);
       var pid   = p.id.replace(/'/g, "\\'");
       var docs  = p.doctors || [];
-      html += '<div class="apt-provider-card" style="margin-bottom:1rem">' +
+      var _shopCardColor = p.shade_color || meta.themeColor || '';
+      html += '<div class="apt-provider-card" style="margin-bottom:1rem' + (_shopCardColor ? ';--store-primary:' + _shopCardColor : '') + '">' +
                 '<div class="apt-provider-top">' +
                    '<div class="apt-provider-icon">' + (p.icon || meta.icon || '🏥') + '</div>' +
                    '<div style="flex:1;min-width:0">' +

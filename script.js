@@ -1884,11 +1884,13 @@ function renderAptCategories() {
    Object.keys(APT_CAT_META).forEach(function(k) {
       var c = APT_CAT_META[k];
       var count = _aptProvidersByCat(k).length;
-      html += '<div class="apt-cat-card" onclick="showAptCategory(\'' + k + '\')">' +
-                '<div class="apt-cat-icon">' + c.icon + '</div>' +
+      var disabled = count === 0;
+      html += '<div class="apt-cat-card' + (disabled ? ' apt-cat-disabled' : '') + '"' +
+              (disabled ? '' : ' onclick="showAptCategory(\'' + k + '\')"') + '>' +
+                '<div class="apt-cat-icon-box">' + c.icon + '</div>' +
                 '<div class="apt-cat-label">' + c.label + '</div>' +
-                '<div class="apt-cat-desc">' + c.desc + '</div>' +
-                '<div class="apt-cat-count">' + count + (count === 1 ? ' place' : ' places') + ' available</div>' +
+                '<div class="apt-cat-desc">' + (c.desc || '') + '</div>' +
+                '<span class="apt-cat-count-badge">' + count + (count === 1 ? ' place' : ' places') + ' available</span>' +
              '</div>';
    });
    html += '</div>';
@@ -1900,27 +1902,32 @@ function showAptCategory(catKey) {
    if (!meta) return;
    var providers = _aptProvidersByCat(catKey);
    document.getElementById('aptSectionTitle').textContent = meta.icon + ' ' + meta.label;
-   var html = '<button class="apt-back-btn" onclick="showBookAppointment()">← All Categories</button>';
+   var html = '<button class="apt-back-btn" onclick="showBookAppointment()">‹ All Categories</button>';
    if (!providers.length) {
-      html += '<p style="text-align:center;color:#999;padding:40px">No ' + meta.label.toLowerCase() + ' available yet.</p>';
+      html += '<p style="text-align:center;color:#94a3b8;padding:40px">No ' + meta.label.toLowerCase() + ' available yet.</p>';
    } else {
       html += '<div class="apt-providers-grid">';
       providers.forEach(function(p) {
          var docCount = (p.doctors || []).length;
          var icon = p.icon || meta.icon;
          html += '<div class="apt-provider-card">' +
-                   '<div class="apt-provider-top">' +
-                      '<div class="apt-provider-icon">' + icon + '</div>' +
-                      '<div>' +
-                         '<div class="apt-provider-name">' + p.name + '</div>' +
-                         '<div class="apt-provider-tagline">' + (p.tagline || '') + '</div>' +
+                   '<div class="apt-provider-body">' +
+                      '<div class="apt-provider-top">' +
+                         '<div class="apt-provider-icon-box">' + icon + '</div>' +
+                         '<div style="flex:1;min-width:0">' +
+                            '<div class="apt-provider-badges">' +
+                               '<span class="apt-prov-cat-badge">' + meta.label + '</span>' +
+                            '</div>' +
+                            '<div class="apt-prov-name">' + p.name + '</div>' +
+                            (p.tagline ? '<div style="font-size:0.75rem;color:#94a3b8">' + p.tagline + '</div>' : '') +
+                         '</div>' +
                       '</div>' +
+                      (p.address ? '<div class="apt-provider-meta"><span class="apt-mi">📍</span>' + _mapsLink(p.address) + '</div>' : '') +
+                      (p.timing  ? '<div class="apt-provider-meta"><span class="apt-mi">🕒</span>' + p.timing + '</div>' : '') +
+                      (p.phone   ? '<div class="apt-provider-meta"><span class="apt-mi">📞</span>' + _phoneLink(p.phone) + '</div>' : '') +
                    '</div>' +
-                   (p.address ? '<div class="apt-provider-meta">📍 ' + _mapsLink(p.address) + '</div>' : '') +
-                   (p.timing  ? '<div class="apt-provider-meta">🕒 ' + p.timing  + '</div>' : '') +
-                   (p.phone   ? '<div class="apt-provider-meta" style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(p.phone) + '</div>' : '') +
                    '<div class="apt-provider-footer">' +
-                      '<span>' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + '</span>' +
+                      '<span class="apt-doc-count">👨‍⚕️ ' + docCount + ' doctor' + (docCount === 1 ? '' : 's') + ' listed</span>' +
                       '<button class="apt-view-btn" onclick="showAptProvider(\'' + catKey + '\',\'' + p.id + '\')">View Doctors →</button>' +
                    '</div>' +
                 '</div>';
@@ -1937,16 +1944,29 @@ function showAptProvider(catKey, providerId) {
    if (!provider) return;
    var icon = provider.icon || (meta && meta.icon) || '🏥';
    document.getElementById('aptSectionTitle').textContent = icon + ' ' + provider.name;
-   var html = '<button class="apt-back-btn" onclick="showAptCategory(\'' + catKey + '\')">← ' + (meta ? meta.label : 'Back') + '</button>' +
+   var html = '<button class="apt-back-btn" onclick="showAptCategory(\'' + catKey + '\')">‹ ' + (meta ? meta.label : 'Back') + '</button>' +
               '<div class="apt-provider-info-bar">' +
                  (provider.address ? '<span>📍 ' + _mapsLink(provider.address) + '</span>' : '') +
                  (provider.timing  ? '<span>🕒 ' + provider.timing  + '</span>' : '') +
-                 (provider.phone   ? '<span style="color:#1a73e8;font-weight:600">📞 ' + _phoneLink(provider.phone) + '</span>' : '') +
+                 (provider.phone   ? '<span>📞 ' + _phoneLink(provider.phone) + '</span>' : '') +
               '</div>';
    var doctors = provider.doctors || [];
    if (!doctors.length) {
-      html += '<p style="text-align:center;color:#999;padding:40px">No doctors listed yet.</p>';
+      html += '<p style="text-align:center;color:#94a3b8;padding:40px">No doctors listed yet.</p>';
    } else {
+      var specs = [];
+      doctors.forEach(function(d) { if (d.speciality && specs.indexOf(d.speciality) === -1) specs.push(d.speciality); });
+      var filterBar = '<div class="apt-search-filter-bar">' +
+         '<div class="apt-search-input-wrap">' +
+         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>' +
+         '<input type="text" class="apt-search-input" placeholder="Search doctors by name..." oninput="aptFilterDoctors()">' +
+         '</div>' +
+         '<div class="apt-spec-tabs" id="aptSpecTabs">' +
+         '<button class="apt-spec-tab active" onclick="aptFilterSpec(\'all\',this)">All Specs</button>' +
+         specs.map(function(s) { return '<button class="apt-spec-tab" onclick="aptFilterSpec(\'' + s.replace(/'/g,"\\'") + '\',this)">' + s + '</button>'; }).join('') +
+         '</div>' +
+         '</div>';
+      html += filterBar;
       html += '<div class="apt-doctor-grid">';
       doctors.forEach(function(d) {
          var initials = d.name.replace(/^Dr\.?\s*/i, '').split(' ').map(function(s) { return s[0]; }).slice(0, 2).join('').toUpperCase();
@@ -1955,10 +1975,12 @@ function showAptProvider(catKey, providerId) {
             ? '<span class="apt-mode-badge mode-token">🎟 Token-only</span>'
             : '<span class="apt-mode-badge mode-slot">🕒 Slot booking</span>';
          var photoBlock = d.photo
-            ? '<img class="apt-doc-photo" src="' + d.photo.replace(/"/g,'&quot;') + '" alt="' + d.name + '" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'apt-doc-photo apt-doc-photo-fallback\',textContent:\'' + initials + '\'}))"/>'
-            : '<div class="apt-doc-photo apt-doc-photo-fallback">' + initials + '</div>';
-         html += '<div class="apt-doc-card">' +
-                   photoBlock +
+            ? '<img class="apt-doc-photo" src="' + d.photo.replace(/"/g,'&quot;') + '" alt="' + d.name + '" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'apt-doc-photo-fallback\',textContent:\'' + initials + '\'}))"/>'
+            : '<div class="apt-doc-photo-fallback">' + initials + '</div>';
+         html += '<div class="apt-doc-card" data-aptname="' + d.name.toLowerCase() + '" data-aptspec="' + (d.speciality||'').toLowerCase() + '">' +
+                   '<div class="apt-doc-header">' +
+                      '<div class="apt-doc-photo-wrap">' + photoBlock + '</div>' +
+                   '</div>' +
                    '<div class="apt-doc-body">' +
                       '<div class="apt-doc-name">' + d.name + '</div>' +
                       '<div class="apt-doc-qual">' + (d.qual || '') + '</div>' +
@@ -1966,10 +1988,10 @@ function showAptProvider(catKey, providerId) {
                       modeBadge +
                       '<div class="apt-doc-days">📅 ' + daysSummary + '</div>' +
                       _doctorVacationBanner(d) +
-                      '<div class="apt-doc-footer">' +
-                         '<div class="apt-doc-fee">₹' + (d.fee || 0) + '<span>/visit</span></div>' +
-                         '<button class="apt-book-btn" onclick="openAptBookModal(\'' + catKey + '\',\'' + providerId + '\',\'' + d.id + '\')">Book</button>' +
-                      '</div>' +
+                   '</div>' +
+                   '<div class="apt-doc-footer">' +
+                      '<div><p class="apt-doc-fee-label">FEE</p><p class="apt-doc-fee">₹' + (d.fee || 0) + '</p></div>' +
+                      '<button class="apt-book-btn" onclick="openAptBookModal(\'' + catKey + '\',\'' + providerId + '\',\'' + d.id + '\')">Book</button>' +
                    '</div>' +
                 '</div>';
       });
@@ -1977,6 +1999,26 @@ function showAptProvider(catKey, providerId) {
    }
    document.getElementById('aptContent').innerHTML = html;
    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window._aptActiveSpec = 'all';
+function aptFilterSpec(spec, btn) {
+   window._aptActiveSpec = spec;
+   document.querySelectorAll('.apt-spec-tab').forEach(function(b) { b.classList.remove('active'); });
+   if (btn) btn.classList.add('active');
+   aptFilterDoctors();
+}
+function aptFilterDoctors() {
+   var searchEl = document.querySelector('.apt-search-input');
+   var q = searchEl ? searchEl.value.toLowerCase() : '';
+   var spec = window._aptActiveSpec || 'all';
+   document.querySelectorAll('.apt-doc-card').forEach(function(card) {
+      var name = card.getAttribute('data-aptname') || '';
+      var cardSpec = card.getAttribute('data-aptspec') || '';
+      var matchName = !q || name.includes(q);
+      var matchSpec = spec === 'all' || cardSpec === spec.toLowerCase();
+      card.style.display = (matchName && matchSpec) ? '' : 'none';
+   });
 }
 
 function summarizeDoctorDays(avail) {
@@ -8206,7 +8248,14 @@ function renderShopDashboard(filterStatus) {
    // Filter to store-owner's own orders if not admin
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (loggedUser && !isAdmin(loggedUser.email)) {
-      allOrders = allOrders.filter(function(o) { return o.storeId === loggedUser.email; });
+      var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
+         return (s.owner_email || '').toLowerCase() === loggedUser.email.toLowerCase();
+      });
+      allOrders = allOrders.filter(function(o) {
+         return _ownerStores.some(function(s) {
+            return s.id === o.store_provider_id || s.owner_email === o.storeId;
+         });
+      });
    }
 
    // Apply date range filter (uses order date — falls back to created_at if present)

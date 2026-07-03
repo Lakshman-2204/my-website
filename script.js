@@ -3712,19 +3712,21 @@ async function renderStoreCategoriesAdmin() {
       var providerCount = _storeProvidersByCat(k).length;
       var kid = k.replace(/'/g, "\\'");
       html += '<div class="apt-provider-card">' +
-                '<div class="apt-provider-top">' +
-                   '<div class="apt-provider-icon">' + c.icon + '</div>' +
-                   '<div style="flex:1;min-width:0">' +
-                      '<div class="apt-provider-name">' + c.label + '</div>' +
-                      '<div class="apt-provider-tagline">' + (c.desc || '') + '</div>' +
-                      '<div class="apt-provider-tagline" style="margin-top:3px;font-family:ui-monospace,monospace;color:#888">ID: ' + k + '</div>' +
-                   '</div>' +
+                '<div class="apt-provider-body">' +
+                  '<div class="apt-provider-top">' +
+                     '<div class="apt-provider-icon-box">' + c.icon + '</div>' +
+                     '<div style="flex:1;min-width:0">' +
+                        '<div class="apt-prov-name">' + c.label + '</div>' +
+                        '<div style="font-size:0.8rem;color:#64748b;margin-top:2px">' + (c.desc || '') + '</div>' +
+                        '<div style="font-size:0.72rem;font-family:ui-monospace,monospace;color:#94a3b8;margin-top:4px">ID: ' + k + '</div>' +
+                     '</div>' +
+                  '</div>' +
                 '</div>' +
                 '<div class="apt-provider-footer">' +
                    '<span>' + providerCount + ' store' + (providerCount === 1 ? '' : 's') + '</span>' +
-                   '<div style="display:flex;gap:6px">' +
+                   '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
                       '<button class="apt-view-btn" onclick="openStoreCategoryModal(\'' + kid + '\')">✏️ Edit</button>' +
-                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreCategoryUi(\'' + kid + '\')">🗑</button>' +
+                      '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreCategoryUi(\'' + kid + '\')">🗑 Delete</button>' +
                    '</div>' +
                 '</div>' +
              '</div>';

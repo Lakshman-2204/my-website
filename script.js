@@ -12126,9 +12126,10 @@ async function renderStoreDashboard() {
    var fmtDate = function(d) { if (!d) return '—'; try { var p = new Date(d + 'T00:00:00'); if (!isNaN(p)) return p.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}); } catch(e){} return d; };
 
    function _dashStatCard(icon, label, value, color, anchorId) {
-      var clickAttr = anchorId ? ' onclick="_dashScrollTo(\'' + anchorId + '\')" style="cursor:pointer"' : '';
+      var clickAttr = anchorId ? ' onclick="_dashScrollTo(\'' + anchorId + '\')"' : '';
       var arrow     = anchorId ? ' ↓' : '';
-      return '<div' + clickAttr + ' style="background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + (anchorId ? ';cursor:pointer' : '') + '">' +
+      var cursor    = anchorId ? 'cursor:pointer;' : '';
+      return '<div' + clickAttr + ' style="' + cursor + 'background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + ';flex:1 1 160px;max-width:calc(20% - 12px);min-width:140px;box-sizing:border-box">' +
          '<div style="font-size:1.5rem;margin-bottom:6px">' + icon + '</div>' +
          '<div style="font-size:1.5rem;font-weight:900;color:' + color + '">' + value + '</div>' +
          '<div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-top:2px">' + label + arrow + '</div>' +
@@ -12136,7 +12137,7 @@ async function renderStoreDashboard() {
    }
 
    var statsHtml =
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:24px">' +
+      '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:24px">' +
          _dashStatCard('📦', 'Today\'s Orders',    todayOrders.length,      '#1a73e8', 'dashTodayTable') +
          _dashStatCard('💵', 'Today\'s Sales',     fmt(todayGross),         '#2e7d32', '') +
          _dashStatCard('🚶', 'Walk-in Invoices',   todayWalkIn,             '#0891b2', 'dashTodayTable') +

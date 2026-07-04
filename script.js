@@ -12100,6 +12100,9 @@ async function renderStoreDashboard() {
       return exp <= ninety;
    }).sort(function(a, b) { return (a.expiry_date||'') < (b.expiry_date||'') ? -1 : 1; });
 
+   var productMap = {};
+   myStoreProducts.forEach(function(p) { productMap[p.id] = p; });
+
    var lowStockBatches = allBatches.filter(function(b) { return b.qty_remaining <= 10; });
    var lowStockProductIds = new Set(lowStockBatches.map(function(b) { return b.product_id; }));
    var lowStockCount = lowStockProductIds.size;
@@ -12118,9 +12121,6 @@ async function renderStoreDashboard() {
       lowStockByProduct[b.product_id].batches.push(b);
    });
    var lowStockList = Object.values(lowStockByProduct).sort(function(a, b) { return a.totalQty - b.totalQty; });
-
-   var productMap = {};
-   myStoreProducts.forEach(function(p) { productMap[p.id] = p; });
 
    var fmt = function(n) { return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0}); };
    var fmtDate = function(d) { if (!d) return '—'; try { var p = new Date(d + 'T00:00:00'); if (!isNaN(p)) return p.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}); } catch(e){} return d; };

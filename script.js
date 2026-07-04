@@ -8611,7 +8611,7 @@ async function checkShopOwnerLogin() {
    //   store owners → Orders (so they immediately see incoming customer orders)
    //   hospital owners → Dashboard
    //   anyone else → Products
-   var defaultTab = ownsStores ? 'orders' : (ownsHospital ? 'dashboard' : 'products');
+   var defaultTab = ownsStores ? 'dashboard' : (ownsHospital ? 'dashboard' : 'products');
    switchShopTab(defaultTab);
 
    // Auto-refresh if admin enabled it

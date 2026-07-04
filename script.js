@@ -12104,6 +12104,21 @@ async function renderStoreDashboard() {
    var lowStockProductIds = new Set(lowStockBatches.map(function(b) { return b.product_id; }));
    var lowStockCount = lowStockProductIds.size;
 
+   var lowStockByProduct = {};
+   lowStockBatches.forEach(function(b) {
+      if (!lowStockByProduct[b.product_id]) {
+         var prod = productMap[b.product_id];
+         lowStockByProduct[b.product_id] = {
+            name: prod ? (prod.name || b.product_id) : (b.product_id || '—'),
+            totalQty: 0,
+            batches: []
+         };
+      }
+      lowStockByProduct[b.product_id].totalQty += b.qty_remaining;
+      lowStockByProduct[b.product_id].batches.push(b);
+   });
+   var lowStockList = Object.values(lowStockByProduct).sort(function(a, b) { return a.totalQty - b.totalQty; });
+
    var productMap = {};
    myStoreProducts.forEach(function(p) { productMap[p.id] = p; });
 
@@ -12116,7 +12131,8 @@ async function renderStoreDashboard() {
          _storeStat('💵', 'Today\'s Sales', fmt(todayGross), '#2e7d32') +
          _storeStat('🚶', 'Walk-in Invoices', todayWalkIn, '#0891b2') +
          _storeStat('⏳', 'Pending Web Orders', pendingWebOrders.length, '#ef6c00') +
-         _storeStat('⚠️', 'Low Stock', lowStockCount, '#b45309') +
+         (lowStockList.length ? '<div onclick="document.getElementById(\'dashLowStockTable\')&&document.getElementById(\'dashLowStockTable\').scrollIntoView({behavior:\'smooth\',block:\'start\'})" style="background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid #b45309;cursor:pointer" title="Click to see low stock products"><div style="font-size:1.5rem;margin-bottom:6px">⚠️</div><div style="font-size:1.5rem;font-weight:900;color:#b45309">' + lowStockCount + '</div><div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-top:2px">Low Stock ↓</div></div>' : _storeStat('⚠️', 'Low Stock', lowStockCount, '#b45309')) +
+         (expiringBatches.length ? '<div onclick="document.getElementById(\'dashExpiringTable\')&&document.getElementById(\'dashExpiringTable\').scrollIntoView({behavior:\'smooth\',block:\'start\'})" style="background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid #b91c1c;cursor:pointer" title="Click to see expiring batches"><div style="font-size:1.5rem;margin-bottom:6px">⚗️</div><div style="font-size:1.5rem;font-weight:900;color:#b91c1c">' + expiringBatches.length + '</div><div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-top:2px">Expiring ↓</div></div>' : _storeStat('⚗️', 'Expiring', 0, '#b91c1c')) +
          _storeStat('💰', 'This Month', fmt(monthRevenue), '#7c3aed') +
          _storeStat('🏆', 'Total Earned', fmt(totalRevenue), '#6d28d9') +
          _storeStat('🛍️', 'Products', productCount, '#0e7490') +
@@ -12190,7 +12206,7 @@ async function renderStoreDashboard() {
    var expiringHtml = '';
    if (expiringBatches.length) {
       expiringHtml =
-         '<div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
+         '<div id="dashExpiringTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
             '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
                '⚗️ Expiring Batches Alert' +
                '<span style="background:#fef2f2;color:#b91c1c;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + expiringBatches.length + ' batches within 90 days</span>' +
@@ -12227,6 +12243,37 @@ async function renderStoreDashboard() {
          '</div>';
    }
 
+   var lowStockHtml = '';
+   if (lowStockList.length) {
+      lowStockHtml =
+         '<div id="dashLowStockTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
+            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
+               '⚠️ Low Stock Products' +
+               '<span style="background:#fef3c7;color:#b45309;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + lowStockList.length + ' products need restocking</span>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+               '<thead><tr style="background:#fefce8;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
+                  '<th style="padding:8px 14px;text-align:left">Product</th>' +
+                  '<th style="padding:8px 14px;text-align:right">Total Qty Left</th>' +
+                  '<th style="padding:8px 14px;text-align:right">Batches</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Status</th>' +
+               '</tr></thead><tbody>' +
+               lowStockList.map(function(item, i) {
+                  var isOut = item.totalQty === 0;
+                  var statusLabel = isOut ? 'Out of Stock' : 'Low Stock';
+                  var statusBg    = isOut ? '#fef2f2' : '#fef3c7';
+                  var statusColor = isOut ? '#b91c1c' : '#b45309';
+                  return '<tr style="border-top:1px solid #f1f5f9' + (i%2===0?';background:#fff':';background:#fafafa') + '">' +
+                     '<td style="padding:9px 14px;font-weight:600">' + item.name + '</td>' +
+                     '<td style="padding:9px 14px;text-align:right;font-weight:800;color:' + statusColor + '">' + item.totalQty + '</td>' +
+                     '<td style="padding:9px 14px;text-align:right;color:#64748b">' + item.batches.length + '</td>' +
+                     '<td style="padding:9px 14px"><span style="background:' + statusBg + ';color:' + statusColor + ';font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px">' + statusLabel + '</span></td>' +
+                  '</tr>';
+               }).join('') +
+               '</tbody></table>' +
+         '</div>';
+   }
+
    var headingBtns = myStores.map(function(store) {
       var paused = !!store.delivery_paused;
       var dlvBg    = paused ? '#fee2e2' : '#dcfce7';
@@ -12253,7 +12300,7 @@ async function renderStoreDashboard() {
          '</div>' +
          '<div style="display:flex;gap:8px;flex-wrap:wrap">' + headingBtns + '</div>' +
       '</div>' +
-      statsHtml + pendingWebHtml + recentHtml + expiringHtml + '</div>';
+      statsHtml + pendingWebHtml + recentHtml + lowStockHtml + expiringHtml + '</div>';
 }
 function _ensureMyStoreProfileModal() {
    if (document.getElementById('myStoreProfileModal')) return;

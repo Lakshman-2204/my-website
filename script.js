@@ -12105,25 +12105,6 @@ async function renderStoreDashboard() {
    var productMap = {};
    myStoreProducts.forEach(function(p) { productMap[p.id] = p; });
 
-   var lowStockBatches = allBatches.filter(function(b) { return b.qty_remaining <= 10; });
-   var lowStockProductIds = new Set(lowStockBatches.map(function(b) { return b.product_id; }));
-   var lowStockCount = lowStockProductIds.size;
-
-   var lowStockByProduct = {};
-   lowStockBatches.forEach(function(b) {
-      if (!lowStockByProduct[b.product_id]) {
-         var prod = productMap[b.product_id];
-         lowStockByProduct[b.product_id] = {
-            name: prod ? (prod.name || b.product_id) : (b.product_id || '—'),
-            totalQty: 0,
-            batches: []
-         };
-      }
-      lowStockByProduct[b.product_id].totalQty += b.qty_remaining;
-      lowStockByProduct[b.product_id].batches.push(b);
-   });
-   var lowStockList = Object.values(lowStockByProduct).sort(function(a, b) { return a.totalQty - b.totalQty; });
-
    var fmt = function(n) { return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0}); };
    var fmtDate = function(d) { if (!d) return '—'; try { var p = new Date(d + 'T00:00:00'); if (!isNaN(p)) return p.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}); } catch(e){} return d; };
 
@@ -12131,12 +12112,31 @@ async function renderStoreDashboard() {
       .reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
    var completedOrders = myOrders.filter(function(o) { return o.status === 'Delivered' || o.status === 'Completed'; });
 
+   // Sum qty across all batches per product
    var productTotalQty = {};
    allBatches.forEach(function(b) {
       if (!productTotalQty[b.product_id]) productTotalQty[b.product_id] = 0;
       productTotalQty[b.product_id] += b.qty_remaining;
    });
-   var outOfStockCount = Object.values(productTotalQty).filter(function(qty) { return qty === 0; }).length;
+
+   // Out of stock: products with no batches OR total qty = 0
+   var outOfStockCount = myStoreProducts.filter(function(p) {
+      return (productTotalQty[p.id] || 0) === 0;
+   }).length;
+
+   // Low stock: products with total qty > 0 but <= 10 (not already out of stock)
+   var lowStockByProduct = {};
+   myStoreProducts.forEach(function(p) {
+      var total = productTotalQty[p.id] || 0;
+      if (total > 0 && total < 50) {
+         lowStockByProduct[p.id] = { name: p.name || p.id, totalQty: total, batches: [] };
+      }
+   });
+   allBatches.forEach(function(b) {
+      if (lowStockByProduct[b.product_id]) lowStockByProduct[b.product_id].batches.push(b);
+   });
+   var lowStockList = Object.values(lowStockByProduct).sort(function(a, b) { return a.totalQty - b.totalQty; });
+   var lowStockCount = lowStockList.length;
 
    function _gemCard(opts) {
       var click  = opts.anchor ? ' onclick="_dashScrollTo(\'' + opts.anchor + '\')"' : '';

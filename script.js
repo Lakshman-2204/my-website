@@ -12524,6 +12524,11 @@ function _dashOpenTemplate(storeId) {
       var panel = document.getElementById(tabId);
       if (panel) panel.style.display = 'none';
    });
+   // Hide carousel display mode & speed controls — admin-only settings
+   ['stmLayoutMode', 'stmScrollSpeed'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && el.parentElement) el.parentElement.style.display = 'none';
+   });
    // Start on Banner tab instead
    _stmSwitchTab('stmTabBanner');
 }
@@ -19853,8 +19858,12 @@ function openStoreTemplate(storeId) {
    _stmBgMode = t.tickerBgMode || 'black';
    _stmTheme  = t.themeColor   || null;
    _ensureStoreTemplateModal();
-   // Restore all tabs (store-owner view may have hidden some)
+   // Restore all tabs and admin-only controls (store-owner view may have hidden some)
    document.querySelectorAll('.stm-tab-btn').forEach(function(b) { b.style.display = ''; });
+   ['stmLayoutMode', 'stmScrollSpeed'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && el.parentElement) el.parentElement.style.display = '';
+   });
    var nameEl = document.getElementById('stmStoreName');
    if (nameEl) nameEl.textContent = sp ? sp.name : '';
    _stmLoadForm(sp || {}, t);
@@ -20281,7 +20290,7 @@ function _stmGetCards() {
 }
 
 function _ensureStoreTemplateModal() {
-   var _STM_VER = 5;
+   var _STM_VER = 6;
    var existing = document.getElementById('storeTemplateModal');
    if (existing && parseInt(existing.dataset.ver||0) === _STM_VER) return;
    if (existing) existing.remove();
@@ -20398,9 +20407,6 @@ function _ensureStoreTemplateModal() {
    var panelLayout =
       '<h4 style="margin:0 0 14px;color:#0f172a">Layout & Display</h4>' +
       '<div ' + card + '>' +
-         '<div ' + fld + '><label ' + lbl + '>Offer Cards Display Mode</label><select id="stmLayoutMode" ' + sel + '><option value="carousel">Auto-Scroll Carousel</option><option value="grid">Static 3-Column Grid</option></select></div>' +
-      '</div>' +
-      '<div ' + card + '>' +
          '<div ' + fld + '><label ' + lbl + '>Search Bar Position</label>' +
          '<select id="stmSearchOrder" ' + sel + '>' +
             '<option value="above">Search Bar above Offer Cards</option>' +
@@ -20427,6 +20433,10 @@ function _ensureStoreTemplateModal() {
          '<button onclick="_stmAddCard()" style="padding:7px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer">＋ Add Card</button>' +
       '</div>' +
       '<p style="margin:0 0 14px;font-size:0.8rem;color:#64748b">Cards scroll horizontally on the store page, below the hero banner. Each has a title, subtitle, CTA button, gradient background and icon.</p>' +
+      '<div ' + fld + ' style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;margin-bottom:14px">' +
+         '<label ' + lbl + '>Display Mode</label>' +
+         '<select id="stmLayoutMode" ' + sel + '><option value="carousel">Auto-Scroll Carousel</option><option value="grid">Static 3-Column Grid</option></select>' +
+      '</div>' +
       '<div ' + fld + ' style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;margin-bottom:14px">' +
          '<label ' + lbl + '>Carousel Speed <span id="stmScrollSpeedVal" style="color:#0284c7">1</span> <span style="font-weight:400;color:#94a3b8">(lower = faster)</span></label>' +
          '<input type="range" id="stmScrollSpeed" min="1" max="5" value="1" oninput="document.getElementById(\'stmScrollSpeedVal\').textContent=this.value" ' + inp + '>' +

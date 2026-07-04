@@ -11291,6 +11291,7 @@ function switchShopTab(tab) {
 
    if (tab !== 'products') _currentMyStoreId = null;
    if (tab === 'dashboard')    (window._ownsStores && !window._ownsHospital) ? renderStoreDashboard() : renderShopOverview();
+   if (tab === 'orders') { var _odf = document.getElementById('shopOrderDateFilter'); if (_odf) _odf.value = 'today'; }
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'bills')        renderBillsRegister();
    if (tab === 'appointments') {
@@ -11876,6 +11877,41 @@ function setShopAptDoctor(doctorName) {
 }
 
 // ── STORE OWNER DASHBOARD ────────────────────────────────────────────────────
+function printBillsRegister() {
+   var content = document.getElementById('shopBillsContent');
+   var dateEl  = document.getElementById('billsRegDate');
+   if (!content) return;
+   var date = dateEl ? dateEl.value : '';
+   var w = window.open('', '_blank', 'width=900,height=700');
+   w.document.write(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bills Register — ' + date + '</title>' +
+      '<style>' +
+         'body{font-family:Arial,sans-serif;padding:20px;color:#0f172a}' +
+         'h2{margin:0 0 4px;font-size:1.1rem}' +
+         '.sub{font-size:0.8rem;color:#64748b;margin-bottom:16px}' +
+         'table{width:100%;border-collapse:collapse;font-size:0.82rem}' +
+         'th{background:#f1f5f9;padding:8px 10px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;border-bottom:2px solid #e2e8f0}' +
+         'td{padding:8px 10px;border-bottom:1px solid #f1f5f9}' +
+         'tr:nth-child(even) td{background:#f8fafc}' +
+         'tfoot td{font-weight:800;background:#f1f5f9;border-top:2px solid #e2e8f0}' +
+         '.stat-row{display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap}' +
+         '.stat{text-align:center;padding:10px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}' +
+         '.stat-n{font-size:1.4rem;font-weight:800;color:#0f172a}' +
+         '.stat-l{font-size:0.7rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em}' +
+         '@media print{body{padding:8px}.no-print{display:none}}' +
+      '</style></head><body>' +
+      '<div class="no-print" style="text-align:right;margin-bottom:12px">' +
+         '<button onclick="window.print()" style="padding:6px 16px;background:#1a73e8;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.85rem">🖨️ Print</button>' +
+      '</div>' +
+      '<h2>📒 Bills Register</h2>' +
+      '<div class="sub">Date: ' + (date || '—') + '</div>' +
+      content.innerHTML +
+      '</body></html>'
+   );
+   w.document.close();
+   setTimeout(function() { try { w.focus(); } catch(e) {} }, 300);
+}
+
 async function renderBillsRegister() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
    var container = document.getElementById('shopBillsContent');
@@ -12028,7 +12064,6 @@ async function renderStoreDashboard() {
 
    var today = _todayLocalYmd();
    var now = new Date();
-   var weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 6);
    var monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 29);
 
    var todayOrders  = myOrders.filter(function(o) { return (o.date || o.createdAt || '').slice(0,10) === today; });
@@ -12040,18 +12075,50 @@ async function renderStoreDashboard() {
       return d >= monthAgo && (o.status === 'Delivered' || o.status === 'Completed');
    }).reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
 
-   var productCount = (_db.storeProducts || []).filter(function(p) {
+   var todayGross = todayOrders.filter(function(o) { return o.status === 'Delivered' || o.status === 'Completed'; })
+                               .reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
+   var todayWalkIn = todayOrders.filter(function(o) { return !!o.walk_in; }).length;
+   var pendingWebOrders = pending.filter(function(o) { return !o.walk_in; });
+
+   var myStoreProducts = (_db.storeProducts || []).filter(function(p) {
       return myStores.some(function(s) { return s.id === p.store_provider_id; });
-   }).length;
+   });
+   var productCount = myStoreProducts.length;
+
+   var allBatches = [];
+   for (var _si = 0; _si < myStores.length; _si++) {
+      var _sb2 = await AppDB.getBatchesForStore(myStores[_si].id);
+      allBatches = allBatches.concat(_sb2 || []);
+   }
+   var ninety = new Date(now); ninety.setDate(now.getDate() + 90);
+   var thirty = new Date(now); thirty.setDate(now.getDate() + 30);
+   var sixty  = new Date(now); sixty.setDate(now.getDate() + 60);
+
+   var expiringBatches = allBatches.filter(function(b) {
+      if (!b.expiry_date) return false;
+      var exp = new Date(b.expiry_date + 'T00:00:00');
+      return exp <= ninety;
+   }).sort(function(a, b) { return (a.expiry_date||'') < (b.expiry_date||'') ? -1 : 1; });
+
+   var lowStockBatches = allBatches.filter(function(b) { return b.qty_remaining <= 10; });
+   var lowStockProductIds = new Set(lowStockBatches.map(function(b) { return b.product_id; }));
+   var lowStockCount = lowStockProductIds.size;
+
+   var productMap = {};
+   myStoreProducts.forEach(function(p) { productMap[p.id] = p; });
 
    var fmt = function(n) { return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0}); };
+   var fmtDate = function(d) { if (!d) return '—'; try { var p = new Date(d + 'T00:00:00'); if (!isNaN(p)) return p.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}); } catch(e){} return d; };
 
    var statsHtml =
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px">' +
          _storeStat('📦', 'Today\'s Orders', todayOrders.length, '#1a73e8') +
-         _storeStat('⏳', 'Pending', pending.length, '#ef6c00') +
-         _storeStat('💰', 'This Month', fmt(monthRevenue), '#2e7d32') +
-         _storeStat('🏆', 'Total Earned', fmt(totalRevenue), '#7c3aed') +
+         _storeStat('💵', 'Today\'s Sales', fmt(todayGross), '#2e7d32') +
+         _storeStat('🚶', 'Walk-in Invoices', todayWalkIn, '#0891b2') +
+         _storeStat('⏳', 'Pending Web Orders', pendingWebOrders.length, '#ef6c00') +
+         _storeStat('⚠️', 'Low Stock', lowStockCount, '#b45309') +
+         _storeStat('💰', 'This Month', fmt(monthRevenue), '#7c3aed') +
+         _storeStat('🏆', 'Total Earned', fmt(totalRevenue), '#6d28d9') +
          _storeStat('🛍️', 'Products', productCount, '#0e7490') +
       '</div>';
 
@@ -12061,7 +12128,7 @@ async function renderStoreDashboard() {
    }).slice(0, 10);
    if (recent.length) {
       recentHtml =
-         '<div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden">' +
+         '<div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
             '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9">🕐 Recent Orders</div>' +
             '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
                '<thead><tr style="background:#f8fafc;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
@@ -12082,6 +12149,78 @@ async function renderStoreDashboard() {
                      '<td style="padding:9px 14px;text-align:right;font-weight:700">' + fmt(o.total||o.amount||0) + '</td>' +
                      '<td style="padding:9px 14px"><span style="background:' + statusColor + '20;color:' + statusColor + ';font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px">' + (o.status||'—') + '</span></td>' +
                      '<td style="padding:9px 14px;color:#94a3b8;white-space:nowrap">' + (function(d){ if(!d) return '—'; try { var p=new Date(d); if(!isNaN(p)) return p.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})+' '+p.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}); } catch(e){} return d.slice(0,16); })(o.date||o.createdAt||'') + '</td>' +
+                  '</tr>';
+               }).join('') +
+               '</tbody></table>' +
+         '</div>';
+   }
+
+   var pendingWebHtml = '';
+   if (pendingWebOrders.length) {
+      pendingWebHtml =
+         '<div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
+            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
+               '🌐 Pending Web Orders' +
+               '<span style="background:#fff7ed;color:#ef6c00;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + pendingWebOrders.length + ' pending</span>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+               '<thead><tr style="background:#fff7ed;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
+                  '<th style="padding:8px 14px;text-align:left">Customer</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Items</th>' +
+                  '<th style="padding:8px 14px;text-align:right">Amount</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Type</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Ordered</th>' +
+               '</tr></thead><tbody>' +
+               pendingWebOrders.slice(0, 15).map(function(o, i) {
+                  var itemList = (o.items || []).slice(0,2).map(function(it) { return it.name || ''; }).join(', ');
+                  if ((o.items||[]).length > 2) itemList += ' +' + ((o.items||[]).length - 2) + ' more';
+                  var type = o.delivery_type || (o.door_delivery ? 'Delivery' : 'Pickup');
+                  return '<tr style="border-top:1px solid #f1f5f9' + (i%2===0?';background:#fff':';background:#fafafa') + '">' +
+                     '<td style="padding:9px 14px;font-weight:600">' + (o.customerName || o.name || '—') + '</td>' +
+                     '<td style="padding:9px 14px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (itemList||'—') + '</td>' +
+                     '<td style="padding:9px 14px;text-align:right;font-weight:700">' + fmt(o.total||o.amount||0) + '</td>' +
+                     '<td style="padding:9px 14px"><span style="background:#e0f2fe;color:#0369a1;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px">' + type + '</span></td>' +
+                     '<td style="padding:9px 14px;color:#94a3b8;white-space:nowrap">' + (function(d){ if(!d) return '—'; try { var p=new Date(d); if(!isNaN(p)) return p.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+' '+p.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}); } catch(e){} return d.slice(0,10); })(o.date||o.createdAt||'') + '</td>' +
+                  '</tr>';
+               }).join('') +
+               '</tbody></table>' +
+         '</div>';
+   }
+
+   var expiringHtml = '';
+   if (expiringBatches.length) {
+      expiringHtml =
+         '<div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
+            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
+               '⚗️ Expiring Batches Alert' +
+               '<span style="background:#fef2f2;color:#b91c1c;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + expiringBatches.length + ' batches within 90 days</span>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+               '<thead><tr style="background:#fef2f2;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
+                  '<th style="padding:8px 14px;text-align:left">Product</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Batch No</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Expiry Date</th>' +
+                  '<th style="padding:8px 14px;text-align:right">Qty Remaining</th>' +
+                  '<th style="padding:8px 14px;text-align:left">Risk</th>' +
+               '</tr></thead><tbody>' +
+               expiringBatches.slice(0, 20).map(function(b, i) {
+                  var exp = new Date(b.expiry_date + 'T00:00:00');
+                  var isExpired  = exp <= now;
+                  var isCritical = !isExpired && exp <= thirty;
+                  var isWarning  = !isExpired && !isCritical && exp <= sixty;
+                  var riskLabel, riskBg, riskColor;
+                  if (isExpired)        { riskLabel = 'Expired';  riskBg = '#fef2f2'; riskColor = '#b91c1c'; }
+                  else if (isCritical)  { riskLabel = 'Critical'; riskBg = '#fef2f2'; riskColor = '#b91c1c'; }
+                  else if (isWarning)   { riskLabel = 'Warning';  riskBg = '#fff7ed'; riskColor = '#c2410c'; }
+                  else                  { riskLabel = 'Alert';    riskBg = '#fefce8'; riskColor = '#854d0e'; }
+                  var prod = productMap[b.product_id];
+                  var prodName = prod ? (prod.name || prod.product_name || b.product_id) : (b.product_id || '—');
+                  return '<tr style="border-top:1px solid #f1f5f9' + (i%2===0?';background:#fff':';background:#fafafa') + '">' +
+                     '<td style="padding:9px 14px;font-weight:600">' + prodName + '</td>' +
+                     '<td style="padding:9px 14px;color:#64748b;font-family:monospace">' + (b.batch_no || '—') + '</td>' +
+                     '<td style="padding:9px 14px;font-weight:600;color:' + riskColor + '">' + fmtDate(b.expiry_date) + '</td>' +
+                     '<td style="padding:9px 14px;text-align:right;font-weight:700">' + b.qty_remaining + '</td>' +
+                     '<td style="padding:9px 14px"><span style="background:' + riskBg + ';color:' + riskColor + ';font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px">' + riskLabel + '</span></td>' +
                   '</tr>';
                }).join('') +
                '</tbody></table>' +
@@ -12114,7 +12253,7 @@ async function renderStoreDashboard() {
          '</div>' +
          '<div style="display:flex;gap:8px;flex-wrap:wrap">' + headingBtns + '</div>' +
       '</div>' +
-      statsHtml + recentHtml + '</div>';
+      statsHtml + pendingWebHtml + recentHtml + expiringHtml + '</div>';
 }
 function _ensureMyStoreProfileModal() {
    if (document.getElementById('myStoreProfileModal')) return;

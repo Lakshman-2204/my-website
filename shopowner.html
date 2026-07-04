@@ -410,7 +410,7 @@
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
          <select id="shopOrderDateFilter" class="admin-filter-select" onchange="renderShopDashboard(window._shopCurrentFilter)">
             <option value="all">📅 All time</option>
-            <option value="today">Today</option>
+            <option value="today" selected>Today</option>
             <option value="week">This Week</option>
             <option value="month">This Month</option>
             <option value="year">This Year</option>
@@ -1501,7 +1501,7 @@
                <label style="font-size:0.8rem;color:#64748b;font-weight:600">Date:</label>
                <input type="date" id="billsRegDate" style="padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.85rem;font-weight:600" onchange="renderBillsRegister()">
             </div>
-            <button onclick="window.print()" style="background:#1a73e8;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:700;cursor:pointer">🖨️ Print</button>
+            <button onclick="printBillsRegister()" style="background:#1a73e8;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:700;cursor:pointer">🖨️ Print</button>
          </div>
          <div id="shopBillsContent">
             <p style="color:#94a3b8;text-align:center;padding:40px">Loading…</p>

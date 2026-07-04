@@ -8449,6 +8449,15 @@ async function checkShopOwnerLogin() {
    if (typeof _liveSubscribe === 'function') _liveSubscribe('siteSettingsShop', 'settings', _refreshLiveSettings);
    if (typeof _startSettingsPolling === 'function') _startSettingsPolling();
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+   // Live-apply theme whenever admin updates this user's record
+   if (user && typeof _liveSubscribe === 'function') {
+      _liveSubscribe('bpThemeLive', 'users', function() {
+         AppDB.getUsers().then(function(all) {
+            var fresh = (all || []).find(function(u) { return u.email === user.email; });
+            if (fresh) { _applyBPTheme(fresh); sessionStorage.setItem('loggedInUser', JSON.stringify(fresh)); }
+         });
+      });
+   }
    if (!user) { window.location.href = 'login.html'; return; }
    // Kick blocked users out
    if (!isAdmin(user.email) && isBlocked(user.email)) {

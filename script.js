@@ -20251,25 +20251,9 @@ function _stmRenderCards() {
 
 function _stmEsc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function _stmAddCard() {
-   _stmCards.push({ heading:'New Offer', paragraph:'Description here.', badge:'', actionText:'EXPLORE', link:'', gradient:'linear-gradient(135deg,#0369a1,#0284c7)', icon:'🏥', disabled:false });
-   _stmRenderCards();
-}
-
-function _stmRemoveCard(i) {
-   _stmCards.splice(i, 1);
-   _stmRenderCards();
-}
-
-function _stmToggleCard(i, enabled) {
-   _stmSyncCardFields(i);
-   _stmCards[i].disabled = !enabled;
-   _stmRenderCards();
-}
-
 function _stmSyncCardFields(i) {
-   var g = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value.trim() : ''; };
-   var gsel = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value : ''; };
+   var g = function(f) { var el = document.getElementById('stmc-' + i + '-' + f); return el ? el.value.trim() : ''; };
+   var gsel = function(f) { var el = document.getElementById('stmc-' + i + '-' + f); return el ? el.value : ''; };
    _stmCards[i].heading    = g('heading');
    _stmCards[i].paragraph  = g('paragraph');
    _stmCards[i].actionText = g('actionText');
@@ -20279,13 +20263,32 @@ function _stmSyncCardFields(i) {
    _stmCards[i].gradient   = gsel('gradient');
 }
 
+function _stmSyncAllCards() {
+   _stmCards.forEach(function(_, i) { _stmSyncCardFields(i); });
+}
+
+function _stmAddCard() {
+   _stmSyncAllCards();
+   _stmCards.push({ heading:'New Offer', paragraph:'Description here.', badge:'', actionText:'EXPLORE', link:'', gradient:'linear-gradient(135deg,#0369a1,#0284c7)', icon:'🏥', disabled:false });
+   _stmRenderCards();
+}
+
+function _stmRemoveCard(i) {
+   _stmSyncAllCards();
+   _stmCards.splice(i, 1);
+   _stmRenderCards();
+}
+
+function _stmToggleCard(i, enabled) {
+   _stmSyncAllCards();
+   _stmCards[i].disabled = !enabled;
+   _stmRenderCards();
+}
+
 function _stmGetCards() {
-   return _stmCards.map(function(_, i) {
-      var g = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value.trim() : ''; };
-      var gsel = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value : ''; };
-      var enabledEl = document.getElementById('stmc-' + i + '-enabled');
-      var disabled = enabledEl ? !enabledEl.checked : !!_stmCards[i].disabled;
-      return { heading: g('heading'), paragraph: g('paragraph'), actionText: g('actionText'), link: g('link'), icon: g('icon'), badge: g('badge'), gradient: gsel('gradient'), disabled: disabled };
+   _stmSyncAllCards();
+   return _stmCards.map(function(c) {
+      return { heading: c.heading, paragraph: c.paragraph, actionText: c.actionText, link: c.link, icon: c.icon, badge: c.badge, gradient: c.gradient, disabled: !!c.disabled };
    });
 }
 

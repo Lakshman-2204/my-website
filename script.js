@@ -12156,8 +12156,15 @@ async function renderStoreDashboard() {
       '</div>';
    }
 
+   var stockHealthSub =
+      '<div style="display:flex;flex-direction:column;gap:3px;font-size:0.78rem">' +
+         '<span>Low Stock: <b style="color:#b45309">' + lowStockCount + '</b></span>' +
+         '<span>Out of Stock: <b style="color:#b91c1c">' + outOfStockCount + '</b></span>' +
+         '<span>Expiring: <b style="color:#b91c1c">' + expiringBatches.length + '</b></span>' +
+      '</div>';
+
    var statsHtml =
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">' +
+      '<div style="display:grid;grid-template-columns:2fr 2fr 1fr 3fr;gap:14px;margin-bottom:14px">' +
          _gemCard({ title:'Order Stream', icon:'📦', color:'#1a73e8',
             big: myOrders.length,
             sub: 'Pending: <b style="color:#ef6c00">' + pending.length + '</b> &nbsp;·&nbsp; Completed: <b style="color:#2e7d32">' + completedOrders.length + '</b>',
@@ -12172,7 +12179,7 @@ async function renderStoreDashboard() {
             anchor: 'dashTodayTable' }) +
          _gemCard({ title:'Stock Health', icon:'🏥', color:'#ea580c',
             big: productCount + '<span style="font-size:0.95rem;font-weight:700;color:#64748b"> Items Live</span>',
-            sub: 'Low Stock: <b style="color:#b45309">' + lowStockCount + '</b> &nbsp;·&nbsp; Out of Stock: <b style="color:#b91c1c">' + outOfStockCount + '</b> &nbsp;·&nbsp; Expiring: <b style="color:#b91c1c">' + expiringBatches.length + '</b>',
+            sub: stockHealthSub,
             anchor: 'dashLowStockTable' }) +
       '</div>';
 
@@ -12264,7 +12271,7 @@ async function renderStoreDashboard() {
                   '<th style="padding:8px 14px;text-align:left">Type</th>' +
                   '<th style="padding:8px 14px;text-align:left">Ordered</th>' +
                '</tr></thead><tbody>' +
-               pendingWebSorted.slice(0, 15).map(function(o, i) {
+               pendingWebSorted.slice(0, 10).map(function(o, i) {
                   var itemList = (o.items || []).slice(0,2).map(function(it) { return it.name || ''; }).join(', ');
                   if ((o.items||[]).length > 2) itemList += ' +' + ((o.items||[]).length - 2) + ' more';
                   var type = o.delivery_type || (o.door_delivery ? 'Delivery' : 'Pickup');
@@ -12295,7 +12302,7 @@ async function renderStoreDashboard() {
                   '<th style="padding:8px 14px;text-align:right">Qty Remaining</th>' +
                   '<th style="padding:8px 14px;text-align:left">Risk</th>' +
                '</tr></thead><tbody>' +
-               expiringBatches.slice(0, 20).map(function(b, i) {
+               expiringBatches.slice(0, 10).map(function(b, i) {
                   var exp = new Date(b.expiry_date + 'T00:00:00');
                   var isExpired  = exp <= now;
                   var isCritical = !isExpired && exp <= thirty;
@@ -12333,7 +12340,7 @@ async function renderStoreDashboard() {
                   '<th style="padding:8px 14px;text-align:right">Batches</th>' +
                   '<th style="padding:8px 14px;text-align:left">Status</th>' +
                '</tr></thead><tbody>' +
-               lowStockList.map(function(item, i) {
+               lowStockList.slice(0, 10).map(function(item, i) {
                   var isOut = item.totalQty === 0;
                   var statusLabel = isOut ? 'Out of Stock' : 'Low Stock';
                   var statusBg    = isOut ? '#fef2f2' : '#fef3c7';

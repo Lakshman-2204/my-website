@@ -12136,7 +12136,7 @@ async function renderStoreDashboard() {
    }
 
    var statsHtml =
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:24px">' +
          _dashStatCard('📦', 'Today\'s Orders',    todayOrders.length,      '#1a73e8', 'dashTodayTable') +
          _dashStatCard('💵', 'Today\'s Sales',     fmt(todayGross),         '#2e7d32', '') +
          _dashStatCard('🚶', 'Walk-in Invoices',   todayWalkIn,             '#0891b2', 'dashTodayTable') +

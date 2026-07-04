@@ -12129,15 +12129,15 @@ async function renderStoreDashboard() {
       var clickAttr = anchorId ? ' onclick="_dashScrollTo(\'' + anchorId + '\')"' : '';
       var arrow     = anchorId ? ' ↓' : '';
       var cursor    = anchorId ? 'cursor:pointer;' : '';
-      return '<div' + clickAttr + ' style="' + cursor + 'background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + ';flex:1 1 160px;max-width:calc(20% - 12px);min-width:140px;box-sizing:border-box">' +
-         '<div style="font-size:1.5rem;margin-bottom:6px">' + icon + '</div>' +
-         '<div style="font-size:1.5rem;font-weight:900;color:' + color + '">' + value + '</div>' +
-         '<div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-top:2px">' + label + arrow + '</div>' +
+      return '<div' + clickAttr + ' style="' + cursor + 'background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + '">' +
+         '<div style="font-size:1.6rem;margin-bottom:6px">' + icon + '</div>' +
+         '<div style="font-size:1.7rem;font-weight:900;color:' + color + '">' + value + '</div>' +
+         '<div style="font-size:0.78rem;color:#64748b;font-weight:600;margin-top:4px">' + label + arrow + '</div>' +
       '</div>';
    }
 
    var statsHtml =
-      '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:24px">' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">' +
          _dashStatCard('📦', 'Today\'s Orders',    todayOrders.length,      '#1a73e8', 'dashTodayTable') +
          _dashStatCard('💵', 'Today\'s Sales',     fmt(todayGross),         '#2e7d32', '') +
          _dashStatCard('🚶', 'Walk-in Invoices',   todayWalkIn,             '#0891b2', 'dashTodayTable') +

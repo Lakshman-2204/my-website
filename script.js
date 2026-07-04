@@ -12164,7 +12164,7 @@ async function renderStoreDashboard() {
       '</div>';
 
    var statsHtml =
-      '<div style="display:grid;grid-template-columns:2fr 2fr 1fr 3fr;gap:14px;margin-bottom:14px">' +
+      '<div style="display:grid;grid-template-columns:2fr 2fr 2fr 3fr;gap:14px;margin-bottom:14px">' +
          _gemCard({ title:'Order Stream', icon:'📦', color:'#1a73e8',
             big: myOrders.length,
             sub: 'Pending: <b style="color:#ef6c00">' + pending.length + '</b> &nbsp;·&nbsp; Completed: <b style="color:#2e7d32">' + completedOrders.length + '</b>',

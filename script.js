@@ -5952,10 +5952,11 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
       ? '<div style="background:#fffbeb;border-bottom:1px solid #fef3c7;color:#92400e;text-align:center;padding:6px 16px;font-size:11px;font-weight:600">' + _e2(_tpl2.complianceText) + '</div>'
       : '';
    var _offerCards2 = '';
-   if (_tpl2.promoCards && _tpl2.promoCards.length) {
+   var _activeCards2 = (_tpl2.promoCards||[]).filter(function(c){ return !c.disabled; });
+   if (_activeCards2.length) {
       var _grid2 = _tpl2.layoutMode === 'grid';
       var _accents2 = ['#7c3aed','#0ea5e9','#059669','#dc2626','#d97706','#0284c7'];
-      var _cardsMarkup2 = _tpl2.promoCards.map(function(c, ci) {
+      var _cardsMarkup2 = _activeCards2.map(function(c, ci) {
          var _acc2 = _accents2[ci % _accents2.length];
          var oc = c.link ? 'window.open(\'' + (c.link||'').replace(/'/g,"\\'") + '\',\'_blank\')' : 'document.getElementById(\'wl-prod-grid\')&&document.getElementById(\'wl-prod-grid\').scrollIntoView({behavior:\'smooth\'})';
          return '<div style="min-width:340px;max-width:340px;height:185px;border-radius:16px;padding:24px 26px 20px;background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';color:#fff;flex-shrink:0;position:relative;overflow:hidden;box-sizing:border-box;border-left:5px solid ' + _acc2 + ';display:flex;flex-direction:column;justify-content:space-between">' +
@@ -6932,11 +6933,12 @@ function buildWLPage(sp, vendor) {
       : '';
    // Offer cards carousel
    var offerCardsHtml = '';
-   if (_tpl.promoCards && _tpl.promoCards.length) {
+   var _activeCards = (_tpl.promoCards||[]).filter(function(c){ return !c.disabled; });
+   if (_activeCards.length) {
       var _layoutGrid = _tpl.layoutMode === 'grid';
       var _spd = _tpl.scrollSpeed || 1;
       var _wlAccents = ['#7c3aed','#0ea5e9','#059669','#dc2626','#d97706','#0284c7'];
-      var cardsMarkup = _tpl.promoCards.map(function(c, ci) {
+      var cardsMarkup = _activeCards.map(function(c, ci) {
          var _acc = _wlAccents[ci % _wlAccents.length];
          var onclick = c.link
             ? 'window.open(\'' + (c.link||'').replace(/'/g,"\\'") + '\',\'_blank\')'
@@ -20144,9 +20146,10 @@ function _stmRenderPreview() {
 
    // ── Offer cards (Gemini style — tall, solid CTA button) ──
    var cards = '';
-   if (t.promoCards && t.promoCards.length) {
+   var _previewCards = (t.promoCards||[]).filter(function(c){ return !c.disabled; });
+   if (_previewCards.length) {
       var accentColors = ['#7c3aed','#0ea5e9','#059669','#dc2626','#d97706'];
-      var cardsHtml = t.promoCards.map(function(c, i) {
+      var cardsHtml = _previewCards.map(function(c, i) {
          var accent = accentColors[i % accentColors.length];
          return '<div style="min-width:320px;max-width:320px;border-radius:16px;padding:22px 24px 18px;background:' + (c.gradient||'linear-gradient(135deg,#0f766e,#115e59)') + ';color:#fff;flex-shrink:0;position:relative;overflow:hidden;box-sizing:border-box;border-left:5px solid ' + accent + '">' +
             '<div style="font-size:16px;font-weight:900;margin-bottom:6px;line-height:1.25">' + E(c.heading) + '</div>' +

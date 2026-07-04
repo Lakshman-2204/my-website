@@ -12355,8 +12355,7 @@ async function renderStoreDashboard() {
          ? '<button style="background:' + dlvBg + ';color:' + dlvColor + ';border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashToggleDelivery(\'' + store.id + '\')">' + dlvLabel + '</button>'
          : '';
       return dlvBtn +
-         '<button style="background:#f3e8ff;color:#7c3aed;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenAds(\'' + store.id + '\')">📢 Ads</button>' +
-         '<button style="background:#e0f2fe;color:#0891b2;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenBanners(\'' + store.id + '\')">🎠 Banners</button>';
+         '<button style="background:#f3e8ff;color:#7c3aed;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenTemplate(\'' + store.id + '\')">🎨 Template</button>';
    }).join('');
 
    var _now = new Date();
@@ -12516,19 +12515,17 @@ async function _dashToggleDelivery(storeId) {
    renderStoreDashboard();
    _wlBroadcast(storeId);
 }
-function _dashOpenAds(storeId) {
-   var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
-   if (!store) return;
-   window._currentStoreProvider = store;
-   _currentMyStoreId = storeId;
-   openStoreAdsModal();
-}
-function _dashOpenBanners(storeId) {
-   var store = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
-   if (!store) return;
-   window._currentStoreProvider = store;
-   _currentMyStoreId = storeId;
-   openStoreBannersModal();
+function _dashOpenTemplate(storeId) {
+   openStoreTemplate(storeId);
+   // Hide Colors & Theme and Layout tabs — store owners don't manage those
+   ['stmTabColor', 'stmTabLayout'].forEach(function(tabId) {
+      var btn = document.querySelector('[data-stm-tab="' + tabId + '"]');
+      if (btn) btn.style.display = 'none';
+      var panel = document.getElementById(tabId);
+      if (panel) panel.style.display = 'none';
+   });
+   // Start on Banner tab instead
+   _stmSwitchTab('stmTabBanner');
 }
 function _dashScrollTo(id) {
    var el = document.getElementById(id);
@@ -19856,6 +19853,8 @@ function openStoreTemplate(storeId) {
    _stmBgMode = t.tickerBgMode || 'black';
    _stmTheme  = t.themeColor   || null;
    _ensureStoreTemplateModal();
+   // Restore all tabs (store-owner view may have hidden some)
+   document.querySelectorAll('.stm-tab-btn').forEach(function(b) { b.style.display = ''; });
    var nameEl = document.getElementById('stmStoreName');
    if (nameEl) nameEl.textContent = sp ? sp.name : '';
    _stmLoadForm(sp || {}, t);
@@ -20209,11 +20208,20 @@ function _stmRenderCards() {
    var lbl = 'style="font-size:0.73rem;font-weight:700;color:#64748b;display:block;margin-bottom:3px"';
    list.innerHTML = _stmCards.map(function(c, i) {
       var gOpts = grads.map(function(g) { return '<option value="' + g.v + '"' + (c.gradient===g.v?' selected':'') + '>' + g.l + '</option>'; }).join('');
-      return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px">' +
+      var isDisabled = !!c.disabled;
+      var bodyOpacity = isDisabled ? 'opacity:0.4;pointer-events:none;' : '';
+      return '<div style="background:#f8fafc;border:1px solid ' + (isDisabled ? '#e2e8f0' : '#cbd5e1') + ';border-radius:10px;padding:14px;margin-bottom:10px">' +
          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
-            '<span style="font-size:0.78rem;font-weight:700;color:#475569">Card ' + (i+1) + '</span>' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+               '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.78rem;font-weight:700;color:' + (isDisabled ? '#94a3b8' : '#16a34a') + '">' +
+                  '<input type="checkbox" id="stmc-' + i + '-enabled" ' + (isDisabled ? '' : 'checked') + ' onchange="_stmToggleCard(' + i + ',this.checked)" style="width:14px;height:14px;cursor:pointer">' +
+                  (isDisabled ? 'Disabled' : 'Enabled') +
+               '</label>' +
+               '<span style="font-size:0.78rem;font-weight:700;color:#475569">· Card ' + (i+1) + '</span>' +
+            '</div>' +
             (_stmCards.length > 1 ? '<button onclick="_stmRemoveCard(' + i + ')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:3px 10px;font-size:0.74rem;font-weight:700;cursor:pointer">✕ Remove</button>' : '') +
          '</div>' +
+         '<div style="' + bodyOpacity + '">' +
          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">' +
             '<div><label ' + lbl + '>Title</label><input type="text" id="stmc-' + i + '-heading" value="' + e(c.heading) + '" ' + inp + '></div>' +
             '<div><label ' + lbl + '>Subtitle</label><input type="text" id="stmc-' + i + '-paragraph" value="' + e(c.paragraph) + '" ' + inp + '></div>' +
@@ -20227,6 +20235,7 @@ function _stmRenderCards() {
             '<div><label ' + lbl + '>Badge Text</label><input type="text" id="stmc-' + i + '-badge" value="' + e(c.badge||'') + '" ' + inp + '></div>' +
             '<div><label ' + lbl + '>Background</label><select id="stmc-' + i + '-gradient" style="width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.84rem">' + gOpts + '</select></div>' +
          '</div>' +
+      '</div>' +   // close body wrapper
       '</div>';
    }).join('');
 }
@@ -20234,7 +20243,7 @@ function _stmRenderCards() {
 function _stmEsc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function _stmAddCard() {
-   _stmCards.push({ heading:'New Offer', paragraph:'Description here.', badge:'', actionText:'EXPLORE', link:'', gradient:'linear-gradient(135deg,#0369a1,#0284c7)', icon:'🏥' });
+   _stmCards.push({ heading:'New Offer', paragraph:'Description here.', badge:'', actionText:'EXPLORE', link:'', gradient:'linear-gradient(135deg,#0369a1,#0284c7)', icon:'🏥', disabled:false });
    _stmRenderCards();
 }
 
@@ -20243,15 +20252,36 @@ function _stmRemoveCard(i) {
    _stmRenderCards();
 }
 
+function _stmToggleCard(i, enabled) {
+   _stmSyncCardFields(i);
+   _stmCards[i].disabled = !enabled;
+   _stmRenderCards();
+}
+
+function _stmSyncCardFields(i) {
+   var g = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value.trim() : ''; };
+   var gsel = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value : ''; };
+   _stmCards[i].heading    = g('heading');
+   _stmCards[i].paragraph  = g('paragraph');
+   _stmCards[i].actionText = g('actionText');
+   _stmCards[i].link       = g('link');
+   _stmCards[i].icon       = g('icon');
+   _stmCards[i].badge      = g('badge');
+   _stmCards[i].gradient   = gsel('gradient');
+}
+
 function _stmGetCards() {
    return _stmCards.map(function(_, i) {
       var g = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value.trim() : ''; };
-      return { heading: g('heading'), paragraph: g('paragraph'), actionText: g('actionText'), link: g('link'), icon: g('icon'), badge: g('badge'), gradient: g('gradient') };
+      var gsel = function(f) { var e = document.getElementById('stmc-' + i + '-' + f); return e ? e.value : ''; };
+      var enabledEl = document.getElementById('stmc-' + i + '-enabled');
+      var disabled = enabledEl ? !enabledEl.checked : !!_stmCards[i].disabled;
+      return { heading: g('heading'), paragraph: g('paragraph'), actionText: g('actionText'), link: g('link'), icon: g('icon'), badge: g('badge'), gradient: gsel('gradient'), disabled: disabled };
    });
 }
 
 function _ensureStoreTemplateModal() {
-   var _STM_VER = 3;
+   var _STM_VER = 5;
    var existing = document.getElementById('storeTemplateModal');
    if (existing && parseInt(existing.dataset.ver||0) === _STM_VER) return;
    if (existing) existing.remove();
@@ -20369,9 +20399,6 @@ function _ensureStoreTemplateModal() {
       '<h4 style="margin:0 0 14px;color:#0f172a">Layout & Display</h4>' +
       '<div ' + card + '>' +
          '<div ' + fld + '><label ' + lbl + '>Offer Cards Display Mode</label><select id="stmLayoutMode" ' + sel + '><option value="carousel">Auto-Scroll Carousel</option><option value="grid">Static 3-Column Grid</option></select></div>' +
-         '<div ' + fld + '><label ' + lbl + '>Carousel Speed <span id="stmScrollSpeedVal" style="color:#0284c7">1</span></label>' +
-         '<input type="range" id="stmScrollSpeed" min="1" max="5" value="1" oninput="document.getElementById(\'stmScrollSpeedVal\').textContent=this.value" ' + inp + '>' +
-         '<p style="font-size:0.75rem;color:#94a3b8;margin:4px 0 0">Fine-tune horizontal scroll drift speed.</p></div>' +
       '</div>' +
       '<div ' + card + '>' +
          '<div ' + fld + '><label ' + lbl + '>Search Bar Position</label>' +
@@ -20400,6 +20427,10 @@ function _ensureStoreTemplateModal() {
          '<button onclick="_stmAddCard()" style="padding:7px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer">＋ Add Card</button>' +
       '</div>' +
       '<p style="margin:0 0 14px;font-size:0.8rem;color:#64748b">Cards scroll horizontally on the store page, below the hero banner. Each has a title, subtitle, CTA button, gradient background and icon.</p>' +
+      '<div ' + fld + ' style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;margin-bottom:14px">' +
+         '<label ' + lbl + '>Carousel Speed <span id="stmScrollSpeedVal" style="color:#0284c7">1</span> <span style="font-weight:400;color:#94a3b8">(lower = faster)</span></label>' +
+         '<input type="range" id="stmScrollSpeed" min="1" max="5" value="1" oninput="document.getElementById(\'stmScrollSpeedVal\').textContent=this.value" ' + inp + '>' +
+      '</div>' +
       '<div id="stmCardList"></div>';
 
    var panelRx =

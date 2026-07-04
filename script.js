@@ -12151,16 +12151,16 @@ async function renderStoreDashboard() {
 
    function _orderDate(o) { return new Date(o.date || o.createdAt || 0); }
 
-   var todayTableHtml = '';
-   if (todayOrders.length) {
-      var todaySorted = todayOrders.slice().sort(function(a, b) { return _orderDate(b) - _orderDate(a); });
-      todayTableHtml =
-         '<div id="dashTodayTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
-            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
-               '📦 Today\'s Orders' +
-               '<span style="background:#eff6ff;color:#1a73e8;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + todayOrders.length + ' orders · ' + todayWalkIn + ' walk-in</span>' +
-            '</div>' +
-            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+   var todaySorted = todayOrders.slice().sort(function(a, b) { return _orderDate(b) - _orderDate(a); });
+   var todayTableHtml =
+      '<div id="dashTodayTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
+         '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
+            '📦 Today\'s Orders' +
+            '<span style="background:#eff6ff;color:#1a73e8;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + todayOrders.length + ' orders · ' + todayWalkIn + ' walk-in</span>' +
+         '</div>' +
+         (todaySorted.length === 0
+            ? '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:0.85rem">No orders today yet</div>'
+            : '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
                '<thead><tr style="background:#eff6ff;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
                   '<th style="padding:8px 14px;text-align:left">Customer</th>' +
                   '<th style="padding:8px 14px;text-align:left">Items</th>' +
@@ -12186,9 +12186,8 @@ async function renderStoreDashboard() {
                      '<td style="padding:9px 14px;color:#94a3b8;white-space:nowrap">' + (function(d){ if(!d) return '—'; try { var p=new Date(d); if(!isNaN(p)) return p.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}); } catch(e){} return ''; })(o.date||o.createdAt||'') + '</td>' +
                   '</tr>';
                }).join('') +
-               '</tbody></table>' +
-         '</div>';
-   }
+               '</tbody></table>') +
+      '</div>';
 
    var recentHtml = '';
    var recent = myOrders.slice().sort(function(a, b) { return _orderDate(b) - _orderDate(a); }).slice(0, 10);
@@ -12221,15 +12220,16 @@ async function renderStoreDashboard() {
          '</div>';
    }
 
-   var pendingWebHtml = '';
-   if (pendingWebOrders.length) {
-      pendingWebHtml =
-         '<div id="dashPendingTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
-            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
-               '🌐 Pending Web Orders' +
-               '<span style="background:#fff7ed;color:#ef6c00;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + pendingWebOrders.length + ' pending</span>' +
-            '</div>' +
-            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+   var pendingWebSorted = pendingWebOrders.slice().sort(function(a, b) { return _orderDate(b) - _orderDate(a); });
+   var pendingWebHtml =
+      '<div id="dashPendingTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
+         '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
+            '🌐 Pending Web Orders' +
+            '<span style="background:#fff7ed;color:#ef6c00;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + pendingWebOrders.length + ' pending</span>' +
+         '</div>' +
+         (pendingWebSorted.length === 0
+            ? '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:0.85rem">No pending web orders</div>'
+            : '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
                '<thead><tr style="background:#fff7ed;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
                   '<th style="padding:8px 14px;text-align:left">Customer</th>' +
                   '<th style="padding:8px 14px;text-align:left">Items</th>' +
@@ -12237,7 +12237,7 @@ async function renderStoreDashboard() {
                   '<th style="padding:8px 14px;text-align:left">Type</th>' +
                   '<th style="padding:8px 14px;text-align:left">Ordered</th>' +
                '</tr></thead><tbody>' +
-               pendingWebOrders.slice(0, 15).map(function(o, i) {
+               pendingWebSorted.slice(0, 15).map(function(o, i) {
                   var itemList = (o.items || []).slice(0,2).map(function(it) { return it.name || ''; }).join(', ');
                   if ((o.items||[]).length > 2) itemList += ' +' + ((o.items||[]).length - 2) + ' more';
                   var type = o.delivery_type || (o.door_delivery ? 'Delivery' : 'Pickup');
@@ -12249,19 +12249,18 @@ async function renderStoreDashboard() {
                      '<td style="padding:9px 14px;color:#94a3b8;white-space:nowrap">' + (function(d){ if(!d) return '—'; try { var p=new Date(d); if(!isNaN(p)) return p.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+' '+p.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}); } catch(e){} return d.slice(0,10); })(o.date||o.createdAt||'') + '</td>' +
                   '</tr>';
                }).join('') +
-               '</tbody></table>' +
-         '</div>';
-   }
+               '</tbody></table>') +
+      '</div>';
 
-   var expiringHtml = '';
-   if (expiringBatches.length) {
-      expiringHtml =
-         '<div id="dashExpiringTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
-            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
-               '⚗️ Expiring Batches Alert' +
-               '<span style="background:#fef2f2;color:#b91c1c;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + expiringBatches.length + ' batches within 90 days</span>' +
-            '</div>' +
-            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+   var expiringHtml =
+      '<div id="dashExpiringTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
+         '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
+            '⚗️ Expiring Batches' +
+            '<span style="background:#fef2f2;color:#b91c1c;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + expiringBatches.length + ' within 90 days</span>' +
+         '</div>' +
+         (expiringBatches.length === 0
+            ? '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:0.85rem">✅ No batches expiring within 90 days</div>'
+            : '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
                '<thead><tr style="background:#fef2f2;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
                   '<th style="padding:8px 14px;text-align:left">Product</th>' +
                   '<th style="padding:8px 14px;text-align:left">Batch No</th>' +
@@ -12289,19 +12288,18 @@ async function renderStoreDashboard() {
                      '<td style="padding:9px 14px"><span style="background:' + riskBg + ';color:' + riskColor + ';font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px">' + riskLabel + '</span></td>' +
                   '</tr>';
                }).join('') +
-               '</tbody></table>' +
-         '</div>';
-   }
+               '</tbody></table>') +
+      '</div>';
 
-   var lowStockHtml = '';
-   if (lowStockList.length) {
-      lowStockHtml =
-         '<div id="dashLowStockTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
-            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
-               '⚠️ Low Stock Products' +
-               '<span style="background:#fef3c7;color:#b45309;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + lowStockList.length + ' products need restocking</span>' +
-            '</div>' +
-            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+   var lowStockHtml =
+      '<div id="dashLowStockTable" style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:20px">' +
+         '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px">' +
+            '⚠️ Low Stock Products' +
+            '<span style="background:#fef3c7;color:#b45309;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px">' + lowStockList.length + ' need restocking</span>' +
+         '</div>' +
+         (lowStockList.length === 0
+            ? '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:0.85rem">✅ All products are well-stocked</div>'
+            : '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
                '<thead><tr style="background:#fefce8;color:#64748b;font-size:0.75rem;text-transform:uppercase">' +
                   '<th style="padding:8px 14px;text-align:left">Product</th>' +
                   '<th style="padding:8px 14px;text-align:right">Total Qty Left</th>' +
@@ -12320,9 +12318,8 @@ async function renderStoreDashboard() {
                      '<td style="padding:9px 14px"><span style="background:' + statusBg + ';color:' + statusColor + ';font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px">' + statusLabel + '</span></td>' +
                   '</tr>';
                }).join('') +
-               '</tbody></table>' +
-         '</div>';
-   }
+               '</tbody></table>') +
+      '</div>';
 
    var headingBtns = myStores.map(function(store) {
       var paused = !!store.delivery_paused;

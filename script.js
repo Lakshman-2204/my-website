@@ -12125,28 +12125,62 @@ async function renderStoreDashboard() {
    var fmt = function(n) { return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0}); };
    var fmtDate = function(d) { if (!d) return '—'; try { var p = new Date(d + 'T00:00:00'); if (!isNaN(p)) return p.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}); } catch(e){} return d; };
 
-   function _dashStatCard(icon, label, value, color, anchorId) {
-      var clickAttr = anchorId ? ' onclick="_dashScrollTo(\'' + anchorId + '\')"' : '';
-      var arrow     = anchorId ? ' ↓' : '';
-      var cursor    = anchorId ? 'cursor:pointer;' : '';
-      return '<div' + clickAttr + ' style="' + cursor + 'background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + '">' +
-         '<div style="font-size:1.6rem;margin-bottom:6px">' + icon + '</div>' +
-         '<div style="font-size:1.7rem;font-weight:900;color:' + color + '">' + value + '</div>' +
-         '<div style="font-size:0.78rem;color:#64748b;font-weight:600;margin-top:4px">' + label + arrow + '</div>' +
+   var todayWalkInRevenue = todayOrders.filter(function(o) { return !!o.walk_in; })
+      .reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
+
+   function _gemCard(opts) {
+      var click = opts.anchor ? ' onclick="_dashScrollTo(\'' + opts.anchor + '\')" style="cursor:pointer"' : '';
+      var badge = opts.badge
+         ? '<span style="background:' + opts.badgeBg + ';color:' + opts.badgeColor + ';padding:2px 10px;border-radius:20px;font-size:0.68rem;font-weight:800;white-space:nowrap">' + opts.badge + '</span>'
+         : '';
+      return '<div' + click + ' style="background:#fff;border-radius:16px;border-top:3px solid ' + opts.color + ';padding:18px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
+         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+            '<span style="font-size:0.6rem;font-weight:800;color:#94a3b8;letter-spacing:0.09em;text-transform:uppercase">' + opts.title + '</span>' +
+            '<span style="font-size:1.2rem">' + opts.icon + '</span>' +
+         '</div>' +
+         '<div style="font-size:2rem;font-weight:900;color:' + (opts.bigColor || '#0f172a') + ';margin-bottom:10px;line-height:1.1">' + opts.big + '</div>' +
+         '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.76rem;color:#64748b;flex-wrap:wrap;gap:4px">' +
+            '<span>' + opts.sub + '</span>' + badge +
+         '</div>' +
       '</div>';
    }
 
    var statsHtml =
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">' +
+         _gemCard({ title:'Order Stream', icon:'📦', color:'#1a73e8',
+            big: todayOrders.length,
+            sub: 'Pending Web: <b style="color:#ef6c00">' + pendingWebOrders.length + ' Order' + (pendingWebOrders.length !== 1 ? 's' : '') + '</b>',
+            badge: pendingWebOrders.length > 0 ? 'Action Required' : null, badgeColor:'#ef6c00', badgeBg:'#fff7ed',
+            anchor: 'dashTodayTable' }) +
+         _gemCard({ title:'Financial Ledger', icon:'💰', color:'#2e7d32',
+            big: fmt(todayGross),
+            sub: 'This Month: <b style="color:#2e7d32">' + fmt(monthRevenue) + '</b> &nbsp;·&nbsp; Total Earned: <b style="color:#2e7d32">' + fmt(totalRevenue) + '</b>' }) +
+         _gemCard({ title:'Walk-in Invoices', icon:'🚶', color:'#0891b2',
+            big: todayWalkIn,
+            sub: "Today's Counter Sales: <b style='color:#0891b2'>" + fmt(todayWalkInRevenue) + '</b>',
+            anchor: 'dashTodayTable' }) +
+         _gemCard({ title:'Stock Health', icon:'🏥', color:'#ea580c',
+            big: productCount + '<span style="font-size:0.95rem;font-weight:700;color:#64748b"> Items Live</span>',
+            sub: 'Low Stock: <b style="color:#b45309">' + lowStockCount + '</b> &nbsp;·&nbsp; Expiring: <b style="color:#b91c1c">' + expiringBatches.length + '</b>',
+            anchor: 'dashLowStockTable' }) +
+      '</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">' +
-         _dashStatCard('📦', 'Today\'s Orders',    todayOrders.length,      '#1a73e8', 'dashTodayTable') +
-         _dashStatCard('💵', 'Today\'s Sales',     fmt(todayGross),         '#2e7d32', '') +
-         _dashStatCard('🚶', 'Walk-in Invoices',   todayWalkIn,             '#0891b2', 'dashTodayTable') +
-         _dashStatCard('⏳', 'Pending Web Orders', pendingWebOrders.length, '#ef6c00', 'dashPendingTable') +
-         _dashStatCard('⚠️', 'Low Stock',          lowStockCount,           '#b45309', 'dashLowStockTable') +
-         _dashStatCard('⚗️', 'Expiring',           expiringBatches.length,  '#b91c1c', 'dashExpiringTable') +
-         _dashStatCard('💰', 'This Month',         fmt(monthRevenue),           '#7c3aed', '') +
-         _dashStatCard('🏆', 'Total Earned',       fmt(totalRevenue),           '#6d28d9', '') +
-         _dashStatCard('🛍️', 'Products',           productCount,                '#0e7490', '') +
+         _gemCard({ title:'Low Stock Alert', icon:'⚠️', color:'#b45309',
+            big: lowStockCount === 0 ? 'Perfect' : lowStockCount + ' Products',
+            bigColor: lowStockCount === 0 ? '#16a34a' : '#b45309',
+            sub: lowStockCount === 0 ? 'No critical stock issues' : lowStockCount + ' product(s) need restocking',
+            anchor: 'dashLowStockTable' }) +
+         _gemCard({ title:'Expiry Risk', icon:'⚗️', color:'#b91c1c',
+            big: expiringBatches.length === 0 ? '0 Items' : expiringBatches.length + ' Batches',
+            bigColor: expiringBatches.length === 0 ? '#16a34a' : '#b91c1c',
+            sub: expiringBatches.length === 0 ? 'Safe — no batches expiring in 90 days' : 'Expiring within 90 days',
+            anchor: 'dashExpiringTable' }) +
+         _gemCard({ title:'Pending Web Orders', icon:'🌐', color:'#ef6c00',
+            big: pendingWebOrders.length === 0 ? 'All Clear' : pendingWebOrders.length + ' Pending',
+            bigColor: pendingWebOrders.length === 0 ? '#16a34a' : '#ef6c00',
+            sub: pendingWebOrders.length === 0 ? 'No web orders awaiting action' : 'Awaiting confirmation',
+            badge: pendingWebOrders.length > 0 ? 'Action Required' : null, badgeColor:'#ef6c00', badgeBg:'#fff7ed',
+            anchor: 'dashPendingTable' }) +
       '</div>';
 
    function _orderDate(o) { return new Date(o.date || o.createdAt || 0); }

@@ -12165,24 +12165,6 @@ async function renderStoreDashboard() {
             sub: 'Low Stock: <b style="color:#b45309">' + lowStockCount + '</b> &nbsp;·&nbsp; Expiring: <b style="color:#b91c1c">' + expiringBatches.length + '</b>',
             anchor: 'dashLowStockTable' }) +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">' +
-         _gemCard({ title:'Low Stock Alert', icon:'⚠️', color:'#b45309',
-            big: lowStockCount === 0 ? 'Perfect' : lowStockCount + ' Products',
-            bigColor: lowStockCount === 0 ? '#16a34a' : '#b45309',
-            sub: lowStockCount === 0 ? 'No critical stock issues' : lowStockCount + ' product(s) need restocking',
-            anchor: 'dashLowStockTable' }) +
-         _gemCard({ title:'Expiry Risk', icon:'⚗️', color:'#b91c1c',
-            big: expiringBatches.length === 0 ? '0 Items' : expiringBatches.length + ' Batches',
-            bigColor: expiringBatches.length === 0 ? '#16a34a' : '#b91c1c',
-            sub: expiringBatches.length === 0 ? 'Safe — no batches expiring in 90 days' : 'Expiring within 90 days',
-            anchor: 'dashExpiringTable' }) +
-         _gemCard({ title:'Pending Web Orders', icon:'🌐', color:'#ef6c00',
-            big: pendingWebOrders.length === 0 ? 'All Clear' : pendingWebOrders.length + ' Pending',
-            bigColor: pendingWebOrders.length === 0 ? '#16a34a' : '#ef6c00',
-            sub: pendingWebOrders.length === 0 ? 'No web orders awaiting action' : 'Awaiting confirmation',
-            badge: pendingWebOrders.length > 0 ? 'Action Required' : null, badgeColor:'#ef6c00', badgeBg:'#fff7ed',
-            anchor: 'dashPendingTable' }) +
-      '</div>';
 
    function _orderDate(o) { return new Date(o.date || o.createdAt || 0); }
 

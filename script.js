@@ -12127,6 +12127,14 @@ async function renderStoreDashboard() {
 
    var todayWalkInRevenue = todayOrders.filter(function(o) { return !!o.walk_in; })
       .reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
+   var completedOrders = myOrders.filter(function(o) { return o.status === 'Delivered' || o.status === 'Completed'; });
+
+   var productTotalQty = {};
+   allBatches.forEach(function(b) {
+      if (!productTotalQty[b.product_id]) productTotalQty[b.product_id] = 0;
+      productTotalQty[b.product_id] += b.qty_remaining;
+   });
+   var outOfStockCount = Object.values(productTotalQty).filter(function(qty) { return qty === 0; }).length;
 
    function _gemCard(opts) {
       var click  = opts.anchor ? ' onclick="_dashScrollTo(\'' + opts.anchor + '\')"' : '';
@@ -12149,8 +12157,8 @@ async function renderStoreDashboard() {
    var statsHtml =
       '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">' +
          _gemCard({ title:'Order Stream', icon:'📦', color:'#1a73e8',
-            big: todayOrders.length,
-            sub: 'Pending Web: <b style="color:#ef6c00">' + pendingWebOrders.length + ' Order' + (pendingWebOrders.length !== 1 ? 's' : '') + '</b>',
+            big: myOrders.length,
+            sub: 'Pending: <b style="color:#ef6c00">' + pending.length + '</b> &nbsp;·&nbsp; Completed: <b style="color:#2e7d32">' + completedOrders.length + '</b>',
             badge: pendingWebOrders.length > 0 ? 'Action Required' : null, badgeColor:'#ef6c00', badgeBg:'#fff7ed',
             anchor: 'dashTodayTable' }) +
          _gemCard({ title:'Financial Ledger', icon:'💰', color:'#2e7d32',
@@ -12162,7 +12170,7 @@ async function renderStoreDashboard() {
             anchor: 'dashTodayTable' }) +
          _gemCard({ title:'Stock Health', icon:'🏥', color:'#ea580c',
             big: productCount + '<span style="font-size:0.95rem;font-weight:700;color:#64748b"> Items Live</span>',
-            sub: 'Low Stock: <b style="color:#b45309">' + lowStockCount + '</b> &nbsp;·&nbsp; Expiring: <b style="color:#b91c1c">' + expiringBatches.length + '</b>',
+            sub: 'Low Stock: <b style="color:#b45309">' + lowStockCount + '</b> &nbsp;·&nbsp; Out of Stock: <b style="color:#b91c1c">' + outOfStockCount + '</b> &nbsp;·&nbsp; Expiring: <b style="color:#b91c1c">' + expiringBatches.length + '</b>',
             anchor: 'dashLowStockTable' }) +
       '</div>';
 
@@ -12348,8 +12356,7 @@ async function renderStoreDashboard() {
          : '';
       return dlvBtn +
          '<button style="background:#f3e8ff;color:#7c3aed;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenAds(\'' + store.id + '\')">📢 Ads</button>' +
-         '<button style="background:#e0f2fe;color:#0891b2;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenBanners(\'' + store.id + '\')">🎠 Banners</button>' +
-         '<button style="background:#f0fdf4;color:#15803d;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="openMyStoreProfile(\'' + store.id + '\')">✏️ Profile</button>';
+         '<button style="background:#e0f2fe;color:#0891b2;border:none;border-radius:8px;padding:6px 13px;font-size:0.78rem;font-weight:700;cursor:pointer" onclick="_dashOpenBanners(\'' + store.id + '\')">🎠 Banners</button>';
    }).join('');
 
    var _now = new Date();

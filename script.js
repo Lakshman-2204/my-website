@@ -12164,7 +12164,7 @@ async function renderStoreDashboard() {
             big: productCount + '<span style="font-size:0.95rem;font-weight:700;color:#64748b"> Items Live</span>',
             sub: 'Low Stock: <b style="color:#b45309">' + lowStockCount + '</b> &nbsp;·&nbsp; Expiring: <b style="color:#b91c1c">' + expiringBatches.length + '</b>',
             anchor: 'dashLowStockTable' }) +
-      '</div>' +
+      '</div>';
 
    function _orderDate(o) { return new Date(o.date || o.createdAt || 0); }
 

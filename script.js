@@ -12129,11 +12129,12 @@ async function renderStoreDashboard() {
       .reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
 
    function _gemCard(opts) {
-      var click = opts.anchor ? ' onclick="_dashScrollTo(\'' + opts.anchor + '\')" style="cursor:pointer"' : '';
+      var click  = opts.anchor ? ' onclick="_dashScrollTo(\'' + opts.anchor + '\')"' : '';
+      var cursor = opts.anchor ? 'cursor:pointer;' : '';
       var badge = opts.badge
          ? '<span style="background:' + opts.badgeBg + ';color:' + opts.badgeColor + ';padding:2px 10px;border-radius:20px;font-size:0.68rem;font-weight:800;white-space:nowrap">' + opts.badge + '</span>'
          : '';
-      return '<div' + click + ' style="background:#fff;border-radius:16px;border-top:3px solid ' + opts.color + ';padding:18px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
+      return '<div' + click + ' style="' + cursor + 'background:#fff;border-radius:16px;border-top:3px solid ' + opts.color + ';padding:18px 20px;box-shadow:0 2px 10px rgba(0,0,0,0.07)">' +
          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
             '<span style="font-size:0.6rem;font-weight:800;color:#94a3b8;letter-spacing:0.09em;text-transform:uppercase">' + opts.title + '</span>' +
             '<span style="font-size:1.2rem">' + opts.icon + '</span>' +

@@ -12138,12 +12138,12 @@ async function renderStoreDashboard() {
 
    var statsHtml =
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px">' +
-         _dashStatCard('📦', 'Today\'s Orders',    todayOrders.length,          '#1a73e8', todayOrders.length    ? 'dashTodayTable'   : '') +
-         _dashStatCard('💵', 'Today\'s Sales',     fmt(todayGross),             '#2e7d32', '') +
-         _dashStatCard('🚶', 'Walk-in Invoices',   todayWalkIn,                 '#0891b2', todayWalkIn           ? 'dashTodayTable'   : '') +
-         _dashStatCard('⏳', 'Pending Web Orders', pendingWebOrders.length,     '#ef6c00', pendingWebOrders.length ? 'dashPendingTable' : '') +
-         _dashStatCard('⚠️', 'Low Stock',          lowStockCount,               '#b45309', lowStockList.length   ? 'dashLowStockTable': '') +
-         _dashStatCard('⚗️', 'Expiring',           expiringBatches.length,      '#b91c1c', expiringBatches.length? 'dashExpiringTable': '') +
+         _dashStatCard('📦', 'Today\'s Orders',    todayOrders.length,      '#1a73e8', 'dashTodayTable') +
+         _dashStatCard('💵', 'Today\'s Sales',     fmt(todayGross),         '#2e7d32', '') +
+         _dashStatCard('🚶', 'Walk-in Invoices',   todayWalkIn,             '#0891b2', 'dashTodayTable') +
+         _dashStatCard('⏳', 'Pending Web Orders', pendingWebOrders.length, '#ef6c00', 'dashPendingTable') +
+         _dashStatCard('⚠️', 'Low Stock',          lowStockCount,           '#b45309', 'dashLowStockTable') +
+         _dashStatCard('⚗️', 'Expiring',           expiringBatches.length,  '#b91c1c', 'dashExpiringTable') +
          _dashStatCard('💰', 'This Month',         fmt(monthRevenue),           '#7c3aed', '') +
          _dashStatCard('🏆', 'Total Earned',       fmt(totalRevenue),           '#6d28d9', '') +
          _dashStatCard('🛍️', 'Products',           productCount,                '#0e7490', '') +

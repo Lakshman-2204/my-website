@@ -12126,10 +12126,9 @@ async function renderStoreDashboard() {
    var fmtDate = function(d) { if (!d) return '—'; try { var p = new Date(d + 'T00:00:00'); if (!isNaN(p)) return p.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}); } catch(e){} return d; };
 
    function _dashStatCard(icon, label, value, color, anchorId) {
-      var clickStyle = anchorId ? 'cursor:pointer' : '';
-      var clickAttr  = anchorId ? ' onclick="var el=document.getElementById(\'' + anchorId + '\');if(el)el.scrollIntoView({behavior:\'smooth\',block:\'start\'})"' : '';
-      var arrow      = anchorId ? ' ↓' : '';
-      return '<div' + clickAttr + ' style="background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + ';' + clickStyle + '">' +
+      var clickAttr = anchorId ? ' onclick="_dashScrollTo(\'' + anchorId + '\')" style="cursor:pointer"' : '';
+      var arrow     = anchorId ? ' ↓' : '';
+      return '<div' + clickAttr + ' style="background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + (anchorId ? ';cursor:pointer' : '') + '">' +
          '<div style="font-size:1.5rem;margin-bottom:6px">' + icon + '</div>' +
          '<div style="font-size:1.5rem;font-weight:900;color:' + color + '">' + value + '</div>' +
          '<div style="font-size:0.75rem;color:#64748b;font-weight:600;margin-top:2px">' + label + arrow + '</div>' +
@@ -12505,6 +12504,23 @@ function _dashOpenBanners(storeId) {
    window._currentStoreProvider = store;
    _currentMyStoreId = storeId;
    openStoreBannersModal();
+}
+function _dashScrollTo(id) {
+   var el = document.getElementById(id);
+   if (!el) return;
+   var OFFSET = 72;
+   var ancestor = el.parentElement;
+   while (ancestor && ancestor !== document.body) {
+      var ov = window.getComputedStyle(ancestor).overflowY;
+      if (ov === 'auto' || ov === 'scroll') break;
+      ancestor = ancestor.parentElement;
+   }
+   if (ancestor && ancestor !== document.body) {
+      ancestor.scrollTop = el.offsetTop - OFFSET;
+   } else {
+      var y = el.getBoundingClientRect().top + window.pageYOffset - OFFSET;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+   }
 }
 function _storeStat(icon, label, value, color) {
    return '<div style="background:#fff;border-radius:14px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border-left:4px solid ' + color + '">' +

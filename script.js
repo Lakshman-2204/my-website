@@ -9089,6 +9089,20 @@ function exitMyStore() {
    renderMyStoresList();
 }
 
+var _shopStockFilter = '';
+function _shopSetFilter(f) {
+   _shopStockFilter = f;
+   // Update button active states
+   var map = { '': 'shopFilterAll', 'low-stock': 'shopFilterLow', 'out-of-stock': 'shopFilterOos', 'expiring': 'shopFilterExpiring' };
+   Object.keys(map).forEach(function(k) {
+      var btn = document.getElementById(map[k]);
+      if (!btn) return;
+      btn.style.background = (k === f) ? '#0f172a' : '#fff';
+      btn.style.color = (k === f) ? '#fff' : (k === 'low-stock' ? '#b45309' : k === 'out-of-stock' ? '#b91c1c' : k === 'expiring' ? '#0e7490' : '#475569');
+   });
+   renderMyStoreProducts(_currentMyStoreId);
+}
+
 function renderMyStoreProducts(storeId) {
    var listView = document.getElementById('shopStoresListView');
    var prodView = document.getElementById('shopStoreProductsView');
@@ -9190,6 +9204,26 @@ function renderMyStoreProducts(storeId) {
       });
       if (!visible.length) {
          container.innerHTML = '<p class="shop-empty">No products match "<strong>' + q + '</strong>" in this store.</p>';
+         return;
+      }
+   }
+   // Stock filter
+   if (_shopStockFilter) {
+      var soon = new Date(); soon.setMonth(soon.getMonth() + 3);
+      visible = visible.filter(function(p) {
+         var batches = _currentStockByProduct[p.id] || [];
+         var totalQty = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
+         if (_shopStockFilter === 'out-of-stock') return totalQty === 0;
+         if (_shopStockFilter === 'low-stock')    return totalQty > 0 && totalQty < 50;
+         if (_shopStockFilter === 'expiring')     return batches.some(function(b) {
+            if (!b.expiry_date) return false;
+            var d = new Date(b.expiry_date);
+            return !isNaN(d) && d <= soon && (Number(b.qty_remaining) || 0) > 0;
+         });
+         return true;
+      });
+      if (!visible.length) {
+         container.innerHTML = '<p class="shop-empty">No products match this filter.</p>';
          return;
       }
    }
@@ -12172,7 +12206,7 @@ async function renderStoreDashboard() {
             anchor: 'dashTodayTable' }) +
          _gemCard({ title:'Financial Ledger', icon:'💰', color:'#2e7d32',
             big: fmt(todayGross),
-            sub: 'This Month: <b style="color:#2e7d32">' + fmt(monthRevenue) + '</b> &nbsp;·&nbsp; Total Earned: <b style="color:#2e7d32">' + fmt(totalRevenue) + '</b>' }) +
+            sub: '<div style="display:flex;flex-direction:column;gap:3px;font-size:0.78rem"><span>This Month: <b style="color:#2e7d32">' + fmt(monthRevenue) + '</b></span><span>Total Earned: <b style="color:#2e7d32">' + fmt(totalRevenue) + '</b></span></div>' }) +
          _gemCard({ title:'Walk-in Invoices', icon:'🚶', color:'#0891b2',
             big: todayWalkIn,
             sub: "Today's Counter Sales: <b style='color:#0891b2'>" + fmt(todayWalkInRevenue) + '</b>',

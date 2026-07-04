@@ -1532,7 +1532,7 @@
          </div>
          <!-- Counter-staff helper: search this store's products to find an item fast for a walk-in customer.
               Sort dropdown beside it for browsing by price / name. -->
-         <div class="shop-products-search" style="padding:0 20px;margin-bottom:10px">
+         <div class="shop-products-search" style="padding:0 20px;margin-bottom:6px">
             <input type="search" id="shopProductSearch" placeholder="🔍 Search products (Dolo, Crocin…)" oninput="renderMyStoreProducts(_currentMyStoreId)" autocomplete="off"/>
             <select id="shopProductSort" class="store-sort-select" onchange="renderMyStoreProducts(_currentMyStoreId)">
                <option value="">📊 Default order</option>
@@ -1541,6 +1541,12 @@
                <option value="name-asc">🔤 Name: A → Z</option>
             </select>
             <button id="shopProductViewToggle" class="store-sort-select" onclick="toggleShopProductsView()" title="Switch between list and grid view">📋 List</button>
+         </div>
+         <div style="padding:0 20px;margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button id="shopFilterAll"      onclick="_shopSetFilter('')"           style="padding:5px 14px;border-radius:20px;border:1.5px solid #cbd5e1;background:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;color:#475569">All</button>
+            <button id="shopFilterLow"      onclick="_shopSetFilter('low-stock')"  style="padding:5px 14px;border-radius:20px;border:1.5px solid #d97706;background:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;color:#b45309">⚠️ Low Stock</button>
+            <button id="shopFilterOos"      onclick="_shopSetFilter('out-of-stock')" style="padding:5px 14px;border-radius:20px;border:1.5px solid #ef4444;background:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;color:#b91c1c">🔴 Out of Stock</button>
+            <button id="shopFilterExpiring" onclick="_shopSetFilter('expiring')"   style="padding:5px 14px;border-radius:20px;border:1.5px solid #0891b2;background:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;color:#0e7490">⚗️ Expiring Soon</button>
          </div>
          <div id="shopProductList" class="shop-product-list"></div>
       </div>

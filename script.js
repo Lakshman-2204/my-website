@@ -4113,6 +4113,8 @@ function openStoreProviderModal(providerId) {
    document.getElementById('storeProvId').value       = p ? p.id : '';
    document.getElementById('storeProvCategory').value = p ? p.category : (Object.keys(STORE_CAT_META)[0] || 'general');
    document.getElementById('storeProvName').value     = p ? p.name : '';
+   var branchLabelEl = document.getElementById('storeProvBranchLabel');
+   if (branchLabelEl) branchLabelEl.value = p ? (p.branch_label || '') : '';
    document.getElementById('storeProvTagline').value  = p ? (p.tagline   || '') : '';
    document.getElementById('storeProvAddress').value  = p ? (p.address   || '') : '';
    document.getElementById('storeProvTiming').value   = p ? (p.timing    || '') : '';
@@ -4221,7 +4223,8 @@ async function saveStoreProvider() {
       owner_email:      document.getElementById('storeProvOwner').value || '',
       upi_vpa:          (document.getElementById('storeProvUpiVpa') || {}).value ? document.getElementById('storeProvUpiVpa').value.trim() : undefined,
       hero_tag:         (document.getElementById('storeProvHeroTag') || {}).value ? document.getElementById('storeProvHeroTag').value.trim() : undefined,
-      logo_url:         (document.getElementById('storeProvLogoUrl') || {}).value ? document.getElementById('storeProvLogoUrl').value.trim() : undefined
+      logo_url:         (document.getElementById('storeProvLogoUrl') || {}).value ? document.getElementById('storeProvLogoUrl').value.trim() : undefined,
+      branch_label:     (document.getElementById('storeProvBranchLabel') || {}).value ? document.getElementById('storeProvBranchLabel').value.trim() : undefined
    };
    var ok = await AppDB.upsertStoreProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
@@ -8544,9 +8547,9 @@ async function checkShopOwnerLogin() {
                                               : myProviders.map(function(p) { return p.name; }).join(' · ');
    } else if (ownsStores) {
       var _activeProv = myStoreProvs.find(function(s) { return s.id === _selectedBranchId; });
-      businessName = _activeProv ? _activeProv.name
-                                 : (myStoreProvs.length === 1 ? myStoreProvs[0].name
-                                                              : myStoreProvs.map(function(p) { return p.name; }).join(' · '));
+      businessName = _activeProv ? (_activeProv.branch_label || _activeProv.name)
+                                 : (myStoreProvs.length === 1 ? (myStoreProvs[0].branch_label || myStoreProvs[0].name)
+                                                              : myStoreProvs.map(function(p) { return p.branch_label || p.name; }).join(' · '));
    } else if (isAdmin(user.email)) {
       businessName = 'Admin Dashboard';
    } else {
@@ -9097,17 +9100,20 @@ function openBranchPicker() {
    var brand   = document.getElementById('branchPickerBrandName');
    if (!overlay || !list) return;
 
-   if (brand) brand.textContent = myStoreProvs[0].name.replace(/\s*(branch|store|hub|outlet).*/i, '').trim() || 'Select Branch';
+   var brandName = (myStoreProvs[0].name || '').replace(/\s*[-–|·]\s*(branch|store|hub|outlet|anna nagar|main road|west|east|north|south).*/i, '').trim() || 'Select Branch';
+   if (brand) brand.textContent = brandName;
 
    list.innerHTML = myStoreProvs.map(function(s) {
-      var isActive = s.id === _selectedBranchId;
+      var isActive  = s.id === _selectedBranchId;
+      var label     = s.branch_label || s.name;
+      var sublabel  = s.branch_label ? s.name : '';
       return '<button onclick="_selectBranch(\'' + s.id + '\')" style="' +
          'width:100%;text-align:left;padding:14px 18px;border-radius:12px;border:1px solid ' +
          (isActive ? '#0891b2' : 'rgba(255,255,255,0.08)') + ';' +
          'background:' + (isActive ? 'rgba(8,145,178,0.15)' : 'rgba(255,255,255,0.04)') + ';' +
          'color:#f1f5f9;cursor:pointer;transition:all 0.15s;font-family:inherit">' +
-         '<div style="font-weight:700;font-size:0.92rem">' + s.name + (isActive ? ' <span style="font-size:0.7rem;color:#38bdf8;font-weight:600">● Active</span>' : '') + '</div>' +
-         '<div style="font-size:0.75rem;color:#94a3b8;margin-top:3px">' + (s.address || s.city || '') + (s.phone ? ' · ' + s.phone : '') + '</div>' +
+         '<div style="font-weight:700;font-size:0.92rem">' + label + (isActive ? ' <span style="font-size:0.7rem;color:#38bdf8;font-weight:600">● Active</span>' : '') + '</div>' +
+         '<div style="font-size:0.75rem;color:#94a3b8;margin-top:3px">' + (sublabel ? sublabel + (s.address ? ' · ' : '') : '') + (s.address || '') + (s.phone ? ' · ' + s.phone : '') + '</div>' +
       '</button>';
    }).join('');
 
@@ -9127,7 +9133,7 @@ function _selectBranch(storeId) {
    // Update the business name in the header to the selected branch
    var selected = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
    var bizEl = document.getElementById('shopBusinessName');
-   if (bizEl && selected) bizEl.textContent = selected.name;
+   if (bizEl && selected) bizEl.textContent = selected.branch_label || selected.name;
 
    // Set the active store for the Products tab too
    _currentMyStoreId = storeId;
@@ -9146,7 +9152,7 @@ function _refreshBranchBadge() {
    });
    if (!badge || myStoreProvs.length <= 1) { if (badge) badge.classList.add('hidden'); return; }
    var selected = myStoreProvs.find(function(s) { return s.id === _selectedBranchId; }) || myStoreProvs[0];
-   if (badgeName) badgeName.textContent = selected.name;
+   if (badgeName) badgeName.textContent = selected.branch_label || selected.name;
    badge.classList.remove('hidden');
 }
 

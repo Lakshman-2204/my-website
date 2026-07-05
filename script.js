@@ -8598,9 +8598,19 @@ async function checkShopOwnerLogin() {
    if (ownsStores && typeof _liveSubscribe === 'function') {
       _liveSubscribe('shopOrders', 'orders', function() {
          AppDB.getAllOrders().then(function(rows) {
+            var prev = _db.orders || [];
             _db.orders = rows || [];
-            // Only re-render if Orders tab is visible (avoids touching DOM
-            // that doesn't exist when owner is on Products / Walk-in / etc.)
+            // Detect new online orders and cancellations — show toast to owner
+            _db.orders.forEach(function(o) {
+               if (o.walk_in) return;
+               var oid = o.orderId || o.order_id;
+               var prevOrder = prev.find(function(p) { return (p.orderId || p.order_id) === oid; });
+               if (!prevOrder) {
+                  _shopNewOrderToast(o);
+               } else if (o.status === 'Cancelled' && prevOrder.status !== 'Cancelled') {
+                  _shopCancelNotifyToast(o);
+               }
+            });
             var ordersPanel = document.getElementById('shop-panel-orders');
             if (ordersPanel && !ordersPanel.classList.contains('hidden')) {
                renderShopDashboard(window._shopCurrentFilter);
@@ -8621,6 +8631,41 @@ async function checkShopOwnerLogin() {
    if (s.autoRefreshOrders && ownsStores) {
       setInterval(function() { renderShopDashboard(window._shopCurrentFilter); }, 30000);
    }
+}
+
+function _shopToast(html, bg) {
+   var MARGIN = 12;
+   var existing = document.querySelectorAll('._shopToast');
+   var topOffset = 20;
+   existing.forEach(function(el) { topOffset += el.offsetHeight + MARGIN; });
+   var t = document.createElement('div');
+   t.className = '_shopToast';
+   t.style.cssText = 'position:fixed;top:' + topOffset + 'px;right:20px;background:' + bg + ';color:#fff;padding:14px 20px;border-radius:12px;font-size:0.88rem;font-weight:700;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,0.25);max-width:320px;line-height:1.5;cursor:pointer;transition:top 0.2s';
+   t.innerHTML = html;
+   t.title = 'Click to dismiss';
+   t.onclick = function() {
+      t.remove();
+      // Reflow remaining toasts upward
+      var remaining = document.querySelectorAll('._shopToast');
+      var offset = 20;
+      remaining.forEach(function(el) { el.style.top = offset + 'px'; offset += el.offsetHeight + MARGIN; });
+   };
+   document.body.appendChild(t);
+   setTimeout(function() { if (t.parentNode) t.onclick(); }, 8000);
+}
+
+function _shopNewOrderToast(order) {
+   _shopToast(
+      '🛒 New Order Received!<br><span style="font-weight:400;font-size:0.8rem">' + (order.orderId || '') + ' · ' + (order.customerName || 'Customer') + ' · ₹' + Number(order.total || 0).toLocaleString('en-IN') + '</span>',
+      '#15803d'
+   );
+}
+
+function _shopCancelNotifyToast(order) {
+   _shopToast(
+      '❌ Order Cancelled by Customer<br><span style="font-weight:400;font-size:0.8rem">' + (order.orderId || '') + ' · ' + (order.customerName || 'Customer') + '</span>',
+      '#b91c1c'
+   );
 }
 
 function renderShopDashboard(filterStatus) {
@@ -8766,6 +8811,9 @@ function renderShopDashboard(filterStatus) {
       var inFlight = status !== 'Completed' && status !== 'Cancelled';
       if (isDelivery && inFlight) {
          actions += ' <button class="apt-view-btn" style="background:#f57c00" title="Call the customer first to confirm — this removes their delivery address and flips the order to pickup mode" onclick="switchOrderToPickup(\'' + oid + '\')">🔄 Switch to pickup</button>';
+      }
+      if (inFlight && !order.walk_in) {
+         actions += ' <button class="apt-view-btn" style="background:#c62828" onclick="if(confirm(\'Cancel this order?\'))updateOrderStatus(\'' + oid + '\',\'Cancelled\')">✕ Cancel</button>';
       }
 
       return '<tr>' +
@@ -9583,6 +9631,7 @@ async function bulkAddSaveAll() {
 // Owner adds items to a fresh bill, optionally captures name+phone+doctor,
 // saves an order (status=Completed), and prints the same Sri Meghana–style bill.
 var _walkinItems = [];        // [{ id, name, qty, mrp, disc_pct, rx_required }]
+var _walkinDraftId = null;   // set when editing a saved draft
 var _walkinSearchTimer = null;
 
 // Tracks whether the walk-in modal has live state. We deliberately don't
@@ -9636,6 +9685,7 @@ function closeWalkinBillModal() {
    var inner = modal.querySelector('.sp-modal');
    if (inner) { inner.style.position = ''; inner.style.left = ''; inner.style.top = ''; inner.style.margin = ''; }
    _walkinItems = [];
+   _walkinDraftId = null;
    _walkinMinimized = false;
    document.getElementById('walkinMinimizedPill').classList.add('hidden');
 }
@@ -10255,48 +10305,110 @@ async function saveWalkinBill(printAfter) {
    var lineDisc = _walkinItems.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
    var net = gross - lineDisc;
 
+   var orderItems = _walkinItems.map(function(it) {
+      return { id: it.id, name: it.name, qty: _itemTotalQty(it), price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required, allocations: it.allocations || [] };
+   });
+
+   if (!printAfter) {
+      // ── Save Only → Draft (no stock deduction, no bill number) ──
+      var draft = {
+         orderId: orderId, order_id: orderId,
+         date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+         customerName:  name  || 'Walk-in customer',
+         customerEmail: '',
+         customerPhone: phone || '',
+         items: orderItems,
+         total: net,
+         method: 'Walk-in',
+         status: 'Draft',
+         storeId: store.owner_email || owner.email,
+         storeName: store.name || '',
+         store_provider_id: _currentMyStoreId,
+         payment_mode: 'CASH',
+         doctor_name:  doctor,
+         walk_in:      true,
+         stock_deducted: false
+      };
+      // If editing an existing draft, delete the old one first
+      if (_walkinDraftId) {
+         await AppDB.deleteOrder(_walkinDraftId);
+         _db.orders = _db.orders.filter(function(o) { return (o.orderId || o.order_id) !== _walkinDraftId; });
+         _walkinDraftId = null;
+      }
+      _db.orders.unshift(draft);
+      var ok = await AppDB.insertOrder(draft);
+      if (!ok) { alert('Failed to save draft.'); return; }
+      _walkinItems = [];
+      _walkinDraftId = null;
+      closeWalkinBillModal();
+      renderShopDashboard(window._shopCurrentFilter);
+      return;
+   }
+
+   // ── Save & Print → Completed, deduct stock ──
    var order = {
       orderId: orderId, order_id: orderId,
       date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
       customerName:  name  || 'Walk-in customer',
       customerEmail: '',
       customerPhone: phone || '',
-      items: _walkinItems.map(function(it) {
-         return { id: it.id, name: it.name, qty: _itemTotalQty(it), price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required, allocations: it.allocations || [] };
-      }),
+      items: orderItems,
       total: net,
       method: 'Walk-in',
-      status: 'Completed',                  // counter sale — already paid, just print
+      status: 'Completed',
       storeId: store.owner_email || owner.email,
       storeName: store.name || '',
       store_provider_id: _currentMyStoreId,
       payment_mode: 'CASH',
       doctor_name:  doctor,
       walk_in:      true,
-      stock_deducted: true       // we deduct inline via _commitFEFODeduction below
+      stock_deducted: true
    };
+
+   // If completing from a draft, delete the draft first
+   if (_walkinDraftId) {
+      await AppDB.deleteOrder(_walkinDraftId);
+      _db.orders = _db.orders.filter(function(o) { return (o.orderId || o.order_id) !== _walkinDraftId; });
+      _walkinDraftId = null;
+   }
+
    _db.orders.unshift(order);
    var ok = await AppDB.insertOrder(order);
    if (!ok) { alert('Failed to save bill.'); return; }
 
-   // Order persisted — now deduct stock from inventory_batches using the
-   // explicit per-line allocations the owner just confirmed on screen.
-   // We use the plan computed at the top of this function so the deduction
-   // matches exactly what we validated against.
    try { await _commitFEFODeduction(plan.updates); } catch (e) { console.error('Stock deduction failed:', e); }
 
-   if (printAfter) {
-      // Hand off to the existing bill-template renderer
-      _billOrder = order;
-      _billOrder.items = _walkinItems.slice();
-      _billDiscountPct = 0;
-      await generatePrintableBill();
-   }
-   // Clear cart before closing so the discard-confirm in closeWalkinBillModal
-   // doesn't trip on a successful save
+   _billOrder = order;
+   _billOrder.items = _walkinItems.slice();
+   _billDiscountPct = 0;
+   await generatePrintableBill();
+
    _walkinItems = [];
    closeWalkinBillModal();
    renderShopDashboard(window._shopCurrentFilter);
+}
+
+function editWalkinDraft(orderId) {
+   var o = _db.orders.find(function(x) { return (x.orderId || x.order_id) === orderId; });
+   if (!o) { alert('Draft not found.'); return; }
+   _walkinDraftId = orderId;
+   // Repopulate walk-in bill modal with draft items
+   _walkinItems = (o.items || []).map(function(it) {
+      return { id: it.id, name: it.name, qty: it.qty || 1, mrp: it.mrp || it.price || 0,
+               disc_pct: it.disc_pct || 0, rx_required: it.rx_required || false, allocations: it.allocations || [] };
+   });
+   document.getElementById('walkin-name').value   = o.customerName || '';
+   document.getElementById('walkin-phone').value  = o.customerPhone || '';
+   document.getElementById('walkin-doctor').value = o.doctor_name || '';
+   _walkinRenderItems();
+   document.getElementById('walkinBillModal').classList.remove('hidden');
+}
+
+async function deleteWalkinDraft(orderId) {
+   if (!confirm('Delete this saved draft?')) return;
+   await AppDB.deleteOrder(orderId);
+   _db.orders = _db.orders.filter(function(o) { return (o.orderId || o.order_id) !== orderId; });
+   renderBillsRegister();
 }
 
 // ── Shop-owner: edit order line items + generate printable bill ──────
@@ -11999,17 +12111,20 @@ async function renderBillsRegister() {
       return 'color:' + p[0] + ';background:' + p[1] + ';';
    };
 
-   var billed = allOrders.filter(function(o) { return o.bill_number; });
-   var unbilled = allOrders.filter(function(o) { return !o.bill_number; });
-   var total = allOrders.reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
-   var done  = allOrders.filter(function(o) { return o.status === 'Completed' || o.status === 'Delivered'; }).length;
+   var draftOrders = allOrders.filter(function(o) { return o.status === 'Draft'; });
+   var activeOrders = allOrders.filter(function(o) { return o.status !== 'Draft'; });
+   var billed = activeOrders.filter(function(o) { return o.bill_number; });
+   var unbilled = activeOrders.filter(function(o) { return !o.bill_number; });
+   var total = activeOrders.reduce(function(s, o) { return s + (o.total || o.amount || 0); }, 0);
+   var done  = activeOrders.filter(function(o) { return o.status === 'Completed' || o.status === 'Delivered'; }).length;
 
    var summaryHtml =
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px">' +
-         _storeStat('📒', 'Total Bills', allOrders.length, '#1a73e8') +
+         _storeStat('📒', 'Total Bills', activeOrders.length, '#1a73e8') +
          _storeStat('✅', 'Completed', done, '#15803d') +
-         _storeStat('⏳', 'Pending', allOrders.length - done, '#ef6c00') +
+         _storeStat('⏳', 'Pending', activeOrders.length - done, '#ef6c00') +
          _storeStat('💰', 'Day Revenue', fmt(total), '#7c3aed') +
+         (draftOrders.length ? _storeStat('✏️', 'Saved Drafts', draftOrders.length, '#7c3aed') : '') +
       '</div>';
 
    function rowsHtml(orders) {
@@ -12069,7 +12184,7 @@ async function renderBillsRegister() {
             : '') +
          '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
             tableHead +
-            '<tbody>' + rowsHtml(allOrders) + '</tbody>' +
+            '<tbody>' + rowsHtml(activeOrders) + '</tbody>' +
             '<tfoot><tr style="background:#f8fafc;font-weight:800;border-top:2px solid #e2e8f0">' +
                '<td colspan="7" style="padding:10px 14px;text-align:right;font-size:0.82rem;color:#64748b">Day Total</td>' +
                '<td style="padding:10px 14px;font-size:0.95rem;color:#7c3aed;text-align:right">' + fmt(total) + '</td>' +
@@ -12078,7 +12193,41 @@ async function renderBillsRegister() {
          '</table>' +
       '</div>';
 
-   container.innerHTML = summaryHtml + (allOrders.length ? tableHtml : '<p style="color:#94a3b8;text-align:center;padding:40px">No orders on ' + selectedDate + '</p>');
+   // Saved drafts section
+   var draftsHtml = '';
+   if (draftOrders.length) {
+      draftsHtml =
+         '<div style="background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;margin-top:20px">' +
+            '<div style="padding:14px 18px;font-weight:800;font-size:0.95rem;border-bottom:1px solid #f1f5f9;background:#fefce8;color:#92400e">✏️ Saved Drafts <span style="font-weight:400;font-size:0.78rem">(not yet completed — click Edit to finalise)</span></div>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.83rem">' +
+               '<thead><tr style="background:#fefce8;font-size:0.72rem;text-transform:uppercase;color:#64748b;letter-spacing:0.06em">' +
+                  '<th style="padding:10px 12px">Time</th>' +
+                  '<th style="padding:10px 12px">Customer</th>' +
+                  '<th style="padding:10px 12px;text-align:center">Items</th>' +
+                  '<th style="padding:10px 12px;text-align:right">Amount</th>' +
+                  '<th style="padding:10px 12px;text-align:center">Actions</th>' +
+               '</tr></thead><tbody>' +
+               draftOrders.map(function(o, idx) {
+                  var timeStr = '';
+                  try { var p = new Date(o.date || ''); if (!isNaN(p)) timeStr = p.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }); } catch(e) {}
+                  var oid = (o.orderId || o.order_id || '').replace(/'/g, "\\'");
+                  var items = (o.items || []).length;
+                  return '<tr style="background:' + (idx % 2 === 0 ? '#fff' : '#fffbeb') + ';border-top:1px solid #fef3c7">' +
+                     '<td style="padding:10px 12px;font-size:0.78rem;color:#64748b">' + (timeStr || '—') + '</td>' +
+                     '<td style="padding:10px 12px;font-weight:600">' + (o.customerName || 'Walk-in') + '</td>' +
+                     '<td style="padding:10px 12px;text-align:center;font-size:0.78rem;color:#64748b">' + items + ' item' + (items !== 1 ? 's' : '') + '</td>' +
+                     '<td style="padding:10px 12px;font-weight:700;text-align:right">' + fmt(o.total || 0) + '</td>' +
+                     '<td style="padding:10px 12px;text-align:center;display:flex;gap:6px;justify-content:center">' +
+                        '<button class="apt-view-btn" style="background:#1a73e8;padding:5px 12px;font-size:0.75rem" onclick="editWalkinDraft(\'' + oid + '\')">✏️ Edit</button>' +
+                        '<button class="apt-view-btn" style="background:#c62828;padding:5px 12px;font-size:0.75rem" onclick="deleteWalkinDraft(\'' + oid + '\')">🗑 Delete</button>' +
+                     '</td>' +
+                  '</tr>';
+               }).join('') +
+               '</tbody></table>' +
+         '</div>';
+   }
+
+   container.innerHTML = summaryHtml + (activeOrders.length ? tableHtml : '<p style="color:#94a3b8;text-align:center;padding:40px">No orders on ' + selectedDate + '</p>') + draftsHtml;
 }
 
 async function renderStoreDashboard() {
@@ -21154,6 +21303,10 @@ async function renderOrders() {
       var totalHtml = rxOnly && !o.total
          ? '<span class="order-total" style="color:#888;font-style:italic">Awaiting quote</span>'
          : '<span class="order-total">Total: ₹' + (o.total || 0).toLocaleString('en-IN') + '</span>';
+      var canCancel = liveStatus === 'Pending Pickup' || liveStatus === 'Pending';
+      var cancelBtn = canCancel
+         ? '<button onclick="customerCancelOrder(\'' + (o.orderId||'').replace(/'/g,"\\'") + '\')" style="background:none;border:1.5px solid #ef4444;color:#ef4444;border-radius:8px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">✕ Cancel Order</button>'
+         : '';
       return ''
        + '<div class="order-card">'
        +    '<div class="order-card-header">'
@@ -21165,9 +21318,19 @@ async function renderOrders() {
        +    '<div class="order-footer">'
        +       '<span>' + _orderFooterLabel(o) + '</span>'
        +       totalHtml
+       +       cancelBtn
        +    '</div>'
        + '</div>';
    }).join('');
+}
+
+async function customerCancelOrder(orderId) {
+   if (!confirm('Cancel this order? This cannot be undone.')) return;
+   var ok = await AppDB.updateOrderStatus(orderId, 'Cancelled');
+   if (!ok) { alert('Failed to cancel. Please try again.'); return; }
+   var o = _db.orders.find(function(x) { return (x.orderId || x.order_id) === orderId; });
+   if (o) o.status = 'Cancelled';
+   renderOrders();
 }
 
 // ── MY APPOINTMENTS (profile page) ──

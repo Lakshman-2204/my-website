@@ -9851,18 +9851,49 @@ function repeatWalkinBill(idx) {
 async function walkinLookupByPhone() {
    var phone = (document.getElementById('walkin-phone').value || '').trim();
    if (!phone) return;
+   var norm = phone.replace(/\D/g, '').slice(-10);
+
+   // Name auto-fill: check walkin_customers first, then fall back to any order in memory
    var existing = await AppDB.findWalkinByPhone(_currentMyStoreId, phone);
+   var nameEl = document.getElementById('walkin-name');
    if (existing && existing.name) {
-      var nameEl = document.getElementById('walkin-name');
       if (nameEl && !nameEl.value.trim()) {
          nameEl.value = existing.name;
          nameEl.style.background = '#e8f5e9';
          setTimeout(function() { nameEl.style.background = ''; }, 1500);
       }
+   } else if (nameEl && !nameEl.value.trim() && norm.length === 10) {
+      // Fall back to any order (walk-in or online) that has this phone
+      var anyOrder = (_db.orders || []).find(function(o) {
+         return (o.customerPhone || '').replace(/\D/g, '').slice(-10) === norm && o.customerName;
+      });
+      if (anyOrder) {
+         nameEl.value = anyOrder.customerName;
+         nameEl.style.background = '#e8f5e9';
+         setTimeout(function() { nameEl.style.background = ''; }, 1500);
+      }
    }
-   // Show "Previous Items" button if prior completed walk-in orders exist
+
+   // Previous orders: merge walk-in orders from DB + online orders from memory
    var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone });
-   var completed = (prior || []).filter(function(o) { return o.status !== 'Draft'; });
+   var walkinCompleted = (prior || []).filter(function(o) { return o.status !== 'Draft'; });
+
+   // Online orders for same store and phone, already in memory
+   var onlineOrders = (_db.orders || []).filter(function(o) {
+      if (o.walk_in || o.status === 'Draft' || o.status === 'Cancelled') return false;
+      if (o.store_provider_id !== _currentMyStoreId) return false;
+      return norm.length === 10 && (o.customerPhone || '').replace(/\D/g, '').slice(-10) === norm;
+   });
+
+   // Merge, deduplicate by orderId, sort newest first
+   var seen = {};
+   var completed = walkinCompleted.concat(onlineOrders).filter(function(o) {
+      var id = o.orderId || o.order_id;
+      if (seen[id]) return false;
+      seen[id] = true;
+      return true;
+   }).sort(function(a, b) { return _orderDate(b) - _orderDate(a); });
+
    var banner = document.getElementById('walkin-history-banner');
    if (!banner) return;
    if (completed.length) {

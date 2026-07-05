@@ -9862,15 +9862,18 @@ async function walkinLookupByPhone() {
    }
    // Show "Previous Items" button if prior completed walk-in orders exist
    var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone });
-   var last = (prior || []).find(function(o) { return o.status !== 'Draft'; });
+   var completed = (prior || []).filter(function(o) { return o.status !== 'Draft'; });
    var banner = document.getElementById('walkin-history-banner');
    if (!banner) return;
-   if (last && last.items && last.items.length) {
-      window._walkinLastOrder = last;
-      var d = last.date ? ' · ' + last.date : '';
+   if (completed.length) {
+      window._walkinLastOrder = completed[0];
+      window._walkinHistoryCache = completed;
+      var label = completed.length === 1
+         ? '🕘 Previous order found · ' + (completed[0].date || '')
+         : '🕘 ' + completed.length + ' previous orders found';
       banner.innerHTML =
          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
-            '<span>🕘 Previous order found' + d + '</span>' +
+            '<span>' + label + '</span>' +
             '<button onclick="walkinLoadPreviousItems()" style="background:#1565c0;color:#fff;border:none;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:0.85rem;font-weight:600">📋 Previous Items</button>' +
          '</div>';
       banner.classList.remove('hidden');
@@ -9881,26 +9884,32 @@ async function walkinLookupByPhone() {
 }
 
 function walkinLoadPreviousItems() {
-   var last = window._walkinLastOrder;
-   if (!last || !last.items) return;
-   last.items.forEach(function(it) {
-      var existing = _walkinItems.find(function(x) { return x.id === it.id; });
-      if (existing) { existing.qty += Number(it.qty) || 1; }
-      else {
-         _walkinItems.push({
-            id:          it.id,
-            name:        it.name,
-            qty:         Number(it.qty) || 1,
-            mrp:         Number(it.mrp || it.price) || 0,
-            disc_pct:    Number(it.disc_pct) || 0,
-            rx_required: !!it.rx_required,
-            rx_repeat:   true
-         });
-      }
-   });
-   _renderWalkinTable();
-   var banner = document.getElementById('walkin-history-banner');
-   if (banner) { banner.classList.add('hidden'); banner.innerHTML = ''; }
+   var completed = window._walkinHistoryCache || [];
+   if (!completed.length) return;
+   // Single order → load items directly; multiple → open history picker
+   if (completed.length === 1) {
+      var last = completed[0];
+      last.items.forEach(function(it) {
+         var existing = _walkinItems.find(function(x) { return x.id === it.id; });
+         if (existing) { existing.qty += Number(it.qty) || 1; }
+         else {
+            _walkinItems.push({
+               id:          it.id,
+               name:        it.name,
+               qty:         Number(it.qty) || 1,
+               mrp:         Number(it.mrp || it.price) || 0,
+               disc_pct:    Number(it.disc_pct) || 0,
+               rx_required: !!it.rx_required,
+               rx_repeat:   true
+            });
+         }
+      });
+      _renderWalkinTable();
+      var banner = document.getElementById('walkin-history-banner');
+      if (banner) { banner.classList.add('hidden'); banner.innerHTML = ''; }
+   } else {
+      openWalkinHistory();   // shows all bills with "↻ Repeat this bill" per entry
+   }
 }
 
 function walkinDoSearch() {
@@ -10771,6 +10780,16 @@ function addBillItem(productId) {
 async function saveOrderEdits() {
    if (!_billOrder) return;
    var orderId = _billOrder.orderId || _billOrder.order_id;
+   // Sync any edits that oninput may have missed
+   var _discInput = document.querySelector('#orderBillBody .bill-summary input[type="number"]');
+   if (_discInput) { var _dv = parseFloat(_discInput.value); if (!isNaN(_dv)) _billDiscountPct = Math.max(0, Math.min(100, _dv)); }
+   _billOrder.items.forEach(function(it, i) {
+      var rows = document.querySelectorAll('#orderBillBody .bill-edit-table tbody tr.main-row');
+      if (!rows[i]) return;
+      var inputs = rows[i].querySelectorAll('input[type="number"]');
+      if (inputs[0]) { var mv = parseFloat(inputs[0].value); if (!isNaN(mv) && mv >= 0) it.mrp = mv; }
+      if (inputs[1]) { var dv = parseFloat(inputs[1].value); if (!isNaN(dv)) it.disc_pct = Math.max(0, Math.min(100, dv)); }
+   });
    // Compute the new total from allocation-derived quantities
    var gross    = _billOrder.items.reduce(function(s, it) { return s + it.mrp * _itemTotalQty(it); }, 0);
    var lineDisc = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
@@ -10803,6 +10822,16 @@ async function saveOrderEdits() {
 // ── Printable bill — opens in a new window with Sri Meghana–style template ──
 async function generatePrintableBill() {
    if (!_billOrder) return;
+   // Sync any edits that oninput may have missed (e.g. paste, autocomplete, mobile)
+   var _discInput = document.querySelector('#orderBillBody .bill-summary input[type="number"]');
+   if (_discInput) { var _dv = parseFloat(_discInput.value); if (!isNaN(_dv)) _billDiscountPct = Math.max(0, Math.min(100, _dv)); }
+   _billOrder.items.forEach(function(it, i) {
+      var rows = document.querySelectorAll('#orderBillBody .bill-edit-table tbody tr.main-row');
+      if (!rows[i]) return;
+      var inputs = rows[i].querySelectorAll('input[type="number"]');
+      if (inputs[0]) { var mv = parseFloat(inputs[0].value); if (!isNaN(mv) && mv >= 0) it.mrp = mv; }
+      if (inputs[1]) { var dv = parseFloat(inputs[1].value); if (!isNaN(dv)) it.disc_pct = Math.max(0, Math.min(100, dv)); }
+   });
    var user  = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
    // Make sure the store cache is loaded (could be stale on a long-lived tab)
    try { await loadStoreProviders(true); } catch (e) {}

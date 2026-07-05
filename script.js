@@ -10849,13 +10849,14 @@ async function generatePrintableBill() {
    // Generate a bill number if the order doesn't already have one
    var billNo = _billOrder.bill_number;
    if (!billNo) {
-      var seq = await _bumpStoreBillSeq(store.id || 'STORE');
       var storeCode = _shortCode(store.name || 'STORE');
       var _bn = new Date();
       var _byy = String(_bn.getFullYear()).slice(2);
       var _bmm = String(_bn.getMonth() + 1).padStart(2, '0');
       var _bdd = String(_bn.getDate()).padStart(2, '0');
-      billNo = storeCode + '-' + _byy + _bmm + _bdd + '-' + String(seq).padStart(5, '0');
+      var _dateKey = _byy + _bmm + _bdd;
+      var seq = await _bumpStoreBillSeq(store.id || 'STORE', storeCode, _dateKey);
+      billNo = storeCode + '-' + _dateKey + '-' + String(seq).padStart(5, '0');
       _billOrder.bill_number = billNo;
       // Persist bill_number + the items+allocations snapshot on the order so
       // (a) the stock deduction on Delivered/Picked up uses the exact batches
@@ -10865,7 +10866,19 @@ async function generatePrintableBill() {
          var qty = _itemTotalQty(it);
          return { id: it.id, name: it.name, qty: qty, price: it.mrp, mrp: it.mrp, disc_pct: it.disc_pct, rx_required: it.rx_required, allocations: it.allocations || [] };
       });
-      AppDB.patchOrder(_billOrder.orderId || _billOrder.order_id, { bill_number: billNo, items: itemsSnapshot });
+      // Compute final net now so we can persist the correct total alongside the bill number
+      var _g = _billOrder.items.reduce(function(s, it) { return s + it.mrp * _itemTotalQty(it); }, 0);
+      var _ld = _billOrder.items.reduce(function(s, it) { return s + (it.mrp * _itemTotalQty(it) * it.disc_pct / 100); }, 0);
+      var _net = Math.round((_g - _ld - (_g - _ld) * (_billDiscountPct / 100)) * 100) / 100;
+      AppDB.patchOrder(_billOrder.orderId || _billOrder.order_id, {
+         bill_number:  billNo,
+         items:        itemsSnapshot,
+         total:        _net,
+         discount_pct: _billDiscountPct
+      });
+      // Sync local cache
+      var _ci = (_db.orders || []).findIndex(function(o) { return (o.orderId === (_billOrder.orderId || _billOrder.order_id)) || (o.order_id === (_billOrder.orderId || _billOrder.order_id)); });
+      if (_ci >= 0) { _db.orders[_ci].total = _net; _db.orders[_ci].discount_pct = _billDiscountPct; }
    }
 
    // Recompute totals
@@ -10901,17 +10914,19 @@ async function generatePrintableBill() {
    setTimeout(function() { try { w.focus(); w.print(); } catch (e) {} }, 500);
 }
 
-// Lightweight per-store bill counter stored in localStorage keyed by store id
-function _bumpStoreBillSeq(storeId) {
-   var now = new Date();
-   var yy = String(now.getFullYear()).slice(2);
-   var mm = String(now.getMonth() + 1).padStart(2, '0');
-   var dd = String(now.getDate()).padStart(2, '0');
-   var dateKey = yy + mm + dd;
-   var k = 'billseq:' + storeId + ':' + dateKey;
-   var n = parseInt(localStorage.getItem(k) || '0', 10) + 1;
-   localStorage.setItem(k, String(n));
-   return Promise.resolve(n);
+// Derive the next bill sequence from actual orders in memory so that deleting
+// orders from the admin panel resets the counter on next load.
+function _bumpStoreBillSeq(storeId, storeCode, dateKey) {
+   var prefix = (storeCode || '') + '-' + (dateKey || '') + '-';
+   var maxSeq = 0;
+   (_db.orders || []).forEach(function(o) {
+      var bn = o.bill_number || '';
+      if (bn.indexOf(prefix) === 0) {
+         var seq = parseInt(bn.slice(prefix.length), 10);
+         if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+      }
+   });
+   return Promise.resolve(maxSeq + 1);
 }
 function _shortCode(name) {
    var parts = (name || '').split(/\s+/).filter(Boolean);

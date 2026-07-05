@@ -9676,9 +9676,6 @@ function openWalkinBillModal() {
 }
 
 function closeWalkinBillModal() {
-   if (_walkinItems.length && !confirm('Discard this bill? Items will be lost.\n\n(Tip: click 🗕 to minimize instead — the bill stays open in the background.)')) {
-      return;
-   }
    var modal = document.getElementById('walkinBillModal');
    modal.classList.add('hidden');
    // Reset drag position so the next fresh bill opens centered

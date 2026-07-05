@@ -9839,7 +9839,8 @@ function repeatWalkinBill(idx) {
             qty:     Number(it.qty) || 1,
             mrp:     Number(it.mrp || it.price) || 0,
             disc_pct: Number(it.disc_pct) || 0,
-            rx_required: !!it.rx_required
+            rx_required: !!it.rx_required,
+            rx_repeat:   true
          });
       }
    });
@@ -9855,10 +9856,46 @@ async function walkinLookupByPhone() {
       var nameEl = document.getElementById('walkin-name');
       if (nameEl && !nameEl.value.trim()) {
          nameEl.value = existing.name;
-         nameEl.style.background = '#e8f5e9';   // brief highlight
+         nameEl.style.background = '#e8f5e9';
          setTimeout(function() { nameEl.style.background = ''; }, 1500);
       }
    }
+   // Auto-populate cart from most recent walk-in if cart is empty
+   if (_walkinItems.length === 0) {
+      var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone });
+      var last = (prior || []).find(function(o) { return o.status !== 'Draft'; });
+      if (last && last.items && last.items.length) {
+         _walkinItems = last.items.map(function(it) {
+            return {
+               id:         it.id,
+               name:       it.name,
+               qty:        Number(it.qty) || 1,
+               mrp:        Number(it.mrp || it.price) || 0,
+               disc_pct:   Number(it.disc_pct) || 0,
+               rx_required: !!it.rx_required,
+               rx_repeat:  true   // prescription already verified on prior visit
+            };
+         });
+         _renderWalkinTable();
+         var banner = document.getElementById('walkin-history-banner');
+         if (banner) {
+            var d = last.date ? ' (' + last.date + ')' : '';
+            banner.innerHTML =
+               '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+                  '<span>📋 Items from last visit' + d + ' auto-loaded. Rx items previously verified.</span>' +
+                  '<button onclick="walkinClearAutoFill()" style="background:#c62828;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.82rem">✕ Clear</button>' +
+               '</div>';
+            banner.classList.remove('hidden');
+         }
+      }
+   }
+}
+
+function walkinClearAutoFill() {
+   _walkinItems = [];
+   _renderWalkinTable();
+   var banner = document.getElementById('walkin-history-banner');
+   if (banner) { banner.classList.add('hidden'); banner.innerHTML = ''; }
 }
 
 function walkinDoSearch() {
@@ -10238,8 +10275,12 @@ function _renderWalkinTable() {
       var batchChip = totalBatches > 0
          ? '<span class="batch-chip" onclick="_toggleWalkinBatchPicker(' + i + ')" title="Click to allocate across batches">📦 Batches: ' + allocCount + '/' + totalBatches + ' ▾</span>'
          : '<span style="color:#c62828;font-size:0.78rem">⚠️ No batches</span>';
+      var rxTag = it.rx_required
+         ? (it.rx_repeat ? ' <span style="color:#2e7d32;font-size:0.75rem">✓ Rx (prev.)</span>'
+                         : ' <span style="color:#c62828;font-size:0.75rem">⚠️Rx</span>')
+         : '';
       var mainRow = '<tr class="main-row">' +
-                '<td>' + (i+1) + '. ' + it.name + (it.rx_required ? ' <span style="color:#c62828;font-size:0.75rem">⚠️Rx</span>' : '') +
+                '<td>' + (i+1) + '. ' + it.name + rxTag +
                    '<div style="margin-top:3px">' + batchChip + '</div>' +
                 '</td>' +
                 '<td class="line-qty" style="text-align:center;font-weight:600">' + qty + '</td>' +

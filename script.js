@@ -9788,12 +9788,11 @@ async function walkinLookupHistory() {
    // Walk-in orders from DB
    var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone, name: name });
    var walkinCompleted = (prior || []).filter(function(o) { return o.status !== 'Draft'; });
-   // Online orders from memory matching phone
-   var onlineOrders = norm.length === 10 ? (_db.orders || []).filter(function(o) {
-      if (o.walk_in || o.status === 'Draft' || o.status === 'Cancelled') return false;
-      if (o.store_provider_id !== _currentMyStoreId) return false;
-      return (o.customerPhone || '').replace(/\D/g, '').slice(-10) === norm;
-   }) : [];
+   // Online orders from DB
+   var _lu = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var onlineOrders = norm.length === 10
+      ? await AppDB.findOnlineOrdersByPhone(_currentMyStoreId, _lu.email, phone)
+      : [];
    var seen = {};
    var completed = walkinCompleted.concat(onlineOrders).filter(function(o) {
       var id = o.orderId || o.order_id; if (seen[id]) return false; seen[id] = true; return true;
@@ -9881,7 +9880,7 @@ async function walkinLookupByPhone() {
          setTimeout(function() { nameEl.style.background = ''; }, 1500);
       }
    } else if (nameEl && !nameEl.value.trim() && norm.length === 10) {
-      // Fall back to any order (walk-in or online) that has this phone
+      // Fall back to any in-memory order with this phone for name
       var anyOrder = (_db.orders || []).find(function(o) {
          return (o.customerPhone || '').replace(/\D/g, '').slice(-10) === norm && o.customerName;
       });
@@ -9892,16 +9891,13 @@ async function walkinLookupByPhone() {
       }
    }
 
-   // Previous orders: merge walk-in orders from DB + online orders from memory
+   // Previous orders: merge walk-in orders + online orders, both from DB
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
    var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone });
    var walkinCompleted = (prior || []).filter(function(o) { return o.status !== 'Draft'; });
-
-   // Online orders for same store and phone, already in memory
-   var onlineOrders = (_db.orders || []).filter(function(o) {
-      if (o.walk_in || o.status === 'Draft' || o.status === 'Cancelled') return false;
-      if (o.store_provider_id !== _currentMyStoreId) return false;
-      return norm.length === 10 && (o.customerPhone || '').replace(/\D/g, '').slice(-10) === norm;
-   });
+   var onlineOrders = norm.length === 10
+      ? await AppDB.findOnlineOrdersByPhone(_currentMyStoreId, user.email, phone)
+      : [];
 
    // Merge, deduplicate by orderId, sort newest first
    var seen = {};

@@ -986,6 +986,23 @@ window.AppDB = {
       return rows;
    },
 
+   // Fetch completed online (non-walk-in) orders for a customer phone at a store.
+   // Matches by store_provider_id OR store_id (owner email) to handle legacy orders.
+   async findOnlineOrdersByPhone(storeProviderId, ownerEmail, phone) {
+      const norm = this._normalizePhone(phone);
+      if (!norm || norm.length < 10) return [];
+      // Fetch recent non-walk-in orders for this store, match phone in JS
+      const { data, error } = await _sb.from('orders').select('*')
+         .eq('walk_in', false)
+         .in('status', ['Pending Pickup', 'Confirmed', 'Delivered', 'Completed', 'Pending'])
+         .or('store_provider_id.eq.' + storeProviderId + ',store_id.eq.' + (ownerEmail || ''))
+         .order('created_at', { ascending: false })
+         .limit(20);
+      if (error) { console.error('findOnlineOrdersByPhone:', error.message); return []; }
+      return (data || []).map(_orderFromDB)
+         .filter(o => (o.customerPhone || '').replace(/\D/g, '').slice(-10) === norm);
+   },
+
    // Insert a walk-in customer (called only when phone is provided and the
    // customer doesn't already exist). Returns the inserted row.
    async upsertWalkinCustomer(c) {

@@ -1459,6 +1459,15 @@ async function placeMedicalOrder() {
       var prov = (_storeProvidersCache || []).find(function(x) { return x.id === g.spId; }) || {};
       var needsAddr = _storeAcceptsDeliveryNow(prov);
       if (needsAddr && !addr) { alert('Please choose a delivery address for ' + (prov.name || g.storeName) + '.'); btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; return; }
+
+      // Multi-branch routing check
+      var routing = _resolveOrderRouting(prov, needsAddr ? addr : null);
+      if (!routing.allow) {
+         alert('🚫 ' + routing.reason);
+         btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)';
+         return;
+      }
+
       var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
       var subtotal = g.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
       var order = {
@@ -1467,13 +1476,14 @@ async function placeMedicalOrder() {
          customerName: user.name, customerEmail: user.email, customerPhone: phone,
          items: g.items.map(function(c) { return { id: c.id, name: c.name, qty: c.qty, price: c.price, rx_required: !!c.rx_required }; }),
          total: subtotal,
-         method: needsAddr ? 'COD-Delivery' : 'Pickup',     // distinguishes from the legacy "Pickup" default
-         status: 'Pending Pickup',                          // same status word — owner workflow is unchanged
+         method: needsAddr ? 'COD-Delivery' : 'Pickup',
+         status: routing.broadcast ? 'PENDING_CLAIM' : 'Pending Pickup',
          storeId: g.storeId || null, storeName: g.storeName || prov.name || null,
          store_provider_id: g.spId || null,
          prescription_url:  hasAnyRx ? window._cartPrescriptionUrl : null,
          delivery_address:  needsAddr && addr ? addr : null,
-         payment_mode:      'COD'
+         payment_mode:      'COD',
+         routing_type:      routing.broadcast ? 'BIDDING_STREAM' : 'STANDARD'
       };
       _db.orders.unshift(order);
       await AppDB.insertOrder(order);
@@ -1800,6 +1810,38 @@ let _storeProvidersCache = null;    // [{id, category, name, ...}]
 // door_delivery so an order's display doesn't flip if the owner pauses later.
 function _storeAcceptsDeliveryNow(store) {
    return !!(store && store.door_delivery && !store.delivery_paused);
+}
+
+// ── Multi-branch order routing ─────────────────────────────────────────────
+// Returns { allow: bool, broadcast: bool, reason: string }
+// allow=false + broadcast=false → Template 2 strict reject
+// allow=true  + broadcast=true  → Template 1 PENDING_CLAIM broadcast
+// allow=true  + broadcast=false → normal order
+function _resolveOrderRouting(prov, deliveryAddr) {
+   if (!prov) return { allow: true, broadcast: false };
+   var policy = prov.fulfillment_policy || 'strict';
+   var cityKw = (prov.city_keyword || '').toLowerCase().trim();
+
+   // No city_keyword set → no geographic gating, always allow normally
+   if (!cityKw) return { allow: true, broadcast: false };
+
+   // Check if delivery address text contains the branch's city keyword
+   var addrText = '';
+   if (deliveryAddr) {
+      addrText = [deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
+                  deliveryAddr.area, deliveryAddr.pincode, deliveryAddr.state]
+         .filter(Boolean).join(' ').toLowerCase();
+   }
+   var inArea = addrText.indexOf(cityKw) !== -1;
+
+   if (inArea || !deliveryAddr) return { allow: true, broadcast: false };
+
+   // Address is outside this branch's area
+   if (policy === 'bidding') {
+      return { allow: true, broadcast: true, reason: 'Delivery address is outside ' + prov.name + '\'s area. Order broadcast to other branches.' };
+   }
+   // strict
+   return { allow: false, broadcast: false, reason: 'Delivery to this address is not available from ' + (prov.branch_label || prov.name) + '. Please select a branch that serves your area.' };
 }
 
 async function loadStoreCategories(force) {
@@ -4157,6 +4199,12 @@ function openStoreProviderModal(providerId) {
    }
    ownerSel.innerHTML = opts;
 
+   var policyEl = document.getElementById('storeProvFulfillmentPolicy');
+   if (policyEl) policyEl.value = p ? (p.fulfillment_policy || 'strict') : 'strict';
+
+   var cityKwEl = document.getElementById('storeProvCityKeyword');
+   if (cityKwEl) cityKwEl.value = p ? (p.city_keyword || '') : '';
+
    document.getElementById('storeProviderModal').classList.remove('hidden');
 }
 
@@ -4224,7 +4272,9 @@ async function saveStoreProvider() {
       upi_vpa:          (document.getElementById('storeProvUpiVpa') || {}).value ? document.getElementById('storeProvUpiVpa').value.trim() : undefined,
       hero_tag:         (document.getElementById('storeProvHeroTag') || {}).value ? document.getElementById('storeProvHeroTag').value.trim() : undefined,
       logo_url:         (document.getElementById('storeProvLogoUrl') || {}).value ? document.getElementById('storeProvLogoUrl').value.trim() : undefined,
-      branch_label:     (document.getElementById('storeProvBranchLabel') || {}).value ? document.getElementById('storeProvBranchLabel').value.trim() : undefined
+      branch_label:        (document.getElementById('storeProvBranchLabel') || {}).value ? document.getElementById('storeProvBranchLabel').value.trim() : undefined,
+      fulfillment_policy:  (document.getElementById('storeProvFulfillmentPolicy') || {}).value || 'strict',
+      city_keyword:        (document.getElementById('storeProvCityKeyword') || {}).value ? document.getElementById('storeProvCityKeyword').value.trim().toLowerCase() : undefined
    };
    var ok = await AppDB.upsertStoreProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
@@ -8755,6 +8805,46 @@ function renderShopDashboard(filterStatus) {
    setStat('statDispatched', counts['dispatched']);
    setStat('statCompleted',  counts['completed']);
 
+   // ── Template 1: PENDING_CLAIM broadcast orders ──────────────────────────
+   // These are cross-branch orders not yet claimed by any branch.
+   // For bidding-policy branches: show a claim panel above the regular list.
+   var activeProv = _selectedBranchId
+      ? (_storeProvidersCache || []).find(function(s) { return s.id === _selectedBranchId; })
+      : null;
+   var claimBannerEl = document.getElementById('shopClaimBanner');
+   if (activeProv && activeProv.fulfillment_policy === 'bidding') {
+      // Fetch all PENDING_CLAIM orders belonging to same owner (any branch)
+      var ownerEmail = (loggedUser && loggedUser.email) || '';
+      var ownerBranches = (_storeProvidersCache || []).filter(function(s) {
+         return (s.owner_email || '').toLowerCase() === ownerEmail.toLowerCase();
+      });
+      var pendingClaims = (_db.orders || []).filter(function(o) {
+         return o.status === 'PENDING_CLAIM' &&
+            ownerBranches.some(function(s) { return s.id === o.store_provider_id; });
+      });
+      if (pendingClaims.length && claimBannerEl) {
+         claimBannerEl.style.display = '';
+         claimBannerEl.innerHTML = '<div style="background:#0c2340;border:1px solid #1565c0;border-radius:12px;padding:14px 18px;margin-bottom:16px">' +
+            '<div style="font-weight:700;color:#60a5fa;margin-bottom:10px">📡 ' + pendingClaims.length + ' Broadcast Order' + (pendingClaims.length > 1 ? 's' : '') + ' — Awaiting Claim</div>' +
+            pendingClaims.map(function(o) {
+               var oid = o.orderId || o.order_id;
+               var addr = o.delivery_address ? [o.delivery_address.city, o.delivery_address.area].filter(Boolean).join(', ') : '—';
+               return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,0.07)">' +
+                  '<div>' +
+                     '<div style="font-weight:600;color:#f1f5f9;font-size:0.88rem">' + (o.customerName || 'Customer') + ' · ' + (o.storeName || '') + '</div>' +
+                     '<div style="font-size:0.75rem;color:#94a3b8;margin-top:2px">📍 ' + addr + ' · ₹' + Number(o.total || 0).toLocaleString('en-IN') + '</div>' +
+                  '</div>' +
+                  '<button onclick="claimBroadcastOrder(\'' + oid + '\')" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">🙋 Accept & Fulfill</button>' +
+               '</div>';
+            }).join('') +
+         '</div>';
+      } else if (claimBannerEl) {
+         claimBannerEl.style.display = 'none';
+      }
+   } else if (claimBannerEl) {
+      claimBannerEl.style.display = 'none';
+   }
+
    // Filter — 'Dispatched' is a virtual filter that bundles Out for Delivery
    // + Ready (handover happens at this stage regardless of delivery vs pickup).
    var filtered;
@@ -8765,6 +8855,8 @@ function renderShopDashboard(filterStatus) {
    } else {
       filtered = allOrders;
    }
+   // Never show PENDING_CLAIM orders in the regular list — they live in the claim banner
+   filtered = filtered.filter(function(o) { return o.status !== 'PENDING_CLAIM'; });
 
    // Update active tab
    document.querySelectorAll('.shop-tab').forEach(function(t) { t.classList.remove('active'); });
@@ -8906,6 +8998,29 @@ async function switchOrderToPickup(orderId) {
    // a delivery display, making this whole action look like it did nothing.
    var ok = await AppDB.patchOrder(orderId, { method: 'Pickup', delivery_address: null, pickup_override: true });
    if (!ok) { alert('Failed to update order.'); return; }
+   renderShopDashboard(window._shopCurrentFilter);
+}
+
+async function claimBroadcastOrder(orderId) {
+   if (!_selectedBranchId) { alert('No branch selected.'); return; }
+   var order = (_db.orders || []).find(function(o) { return (o.orderId || o.order_id) === orderId; });
+   if (!order) { alert('Order not found.'); return; }
+   if (order.status !== 'PENDING_CLAIM') { alert('This order has already been claimed.'); return; }
+
+   var branch = (_storeProvidersCache || []).find(function(s) { return s.id === _selectedBranchId; });
+   var confirm = window.confirm('Accept and fulfill this order from ' + (branch ? branch.name : 'your branch') + '?\n\nCustomer: ' + (order.customerName || '') + '\nTotal: ₹' + Number(order.total || 0).toLocaleString('en-IN'));
+   if (!confirm) return;
+
+   var patch = {
+      status: 'Pending Pickup',
+      store_provider_id: _selectedBranchId,
+      routing_type: 'ASSIGNED',
+      claimed_by: _selectedBranchId
+   };
+   var ok = await AppDB.patchOrder(orderId, patch);
+   if (!ok) { alert('Failed to claim order. Please try again.'); return; }
+
+   Object.assign(order, patch);
    renderShopDashboard(window._shopCurrentFilter);
 }
 

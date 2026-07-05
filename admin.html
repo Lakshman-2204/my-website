@@ -1796,6 +1796,19 @@
                   </select>
                </div>
                <hr style="border:none;border-top:1px solid #eee;margin:14px 0"/>
+               <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;color:#6b7280;margin-bottom:10px">MULTI-BRANCH ROUTING</div>
+               <div class="modal-field">
+                  <label>Order Routing Policy</label>
+                  <select id="storeProvFulfillmentPolicy" class="modal-select">
+                     <option value="strict">Template 2 — Strict: reject orders outside this branch's area</option>
+                     <option value="bidding">Template 1 — Federated: broadcast out-of-area orders to other branches</option>
+                  </select>
+               </div>
+               <div class="modal-field">
+                  <label>City / Area Keyword <small style="font-weight:400;color:#aaa">(lowercase slug used for geographic matching — e.g. <code>anna-nagar</code>, <code>west-mambalam</code>)</small></label>
+                  <input type="text" id="storeProvCityKeyword" placeholder="anna-nagar" style="text-transform:lowercase"/>
+               </div>
+               <hr style="border:none;border-top:1px solid #eee;margin:14px 0"/>
                <div class="modal-field">
                   <label>
                      <input type="checkbox" id="storeProvDoorDelivery" style="margin-right:6px"/>

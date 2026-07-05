@@ -8611,9 +8611,17 @@ async function checkShopOwnerLogin() {
                   _shopCancelNotifyToast(o);
                }
             });
+            // Refresh whichever tab is currently visible
             var ordersPanel = document.getElementById('shop-panel-orders');
             if (ordersPanel && !ordersPanel.classList.contains('hidden')) {
                renderShopDashboard(window._shopCurrentFilter);
+            }
+            var dashPanel = document.getElementById('shopDashboardContent');
+            if (dashPanel) {
+               var dashTab = dashPanel.closest('.shop-panel');
+               if (dashTab && !dashTab.classList.contains('hidden')) {
+                  renderStoreDashboard();
+               }
             }
          });
       });
@@ -8673,14 +8681,6 @@ function renderShopDashboard(filterStatus) {
    var list = document.getElementById('shopOrderList');
    if (!list) return;
    window._shopCurrentFilter = filterStatus || '';
-   // Live: when a customer places a new order or another tab updates one,
-   // re-fetch and re-render automatically (no manual refresh).
-   _liveSubscribe('shopOrders', 'orders', function() {
-      AppDB.getAllOrders().then(function(rows) {
-         _db.orders = rows || [];
-         renderShopDashboard(window._shopCurrentFilter);
-      });
-   });
 
    // Filter to store-owner's own orders if not admin
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));

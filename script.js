@@ -9783,15 +9783,33 @@ async function walkinLookupHistory() {
    if (!_currentMyStoreId) return;
    var phone = (document.getElementById('walkin-phone').value || '').trim();
    var name  = (document.getElementById('walkin-name').value  || '').trim();
-   if (!phone && name.length < 3) return;   // need a real signal
+   if (!phone && name.length < 3) return;
+   var norm = phone.replace(/\D/g, '').slice(-10);
+   // Walk-in orders from DB
    var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone, name: name });
+   var walkinCompleted = (prior || []).filter(function(o) { return o.status !== 'Draft'; });
+   // Online orders from memory matching phone
+   var onlineOrders = norm.length === 10 ? (_db.orders || []).filter(function(o) {
+      if (o.walk_in || o.status === 'Draft' || o.status === 'Cancelled') return false;
+      if (o.store_provider_id !== _currentMyStoreId) return false;
+      return (o.customerPhone || '').replace(/\D/g, '').slice(-10) === norm;
+   }) : [];
+   var seen = {};
+   var completed = walkinCompleted.concat(onlineOrders).filter(function(o) {
+      var id = o.orderId || o.order_id; if (seen[id]) return false; seen[id] = true; return true;
+   }).sort(function(a, b) { return _orderDate(b) - _orderDate(a); });
    var banner = document.getElementById('walkin-history-banner');
    if (!banner) return;
-   if (!prior.length) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
-   window._walkinHistoryCache = prior;
+   if (!completed.length) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
+   window._walkinHistoryCache = completed;
+   var label = completed.length === 1
+      ? '🕘 Previous order found · ' + (completed[0].date || '')
+      : '🕘 ' + completed.length + ' previous orders found';
    banner.innerHTML =
-      '<div>🕘 <strong>' + prior.length + ' previous bill' + (prior.length === 1 ? '' : 's') + '</strong> for this customer at this store.</div>' +
-      '<button onclick="openWalkinHistory()">View &amp; repeat →</button>';
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+         '<span>' + label + '</span>' +
+         '<button onclick="walkinLoadPreviousItems()" style="background:#1565c0;color:#fff;border:none;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:0.85rem;font-weight:600">📋 Previous Items</button>' +
+      '</div>';
    banner.classList.remove('hidden');
 }
 

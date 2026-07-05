@@ -10389,9 +10389,10 @@ async function saveWalkinBill(printAfter) {
 }
 
 function editWalkinDraft(orderId) {
-   if (!_currentMyStoreId) { alert('Open a store first.'); return; }
    var o = _db.orders.find(function(x) { return (x.orderId || x.order_id) === orderId; });
    if (!o) { alert('Draft not found.'); return; }
+   // Set store context from the draft if not already set
+   if (!_currentMyStoreId && o.store_provider_id) _currentMyStoreId = o.store_provider_id;
    _walkinDraftId = orderId;
    _walkinItems = (o.items || []).map(function(it) {
       return { id: it.id, name: it.name, qty: it.qty || 1, mrp: it.mrp || it.price || 0,

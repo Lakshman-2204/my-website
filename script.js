@@ -9860,39 +9860,44 @@ async function walkinLookupByPhone() {
          setTimeout(function() { nameEl.style.background = ''; }, 1500);
       }
    }
-   // Auto-populate cart from most recent walk-in if cart is empty
-   if (_walkinItems.length === 0) {
-      var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone });
-      var last = (prior || []).find(function(o) { return o.status !== 'Draft'; });
-      if (last && last.items && last.items.length) {
-         _walkinItems = last.items.map(function(it) {
-            return {
-               id:         it.id,
-               name:       it.name,
-               qty:        Number(it.qty) || 1,
-               mrp:        Number(it.mrp || it.price) || 0,
-               disc_pct:   Number(it.disc_pct) || 0,
-               rx_required: !!it.rx_required,
-               rx_repeat:  true   // prescription already verified on prior visit
-            };
-         });
-         _renderWalkinTable();
-         var banner = document.getElementById('walkin-history-banner');
-         if (banner) {
-            var d = last.date ? ' (' + last.date + ')' : '';
-            banner.innerHTML =
-               '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
-                  '<span>📋 Items from last visit' + d + ' auto-loaded. Rx items previously verified.</span>' +
-                  '<button onclick="walkinClearAutoFill()" style="background:#c62828;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:0.82rem">✕ Clear</button>' +
-               '</div>';
-            banner.classList.remove('hidden');
-         }
-      }
+   // Show "Previous Items" button if prior completed walk-in orders exist
+   var prior = await AppDB.findWalkinOrders(_currentMyStoreId, { phone: phone });
+   var last = (prior || []).find(function(o) { return o.status !== 'Draft'; });
+   var banner = document.getElementById('walkin-history-banner');
+   if (!banner) return;
+   if (last && last.items && last.items.length) {
+      window._walkinLastOrder = last;
+      var d = last.date ? ' · ' + last.date : '';
+      banner.innerHTML =
+         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+            '<span>🕘 Previous order found' + d + '</span>' +
+            '<button onclick="walkinLoadPreviousItems()" style="background:#1565c0;color:#fff;border:none;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:0.85rem;font-weight:600">📋 Previous Items</button>' +
+         '</div>';
+      banner.classList.remove('hidden');
+   } else {
+      banner.classList.add('hidden');
+      banner.innerHTML = '';
    }
 }
 
-function walkinClearAutoFill() {
-   _walkinItems = [];
+function walkinLoadPreviousItems() {
+   var last = window._walkinLastOrder;
+   if (!last || !last.items) return;
+   last.items.forEach(function(it) {
+      var existing = _walkinItems.find(function(x) { return x.id === it.id; });
+      if (existing) { existing.qty += Number(it.qty) || 1; }
+      else {
+         _walkinItems.push({
+            id:          it.id,
+            name:        it.name,
+            qty:         Number(it.qty) || 1,
+            mrp:         Number(it.mrp || it.price) || 0,
+            disc_pct:    Number(it.disc_pct) || 0,
+            rx_required: !!it.rx_required,
+            rx_repeat:   true
+         });
+      }
+   });
    _renderWalkinTable();
    var banner = document.getElementById('walkin-history-banner');
    if (banner) { banner.classList.add('hidden'); banner.innerHTML = ''; }

@@ -9935,29 +9935,36 @@ async function walkinLookupByPhone() {
 function walkinLoadPreviousItems() {
    var completed = window._walkinHistoryCache || [];
    if (!completed.length) return;
-   // Single order → load items directly; multiple → open history picker
-   if (completed.length === 1) {
-      var last = completed[0];
-      last.items.forEach(function(it) {
-         var existing = _walkinItems.find(function(x) { return x.id === it.id; });
-         if (existing) { existing.qty += Number(it.qty) || 1; }
-         else {
-            _walkinItems.push({
-               id:          it.id,
-               name:        it.name,
-               qty:         Number(it.qty) || 1,
-               mrp:         Number(it.mrp || it.price) || 0,
-               disc_pct:    Number(it.disc_pct) || 0,
-               rx_required: !!it.rx_required,
-               rx_repeat:   true
-            });
-         }
-      });
-      _renderWalkinTable();
-      var banner = document.getElementById('walkin-history-banner');
-      if (banner) { banner.classList.add('hidden'); banner.innerHTML = ''; }
+   // Always load from the most recent order directly
+   var last = completed[0];
+   (last.items || []).forEach(function(it) {
+      var existing = _walkinItems.find(function(x) { return x.id === it.id; });
+      if (existing) { existing.qty += Number(it.qty) || 1; }
+      else {
+         _walkinItems.push({
+            id:          it.id,
+            name:        it.name,
+            qty:         Number(it.qty) || 1,
+            mrp:         Number(it.mrp || it.price) || 0,
+            disc_pct:    Number(it.disc_pct) || 0,
+            rx_required: !!it.rx_required,
+            rx_repeat:   true
+         });
+      }
+   });
+   _renderWalkinTable();
+   // If more orders exist, replace banner with a lighter "pick another" link
+   var banner = document.getElementById('walkin-history-banner');
+   if (!banner) return;
+   if (completed.length > 1) {
+      banner.innerHTML =
+         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+            '<span style="font-size:0.82rem;color:#555">Items from last visit loaded.</span>' +
+            '<button onclick="openWalkinHistory()" style="background:transparent;border:1px solid #1565c0;color:#1565c0;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:0.82rem">📜 Pick from older order</button>' +
+         '</div>';
    } else {
-      openWalkinHistory();   // shows all bills with "↻ Repeat this bill" per entry
+      banner.classList.add('hidden');
+      banner.innerHTML = '';
    }
 }
 

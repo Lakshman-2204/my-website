@@ -10389,18 +10389,26 @@ async function saveWalkinBill(printAfter) {
 }
 
 function editWalkinDraft(orderId) {
+   if (!_currentMyStoreId) { alert('Open a store first.'); return; }
    var o = _db.orders.find(function(x) { return (x.orderId || x.order_id) === orderId; });
    if (!o) { alert('Draft not found.'); return; }
    _walkinDraftId = orderId;
-   // Repopulate walk-in bill modal with draft items
    _walkinItems = (o.items || []).map(function(it) {
       return { id: it.id, name: it.name, qty: it.qty || 1, mrp: it.mrp || it.price || 0,
                disc_pct: it.disc_pct || 0, rx_required: it.rx_required || false, allocations: it.allocations || [] };
    });
-   document.getElementById('walkin-name').value   = o.customerName || '';
-   document.getElementById('walkin-phone').value  = o.customerPhone || '';
-   document.getElementById('walkin-doctor').value = o.doctor_name || '';
-   _walkinRenderItems();
+   // Clear search state
+   var res = document.getElementById('walkin-item-results');
+   if (res) { res.innerHTML = ''; res.classList.add('hidden'); }
+   var banner = document.getElementById('walkin-history-banner');
+   if (banner) { banner.classList.add('hidden'); banner.innerHTML = ''; }
+   var searchEl = document.getElementById('walkin-item-search');
+   if (searchEl) searchEl.value = '';
+   // Populate customer fields
+   var nameEl = document.getElementById('walkin-name');     if (nameEl)   nameEl.value   = o.customerName  || '';
+   var phoneEl = document.getElementById('walkin-phone');   if (phoneEl)  phoneEl.value  = o.customerPhone || '';
+   var docEl   = document.getElementById('walkin-doctor');  if (docEl)    docEl.value    = o.doctor_name   || '';
+   _renderWalkinTable();
    document.getElementById('walkinBillModal').classList.remove('hidden');
 }
 

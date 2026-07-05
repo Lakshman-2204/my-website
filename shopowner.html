@@ -293,6 +293,14 @@
             <div class="shop-side-profile-name" id="shopBusinessName"></div>
             <div class="shop-side-profile-role" id="shopOwnerName"></div>
          </div>
+         <!-- Branch badge — only shown when owner has 2+ branches -->
+         <div id="shopBranchBadge" class="hidden" style="margin:6px 12px 2px;background:rgba(8,145,178,0.15);border:1px solid rgba(8,145,178,0.35);border-radius:10px;padding:8px 12px;cursor:pointer" onclick="openBranchPicker()" title="Switch branch">
+            <div style="font-size:0.62rem;color:#94a3b8;font-weight:700;letter-spacing:0.08em;margin-bottom:2px">ACTIVE BRANCH</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+               <span id="shopBranchBadgeName" style="font-size:0.8rem;font-weight:700;color:#38bdf8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+               <span style="font-size:0.7rem;color:#64748b;flex-shrink:0">⇅ Switch</span>
+            </div>
+         </div>
          <div class="shop-side-menu-label">MAIN</div>
          <!-- All hidden by default — checkShopOwnerLogin reveals only the ones this user owns -->
          <button class="shop-side-item hidden" id="shop-tab-dashboard"    onclick="switchShopTab('dashboard')"><span class="ssi-icon">🏠</span><span>Dashboard</span></button>
@@ -2105,5 +2113,20 @@
          window.addEventListener('resize', _syncMobileNav);
       })();
    </script>
+
+   <!-- BRANCH PICKER MODAL — shown at login when owner has 2+ branches -->
+   <div id="branchPickerOverlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(10,20,40,0.85);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center">
+      <div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px 32px;width:min(480px,92vw);box-shadow:0 24px 64px rgba(0,0,0,0.5)">
+         <div style="text-align:center;margin-bottom:28px">
+            <div style="font-size:2rem;margin-bottom:8px">🏪</div>
+            <div style="font-size:1.25rem;font-weight:800;color:#f1f5f9" id="branchPickerBrandName">Select Branch</div>
+            <div style="font-size:0.82rem;color:#64748b;margin-top:4px">You manage multiple branches. Choose one to continue.</div>
+         </div>
+         <div id="branchPickerList" style="display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto"></div>
+         <div style="text-align:center;margin-top:20px;font-size:0.75rem;color:#475569">
+            You can switch branches anytime from the sidebar.
+         </div>
+      </div>
+   </div>
 </body>
 </html>

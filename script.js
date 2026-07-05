@@ -8523,13 +8523,30 @@ async function checkShopOwnerLogin() {
    var ownsStores   = myStoreProvs.length > 0;
    window._ownsStores   = ownsStores;
    window._ownsHospital = ownsHospital;
+
+   // ── Branch selection (multi-branch owners) ─────────────────────────────
+   if (ownsStores) {
+      if (myStoreProvs.length === 1) {
+         // Single branch — auto-select silently
+         _selectedBranchId = myStoreProvs[0].id;
+         sessionStorage.setItem('_selectedBranchId', _selectedBranchId);
+      } else {
+         // Multi-branch: validate saved selection or clear it
+         var stillOwned = myStoreProvs.find(function(s) { return s.id === _selectedBranchId; });
+         if (!stillOwned) { _selectedBranchId = null; sessionStorage.removeItem('_selectedBranchId'); }
+      }
+      _currentMyStoreId = _selectedBranchId;
+   }
+
    var businessName = '';
    if (myProviders.length > 0) {
       businessName = myProviders.length === 1 ? myProviders[0].name
                                               : myProviders.map(function(p) { return p.name; }).join(' · ');
    } else if (ownsStores) {
-      businessName = myStoreProvs.length === 1 ? myStoreProvs[0].name
-                                               : myStoreProvs.map(function(p) { return p.name; }).join(' · ');
+      var _activeProv = myStoreProvs.find(function(s) { return s.id === _selectedBranchId; });
+      businessName = _activeProv ? _activeProv.name
+                                 : (myStoreProvs.length === 1 ? myStoreProvs[0].name
+                                                              : myStoreProvs.map(function(p) { return p.name; }).join(' · '));
    } else if (isAdmin(user.email)) {
       businessName = 'Admin Dashboard';
    } else {
@@ -8627,12 +8644,23 @@ async function checkShopOwnerLogin() {
       });
    }
 
+   // Refresh the branch badge in sidebar (hidden for single-branch owners)
+   _refreshBranchBadge();
+
    // Default landing tab:
    //   store owners → Orders (so they immediately see incoming customer orders)
    //   hospital owners → Dashboard
    //   anyone else → Products
    var defaultTab = ownsStores ? 'dashboard' : (ownsHospital ? 'dashboard' : 'products');
-   switchShopTab(defaultTab);
+   window._currentShopTab = defaultTab;
+
+   // Multi-branch owners who haven't picked a branch yet → show picker first.
+   // _selectBranch() will call switchShopTab() when done.
+   if (ownsStores && myStoreProvs.length > 1 && !_selectedBranchId) {
+      openBranchPicker();
+   } else {
+      switchShopTab(defaultTab);
+   }
 
    // Auto-refresh if admin enabled it
    var s = getAdminSettings();
@@ -8682,17 +8710,24 @@ function renderShopDashboard(filterStatus) {
    if (!list) return;
    window._shopCurrentFilter = filterStatus || '';
 
-   // Filter to store-owner's own orders if not admin
+   // Filter to store-owner's own orders (or just the selected branch when multi-branch)
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (loggedUser && !isAdmin(loggedUser.email)) {
-      var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
-         return (s.owner_email || '').toLowerCase() === loggedUser.email.toLowerCase();
-      });
-      allOrders = allOrders.filter(function(o) {
-         return _ownerStores.some(function(s) {
-            return s.id === o.store_provider_id || s.owner_email === o.storeId;
+      if (_selectedBranchId) {
+         // Multi-branch: scope strictly to the chosen branch
+         allOrders = allOrders.filter(function(o) {
+            return o.store_provider_id === _selectedBranchId;
          });
-      });
+      } else {
+         var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
+            return (s.owner_email || '').toLowerCase() === loggedUser.email.toLowerCase();
+         });
+         allOrders = allOrders.filter(function(o) {
+            return _ownerStores.some(function(s) {
+               return s.id === o.store_provider_id || s.owner_email === o.storeId;
+            });
+         });
+      }
    }
 
    // Apply date range filter (uses order date — falls back to created_at if present)
@@ -9042,8 +9077,78 @@ function _fallbackItemImg(imgEl) {
 }
 // Owner's selected store id (null = show stores list).
 let _currentMyStoreId = null;
+// The branch the owner picked at login (persisted in sessionStorage).
+// All tabs are scoped to this branch when set.
+var _selectedBranchId = sessionStorage.getItem('_selectedBranchId') || null;
 // Per-store product cache (lazy, refreshed on save/delete).
 let _currentMyStoreProds = [];
+
+// ── Multi-branch picker ────────────────────────────────────────────────────
+
+function openBranchPicker() {
+   var myStoreProvs = (_storeProvidersCache || []).filter(function(p) {
+      var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase();
+   });
+   if (myStoreProvs.length <= 1) return;
+
+   var overlay = document.getElementById('branchPickerOverlay');
+   var list    = document.getElementById('branchPickerList');
+   var brand   = document.getElementById('branchPickerBrandName');
+   if (!overlay || !list) return;
+
+   if (brand) brand.textContent = myStoreProvs[0].name.replace(/\s*(branch|store|hub|outlet).*/i, '').trim() || 'Select Branch';
+
+   list.innerHTML = myStoreProvs.map(function(s) {
+      var isActive = s.id === _selectedBranchId;
+      return '<button onclick="_selectBranch(\'' + s.id + '\')" style="' +
+         'width:100%;text-align:left;padding:14px 18px;border-radius:12px;border:1px solid ' +
+         (isActive ? '#0891b2' : 'rgba(255,255,255,0.08)') + ';' +
+         'background:' + (isActive ? 'rgba(8,145,178,0.15)' : 'rgba(255,255,255,0.04)') + ';' +
+         'color:#f1f5f9;cursor:pointer;transition:all 0.15s;font-family:inherit">' +
+         '<div style="font-weight:700;font-size:0.92rem">' + s.name + (isActive ? ' <span style="font-size:0.7rem;color:#38bdf8;font-weight:600">● Active</span>' : '') + '</div>' +
+         '<div style="font-size:0.75rem;color:#94a3b8;margin-top:3px">' + (s.address || s.city || '') + (s.phone ? ' · ' + s.phone : '') + '</div>' +
+      '</button>';
+   }).join('');
+
+   overlay.style.display = 'flex';
+}
+
+function _selectBranch(storeId) {
+   _selectedBranchId = storeId;
+   sessionStorage.setItem('_selectedBranchId', storeId);
+
+   var overlay = document.getElementById('branchPickerOverlay');
+   if (overlay) overlay.style.display = 'none';
+
+   // Update sidebar badge
+   _refreshBranchBadge();
+
+   // Update the business name in the header to the selected branch
+   var selected = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
+   var bizEl = document.getElementById('shopBusinessName');
+   if (bizEl && selected) bizEl.textContent = selected.name;
+
+   // Set the active store for the Products tab too
+   _currentMyStoreId = storeId;
+
+   // Re-render the current visible panel scoped to new branch
+   var activeTab = window._currentShopTab || 'dashboard';
+   switchShopTab(activeTab);
+}
+
+function _refreshBranchBadge() {
+   var badge    = document.getElementById('shopBranchBadge');
+   var badgeName = document.getElementById('shopBranchBadgeName');
+   var myStoreProvs = (_storeProvidersCache || []).filter(function(p) {
+      var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase();
+   });
+   if (!badge || myStoreProvs.length <= 1) { if (badge) badge.classList.add('hidden'); return; }
+   var selected = myStoreProvs.find(function(s) { return s.id === _selectedBranchId; }) || myStoreProvs[0];
+   if (badgeName) badgeName.textContent = selected.name;
+   badge.classList.remove('hidden');
+}
 
 async function renderStoreOwnerProducts() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
@@ -9651,7 +9756,8 @@ async function openWalkinBillFromTab() {
       });
       if (mine.length === 0) { alert('No stores assigned to you yet.'); return; }
       if (mine.length === 1) { await enterMyStore(mine[0].id); }
-      else { alert('You manage multiple stores. Open the store first in 🏪 My Stores → then click Walk-in Bill.'); return; }
+      else if (_selectedBranchId) { _currentMyStoreId = _selectedBranchId; }
+      else { openBranchPicker(); return; }
    }
    openWalkinBillModal();
 }
@@ -11585,7 +11691,11 @@ function switchShopTab(tab) {
    // Update mobile bottom nav + drawer active highlights
    _updateMobileNavActive(tab);
 
-   if (tab !== 'products') _currentMyStoreId = null;
+   // Track the current tab so branch-switch can re-render the right panel
+   window._currentShopTab = tab;
+   // In multi-branch mode the selected branch stays locked; only clear when
+   // navigating away from Products in single-store (no branch selected) mode.
+   if (tab !== 'products' && !_selectedBranchId) _currentMyStoreId = null;
    if (tab === 'dashboard')    (window._ownsStores && !window._ownsHospital) ? renderStoreDashboard() : renderShopOverview();
    if (tab === 'orders') { var _odf = document.getElementById('shopOrderDateFilter'); if (_odf) _odf.value = 'today'; }
    if (tab === 'products')     renderStoreOwnerProducts();
@@ -12224,6 +12334,10 @@ async function renderBillsRegister() {
    var myStores = (_storeProvidersCache || []).filter(function(s) {
       return (s.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
    });
+   // In multi-branch mode, scope bills register to the selected branch only
+   if (_selectedBranchId && myStores.length > 1) {
+      myStores = myStores.filter(function(s) { return s.id === _selectedBranchId; });
+   }
    if (!myStores.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:30px">No stores linked to your account.</p>'; return; }
 
    var storeIds = myStores.map(function(s) { return s.id; });
@@ -12388,6 +12502,10 @@ async function renderStoreDashboard() {
    var myStores = (_storeProvidersCache || []).filter(function(s) {
       return (s.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
    });
+   // In multi-branch mode, scope dashboard to the selected branch only
+   if (_selectedBranchId && myStores.length > 1) {
+      myStores = myStores.filter(function(s) { return s.id === _selectedBranchId; });
+   }
    if (!myStores.length) { container.innerHTML = '<div class="shop-empty">No stores linked to your account.</div>'; return; }
 
    var orders = _db.orders || [];

@@ -1623,7 +1623,8 @@ window.AppDB = {
          timing:             b.timing             || '',
          city_keyword:       (b.city_keyword || '').toLowerCase() || null,
          fulfillment_policy: b.fulfillment_policy || 'strict',
-         is_main:            !!b.is_main
+         is_main:            !!b.is_main,
+         details:            b.details || null   // full Add-Store field set (jsonb)
       };
       const { error } = await _sb.from('store_branches').upsert(row, { onConflict: 'id' });
       if (error) { console.error('upsertStoreBranch:', error.message); return error.message || 'unknown error'; }

@@ -1102,8 +1102,10 @@ async function makeOrder() {
            });
       var supportsDelivery = _storeAcceptsDeliveryNow(prov);
 
-      // No delivery address in this flow (pickup) → assign to the main branch
-      var _nmBranch = _mainBranchFor((prov && prov.id) || grp.store_provider_id);
+      // No delivery address in this flow (pickup) → assign to the branch the
+      // customer is ordering from (falls back to main).
+      var _nmSpId = (prov && prov.id) || grp.store_provider_id;
+      var _nmBranch = _customerActiveBranch(_nmSpId) || _mainBranchFor(_nmSpId);
 
       var newOrder = {
          orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
@@ -1305,7 +1307,8 @@ async function submitRxOnlyOrder() {
       addr = (_db.addresses || []).find(function(a) { return a.id === window._rxOnlySelectedAddr; });
       if (!addr) { status.innerHTML = '<span style="color:#c62828">Pick a delivery address first.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
    }
-   var _rxRouting = await _routeOrderToBranch(store.id, needsAddr ? addr : null, []);
+   var _rxSrc = _customerActiveBranch(store.id);
+   var _rxRouting = await _routeOrderToBranch(store.id, needsAddr ? addr : null, [], _rxSrc ? _rxSrc.id : null);
    if (!_rxRouting.allow) { status.innerHTML = '<span style="color:#c62828">🚫 ' + _rxRouting.reason + '</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
 
    var notes = document.getElementById('rxOnlyNotes').value.trim();
@@ -1490,8 +1493,10 @@ async function placeMedicalOrder() {
       var needsAddr = _storeAcceptsDeliveryNow(prov);
       if (needsAddr && !addr) { alert('Please choose a delivery address for ' + (prov.name || g.storeName) + '.'); btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; return; }
 
-      // Multi-branch routing: pick the fulfilling branch and apply its policy
-      var routing = await _routeOrderToBranch(g.spId, needsAddr ? addr : null, g.items);
+      // Multi-branch routing: the customer's selected "Ordering from" branch is
+      // the sourcing branch (template_6 model).
+      var _srcBranch = _customerActiveBranch(g.spId);
+      var routing = await _routeOrderToBranch(g.spId, needsAddr ? addr : null, g.items, _srcBranch ? _srcBranch.id : null);
       if (!routing.allow) {
          alert('🚫 ' + routing.reason);
          btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)';
@@ -1905,53 +1910,60 @@ async function _branchHasStock(storeProviderId, branchId, items) {
    });
 }
 
-// Choose the fulfilling branch + routing decision — mirrors template_6:
-//   1. No branches / no city keywords configured → main branch, allow (legacy).
-//   2. No delivery address (pickup) → main branch, allow.
-//   3. No branch serves the delivery city → REJECT (both templates).
-//   4. Serving branch IN stock → assign to it (standard local).
-//   5. Serving branch OUT of stock →
-//        bidding → PENDING_CLAIM broadcast (other branches with stock can claim)
-//        strict  → assign to serving branch anyway (backorder; no cross-branch)
+// Choose the fulfilling branch + routing decision — mirrors template_6, where the
+// customer's SELECTED "Ordering from" branch is the sourcing branch:
+//   1. No branches / no city keywords / pickup → sourcing (or main) branch, allow.
+//   2. No branch serves the delivery city → REJECT (outside serviced areas).
+//   3. Delivery city == sourcing branch's city → STANDARD, sourcing fulfils.
+//   4. Delivery city ≠ sourcing branch (cross-branch):
+//        strict  → REJECT (ask customer to switch "Ordering from")
+//        bidding → destination branch IN stock → it fulfils (local-cross)
+//                  destination branch OUT of stock → PENDING_CLAIM broadcast
 // Returns { branch, allow, broadcast, reason }.
-async function _routeOrderToBranch(storeProviderId, deliveryAddr, items) {
+async function _routeOrderToBranch(storeProviderId, deliveryAddr, items, sourcingBranchId) {
    var branches = _branchesForStore(storeProviderId);
    if (!branches.length) return { branch: null, allow: true, broadcast: false };
 
-   var main    = branches.find(function(b) { return b.is_main; }) || branches[0];
-   var anyCity = branches.some(function(b) { return (b.city_keyword || '').trim(); });
+   var main     = branches.find(function(b) { return b.is_main; }) || branches[0];
+   var sourcing = _getBranch(sourcingBranchId) || main;
+   var anyCity  = branches.some(function(b) { return (b.city_keyword || '').trim(); });
 
-   // Pickup / no address / no geo config → main branch, allow
-   if (!deliveryAddr || !anyCity) return { branch: main, allow: true, broadcast: false };
+   // Pickup / no address / no geo config → sourcing branch, allow
+   if (!deliveryAddr || !anyCity) return { branch: sourcing, allow: true, broadcast: false };
 
    var addrText = [deliveryAddr.line, deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
                    deliveryAddr.area, deliveryAddr.pin, deliveryAddr.pincode, deliveryAddr.state]
       .filter(Boolean).join(' ').toLowerCase();
-
-   var served = branches.find(function(b) {
+   var kwInAddr = function(b) {
       var kw = (b.city_keyword || '').toLowerCase().trim();
       return kw && addrText.indexOf(kw) !== -1;
-   });
+   };
 
-   // No branch serves this delivery city → reject in BOTH templates
+   // Branch that physically serves the delivery city
+   var served = branches.find(kwInAddr);
    if (!served) {
       var cities = branches.map(function(b) { return b.city_keyword; }).filter(Boolean).join(', ');
       return { branch: null, allow: false, broadcast: false,
-         reason: 'We don\'t deliver to your area yet. We currently serve: ' + (cities || 'selected areas') + '.' };
+         reason: 'We don\'t deliver to this address. We currently serve: ' + (cities || 'selected areas') + '.' };
    }
 
-   // Serving branch found → check its stock for the ordered items
+   // Delivery address is within the branch the customer is ordering from → standard
+   if (kwInAddr(sourcing)) return { branch: sourcing, allow: true, broadcast: false };
+
+   // Cross-branch: delivery city differs from the sourcing branch's area
+   var policy = sourcing.fulfillment_policy || 'strict';
+   if (policy !== 'bidding') {
+      return { branch: null, allow: false, broadcast: false,
+         reason: 'This address is outside ' + (sourcing.branch_label || 'the selected branch') + '\'s area. Switch "Ordering from" to ' + (served.branch_label || served.city_keyword) + ', which serves your address.' };
+   }
+   // Bidding: the destination branch fulfils if it has stock, else broadcast
    var inStock = await _branchHasStock(storeProviderId, served.id, items);
-   if (inStock) return { branch: served, allow: true, broadcast: false };
-
-   // Serving branch is out of stock
-   var policy = served.fulfillment_policy || 'strict';
-   if (policy === 'bidding') {
-      return { branch: served, allow: true, broadcast: true,
-         reason: (served.branch_label || 'Your local branch') + ' is out of stock — the order will be broadcast to other branches for cross-branch fulfilment (delivery may take a little longer).' };
+   if (inStock) {
+      return { branch: served, allow: true, broadcast: false,
+         reason: 'Routed to ' + (served.branch_label || served.city_keyword) + ' (serves your area). Cross-branch order — delivery may take a little longer.' };
    }
-   // strict → place with the serving branch as a backorder (no cross-branch)
-   return { branch: served, allow: true, broadcast: false };
+   return { branch: served, allow: true, broadcast: true,
+      reason: (served.branch_label || 'The local branch') + ' is out of stock — broadcasting to other branches for cross-branch fulfilment (delivery may take a little longer).' };
 }
 
 async function loadStoreCategories(force) {
@@ -2004,7 +2016,8 @@ async function _ensureMainBranch(store) {
       timing:             store.timing  || '',
       city_keyword:       '',
       fulfillment_policy: store.fulfillment_policy || 'strict',
-      is_main:            true
+      is_main:            true,
+      details:            (typeof _stmStoreDetailsSnapshot === 'function') ? _stmStoreDetailsSnapshot(store) : null
    });
    if (!err) await loadStoreBranches(true);
 }
@@ -2022,6 +2035,27 @@ function _customerActiveBranch(storeProviderId) {
    return branches.find(function(b) { return b.id === chosen; })
        || branches.find(function(b) { return b.is_main; })
        || branches[0];
+}
+
+// Store display fields overridden by the customer's selected branch (name,
+// address, timing, phone, tagline). Falls back to the store when a branch or
+// field is missing. Used so the hero reflects the chosen branch, not just main.
+function _customerEffectiveInfo(sp) {
+   var b = _customerActiveBranch(sp.id);
+   var d = (b && b.details) || {};
+   var pick = function(branchVal, detailVal, storeVal) {
+      return (detailVal != null && detailVal !== '') ? detailVal
+           : (branchVal != null && branchVal !== '') ? branchVal
+           : storeVal;
+   };
+   return {
+      name:    pick(b && b.branch_label, d.name,    sp.name),
+      address: pick(b && b.address,      d.address, sp.address),
+      timing:  pick(b && b.timing,       d.timing,  sp.timing),
+      phone:   pick(b && b.phone,        d.phone,   sp.phone),
+      tagline: pick(null,                d.tagline, sp.tagline),
+      website: (d.website_url && d.website_url.trim()) || ''   // per-branch site
+   };
 }
 
 // Storefront branch dropdown — shown only when a store has 2+ branches.
@@ -2054,10 +2088,16 @@ function _buildCustomerBranchBar(sp) {
    var active = _customerActiveBranch(sp.id);
    var selector = _customerBranchSelectorHtml(sp.id);
 
-   // Line 1: which areas we serve (only if city keywords configured)
+   // Line 1: which areas we serve — list the city keywords (deduped, title-cased)
    var zoneLine = '';
    if (withCity.length) {
-      var cities = withCity.map(function(b) { return b.branch_label || b.city_keyword; }).join(', ');
+      var titleCase = function(s) { return String(s).replace(/[-_]+/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); }); };
+      var seen = {}, cityList = [];
+      withCity.forEach(function(b) {
+         var kw = (b.city_keyword || '').trim().toLowerCase();
+         if (kw && !seen[kw]) { seen[kw] = 1; cityList.push(titleCase(kw)); }
+      });
+      var cities = cityList.join(', ');
       var note = (sp.fulfillment_policy === 'bidding')
          ? ' If your local branch is out of stock, a nearby branch may fulfil it (slightly longer delivery).' : '';
       zoneLine = '🚚 We deliver to: <b>' + esc(cities) + '</b>.' + note;
@@ -5946,8 +5986,14 @@ async function showStoreProvider(providerId) {
       : '';
    // In white-label mode: no "back to platform" or "visit website" buttons
    var backBtn = window._wlMode ? '' : '<button class="store-hero-outline-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>';
+   // Per-branch website (from the selected branch's Details) wins over the brand
+   // white-label domain, so "Visit Website" follows the "Ordering from" branch.
+   var _branchSite = (_customerEffectiveInfo(p).website || '').trim();
    var domainBtn = '';
-   if (!window._wlMode && _storeDomain) {
+   if (!window._wlMode && _branchSite) {
+      var _bHref = (_branchSite.startsWith('http://') || _branchSite.startsWith('https://')) ? _branchSite : 'https://' + _branchSite;
+      domainBtn = '<a class="store-hero-outline-btn" href="' + _bHref + '" target="_blank" rel="noopener">🌐 Visit Website ↗</a>';
+   } else if (!window._wlMode && _storeDomain) {
       // Attach SSO token so the user stays logged in on the white-label domain
       var _ssoSuffix = '';
       try {
@@ -5981,12 +6027,13 @@ async function showStoreProvider(providerId) {
 
    // Hero banner + trust badges (CSS classes, no inline styles)
    var heroEmoji = p.category === 'medical' ? '💊' : p.category === 'grocery' ? '🛒' : p.category === 'flowers' ? '🌸' : '🏪';
+   var _effSepa = _customerEffectiveInfo(p);   // reflect selected branch
    var sepaHero =
       '<div class="store-hero-banner">' +
          '<div class="store-hero-text">' +
-            '<h4>' + (p.tagline || 'Open Now') + '</h4>' +
-            '<h1>' + p.name + '</h1>' +
-            '<p>' + (p.timing ? '🕒 Open ' + p.timing + (p.address ? '&nbsp;&nbsp;📍 ' + p.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
+            '<h4>' + (_effSepa.tagline || 'Open Now') + '</h4>' +
+            '<h1>' + _effSepa.name + '</h1>' +
+            '<p>' + (_effSepa.timing ? '🕒 Open ' + _effSepa.timing + (_effSepa.address ? '&nbsp;&nbsp;📍 ' + _effSepa.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
             '<div class="store-hero-actions">' +
                '<button class="shop-now-btn" onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
                rxBtn + backBtn + domainBtn +
@@ -6190,6 +6237,8 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
    // Load template first so hero is built in one pass (no string patching)
    var _tpl2 = (sp && sp.template) ? sp.template : {};
    var _e2   = function(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+   // Hero reflects the customer's selected branch (address / timing / name)
+   var _eff2 = _customerEffectiveInfo(sp);
 
    var _rxOnclick = rxBtn ? 'openRxOnlyOrderModal()' : '';
    var _visitHref = domainBtn ? (domainBtn.match(/href="([^"]+)"/) || [])[1] || '#' : '';
@@ -6205,11 +6254,11 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
       '<div class="wl-hero-section" style="' + _heroBg2 + ';padding:36px 48px 28px;position:relative;overflow:hidden">' +
          (_isVideo2 ? '<video autoplay muted loop playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0"><source src="' + _tpl2.bannerMedia + '"></video><div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.48);z-index:1"></div>' : '') +
          '<div style="position:relative;z-index:2">' +
-         '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl2.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + sp.name + '</h2>' +
-         (sp.timing || sp.address
+         '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl2.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + _e2(_eff2.name) + '</h2>' +
+         (_eff2.timing || _eff2.address
             ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:16px">' +
-                 (sp.timing  ? '<span>🕐 ' + sp.timing  + '</span>' : '') +
-                 (sp.address ? '<span>📍 ' + sp.address + '</span>' : '') +
+                 (_eff2.timing  ? '<span>🕐 ' + _e2(_eff2.timing)  + '</span>' : '') +
+                 (_eff2.address ? '<span>📍 ' + _e2(_eff2.address) + '</span>' : '') +
               '</div>'
             : '<div style="margin-bottom:16px"></div>') +
          (sp.door_delivery
@@ -9065,6 +9114,8 @@ async function checkShopOwnerLogin() {
 
    // Refresh the branch badge in sidebar (hidden for single-branch owners)
    _refreshBranchBadge();
+   // Store owners: live clock in topbar + active branch name/address subtitle
+   if (ownsStores) { _startTopbarClock(); _updateShopTopbarBranch(); }
 
    // Default landing tab:
    //   store owners → Orders (so they immediately see incoming customer orders)
@@ -9653,6 +9704,8 @@ function _selectBranch(branchId) {
    var store = (_storeProvidersCache || []).find(function(s) { return s.id === branch.store_provider_id; });
    var bizEl = document.getElementById('shopBusinessName');
    if (bizEl) bizEl.textContent = ((store && store.name) || '') + (branch.branch_label ? ' — ' + branch.branch_label : '');
+
+   _updateShopTopbarBranch();
 
    var activeTab = window._currentShopTab || 'dashboard';
    switchShopTab(activeTab);
@@ -11502,6 +11555,31 @@ async function saveOrderEdits() {
 }
 
 // ── Printable bill — opens in a new window with Sri Meghana–style template ──
+// Build the entity whose details appear on a bill: the order's fulfilling
+// branch overlaid on the store (branch value wins; store fills any blanks).
+function _billEntityFor(order, store) {
+   store = store || {};
+   var branch = (order && order.branch_id) ? _getBranch(order.branch_id) : null;
+   if (!branch) return store;
+   var d = branch.details || {};
+   var pick = function(a, b, c) {
+      return (a != null && a !== '') ? a : (b != null && b !== '') ? b : c;
+   };
+   return {
+      id:        store.id,
+      name:      pick(branch.branch_label, d.name,     store.name),
+      address:   pick(d.address, branch.address,       store.address),
+      phone:     pick(d.phone,   branch.phone,         store.phone),
+      timing:    pick(d.timing,  branch.timing,        store.timing),
+      gstin:     pick(d.gstin,     null,               store.gstin),
+      form20_no: pick(d.form20_no, null,               store.form20_no),
+      form21_no: pick(d.form21_no, null,               store.form21_no),
+      fssai_no:  pick(d.fssai_no,  null,               store.fssai_no),
+      upi_vpa:   pick(d.upi_vpa,   null,               store.upi_vpa),
+      logo_url:  pick(d.logo_url,  null,               store.logo_url)
+   };
+}
+
 async function generatePrintableBill() {
    if (!_billOrder) return;
    // Sync any edits that oninput may have missed (e.g. paste, autocomplete, mobile)
@@ -11528,10 +11606,14 @@ async function generatePrintableBill() {
    }
    store = store || {};
 
+   // Bills print the FULFILLING BRANCH's details (name, address, phone, GSTIN,
+   // Form 20/21, FSSAI) — falling back to the store when a field isn't set.
+   var billEntity = _billEntityFor(_billOrder, store);
+
    // Generate a bill number if the order doesn't already have one
    var billNo = _billOrder.bill_number;
    if (!billNo) {
-      var storeCode = _shortCode(store.name || 'STORE');
+      var storeCode = _shortCode(billEntity.name || store.name || 'STORE');
       var _bn = new Date();
       var _byy = String(_bn.getFullYear()).slice(2);
       var _bmm = String(_bn.getMonth() + 1).padStart(2, '0');
@@ -11576,7 +11658,7 @@ async function generatePrintableBill() {
    var roundOff = roundedNet - net;
 
    var html = _renderBillHtml({
-      store: store,
+      store: billEntity,
       order: _billOrder,
       billNo: billNo,
       now: new Date(),
@@ -13019,6 +13101,35 @@ async function renderBillsRegister() {
    container.innerHTML = summaryHtml + (activeOrders.length ? tableHtml : '<p style="color:#94a3b8;text-align:center;padding:40px">No orders on ' + selectedDate + '</p>') + draftsHtml;
 }
 
+// Set the shop topbar subtitle (below the tab title) to the active branch's
+// name + address, so the owner always knows which branch they're managing.
+function _updateShopTopbarBranch() {
+   var el = document.getElementById('shopTopbarSub');
+   if (!el) return;
+   var br = _getBranch(_selectedBranchId);
+   if (!br) { el.textContent = ''; return; }
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === br.store_provider_id; }) || {};
+   var addr  = (br.details && br.details.address) || br.address || store.address || '';
+   el.textContent = '🏬 ' + (br.branch_label || 'Branch') + (addr ? ' · ' + addr : '');
+}
+
+// Live date+time in the shop topbar (same format as the hospital dashboard).
+function _startTopbarClock() {
+   var el = document.getElementById('shopTopbarDate');
+   if (!el) return;
+   var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+   var tick = function() {
+      var d = new Date();
+      var h = d.getHours(), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
+      var mm = String(d.getMinutes()).padStart(2, '0');
+      el.textContent = days[d.getDay()] + ', ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + '  ' + h12 + ':' + mm + ' ' + ampm;
+   };
+   tick();
+   clearInterval(window._topbarClockInterval);
+   window._topbarClockInterval = setInterval(tick, 60000);
+}
+
 async function renderStoreDashboard() {
    var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
    var container = document.getElementById('shopDashboardContent');
@@ -13030,6 +13141,10 @@ async function renderStoreDashboard() {
       return (s.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
    });
    if (!myStores.length) { container.innerHTML = '<div class="shop-empty">No stores linked to your account.</div>'; return; }
+
+   // Topbar: live clock (beside 🔔) + active branch name & address (below title)
+   _startTopbarClock();
+   _updateShopTopbarBranch();
 
    var orders = _db.orders || [];
    var _brDash = _getBranch(_selectedBranchId);
@@ -20900,23 +21015,25 @@ async function saveStoreTemplate() {
          store_provider_id:  _stmStoreId,
          branch_label:       b.branch_label,
          address:            b.address,
-         phone:              b.phone || '',
-         timing:             b.timing || '',
+         phone:              (b.details && b.details.phone) || b.phone || '',
+         timing:             (b.details && b.details.timing) || b.timing || '',
          city_keyword:       (b.city_keyword || '').toLowerCase(),
          fulfillment_policy: _policy,
-         is_main:            !!b.is_main
+         is_main:            !!b.is_main,
+         details:            b.details || {}
       });
       if (brErr) {
          alert('❌ Failed to save branch "' + (b.branch_label || b.city_keyword || 'branch') + '".\n\nError: ' + brErr +
-               '\n\nMost likely the branches table isn\'t set up. Run this in Supabase SQL editor:\n\n' +
+               '\n\nMake sure the branches table + details column exist. Run in Supabase SQL editor:\n\n' +
                'create table if not exists store_branches (\n' +
                '  id text primary key,\n' +
                '  store_provider_id text,\n' +
                '  branch_label text, address text, phone text, timing text,\n' +
                '  city_keyword text, fulfillment_policy text default \'strict\',\n' +
-               '  is_main boolean default false,\n' +
+               '  is_main boolean default false, details jsonb,\n' +
                '  created_at timestamptz default now()\n' +
-               ');\nalter table store_branches disable row level security;');
+               ');\nalter table store_branches add column if not exists details jsonb;\n' +
+               'alter table store_branches disable row level security;');
          return;
       }
       savedAny = true;
@@ -20993,7 +21110,8 @@ function _stmLoadForm(sp, t) {
    // Branches + routing (brand-wide policy lives on the store_provider)
    _stmBranchRows = _branchesForStore(sp.id).map(function(b) {
       return { id: b.id, city_keyword: b.city_keyword || '', branch_label: b.branch_label || '',
-               address: b.address || '', is_main: !!b.is_main, phone: b.phone || '', timing: b.timing || '' };
+               address: b.address || '', is_main: !!b.is_main, phone: b.phone || '', timing: b.timing || '',
+               details: b.details || {} };
    });
    // No branches yet → seed a "Main" row prefilled from the store's own details,
    // so the admin never retypes the store address. It persists on Save Template.
@@ -21005,7 +21123,8 @@ function _stmLoadForm(sp, t) {
          address: sp.address || '',
          phone: sp.phone || '',
          timing: sp.timing || '',
-         is_main: true
+         is_main: true,
+         details: _stmStoreDetailsSnapshot(sp)
       });
    }
    _stmBranchDeleted = [];
@@ -21028,10 +21147,12 @@ function _stmRenderBranchRows() {
    }
    var inpS = 'padding:8px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;box-sizing:border-box;font-family:inherit';
    host.innerHTML = _stmBranchRows.map(function(b, i) {
+      var hasDetails = b.details && (b.details.gstin || b.details.form20_no || b.details.fssai_no || b.details.phone || b.details.tagline);
       return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">' +
-         '<input type="text" value="' + _stmEsc(b.city_keyword) + '" placeholder="anna-nagar" oninput="_stmBranchRows[' + i + '].city_keyword=this.value" style="width:24%;' + inpS + '">' +
-         '<input type="text" value="' + _stmEsc(b.branch_label) + '" placeholder="Anna Nagar Branch" oninput="_stmBranchRows[' + i + '].branch_label=this.value" style="width:30%;' + inpS + '">' +
-         '<input type="text" value="' + _stmEsc(b.address) + '" placeholder="12 Main Rd, City - PIN" oninput="_stmBranchRows[' + i + '].address=this.value" style="width:38%;' + inpS + '">' +
+         '<input type="text" value="' + _stmEsc(b.city_keyword) + '" placeholder="anna-nagar" oninput="_stmBranchRows[' + i + '].city_keyword=this.value" style="width:22%;' + inpS + '">' +
+         '<input type="text" value="' + _stmEsc(b.branch_label) + '" placeholder="Anna Nagar Branch" oninput="_stmBranchRows[' + i + '].branch_label=this.value" style="width:26%;' + inpS + '">' +
+         '<input type="text" value="' + _stmEsc(b.address) + '" placeholder="12 Main Rd, City - PIN" oninput="_stmBranchRows[' + i + '].address=this.value" style="width:34%;' + inpS + '">' +
+         '<button onclick="_stmOpenBranchDetails(' + i + ')" title="Full branch details (phone, GST, licences…)" style="background:' + (hasDetails ? '#0891b2' : '#e2e8f0') + ';color:' + (hasDetails ? '#fff' : '#475569') + ';border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:0.8rem;white-space:nowrap">📋 Details</button>' +
          '<button title="' + (b.is_main ? 'Main branch' : 'Set as main') + '" onclick="_stmSetMainBranch(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:15px;filter:' + (b.is_main ? 'none' : 'grayscale(1) opacity(0.4)') + '">⭐</button>' +
          '<button onclick="_stmRemoveBranchRow(' + i + ')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:6px 9px;cursor:pointer;font-size:0.8rem">✕</button>' +
       '</div>';
@@ -21040,8 +21161,133 @@ function _stmRenderBranchRows() {
 
 function _stmAddBranchRow() {
    _stmBranchRows.push({ id: 'br_' + (_stmStoreId || 'x').split('_').pop() + '_' + Date.now().toString(36),
-      city_keyword: '', branch_label: '', address: '', is_main: !_stmBranchRows.length, phone: '', timing: '' });
+      city_keyword: '', branch_label: '', address: '', is_main: !_stmBranchRows.length, phone: '', timing: '', details: {} });
    _stmRenderBranchRows();
+}
+
+// Snapshot the full Add-Store field set from a store_provider (used to prefill a
+// branch's details, e.g. the auto Main branch or the "Copy from main store" btn).
+function _stmStoreDetailsSnapshot(sp) {
+   sp = sp || {};
+   return {
+      name: sp.name || '', tagline: sp.tagline || '', address: sp.address || '',
+      timing: sp.timing || '', phone: sp.phone || '', upi_vpa: sp.upi_vpa || '',
+      gstin: sp.gstin || '', form20_no: sp.form20_no || '', form21_no: sp.form21_no || '',
+      fssai_no: sp.fssai_no || '', icon: sp.icon || '', image_url: sp.image_url || '',
+      hero_tag: sp.hero_tag || '', logo_url: sp.logo_url || '', door_delivery: !!sp.door_delivery
+   };
+}
+
+// ── Branch full-details modal (mirrors the Add-Store field set) ──────────────
+var _stmBranchDetailIdx = -1;
+
+var _STM_BRANCH_FIELDS = [
+   { k: 'name',       label: 'Branch Name',              ph: 'Kumar Medical — Anna Nagar' },
+   { k: 'tagline',    label: 'Tagline',                  ph: '24×7 pharmacy · Home delivery' },
+   { k: 'address',    label: 'Address',                  ph: '12 Main Road, Anna Nagar - 600040' },
+   { k: 'timing',     label: 'Timing',                   ph: '9 AM – 9 PM' },
+   { k: 'phone',      label: 'Phone',                    ph: '+91 98765 43210' },
+   { k: 'upi_vpa',    label: 'UPI ID / VPA',             ph: 'branch@ybl' },
+   { k: 'gstin',      label: 'GSTIN',                    ph: '29ABCDE1234F1Z5' },
+   { k: 'form20_no',  label: 'Form 20 No (drug licence)',ph: '20B/123/2024' },
+   { k: 'form21_no',  label: 'Form 21 No (drug licence)',ph: '21B/456/2024' },
+   { k: 'fssai_no',   label: 'FSSAI No',                 ph: '10012345678901' },
+   { k: 'hero_tag',   label: 'Hero Tag',                 ph: '24×7 PHARMACY · Free delivery over ₹499' },
+   { k: 'website_url',label: 'Website URL (Visit Website button)', ph: 'https://branch-site.example.com' },
+   { k: 'icon',       label: 'Icon (emoji)',             ph: '🏪' },
+   { k: 'image_url',  label: 'Banner Image URL',         ph: 'https://…/banner.jpg' },
+   { k: 'logo_url',   label: 'Logo URL',                 ph: 'https://…/logo.png' }
+];
+
+function _ensureBranchDetailsModal() {
+   if (document.getElementById('stmBranchDetailModal')) return;
+   var fld = 'style="margin-bottom:12px"';
+   var lbl = 'style="display:block;font-weight:700;font-size:0.75rem;color:#334155;margin-bottom:4px"';
+   var inp = 'style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.85rem;box-sizing:border-box;font-family:inherit"';
+   var fields = _STM_BRANCH_FIELDS.map(function(f) {
+      return '<div ' + fld + '><label ' + lbl + '>' + f.label + '</label>' +
+             '<input type="text" id="stmbd_' + f.k + '" placeholder="' + f.ph + '" ' + inp + '></div>';
+   }).join('');
+   var m = document.createElement('div');
+   m.id = 'stmBranchDetailModal';
+   m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:1300;justify-content:center;align-items:center';
+   m.innerHTML =
+      '<div style="background:#fff;width:560px;max-width:94vw;max-height:90vh;border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.35)">' +
+         '<div style="background:#0f172a;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between">' +
+            '<div style="font-weight:800;font-size:0.95rem">📋 Branch Details</div>' +
+            '<button onclick="_stmCloseBranchDetails()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;line-height:1">×</button>' +
+         '</div>' +
+         '<div style="padding:8px 20px 0"><button onclick="_stmCopyStoreToBranchDetails()" style="width:100%;padding:9px;background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;margin-bottom:8px">📥 Copy all details from main store</button></div>' +
+         '<div style="flex:1;overflow-y:auto;padding:6px 20px 16px">' + fields +
+            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;color:#334155;font-weight:600"><input type="checkbox" id="stmbd_door_delivery"> 🚚 Door delivery available at this branch</label>' +
+         '</div>' +
+         '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;background:#f8fafc">' +
+            '<button onclick="_stmCloseBranchDetails()" style="padding:8px 18px;background:#e2e8f0;color:#475569;border:none;border-radius:8px;font-weight:700;cursor:pointer">Cancel</button>' +
+            '<button onclick="_stmSaveBranchDetails()" style="padding:8px 20px;background:#0284c7;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer">Apply</button>' +
+         '</div>' +
+      '</div>';
+   document.body.appendChild(m);
+}
+
+function _stmOpenBranchDetails(i) {
+   _stmBranchDetailIdx = i;
+   _ensureBranchDetailsModal();
+   var b = _stmBranchRows[i] || {};
+   var d = b.details || {};
+   // Prefill: prefer saved detail, fall back to the row's key fields
+   _STM_BRANCH_FIELDS.forEach(function(f) {
+      var el = document.getElementById('stmbd_' + f.k);
+      if (!el) return;
+      var v = d[f.k];
+      if (v == null || v === '') {
+         if (f.k === 'name')    v = b.branch_label || '';
+         if (f.k === 'address') v = b.address || '';
+         if (f.k === 'phone')   v = b.phone || '';
+         if (f.k === 'timing')  v = b.timing || '';
+      }
+      el.value = v || '';
+   });
+   var dd = document.getElementById('stmbd_door_delivery');
+   if (dd) dd.checked = !!d.door_delivery;
+   document.getElementById('stmBranchDetailModal').style.display = 'flex';
+}
+
+function _stmCopyStoreToBranchDetails() {
+   var sp = _storeGetProvider(_stmStoreId) || {};
+   var snap = _stmStoreDetailsSnapshot(sp);
+   _STM_BRANCH_FIELDS.forEach(function(f) {
+      var el = document.getElementById('stmbd_' + f.k);
+      if (el) el.value = snap[f.k] || '';
+   });
+   var dd = document.getElementById('stmbd_door_delivery');
+   if (dd) dd.checked = !!snap.door_delivery;
+}
+
+function _stmSaveBranchDetails() {
+   var i = _stmBranchDetailIdx;
+   var b = _stmBranchRows[i];
+   if (!b) { _stmCloseBranchDetails(); return; }
+   var d = {};
+   _STM_BRANCH_FIELDS.forEach(function(f) {
+      var el = document.getElementById('stmbd_' + f.k);
+      d[f.k] = el ? el.value.trim() : '';
+   });
+   var dd = document.getElementById('stmbd_door_delivery');
+   d.door_delivery = dd ? dd.checked : false;
+   b.details = d;
+   // Mirror the key fields back to the row so list + routing stay in sync
+   if (d.name)    b.branch_label = d.name;
+   if (d.address) b.address = d.address;
+   if (d.phone)   b.phone = d.phone;
+   if (d.timing)  b.timing = d.timing;
+   _stmCloseBranchDetails();
+   _stmRenderBranchRows();
+}
+
+function _stmCloseBranchDetails() {
+   var m = document.getElementById('stmBranchDetailModal');
+   if (m) m.style.display = 'none';
+   _stmBranchDetailIdx = -1;
 }
 
 function _stmRemoveBranchRow(i) {

@@ -9213,11 +9213,12 @@ function renderShopDashboard(filterStatus) {
    if (loggedUser && !isAdmin(loggedUser.email)) {
       var _selBr = _getBranch(_selectedBranchId);
       if (_selBr) {
-         // Scope strictly to the chosen branch. Orders carry branch_id; legacy
-         // orders without one fall back to matching the branch's parent store.
+         // Scope strictly to the chosen branch. Orders explicitly tagged to this
+         // branch always show; legacy orders with no branch_id show ONLY under the
+         // main branch, so newly created branches start empty.
          allOrders = allOrders.filter(function(o) {
             return o.branch_id === _selectedBranchId ||
-                   (!o.branch_id && o.store_provider_id === _selBr.store_provider_id);
+                   (!o.branch_id && _selBr.is_main && o.store_provider_id === _selBr.store_provider_id);
          });
       } else {
          var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
@@ -12976,7 +12977,7 @@ async function renderBillsRegister() {
    var allOrders = (_db.orders || []).filter(function(o) {
       // Scope to the selected branch (branch_id), else all of the owner's stores
       if (_brBills) {
-         if (!(o.branch_id === _selectedBranchId || (!o.branch_id && o.store_provider_id === _brBills.store_provider_id))) return false;
+         if (!(o.branch_id === _selectedBranchId || (!o.branch_id && _brBills.is_main && o.store_provider_id === _brBills.store_provider_id))) return false;
       } else if (!storeIds.some(function(id) { return id === o.store_provider_id; })) {
          return false;
       }
@@ -13177,10 +13178,11 @@ async function renderStoreDashboard() {
    var orders = _db.orders || [];
    var _brDash = _getBranch(_selectedBranchId);
    var myOrders = orders.filter(function(o) {
-      // Scope to the selected branch (branch_id) when one is active
+      // Scope to the selected branch. Unassigned (legacy) orders show only under
+      // the main branch, so a newly created branch starts with no orders.
       if (_brDash) {
          return o.branch_id === _selectedBranchId ||
-                (!o.branch_id && o.store_provider_id === _brDash.store_provider_id);
+                (!o.branch_id && _brDash.is_main && o.store_provider_id === _brDash.store_provider_id);
       }
       return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
    });

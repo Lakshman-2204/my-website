@@ -1988,6 +1988,26 @@ async function loadStoreBranches(force) {
 function _branchesForStore(storeProviderId) {
    return (_storeBranchesCache || []).filter(function(b) { return b.store_provider_id === storeProviderId; });
 }
+// Create a "Main" branch from a store's own details if it has none yet. This
+// means a single-location store never needs its address re-entered as a branch.
+// city_keyword is left blank → no geographic gating (delivers as before).
+async function _ensureMainBranch(store) {
+   if (!store || !store.id) return;
+   await loadStoreBranches(true);
+   if (_branchesForStore(store.id).length) return;   // already has branches
+   var err = await AppDB.upsertStoreBranch({
+      id:                 'br_' + store.id.split('_').pop() + '_main',
+      store_provider_id:  store.id,
+      branch_label:       store.name || 'Main Branch',
+      address:            store.address || '',
+      phone:              store.phone   || '',
+      timing:             store.timing  || '',
+      city_keyword:       '',
+      fulfillment_policy: store.fulfillment_policy || 'strict',
+      is_main:            true
+   });
+   if (!err) await loadStoreBranches(true);
+}
 function _getBranch(branchId) {
    return (_storeBranchesCache || []).find(function(b) { return b.id === branchId; }) || null;
 }
@@ -4401,6 +4421,10 @@ async function saveStoreProvider() {
    };
    var ok = await AppDB.upsertStoreProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
+
+   // Ensure the store has a "Main" branch derived from its own address/phone,
+   // so a single-location store never needs a branch created by hand.
+   await _ensureMainBranch(provider);
 
    // Sync to the owner's user record so the store's address / phone / store-name
    // also show up in their Profile page. Only fills BLANK fields — never
@@ -8845,6 +8869,14 @@ async function checkShopOwnerLogin() {
    var ownsStores   = myStoreProvs.length > 0;
    window._ownsStores   = ownsStores;
    window._ownsHospital = ownsHospital;
+
+   // Backfill: any of the owner's stores with no branch yet gets a "Main" branch
+   // auto-created from its own address (idempotent — skips stores that have one).
+   for (var _si = 0; _si < myStoreProvs.length; _si++) {
+      if (!_branchesForStore(myStoreProvs[_si].id).length) {
+         await _ensureMainBranch(myStoreProvs[_si]);
+      }
+   }
 
    // ── Branch selection (branches live in store_branches) ─────────────────
    var myBranches = _branchesForOwner(user.email || '');
@@ -20908,6 +20940,19 @@ function _stmLoadForm(sp, t) {
       return { id: b.id, city_keyword: b.city_keyword || '', branch_label: b.branch_label || '',
                address: b.address || '', is_main: !!b.is_main, phone: b.phone || '', timing: b.timing || '' };
    });
+   // No branches yet → seed a "Main" row prefilled from the store's own details,
+   // so the admin never retypes the store address. It persists on Save Template.
+   if (!_stmBranchRows.length) {
+      _stmBranchRows.push({
+         id: 'br_' + (sp.id || 'x').split('_').pop() + '_main',
+         city_keyword: '',
+         branch_label: sp.name || 'Main Branch',
+         address: sp.address || '',
+         phone: sp.phone || '',
+         timing: sp.timing || '',
+         is_main: true
+      });
+   }
    _stmBranchDeleted = [];
    _stmRenderBranchRows();
    var pol = (sp.fulfillment_policy === 'bidding') ? 'bidding' : 'strict';

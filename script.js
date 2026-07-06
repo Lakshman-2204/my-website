@@ -468,7 +468,7 @@ function _rxStockTags(item) {
       var batches = _currentStockByProduct[item.id] || [];
       var qty = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
       if (qty <= 0)        html += '<span class="customer-stock-tag oos">Out of stock</span>';
-      else if (qty < 5)    html += '<span class="customer-stock-tag low">Only ' + qty + ' left</span>';
+      else if (qty < 5)    html += '<span class="customer-stock-tag low">Only a few left</span>';
       else                 html += '<span class="customer-stock-tag ok">In stock</span>';
    }
    return html;

@@ -1102,8 +1102,8 @@ async function makeOrder() {
            });
       var supportsDelivery = _storeAcceptsDeliveryNow(prov);
 
-      // Assign to a branch (no delivery address in this flow → main branch)
-      var _nmRoute = _routeOrderToBranch((prov && prov.id) || grp.store_provider_id, null);
+      // No delivery address in this flow (pickup) → assign to the main branch
+      var _nmBranch = _mainBranchFor((prov && prov.id) || grp.store_provider_id);
 
       var newOrder = {
          orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
@@ -1112,7 +1112,7 @@ async function makeOrder() {
          method: supportsDelivery ? 'COD-Delivery' : 'Pickup',
          storeId: grp.storeId, storeName: grp.storeName,
          store_provider_id: grp.store_provider_id || (prov && prov.id) || null,
-         branch_id: _nmRoute.branch ? _nmRoute.branch.id : null
+         branch_id: _nmBranch ? _nmBranch.id : null
       };
       _db.orders.unshift(newOrder);
       AppDB.insertOrder(newOrder);
@@ -1305,7 +1305,7 @@ async function submitRxOnlyOrder() {
       addr = (_db.addresses || []).find(function(a) { return a.id === window._rxOnlySelectedAddr; });
       if (!addr) { status.innerHTML = '<span style="color:#c62828">Pick a delivery address first.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
    }
-   var _rxRouting = _routeOrderToBranch(store.id, needsAddr ? addr : null);
+   var _rxRouting = await _routeOrderToBranch(store.id, needsAddr ? addr : null, []);
    if (!_rxRouting.allow) { status.innerHTML = '<span style="color:#c62828">🚫 ' + _rxRouting.reason + '</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
 
    var notes = document.getElementById('rxOnlyNotes').value.trim();
@@ -1491,12 +1491,13 @@ async function placeMedicalOrder() {
       if (needsAddr && !addr) { alert('Please choose a delivery address for ' + (prov.name || g.storeName) + '.'); btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; return; }
 
       // Multi-branch routing: pick the fulfilling branch and apply its policy
-      var routing = _routeOrderToBranch(g.spId, needsAddr ? addr : null);
+      var routing = await _routeOrderToBranch(g.spId, needsAddr ? addr : null, g.items);
       if (!routing.allow) {
          alert('🚫 ' + routing.reason);
          btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)';
          return;
       }
+      if (routing.broadcast) { alert('ℹ️ ' + routing.reason); }
 
       var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
       var subtotal = g.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
@@ -1876,31 +1877,81 @@ function _resolveOrderRouting(branch, deliveryAddr) {
    return { allow: false, broadcast: false, reason: 'Delivery to this address is not available from ' + (branch.branch_label || 'this branch') + '. Please select a branch that serves your area.' };
 }
 
-// Given a store and a delivery address, choose the fulfilling branch and decide
-// routing. Returns { branch, allow, broadcast, reason }.
-//   - No branches defined → { branch:null, allow:true } (legacy store, no gating)
-//   - Address matches a branch's city_keyword → that branch, standard
-//   - No match → fall back to main branch and apply its policy (strict/bidding)
-function _routeOrderToBranch(storeProviderId, deliveryAddr) {
+// The main branch for a store (or first, or null). Sync — used for pickup /
+// no-address flows where geographic routing doesn't apply.
+function _mainBranchFor(storeProviderId) {
+   var branches = _branchesForStore(storeProviderId);
+   if (!branches.length) return null;
+   return branches.find(function(b) { return b.is_main; }) || branches[0];
+}
+
+// Does a branch have enough stock for these order items?
+//   - No items / no branch → true (nothing to check, e.g. Rx-only orders)
+//   - Branch has ZERO batches → true (store doesn't track inventory → fail open)
+//   - Otherwise → every item must have qty_remaining ≥ its ordered qty
+async function _branchHasStock(storeProviderId, branchId, items) {
+   if (!items || !items.length || !branchId) return true;
+   var batches;
+   try { batches = await AppDB.getBatchesForStore(storeProviderId, branchId); }
+   catch (e) { return true; }
+   if (!batches || !batches.length) return true;   // branch not tracking stock
+   var byProduct = {};
+   batches.forEach(function(b) {
+      byProduct[b.product_id] = (byProduct[b.product_id] || 0) + (Number(b.qty_remaining) || 0);
+   });
+   return items.every(function(it) {
+      var need = Number(it.qty) || 1;
+      return (byProduct[it.id] || 0) >= need;
+   });
+}
+
+// Choose the fulfilling branch + routing decision — mirrors template_6:
+//   1. No branches / no city keywords configured → main branch, allow (legacy).
+//   2. No delivery address (pickup) → main branch, allow.
+//   3. No branch serves the delivery city → REJECT (both templates).
+//   4. Serving branch IN stock → assign to it (standard local).
+//   5. Serving branch OUT of stock →
+//        bidding → PENDING_CLAIM broadcast (other branches with stock can claim)
+//        strict  → assign to serving branch anyway (backorder; no cross-branch)
+// Returns { branch, allow, broadcast, reason }.
+async function _routeOrderToBranch(storeProviderId, deliveryAddr, items) {
    var branches = _branchesForStore(storeProviderId);
    if (!branches.length) return { branch: null, allow: true, broadcast: false };
 
-   var main = branches.find(function(b) { return b.is_main; }) || branches[0];
+   var main    = branches.find(function(b) { return b.is_main; }) || branches[0];
+   var anyCity = branches.some(function(b) { return (b.city_keyword || '').trim(); });
 
-   if (deliveryAddr) {
-      var addrText = [deliveryAddr.line, deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
-                      deliveryAddr.area, deliveryAddr.pin, deliveryAddr.pincode, deliveryAddr.state]
-         .filter(Boolean).join(' ').toLowerCase();
-      var matched = branches.find(function(b) {
-         var kw = (b.city_keyword || '').toLowerCase().trim();
-         return kw && addrText.indexOf(kw) !== -1;
-      });
-      if (matched) return { branch: matched, allow: true, broadcast: false };
+   // Pickup / no address / no geo config → main branch, allow
+   if (!deliveryAddr || !anyCity) return { branch: main, allow: true, broadcast: false };
+
+   var addrText = [deliveryAddr.line, deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
+                   deliveryAddr.area, deliveryAddr.pin, deliveryAddr.pincode, deliveryAddr.state]
+      .filter(Boolean).join(' ').toLowerCase();
+
+   var served = branches.find(function(b) {
+      var kw = (b.city_keyword || '').toLowerCase().trim();
+      return kw && addrText.indexOf(kw) !== -1;
+   });
+
+   // No branch serves this delivery city → reject in BOTH templates
+   if (!served) {
+      var cities = branches.map(function(b) { return b.city_keyword; }).filter(Boolean).join(', ');
+      return { branch: null, allow: false, broadcast: false,
+         reason: 'We don\'t deliver to your area yet. We currently serve: ' + (cities || 'selected areas') + '.' };
    }
 
-   // No area match (or pickup) → use main branch's policy
-   var r = _resolveOrderRouting(main, deliveryAddr);
-   return { branch: main, allow: r.allow, broadcast: r.broadcast, reason: r.reason };
+   // Serving branch found → check its stock for the ordered items
+   var inStock = await _branchHasStock(storeProviderId, served.id, items);
+   if (inStock) return { branch: served, allow: true, broadcast: false };
+
+   // Serving branch is out of stock
+   var policy = served.fulfillment_policy || 'strict';
+   if (policy === 'bidding') {
+      return { branch: served, allow: true, broadcast: true,
+         reason: (served.branch_label || 'Your local branch') + ' is out of stock — the order will be broadcast to other branches for cross-branch fulfilment (delivery may take a little longer).' };
+   }
+   // strict → place with the serving branch as a backorder (no cross-branch)
+   return { branch: served, allow: true, broadcast: false };
 }
 
 async function loadStoreCategories(force) {
@@ -5739,6 +5790,7 @@ async function showStoreCategory(catKey) {
 async function showStoreProvider(providerId) {
    var p = (_storeProvidersCache || []).find(function(x) { return x.id === providerId; });
    if (!p) return;
+   try { await loadStoreBranches(); } catch (e) {}
    var meta = STORE_CAT_META[p.category] || { icon: '🏪', label: p.category };
    // Live-refresh when this store's delivery/door_delivery flag changes
    _liveSubscribe('storeProvsCustomer', 'store_providers', async function() {
@@ -6252,7 +6304,21 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
       ? '<button class="wl-mobile-menu-btn" onclick="wlOpenCatDrawer()">☰ All Menu</button>'
       : '';
 
-   var _assembled = _emergency2 + heroCard + _ticker2 + _compliance2 + _searchBar + _cardsBlock2 + _horzBar2 + filterBar +
+   // Delivery-zone banner — mirrors template_6's "we only deliver to <cities>".
+   // Shown only when this store has branches with city keywords configured.
+   var _dzBranches = _branchesForStore(sp.id).filter(function(b) { return (b.city_keyword || '').trim(); });
+   var _deliveryZone2 = '';
+   if (_dzBranches.length) {
+      var _dzCities = _dzBranches.map(function(b) { return b.branch_label || b.city_keyword; }).join(', ');
+      var _dzPolicy = (sp.fulfillment_policy === 'bidding') ? 'bidding' : 'strict';
+      var _dzNote = _dzPolicy === 'bidding'
+         ? ' If your local branch is out of stock, a nearby branch may fulfil your order (slightly longer delivery).'
+         : '';
+      _deliveryZone2 = '<div style="background:#fff7ed;border-bottom:1px solid #fed7aa;color:#9a3412;text-align:center;padding:8px 16px;font-size:12.5px;font-weight:600">' +
+         '🚚 We deliver to: <b>' + _e2(_dzCities) + '</b>.' + _dzNote + '</div>';
+   }
+
+   var _assembled = _emergency2 + heroCard + _ticker2 + _compliance2 + _deliveryZone2 + _searchBar + _cardsBlock2 + _horzBar2 + filterBar +
       _mainOpen2 + _sidebarPart +
       '<section class="wl-main-content"' + (_catH2 ? ' style="width:100%"' : '') + '>' +
          _mobileMenuBtn +
@@ -9022,41 +9088,9 @@ function renderShopDashboard(filterStatus) {
    setStat('statCompleted',  counts['completed']);
 
    // ── Template 1: PENDING_CLAIM broadcast orders ──────────────────────────
-   // These are cross-branch orders not yet claimed by any branch.
-   // For bidding-policy branches: show a claim panel above the regular list.
-   var activeBranch = _getBranch(_selectedBranchId);
-   var claimBannerEl = document.getElementById('shopClaimBanner');
-   if (activeBranch && activeBranch.fulfillment_policy === 'bidding') {
-      // PENDING_CLAIM orders for any store this owner runs (sibling branches)
-      var ownerEmail = (loggedUser && loggedUser.email) || '';
-      var ownerStoreIds = (_storeProvidersCache || [])
-         .filter(function(s) { return (s.owner_email || '').toLowerCase() === ownerEmail.toLowerCase(); })
-         .map(function(s) { return s.id; });
-      var pendingClaims = (_db.orders || []).filter(function(o) {
-         return o.status === 'PENDING_CLAIM' && ownerStoreIds.indexOf(o.store_provider_id) !== -1;
-      });
-      if (pendingClaims.length && claimBannerEl) {
-         claimBannerEl.style.display = '';
-         claimBannerEl.innerHTML = '<div style="background:#0c2340;border:1px solid #1565c0;border-radius:12px;padding:14px 18px;margin-bottom:16px">' +
-            '<div style="font-weight:700;color:#60a5fa;margin-bottom:10px">📡 ' + pendingClaims.length + ' Broadcast Order' + (pendingClaims.length > 1 ? 's' : '') + ' — Awaiting Claim</div>' +
-            pendingClaims.map(function(o) {
-               var oid = o.orderId || o.order_id;
-               var addr = o.delivery_address ? [o.delivery_address.city, o.delivery_address.area].filter(Boolean).join(', ') : '—';
-               return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,0.07)">' +
-                  '<div>' +
-                     '<div style="font-weight:600;color:#f1f5f9;font-size:0.88rem">' + (o.customerName || 'Customer') + ' · ' + (o.storeName || '') + '</div>' +
-                     '<div style="font-size:0.75rem;color:#94a3b8;margin-top:2px">📍 ' + addr + ' · ₹' + Number(o.total || 0).toLocaleString('en-IN') + '</div>' +
-                  '</div>' +
-                  '<button onclick="claimBroadcastOrder(\'' + oid + '\')" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">🙋 Accept & Fulfill</button>' +
-               '</div>';
-            }).join('') +
-         '</div>';
-      } else if (claimBannerEl) {
-         claimBannerEl.style.display = 'none';
-      }
-   } else if (claimBannerEl) {
-      claimBannerEl.style.display = 'none';
-   }
+   // Rendered async so we can stock-check the selected branch (template_6:
+   // only branches that HAVE the item in stock see the claim button).
+   _renderClaimBanner(loggedUser);
 
    // Filter — 'Dispatched' is a virtual filter that bundles Out for Delivery
    // + Ready (handover happens at this stage regardless of delivery vs pickup).
@@ -9212,6 +9246,66 @@ async function switchOrderToPickup(orderId) {
    var ok = await AppDB.patchOrder(orderId, { method: 'Pickup', delivery_address: null, pickup_override: true });
    if (!ok) { alert('Failed to update order.'); return; }
    renderShopDashboard(window._shopCurrentFilter);
+}
+
+// Render the PENDING_CLAIM broadcast banner for the current branch.
+// Only branches that HAVE the item in stock get the "Accept & Fulfill" button
+// (template_6); the out-of-stock origin branch sees an informational note.
+async function _renderClaimBanner(loggedUser) {
+   var claimBannerEl = document.getElementById('shopClaimBanner');
+   if (!claimBannerEl) return;
+   var activeBranch = _getBranch(_selectedBranchId);
+   if (!activeBranch || activeBranch.fulfillment_policy !== 'bidding') {
+      claimBannerEl.style.display = 'none';
+      return;
+   }
+   // Cross-branch bidding is within the SAME store (brand) — a branch of one
+   // store can't fulfil another store's catalogue.
+   var pendingClaims = (_db.orders || []).filter(function(o) {
+      return o.status === 'PENDING_CLAIM' && o.store_provider_id === activeBranch.store_provider_id;
+   });
+   if (!pendingClaims.length) { claimBannerEl.style.display = 'none'; return; }
+
+   // Load this branch's stock so we can decide which claims it can fulfil
+   var stockByProduct = {};
+   try {
+      var batches = await AppDB.getBatchesForStore(activeBranch.store_provider_id, activeBranch.id);
+      (batches || []).forEach(function(b) {
+         stockByProduct[b.product_id] = (stockByProduct[b.product_id] || 0) + (Number(b.qty_remaining) || 0);
+      });
+   } catch (e) {}
+   var tracksStock = Object.keys(stockByProduct).length > 0;
+   var branchCanFulfil = function(o) {
+      // If this branch doesn't track stock, allow it to claim (fail open).
+      if (!tracksStock) return true;
+      return (o.items || []).every(function(it) {
+         return (stockByProduct[it.id] || 0) >= (Number(it.qty) || 1);
+      });
+   };
+
+   var rows = pendingClaims.map(function(o) {
+      var oid  = o.orderId || o.order_id;
+      var addr = o.delivery_address ? [o.delivery_address.city, o.delivery_address.area].filter(Boolean).join(', ') : '—';
+      var isOrigin = o.branch_id === activeBranch.id;   // this branch is the out-of-stock one
+      var canFulfil = !isOrigin && branchCanFulfil(o);
+      var right = isOrigin
+         ? '<span style="font-size:0.72rem;color:#fca5a5;white-space:nowrap">⚠️ Out of stock here — awaiting another branch</span>'
+         : (canFulfil
+            ? '<button onclick="claimBroadcastOrder(\'' + oid + '\')" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">🙋 Accept &amp; Fulfill</button>'
+            : '<span style="font-size:0.72rem;color:#94a3b8;white-space:nowrap">Not in stock here</span>');
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid rgba(255,255,255,0.07)">' +
+         '<div>' +
+            '<div style="font-weight:600;color:#f1f5f9;font-size:0.88rem">' + (o.customerName || 'Customer') + ' · ' + (o.storeName || '') + '</div>' +
+            '<div style="font-size:0.75rem;color:#94a3b8;margin-top:2px">📍 ' + addr + ' · ₹' + Number(o.total || 0).toLocaleString('en-IN') + '</div>' +
+         '</div>' + right +
+      '</div>';
+   }).join('');
+
+   claimBannerEl.style.display = '';
+   claimBannerEl.innerHTML = '<div style="background:#0c2340;border:1px solid #1565c0;border-radius:12px;padding:14px 18px;margin-bottom:16px">' +
+      '<div style="font-weight:700;color:#60a5fa;margin-bottom:6px">📡 ' + pendingClaims.length + ' Broadcast Order' + (pendingClaims.length > 1 ? 's' : '') + ' — Cross-Branch Fulfilment</div>' +
+      rows +
+   '</div>';
 }
 
 async function claimBroadcastOrder(orderId) {

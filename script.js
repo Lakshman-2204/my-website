@@ -2011,6 +2011,68 @@ async function _ensureMainBranch(store) {
 function _getBranch(branchId) {
    return (_storeBranchesCache || []).find(function(b) { return b.id === branchId; }) || null;
 }
+
+// ── Customer-side branch selection (storefront "Ordering from" picker) ──────
+var _customerBranchByStore = {};   // storeProviderId → chosen branch id
+
+function _customerActiveBranch(storeProviderId) {
+   var branches = _branchesForStore(storeProviderId);
+   if (!branches.length) return null;
+   var chosen = _customerBranchByStore[storeProviderId];
+   return branches.find(function(b) { return b.id === chosen; })
+       || branches.find(function(b) { return b.is_main; })
+       || branches[0];
+}
+
+// Storefront branch dropdown — shown only when a store has 2+ branches.
+function _customerBranchSelectorHtml(storeProviderId) {
+   var branches = _branchesForStore(storeProviderId);
+   if (branches.length < 2) return '';
+   var active = _customerActiveBranch(storeProviderId);
+   var opts = branches.map(function(b) {
+      var label = (b.branch_label || b.city_keyword || 'Branch') + (b.is_main ? ' (Main)' : '');
+      return '<option value="' + b.id + '"' + (active && b.id === active.id ? ' selected' : '') + '>' + label + '</option>';
+   }).join('');
+   return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:24px;padding:6px 8px 6px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">' +
+      '<span style="font-size:12.5px;color:#64748b;white-space:nowrap">📍 Ordering from:</span>' +
+      '<select onchange="_customerSwitchBranch(\'' + storeProviderId + '\',this.value)" style="border:none;outline:none;font-size:13.5px;font-weight:700;color:#0891b2;background:transparent;cursor:pointer">' + opts + '</select>' +
+   '</div>';
+}
+
+function _customerSwitchBranch(storeProviderId, branchId) {
+   _customerBranchByStore[storeProviderId] = branchId;
+   showStoreProvider(storeProviderId);   // reloads branch stock + re-renders
+}
+
+// Full storefront branch bar: delivery-zone notice + "Ordering from" selector +
+// active branch address. Returns '' when the store has no branches.
+function _buildCustomerBranchBar(sp) {
+   var branches = _branchesForStore(sp.id);
+   if (!branches.length) return '';
+   var esc = function(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
+   var withCity = branches.filter(function(b) { return (b.city_keyword || '').trim(); });
+   var active = _customerActiveBranch(sp.id);
+   var selector = _customerBranchSelectorHtml(sp.id);
+
+   // Line 1: which areas we serve (only if city keywords configured)
+   var zoneLine = '';
+   if (withCity.length) {
+      var cities = withCity.map(function(b) { return b.branch_label || b.city_keyword; }).join(', ');
+      var note = (sp.fulfillment_policy === 'bidding')
+         ? ' If your local branch is out of stock, a nearby branch may fulfil it (slightly longer delivery).' : '';
+      zoneLine = '🚚 We deliver to: <b>' + esc(cities) + '</b>.' + note;
+   }
+   // Line 2: the branch currently being ordered from
+   var activeLine = active
+      ? '🏢 Ordering from <b>' + esc(active.branch_label || active.city_keyword || 'Branch') + '</b>' +
+        (active.address ? ' · ' + esc(active.address) : '')
+      : '';
+
+   return '<div style="background:#fff7ed;border-bottom:1px solid #fed7aa;color:#9a3412;padding:9px 16px;font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+      '<div>' + (zoneLine || activeLine) + (zoneLine && activeLine ? '<br><span style="font-weight:500;opacity:0.85">' + activeLine + '</span>' : '') + '</div>' +
+      (selector ? '<div style="flex-shrink:0">' + selector + '</div>' : '') +
+   '</div>';
+}
 // All branches belonging to stores owned by this email.
 function _branchesForOwner(ownerEmail) {
    var e = (ownerEmail || '').toLowerCase();
@@ -5834,9 +5896,10 @@ async function showStoreProvider(providerId) {
    });
 
    // Refresh in-memory stock snapshot so we can render Out-of-stock / In-stock
-   // badges on each card. This drives addToCart() guards too.
+   // badges on each card. Scoped to the customer's chosen branch (per-branch stock).
    try {
-      var batches = await AppDB.getBatchesForStore(providerId);
+      var _custBranch = _customerActiveBranch(providerId);
+      var batches = await AppDB.getBatchesForStore(providerId, _custBranch ? _custBranch.id : undefined);
       _currentStockByProduct = {};
       (batches || []).forEach(function(b) {
          (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
@@ -6328,19 +6391,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
       ? '<button class="wl-mobile-menu-btn" onclick="wlOpenCatDrawer()">☰ All Menu</button>'
       : '';
 
-   // Delivery-zone banner — mirrors template_6's "we only deliver to <cities>".
-   // Shown only when this store has branches with city keywords configured.
-   var _dzBranches = _branchesForStore(sp.id).filter(function(b) { return (b.city_keyword || '').trim(); });
-   var _deliveryZone2 = '';
-   if (_dzBranches.length) {
-      var _dzCities = _dzBranches.map(function(b) { return b.branch_label || b.city_keyword; }).join(', ');
-      var _dzPolicy = (sp.fulfillment_policy === 'bidding') ? 'bidding' : 'strict';
-      var _dzNote = _dzPolicy === 'bidding'
-         ? ' If your local branch is out of stock, a nearby branch may fulfil your order (slightly longer delivery).'
-         : '';
-      _deliveryZone2 = '<div style="background:#fff7ed;border-bottom:1px solid #fed7aa;color:#9a3412;text-align:center;padding:8px 16px;font-size:12.5px;font-weight:600">' +
-         '🚚 We deliver to: <b>' + _e2(_dzCities) + '</b>.' + _dzNote + '</div>';
-   }
+   var _deliveryZone2 = _buildCustomerBranchBar(sp);
 
    var _assembled = _emergency2 + heroCard + _ticker2 + _compliance2 + _deliveryZone2 + _searchBar + _cardsBlock2 + _horzBar2 + filterBar +
       _mainOpen2 + _sidebarPart +
@@ -6440,7 +6491,11 @@ function buildStoreSubcatLayout(storeProviderId, heroHtml) {
    tmp.className = 'products-grid';
    first.items.forEach(function(item) { renderCard(Object.assign({}, item, { type: first.catData.type }), first.catKey, tmp); });
 
-   return '<div class="subcat-layout">' +
+   var _spForBar = (_storeProvidersCache || []).find(function(x) { return x.id === storeProviderId; });
+   var branchBar = _spForBar ? _buildCustomerBranchBar(_spForBar) : '';
+
+   return branchBar +
+          '<div class="subcat-layout">' +
              '<div class="subcat-sidebar">' + sidebarHtml + '</div>' +
              '<div class="subcat-products-panel">' +
                 (heroHtml || '') +

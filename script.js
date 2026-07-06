@@ -5234,8 +5234,8 @@ async function saveBranch() {
       is_main:            isMain
    };
 
-   var ok = await AppDB.upsertStoreBranch(branch);
-   if (!ok) { alert('Failed to save branch. Check console.'); return; }
+   var brErr = await AppDB.upsertStoreBranch(branch);
+   if (brErr) { alert('Failed to save branch.\n\nError: ' + brErr); return; }
 
    // Enforce a single main branch: if this one is main, clear is_main on siblings
    if (isMain) {
@@ -20808,7 +20808,7 @@ async function saveStoreTemplate() {
    for (var i = 0; i < _stmBranchRows.length; i++) {
       var b = _stmBranchRows[i];
       if (!(b.city_keyword || b.branch_label || b.address)) continue;
-      await AppDB.upsertStoreBranch({
+      var brErr = await AppDB.upsertStoreBranch({
          id:                 b.id,
          store_provider_id:  _stmStoreId,
          branch_label:       b.branch_label,
@@ -20819,6 +20819,19 @@ async function saveStoreTemplate() {
          fulfillment_policy: _policy,
          is_main:            !!b.is_main
       });
+      if (brErr) {
+         alert('❌ Failed to save branch "' + (b.branch_label || b.city_keyword || 'branch') + '".\n\nError: ' + brErr +
+               '\n\nMost likely the branches table isn\'t set up. Run this in Supabase SQL editor:\n\n' +
+               'create table if not exists store_branches (\n' +
+               '  id text primary key,\n' +
+               '  store_provider_id text,\n' +
+               '  branch_label text, address text, phone text, timing text,\n' +
+               '  city_keyword text, fulfillment_policy text default \'strict\',\n' +
+               '  is_main boolean default false,\n' +
+               '  created_at timestamptz default now()\n' +
+               ');\nalter table store_branches disable row level security;');
+         return;
+      }
       savedAny = true;
    }
    if (savedAny || _stmBranchDeleted.length) { await loadStoreBranches(true); }

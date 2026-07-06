@@ -1626,8 +1626,8 @@ window.AppDB = {
          is_main:            !!b.is_main
       };
       const { error } = await _sb.from('store_branches').upsert(row, { onConflict: 'id' });
-      if (error) { console.error('upsertStoreBranch:', error.message); return false; }
-      return true;
+      if (error) { console.error('upsertStoreBranch:', error.message); return error.message || 'unknown error'; }
+      return null;
    },
 
    async deleteStoreBranch(id) {

@@ -605,6 +605,23 @@ function addToCart(itemId, catKey) {
 
 function doAddToCart(item, catKey) {
    const data = products[catKey];
+
+   // Shared-catalog remap: if the customer is inside a specific branch storefront
+   // and this product actually belongs to a sibling branch (same brand), route the
+   // cart line to the VIEWED branch so the order + stock hit the right store.
+   var effectiveSpId   = item.store_provider_id || null;
+   var effectiveStore  = item.storeId || null;
+   var effectiveName   = item.storeName || null;
+   var viewed = window._currentStoreProvider;
+   if (viewed && effectiveSpId && effectiveSpId !== viewed.id) {
+      var siblings = _brandBranchIds(viewed.id);
+      if (siblings.indexOf(effectiveSpId) !== -1) {
+         effectiveSpId  = viewed.id;
+         effectiveStore = viewed.owner_email || effectiveStore;
+         effectiveName  = viewed.name || effectiveName;
+      }
+   }
+
    const isMilk = (item.type || (data && data.type)) === 'milk';
    let qty, unitPrice, label, cartId;
 
@@ -634,10 +651,10 @@ function doAddToCart(item, catKey) {
       existing.qty += qty;
    } else {
       cart.push({ id: cartId, name: label, price: unitPrice, qty, img: item.img,
-                  storeId: item.storeId || null, storeName: item.storeName || null,
+                  storeId: effectiveStore, storeName: effectiveName,
                   // Carry these through so the medical checkout knows which store
                   // provider the items came from and whether to enforce Rx upload:
-                  store_provider_id: item.store_provider_id || null,
+                  store_provider_id: effectiveSpId,
                   rx_required:       !!item.rx_required });
    }
    updateCartUI();
@@ -1036,6 +1053,9 @@ async function makeOrder() {
    var phone = await _ensureCustomerPhone(user);
    if (!phone) { showToast('Phone number is required to place a COD order.'); return; }
 
+   try { await loadStoreProviders(); } catch (e) {}
+   try { await loadStoreBranches(); } catch (e) {}
+
    var now    = new Date();
    var yy     = String(now.getFullYear()).slice(2);
    var mm     = String(now.getMonth() + 1).padStart(2, '0');
@@ -1082,13 +1102,17 @@ async function makeOrder() {
            });
       var supportsDelivery = _storeAcceptsDeliveryNow(prov);
 
+      // Assign to a branch (no delivery address in this flow → main branch)
+      var _nmRoute = _routeOrderToBranch((prov && prov.id) || grp.store_provider_id, null);
+
       var newOrder = {
          orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
          customerName: user.name, customerEmail: user.email, customerPhone: phone,
          items: items, total: total, status: 'Pending Pickup',
          method: supportsDelivery ? 'COD-Delivery' : 'Pickup',
          storeId: grp.storeId, storeName: grp.storeName,
-         store_provider_id: grp.store_provider_id || (prov && prov.id) || null
+         store_provider_id: grp.store_provider_id || (prov && prov.id) || null,
+         branch_id: _nmRoute.branch ? _nmRoute.branch.id : null
       };
       _db.orders.unshift(newOrder);
       AppDB.insertOrder(newOrder);
@@ -1272,6 +1296,7 @@ async function submitRxOnlyOrder() {
 
    // Find the store + delivery address
    try { await loadStoreProviders(); } catch (e) {}
+   try { await loadStoreBranches(); } catch (e) {}
    var store = (_storeProvidersCache || []).find(function(x) { return x.id === _rxOnlyStoreId; });
    if (!store) { status.innerHTML = '<span style="color:#c62828">Store not found.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
    var needsAddr = _storeAcceptsDeliveryNow(store);
@@ -1280,6 +1305,8 @@ async function submitRxOnlyOrder() {
       addr = (_db.addresses || []).find(function(a) { return a.id === window._rxOnlySelectedAddr; });
       if (!addr) { status.innerHTML = '<span style="color:#c62828">Pick a delivery address first.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
    }
+   var _rxRouting = _routeOrderToBranch(store.id, needsAddr ? addr : null);
+   if (!_rxRouting.allow) { status.innerHTML = '<span style="color:#c62828">🚫 ' + _rxRouting.reason + '</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
 
    var notes = document.getElementById('rxOnlyNotes').value.trim();
    var now = new Date();
@@ -1294,13 +1321,15 @@ async function submitRxOnlyOrder() {
       items: [],                                  // empty — pharmacist fills via Bill modal
       total: 0,
       method:        needsAddr ? 'COD-Delivery' : 'Pickup',
-      status:        'Pending Pickup',
+      status:        _rxRouting.broadcast ? 'PENDING_CLAIM' : 'Pending Pickup',
       storeId:       store.owner_email || null,
       storeName:     store.name || '',
       store_provider_id: store.id,
+      branch_id:     _rxRouting.branch ? _rxRouting.branch.id : null,
       prescription_url:  url,
       delivery_address:  needsAddr ? addr : null,
       payment_mode:  'COD',
+      routing_type:  _rxRouting.broadcast ? 'BIDDING_STREAM' : 'STANDARD',
       doctor_name:   notes                        // reuse doctor_name column for free-form pharmacist notes
    };
    _db.orders.unshift(order);
@@ -1412,6 +1441,7 @@ async function placeMedicalOrder() {
    // loadStoreProviders (e.g. direct cart access), prov lookup would fail
    // and method would default to "Pickup" even for delivery-enabled stores.
    try { await loadStoreProviders(); } catch (e) {}
+   try { await loadStoreBranches(); } catch (e) {}
    if (!(_db && _db.storeProducts && _db.storeProducts.length)) {
       try {
          var prods = await AppDB.getAllStoreProducts();
@@ -1460,8 +1490,8 @@ async function placeMedicalOrder() {
       var needsAddr = _storeAcceptsDeliveryNow(prov);
       if (needsAddr && !addr) { alert('Please choose a delivery address for ' + (prov.name || g.storeName) + '.'); btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; return; }
 
-      // Multi-branch routing check
-      var routing = _resolveOrderRouting(prov, needsAddr ? addr : null);
+      // Multi-branch routing: pick the fulfilling branch and apply its policy
+      var routing = _routeOrderToBranch(g.spId, needsAddr ? addr : null);
       if (!routing.allow) {
          alert('🚫 ' + routing.reason);
          btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)';
@@ -1480,6 +1510,7 @@ async function placeMedicalOrder() {
          status: routing.broadcast ? 'PENDING_CLAIM' : 'Pending Pickup',
          storeId: g.storeId || null, storeName: g.storeName || prov.name || null,
          store_provider_id: g.spId || null,
+         branch_id:         routing.branch ? routing.branch.id : null,
          prescription_url:  hasAnyRx ? window._cartPrescriptionUrl : null,
          delivery_address:  needsAddr && addr ? addr : null,
          payment_mode:      'COD',
@@ -1817,10 +1848,11 @@ function _storeAcceptsDeliveryNow(store) {
 // allow=false + broadcast=false → Template 2 strict reject
 // allow=true  + broadcast=true  → Template 1 PENDING_CLAIM broadcast
 // allow=true  + broadcast=false → normal order
-function _resolveOrderRouting(prov, deliveryAddr) {
-   if (!prov) return { allow: true, broadcast: false };
-   var policy = prov.fulfillment_policy || 'strict';
-   var cityKw = (prov.city_keyword || '').toLowerCase().trim();
+// branch = a store_branches row ({ city_keyword, fulfillment_policy, branch_label }).
+function _resolveOrderRouting(branch, deliveryAddr) {
+   if (!branch) return { allow: true, broadcast: false };
+   var policy = branch.fulfillment_policy || 'strict';
+   var cityKw = (branch.city_keyword || '').toLowerCase().trim();
 
    // No city_keyword set → no geographic gating, always allow normally
    if (!cityKw) return { allow: true, broadcast: false };
@@ -1828,8 +1860,8 @@ function _resolveOrderRouting(prov, deliveryAddr) {
    // Check if delivery address text contains the branch's city keyword
    var addrText = '';
    if (deliveryAddr) {
-      addrText = [deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
-                  deliveryAddr.area, deliveryAddr.pincode, deliveryAddr.state]
+      addrText = [deliveryAddr.line, deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
+                  deliveryAddr.area, deliveryAddr.pin, deliveryAddr.pincode, deliveryAddr.state]
          .filter(Boolean).join(' ').toLowerCase();
    }
    var inArea = addrText.indexOf(cityKw) !== -1;
@@ -1838,10 +1870,37 @@ function _resolveOrderRouting(prov, deliveryAddr) {
 
    // Address is outside this branch's area
    if (policy === 'bidding') {
-      return { allow: true, broadcast: true, reason: 'Delivery address is outside ' + prov.name + '\'s area. Order broadcast to other branches.' };
+      return { allow: true, broadcast: true, reason: 'Delivery address is outside ' + (branch.branch_label || 'this branch') + '\'s area. Order broadcast to other branches.' };
    }
    // strict
-   return { allow: false, broadcast: false, reason: 'Delivery to this address is not available from ' + (prov.branch_label || prov.name) + '. Please select a branch that serves your area.' };
+   return { allow: false, broadcast: false, reason: 'Delivery to this address is not available from ' + (branch.branch_label || 'this branch') + '. Please select a branch that serves your area.' };
+}
+
+// Given a store and a delivery address, choose the fulfilling branch and decide
+// routing. Returns { branch, allow, broadcast, reason }.
+//   - No branches defined → { branch:null, allow:true } (legacy store, no gating)
+//   - Address matches a branch's city_keyword → that branch, standard
+//   - No match → fall back to main branch and apply its policy (strict/bidding)
+function _routeOrderToBranch(storeProviderId, deliveryAddr) {
+   var branches = _branchesForStore(storeProviderId);
+   if (!branches.length) return { branch: null, allow: true, broadcast: false };
+
+   var main = branches.find(function(b) { return b.is_main; }) || branches[0];
+
+   if (deliveryAddr) {
+      var addrText = [deliveryAddr.line, deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
+                      deliveryAddr.area, deliveryAddr.pin, deliveryAddr.pincode, deliveryAddr.state]
+         .filter(Boolean).join(' ').toLowerCase();
+      var matched = branches.find(function(b) {
+         var kw = (b.city_keyword || '').toLowerCase().trim();
+         return kw && addrText.indexOf(kw) !== -1;
+      });
+      if (matched) return { branch: matched, allow: true, broadcast: false };
+   }
+
+   // No area match (or pickup) → use main branch's policy
+   var r = _resolveOrderRouting(main, deliveryAddr);
+   return { branch: main, allow: r.allow, broadcast: r.broadcast, reason: r.reason };
 }
 
 async function loadStoreCategories(force) {
@@ -1866,6 +1925,28 @@ async function loadStoreProviders(force) {
    if (_storeProvidersCache && !force) return _storeProvidersCache;
    _storeProvidersCache = await AppDB.getStoreProviders();
    return _storeProvidersCache;
+}
+
+// Branches belong to a store (store_provider). Cached globally like providers.
+var _storeBranchesCache = null;
+async function loadStoreBranches(force) {
+   if (_storeBranchesCache && !force) return _storeBranchesCache;
+   _storeBranchesCache = await AppDB.getAllStoreBranches();
+   return _storeBranchesCache;
+}
+function _branchesForStore(storeProviderId) {
+   return (_storeBranchesCache || []).filter(function(b) { return b.store_provider_id === storeProviderId; });
+}
+function _getBranch(branchId) {
+   return (_storeBranchesCache || []).find(function(b) { return b.id === branchId; }) || null;
+}
+// All branches belonging to stores owned by this email.
+function _branchesForOwner(ownerEmail) {
+   var e = (ownerEmail || '').toLowerCase();
+   var storeIds = (_storeProvidersCache || [])
+      .filter(function(s) { return (s.owner_email || '').toLowerCase() === e; })
+      .map(function(s) { return s.id; });
+   return (_storeBranchesCache || []).filter(function(b) { return storeIds.indexOf(b.store_provider_id) !== -1; });
 }
 
 function _storeProvidersByCat(catKey) {
@@ -4064,9 +4145,11 @@ async function renderStoreProvidersAdmin() {
    var container = document.getElementById('storeProvidersContent');
    if (!container) return;
    _liveSubscribe('adminStoreProvs', 'store_providers', renderStoreProvidersAdmin);
+   _liveSubscribe('adminStoreBranches', 'store_branches', renderStoreProvidersAdmin);
    container.innerHTML = '<p style="color:#999;text-align:center;padding:40px">Loading…</p>';
    await loadStoreCategories();
    await loadStoreProviders(true);
+   await loadStoreBranches(true);
 
    // Populate category-filter dropdown (preserve current selection)
    var catSel = document.getElementById('storeAdminCatFilter');
@@ -4120,7 +4203,7 @@ async function renderStoreProvidersAdmin() {
                 '<div class="apt-provider-footer">' +
                    '<span style="font-family:ui-monospace,monospace;color:#888;font-size:0.72rem">ID: ' + p.id + '</span>' +
                    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-                      '<button class="apt-view-btn" style="background:#7c3aed;color:#fff" onclick="openStoreTemplate(\'' + pid + '\')">🎨 Template</button>' +
+                      '<button class="apt-view-btn" style="background:#7c3aed;color:#fff" onclick="openStoreTemplate(\'' + pid + '\')">🎨 Template · 🏬 ' + _branchesForStore(p.id).length + '</button>' +
                       '<button class="apt-view-btn" onclick="openStoreProviderModal(\'' + pid + '\')">✏️ Edit</button>' +
                       '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreProviderUi(\'' + pid + '\')">🗑 Delete</button>' +
                    '</div>' +
@@ -4155,8 +4238,6 @@ function openStoreProviderModal(providerId) {
    document.getElementById('storeProvId').value       = p ? p.id : '';
    document.getElementById('storeProvCategory').value = p ? p.category : (Object.keys(STORE_CAT_META)[0] || 'general');
    document.getElementById('storeProvName').value     = p ? p.name : '';
-   var branchLabelEl = document.getElementById('storeProvBranchLabel');
-   if (branchLabelEl) branchLabelEl.value = p ? (p.branch_label || '') : '';
    document.getElementById('storeProvTagline').value  = p ? (p.tagline   || '') : '';
    document.getElementById('storeProvAddress').value  = p ? (p.address   || '') : '';
    document.getElementById('storeProvTiming').value   = p ? (p.timing    || '') : '';
@@ -4198,12 +4279,6 @@ function openStoreProviderModal(providerId) {
       opts += '<option value="' + current + '" selected>' + current + ' (not a registered business partner)</option>';
    }
    ownerSel.innerHTML = opts;
-
-   var policyEl = document.getElementById('storeProvFulfillmentPolicy');
-   if (policyEl) policyEl.value = p ? (p.fulfillment_policy || 'strict') : 'strict';
-
-   var cityKwEl = document.getElementById('storeProvCityKeyword');
-   if (cityKwEl) cityKwEl.value = p ? (p.city_keyword || '') : '';
 
    document.getElementById('storeProviderModal').classList.remove('hidden');
 }
@@ -4271,10 +4346,7 @@ async function saveStoreProvider() {
       owner_email:      document.getElementById('storeProvOwner').value || '',
       upi_vpa:          (document.getElementById('storeProvUpiVpa') || {}).value ? document.getElementById('storeProvUpiVpa').value.trim() : undefined,
       hero_tag:         (document.getElementById('storeProvHeroTag') || {}).value ? document.getElementById('storeProvHeroTag').value.trim() : undefined,
-      logo_url:         (document.getElementById('storeProvLogoUrl') || {}).value ? document.getElementById('storeProvLogoUrl').value.trim() : undefined,
-      branch_label:        (document.getElementById('storeProvBranchLabel') || {}).value ? document.getElementById('storeProvBranchLabel').value.trim() : undefined,
-      fulfillment_policy:  (document.getElementById('storeProvFulfillmentPolicy') || {}).value || 'strict',
-      city_keyword:        (document.getElementById('storeProvCityKeyword') || {}).value ? document.getElementById('storeProvCityKeyword').value.trim().toLowerCase() : undefined
+      logo_url:         (document.getElementById('storeProvLogoUrl') || {}).value ? document.getElementById('storeProvLogoUrl').value.trim() : undefined
    };
    var ok = await AppDB.upsertStoreProvider(provider);
    if (!ok) { alert('Failed to save. Check console.'); return; }
@@ -5020,6 +5092,123 @@ async function deleteStoreProviderUi(providerId) {
    var ok = await AppDB.deleteStoreProvider(providerId);
    if (!ok) { alert('Failed to delete.'); return; }
    await renderStoreProvidersAdmin();
+}
+
+// ── ADMIN: MANAGE BRANCHES ─────────────────────────────────────
+async function openBranchesManager(providerId) {
+   var p = _storeGetProvider(providerId);
+   if (!p) return;
+   await loadStoreBranches(true);
+   document.getElementById('branchesManagerTitle').textContent = '🏬 Branches — ' + p.name;
+   document.getElementById('branchStoreProviderId').value = providerId;
+   resetBranchForm();
+   _renderBranchesManagerList(providerId);
+   document.getElementById('branchesManagerModal').classList.remove('hidden');
+}
+
+function closeBranchesManager() {
+   document.getElementById('branchesManagerModal').classList.add('hidden');
+   renderStoreProvidersAdmin();   // refresh branch counts on cards
+}
+
+function _renderBranchesManagerList(providerId) {
+   var host = document.getElementById('branchesManagerList');
+   if (!host) return;
+   var branches = _branchesForStore(providerId);
+   if (!branches.length) {
+      host.innerHTML = '<p style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:16px;background:#f8fafc;border-radius:8px">No branches yet. Add the first one below (mark it ⭐ Main).</p>';
+      return;
+   }
+   host.innerHTML = branches.map(function(b) {
+      var bid = b.id.replace(/'/g, "\\'");
+      var policyLabel = b.fulfillment_policy === 'bidding' ? 'Federated' : 'Strict';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff">' +
+                '<div style="min-width:0">' +
+                   '<div style="font-weight:700;font-size:0.9rem;color:#0f172a">' + (b.branch_label || 'Branch') + (b.is_main ? ' <span style="color:#f59e0b">⭐ Main</span>' : '') + '</div>' +
+                   '<div style="font-size:0.76rem;color:#64748b;margin-top:2px">' + (b.address || '—') + (b.phone ? ' · ' + b.phone : '') + '</div>' +
+                   '<div style="font-size:0.72rem;color:#94a3b8;margin-top:2px">🗺 ' + (b.city_keyword || 'no area') + ' · 📡 ' + policyLabel + '</div>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;flex-shrink:0">' +
+                   '<button class="apt-view-btn" onclick="editBranch(\'' + bid + '\')">✏️</button>' +
+                   '<button class="apt-view-btn" style="background:#c62828" onclick="deleteBranchUi(\'' + bid + '\')">🗑</button>' +
+                '</div>' +
+             '</div>';
+   }).join('');
+}
+
+function resetBranchForm() {
+   document.getElementById('branchFormTitle').textContent = '➕ Add Branch';
+   document.getElementById('branchId').value = '';
+   document.getElementById('branchLabel').value = '';
+   document.getElementById('branchAddress').value = '';
+   document.getElementById('branchPhone').value = '';
+   document.getElementById('branchTiming').value = '';
+   document.getElementById('branchCityKeyword').value = '';
+   document.getElementById('branchFulfillmentPolicy').value = 'strict';
+   document.getElementById('branchIsMain').checked = false;
+}
+
+function editBranch(branchId) {
+   var b = _getBranch(branchId);
+   if (!b) return;
+   document.getElementById('branchFormTitle').textContent = '✏️ Edit Branch';
+   document.getElementById('branchId').value = b.id;
+   document.getElementById('branchStoreProviderId').value = b.store_provider_id;
+   document.getElementById('branchLabel').value = b.branch_label || '';
+   document.getElementById('branchAddress').value = b.address || '';
+   document.getElementById('branchPhone').value = b.phone || '';
+   document.getElementById('branchTiming').value = b.timing || '';
+   document.getElementById('branchCityKeyword').value = b.city_keyword || '';
+   document.getElementById('branchFulfillmentPolicy').value = b.fulfillment_policy || 'strict';
+   document.getElementById('branchIsMain').checked = !!b.is_main;
+}
+
+async function saveBranch() {
+   var storeId = document.getElementById('branchStoreProviderId').value;
+   if (!storeId) { alert('No store selected.'); return; }
+   var label = document.getElementById('branchLabel').value.trim();
+   if (!label) { alert('Branch label is required.'); return; }
+   var existingId = document.getElementById('branchId').value;
+   var isMain = document.getElementById('branchIsMain').checked;
+
+   var branch = {
+      id:                 existingId || ('br_' + storeId.split('_').pop() + '_' + Date.now().toString(36)),
+      store_provider_id:  storeId,
+      branch_label:       label,
+      address:            document.getElementById('branchAddress').value.trim(),
+      phone:              document.getElementById('branchPhone').value.trim(),
+      timing:             document.getElementById('branchTiming').value.trim(),
+      city_keyword:       document.getElementById('branchCityKeyword').value.trim().toLowerCase(),
+      fulfillment_policy: document.getElementById('branchFulfillmentPolicy').value || 'strict',
+      is_main:            isMain
+   };
+
+   var ok = await AppDB.upsertStoreBranch(branch);
+   if (!ok) { alert('Failed to save branch. Check console.'); return; }
+
+   // Enforce a single main branch: if this one is main, clear is_main on siblings
+   if (isMain) {
+      var siblings = _branchesForStore(storeId).filter(function(x) { return x.id !== branch.id && x.is_main; });
+      for (var i = 0; i < siblings.length; i++) {
+         siblings[i].is_main = false;
+         await AppDB.upsertStoreBranch(siblings[i]);
+      }
+   }
+
+   await loadStoreBranches(true);
+   resetBranchForm();
+   document.getElementById('branchStoreProviderId').value = storeId;
+   _renderBranchesManagerList(storeId);
+}
+
+async function deleteBranchUi(branchId) {
+   var b = _getBranch(branchId);
+   if (!b) return;
+   if (!confirm('Delete branch "' + (b.branch_label || 'Branch') + '"?\n\nThis cannot be undone. Stock and orders tagged to this branch will be orphaned.')) return;
+   var ok = await AppDB.deleteStoreBranch(branchId);
+   if (!ok) { alert('Failed to delete branch.'); return; }
+   await loadStoreBranches(true);
+   _renderBranchesManagerList(b.store_provider_id);
 }
 
 async function renderAllAppointments() {
@@ -5847,7 +6036,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
    var storeCats = [];
    Object.entries(products).forEach(function(entry) {
       var catKey = entry[0], catData = entry[1];
-      var items = catData.items.filter(function(it) { return it.store_provider_id === sp.id; });
+      var items = _brandCatalogItems(catData, sp.id);
       if (items.length) storeCats.push({ catKey: catKey, title: catData.title, items: items });
    });
 
@@ -6107,15 +6296,28 @@ function wlSearch() {
    });
 }
 
+// ── Store catalog ───────────────────────────────────────────────────────────
+// In the branch model a store's catalog lives on its store_provider row and is
+// shared automatically across all its branches (they point to the same store).
+// So products filter by exact store_provider_id — no cross-store merging.
+function _brandBranchIds(storeProviderId) {
+   return [storeProviderId];
+}
+function _brandCatalogItems(catData, storeProviderId) {
+   return (catData.items || []).filter(function(item) {
+      return item.store_provider_id === storeProviderId;
+   });
+}
+
 // Build the sub-category sidebar + product grid for one store provider.
-// Filter products by store_provider_id (new model). The layout includes a
-// store-scoped search bar at the top — typing into it filters across ALL of
-// this store's sub-categories and renders a flat result grid.
+// Products are shared across all branches of the same owner (brand catalog).
+// The layout includes a store-scoped search bar at the top — typing into it
+// filters across ALL of this store's sub-categories and renders a flat grid.
 function buildStoreSubcatLayout(storeProviderId, heroHtml) {
    var storeCats = [];
    Object.entries(products).forEach(function(entry) {
       var catKey = entry[0], catData = entry[1];
-      var items = catData.items.filter(function(item) { return item.store_provider_id === storeProviderId; });
+      var items = _brandCatalogItems(catData, storeProviderId);
       if (items.length) storeCats.push({ catKey: catKey, catData: catData, items: items });
    });
    if (!storeCats.length) return '<p style="color:#888;padding:40px;text-align:center">No products in this store yet.</p>';
@@ -6183,11 +6385,11 @@ function filterStoreProducts(input) {
    }
 
    // Collect matches across every product sub-category for this store
+   // (shared brand catalog — includes products from all sibling branches)
    var hits = [];
    Object.entries(products).forEach(function(entry) {
       var catKey = entry[0], catData = entry[1];
-      catData.items.forEach(function(item) {
-         if (item.store_provider_id !== pid) return;
+      _brandCatalogItems(catData, pid).forEach(function(item) {
          if (q) {
             var hay = ((item.name || '') + ' ' + (item.desc || '') + ' ' + (item.storeName || '')).toLowerCase();
             if (hay.indexOf(q) === -1) return;
@@ -6231,7 +6433,7 @@ function switchStoreSubcat(el) {
    var catKey  = el.dataset.catkey;
    var pid     = el.dataset.pid;
    var catData = products[catKey];
-   var items   = catData.items.filter(function(item) { return item.store_provider_id === pid; });
+   var items   = _brandCatalogItems(catData, pid);
    var tmp = document.createElement('div');
    tmp.className = 'products-grid';
    items.forEach(function(item) { renderCard(Object.assign({}, item, { type: catData.type }), catKey, tmp); });
@@ -6824,11 +7026,11 @@ function initDomainRouter() {
 function buildWLPage(sp, vendor) {
    var displayName = sp.name.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
 
-   // Collect products grouped by category
+   // Collect products grouped by category (shared brand catalog across branches)
    var storeCats = [];
    Object.entries(products).forEach(function(entry) {
       var catKey = entry[0], catData = entry[1];
-      var items = catData.items.filter(function(it) { return it.store_provider_id === sp.id; });
+      var items = _brandCatalogItems(catData, sp.id);
       if (items.length) storeCats.push({ catKey: catKey, title: catData.title, items: items });
    });
 
@@ -8570,6 +8772,7 @@ async function checkShopOwnerLogin() {
    // New model: stores are admin-created store_providers with owner_email
    await loadStoreCategories();
    await loadStoreProviders(true);
+   await loadStoreBranches(true);
    var myStoreProvs = (_storeProvidersCache || []).filter(function(p) {
       return (p.owner_email || '').toLowerCase() === user.email.toLowerCase();
    });
@@ -8577,18 +8780,24 @@ async function checkShopOwnerLogin() {
    window._ownsStores   = ownsStores;
    window._ownsHospital = ownsHospital;
 
-   // ── Branch selection (multi-branch owners) ─────────────────────────────
+   // ── Branch selection (branches live in store_branches) ─────────────────
+   var myBranches = _branchesForOwner(user.email || '');
    if (ownsStores) {
-      if (myStoreProvs.length === 1) {
+      if (myBranches.length === 1) {
          // Single branch — auto-select silently
-         _selectedBranchId = myStoreProvs[0].id;
+         _selectedBranchId = myBranches[0].id;
          sessionStorage.setItem('_selectedBranchId', _selectedBranchId);
-      } else {
+         _currentMyStoreId = myBranches[0].store_provider_id;
+      } else if (myBranches.length > 1) {
          // Multi-branch: validate saved selection or clear it
-         var stillOwned = myStoreProvs.find(function(s) { return s.id === _selectedBranchId; });
+         var stillOwned = myBranches.find(function(b) { return b.id === _selectedBranchId; });
          if (!stillOwned) { _selectedBranchId = null; sessionStorage.removeItem('_selectedBranchId'); }
+         var sel = _getBranch(_selectedBranchId);
+         if (sel) _currentMyStoreId = sel.store_provider_id;
+      } else {
+         // No branches defined yet → fall back to the single store itself
+         _currentMyStoreId = myStoreProvs.length === 1 ? myStoreProvs[0].id : null;
       }
-      _currentMyStoreId = _selectedBranchId;
    }
 
    var businessName = '';
@@ -8596,10 +8805,14 @@ async function checkShopOwnerLogin() {
       businessName = myProviders.length === 1 ? myProviders[0].name
                                               : myProviders.map(function(p) { return p.name; }).join(' · ');
    } else if (ownsStores) {
-      var _activeProv = myStoreProvs.find(function(s) { return s.id === _selectedBranchId; });
-      businessName = _activeProv ? (_activeProv.branch_label || _activeProv.name)
-                                 : (myStoreProvs.length === 1 ? (myStoreProvs[0].branch_label || myStoreProvs[0].name)
-                                                              : myStoreProvs.map(function(p) { return p.branch_label || p.name; }).join(' · '));
+      var _selBranch = _getBranch(_selectedBranchId);
+      var _selStore  = _selBranch ? myStoreProvs.find(function(s) { return s.id === _selBranch.store_provider_id; }) : null;
+      if (_selStore) {
+         businessName = _selStore.name + (_selBranch.branch_label ? ' — ' + _selBranch.branch_label : '');
+      } else {
+         businessName = myStoreProvs.length === 1 ? myStoreProvs[0].name
+                                                  : myStoreProvs.map(function(p) { return p.name; }).join(' · ');
+      }
    } else if (isAdmin(user.email)) {
       businessName = 'Admin Dashboard';
    } else {
@@ -8709,7 +8922,7 @@ async function checkShopOwnerLogin() {
 
    // Multi-branch owners who haven't picked a branch yet → show picker first.
    // _selectBranch() will call switchShopTab() when done.
-   if (ownsStores && myStoreProvs.length > 1 && !_selectedBranchId) {
+   if (ownsStores && myBranches.length > 1 && !_selectedBranchId) {
       openBranchPicker();
    } else {
       switchShopTab(defaultTab);
@@ -8766,10 +8979,13 @@ function renderShopDashboard(filterStatus) {
    // Filter to store-owner's own orders (or just the selected branch when multi-branch)
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (loggedUser && !isAdmin(loggedUser.email)) {
-      if (_selectedBranchId) {
-         // Multi-branch: scope strictly to the chosen branch
+      var _selBr = _getBranch(_selectedBranchId);
+      if (_selBr) {
+         // Scope strictly to the chosen branch. Orders carry branch_id; legacy
+         // orders without one fall back to matching the branch's parent store.
          allOrders = allOrders.filter(function(o) {
-            return o.store_provider_id === _selectedBranchId;
+            return o.branch_id === _selectedBranchId ||
+                   (!o.branch_id && o.store_provider_id === _selBr.store_provider_id);
          });
       } else {
          var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
@@ -8808,19 +9024,16 @@ function renderShopDashboard(filterStatus) {
    // ── Template 1: PENDING_CLAIM broadcast orders ──────────────────────────
    // These are cross-branch orders not yet claimed by any branch.
    // For bidding-policy branches: show a claim panel above the regular list.
-   var activeProv = _selectedBranchId
-      ? (_storeProvidersCache || []).find(function(s) { return s.id === _selectedBranchId; })
-      : null;
+   var activeBranch = _getBranch(_selectedBranchId);
    var claimBannerEl = document.getElementById('shopClaimBanner');
-   if (activeProv && activeProv.fulfillment_policy === 'bidding') {
-      // Fetch all PENDING_CLAIM orders belonging to same owner (any branch)
+   if (activeBranch && activeBranch.fulfillment_policy === 'bidding') {
+      // PENDING_CLAIM orders for any store this owner runs (sibling branches)
       var ownerEmail = (loggedUser && loggedUser.email) || '';
-      var ownerBranches = (_storeProvidersCache || []).filter(function(s) {
-         return (s.owner_email || '').toLowerCase() === ownerEmail.toLowerCase();
-      });
+      var ownerStoreIds = (_storeProvidersCache || [])
+         .filter(function(s) { return (s.owner_email || '').toLowerCase() === ownerEmail.toLowerCase(); })
+         .map(function(s) { return s.id; });
       var pendingClaims = (_db.orders || []).filter(function(o) {
-         return o.status === 'PENDING_CLAIM' &&
-            ownerBranches.some(function(s) { return s.id === o.store_provider_id; });
+         return o.status === 'PENDING_CLAIM' && ownerStoreIds.indexOf(o.store_provider_id) !== -1;
       });
       if (pendingClaims.length && claimBannerEl) {
          claimBannerEl.style.display = '';
@@ -9002,20 +9215,23 @@ async function switchOrderToPickup(orderId) {
 }
 
 async function claimBroadcastOrder(orderId) {
-   if (!_selectedBranchId) { alert('No branch selected.'); return; }
+   var branch = _getBranch(_selectedBranchId);
+   if (!branch) { alert('No branch selected.'); return; }
    var order = (_db.orders || []).find(function(o) { return (o.orderId || o.order_id) === orderId; });
    if (!order) { alert('Order not found.'); return; }
    if (order.status !== 'PENDING_CLAIM') { alert('This order has already been claimed.'); return; }
 
-   var branch = (_storeProvidersCache || []).find(function(s) { return s.id === _selectedBranchId; });
-   var confirm = window.confirm('Accept and fulfill this order from ' + (branch ? branch.name : 'your branch') + '?\n\nCustomer: ' + (order.customerName || '') + '\nTotal: ₹' + Number(order.total || 0).toLocaleString('en-IN'));
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === branch.store_provider_id; });
+   var branchName = (store ? store.name : '') + (branch.branch_label ? ' — ' + branch.branch_label : '');
+   var confirm = window.confirm('Accept and fulfill this order from ' + (branchName || 'your branch') + '?\n\nCustomer: ' + (order.customerName || '') + '\nTotal: ₹' + Number(order.total || 0).toLocaleString('en-IN'));
    if (!confirm) return;
 
    var patch = {
       status: 'Pending Pickup',
-      store_provider_id: _selectedBranchId,
+      store_provider_id: branch.store_provider_id,
+      branch_id: branch.id,
       routing_type: 'ASSIGNED',
-      claimed_by: _selectedBranchId
+      claimed_by: branch.id
    };
    var ok = await AppDB.patchOrder(orderId, patch);
    if (!ok) { alert('Failed to claim order. Please try again.'); return; }
@@ -9062,7 +9278,7 @@ async function _deductStockForOrder(order) {
    var storeId = order.store_provider_id;
    if (!storeId) return false;
    var batches;
-   try { batches = await AppDB.getBatchesForStore(storeId); }
+   try { batches = await AppDB.getBatchesForStore(storeId, order.branch_id || undefined); }
    catch (e) { console.error('Failed to fetch batches for stock deduction:', e); return false; }
 
    // Group batches by product_id
@@ -9202,72 +9418,72 @@ var _selectedBranchId = sessionStorage.getItem('_selectedBranchId') || null;
 let _currentMyStoreProds = [];
 
 // ── Multi-branch picker ────────────────────────────────────────────────────
+// _selectedBranchId is a store_branches.id. The parent store (store_provider)
+// of the selected branch drives the shared catalog (_currentMyStoreId).
+
+function _ownerBranches() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   return _branchesForOwner(user.email || '');
+}
 
 function openBranchPicker() {
-   var myStoreProvs = (_storeProvidersCache || []).filter(function(p) {
-      var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
-      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase();
-   });
-   if (myStoreProvs.length <= 1) return;
+   var branches = _ownerBranches();
+   if (branches.length <= 1) return;
 
    var overlay = document.getElementById('branchPickerOverlay');
    var list    = document.getElementById('branchPickerList');
    var brand   = document.getElementById('branchPickerBrandName');
    if (!overlay || !list) return;
 
-   var brandName = (myStoreProvs[0].name || '').replace(/\s*[-–|·]\s*(branch|store|hub|outlet|anna nagar|main road|west|east|north|south).*/i, '').trim() || 'Select Branch';
-   if (brand) brand.textContent = brandName;
+   var firstStore = (_storeProvidersCache || []).find(function(s) { return s.id === branches[0].store_provider_id; });
+   if (brand) brand.textContent = (firstStore && firstStore.name) || 'Select Branch';
 
-   list.innerHTML = myStoreProvs.map(function(s) {
-      var isActive  = s.id === _selectedBranchId;
-      var label     = s.branch_label || s.name;
-      var sublabel  = s.branch_label ? s.name : '';
-      return '<button onclick="_selectBranch(\'' + s.id + '\')" style="' +
+   list.innerHTML = branches.map(function(b) {
+      var store    = (_storeProvidersCache || []).find(function(s) { return s.id === b.store_provider_id; }) || {};
+      var isActive = b.id === _selectedBranchId;
+      var label    = (b.branch_label || b.address || 'Branch') + (b.is_main ? ' ⭐' : '');
+      return '<button onclick="_selectBranch(\'' + b.id + '\')" style="' +
          'width:100%;text-align:left;padding:14px 18px;border-radius:12px;border:1px solid ' +
          (isActive ? '#0891b2' : 'rgba(255,255,255,0.08)') + ';' +
          'background:' + (isActive ? 'rgba(8,145,178,0.15)' : 'rgba(255,255,255,0.04)') + ';' +
          'color:#f1f5f9;cursor:pointer;transition:all 0.15s;font-family:inherit">' +
          '<div style="font-weight:700;font-size:0.92rem">' + label + (isActive ? ' <span style="font-size:0.7rem;color:#38bdf8;font-weight:600">● Active</span>' : '') + '</div>' +
-         '<div style="font-size:0.75rem;color:#94a3b8;margin-top:3px">' + (sublabel ? sublabel + (s.address ? ' · ' : '') : '') + (s.address || '') + (s.phone ? ' · ' + s.phone : '') + '</div>' +
+         '<div style="font-size:0.75rem;color:#94a3b8;margin-top:3px">' + (store.name ? store.name + ' · ' : '') + (b.address || '') + (b.phone ? ' · ' + b.phone : '') + '</div>' +
       '</button>';
    }).join('');
 
    overlay.style.display = 'flex';
 }
 
-function _selectBranch(storeId) {
-   _selectedBranchId = storeId;
-   sessionStorage.setItem('_selectedBranchId', storeId);
+function _selectBranch(branchId) {
+   var branch = _getBranch(branchId);
+   if (!branch) return;
+   _selectedBranchId = branchId;
+   sessionStorage.setItem('_selectedBranchId', branchId);
 
    var overlay = document.getElementById('branchPickerOverlay');
    if (overlay) overlay.style.display = 'none';
 
-   // Update sidebar badge
    _refreshBranchBadge();
 
-   // Update the business name in the header to the selected branch
-   var selected = (_storeProvidersCache || []).find(function(s) { return s.id === storeId; });
+   // Parent store drives the shared catalog & settings
+   _currentMyStoreId = branch.store_provider_id;
+
+   var store = (_storeProvidersCache || []).find(function(s) { return s.id === branch.store_provider_id; });
    var bizEl = document.getElementById('shopBusinessName');
-   if (bizEl && selected) bizEl.textContent = selected.branch_label || selected.name;
+   if (bizEl) bizEl.textContent = ((store && store.name) || '') + (branch.branch_label ? ' — ' + branch.branch_label : '');
 
-   // Set the active store for the Products tab too
-   _currentMyStoreId = storeId;
-
-   // Re-render the current visible panel scoped to new branch
    var activeTab = window._currentShopTab || 'dashboard';
    switchShopTab(activeTab);
 }
 
 function _refreshBranchBadge() {
-   var badge    = document.getElementById('shopBranchBadge');
+   var badge     = document.getElementById('shopBranchBadge');
    var badgeName = document.getElementById('shopBranchBadgeName');
-   var myStoreProvs = (_storeProvidersCache || []).filter(function(p) {
-      var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
-      return (p.owner_email || '').toLowerCase() === user.email.toLowerCase();
-   });
-   if (!badge || myStoreProvs.length <= 1) { if (badge) badge.classList.add('hidden'); return; }
-   var selected = myStoreProvs.find(function(s) { return s.id === _selectedBranchId; }) || myStoreProvs[0];
-   if (badgeName) badgeName.textContent = selected.branch_label || selected.name;
+   var branches  = _ownerBranches();
+   if (!badge || branches.length <= 1) { if (badge) badge.classList.add('hidden'); return; }
+   var selected = _getBranch(_selectedBranchId) || branches[0];
+   if (badgeName) badgeName.textContent = selected.branch_label || selected.address || 'Branch';
    badge.classList.remove('hidden');
 }
 
@@ -9349,8 +9565,9 @@ async function enterMyStore(storeId) {
    // Fetch inventory snapshot ONCE per store entry; downstream renders read
    // from _currentStockByProduct without re-fetching (was a bad recursion
    // bug previously — every search keystroke triggered another fetch).
+   // Stock is scoped to the selected branch when one is active.
    try {
-      var rows = await AppDB.getBatchesForStore(storeId);
+      var rows = await AppDB.getBatchesForStore(storeId, _selectedBranchId || undefined);
       _currentStockByProduct = {};
       (rows || []).forEach(function(b) {
          (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
@@ -9438,7 +9655,9 @@ function renderMyStoreProducts(storeId) {
       }
    }
 
-   // Filter products by store_provider_id (new model).
+   // Store catalog: products belong to the store (store_provider) and are shared
+   // across all its branches automatically. Stock is per-branch (batches carry
+   // branch_id; _currentStockByProduct is loaded for the selected branch).
    _currentMyStoreProds = (_db.storeProducts || [])
       .filter(function(p) { return p.store_provider_id === storeId; })
       .map(function(p) {
@@ -9876,8 +10095,9 @@ async function openWalkinBillFromTab() {
          return (p.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
       });
       if (mine.length === 0) { alert('No stores assigned to you yet.'); return; }
-      if (mine.length === 1) { await enterMyStore(mine[0].id); }
-      else if (_selectedBranchId) { _currentMyStoreId = _selectedBranchId; }
+      var selBr = _getBranch(_selectedBranchId);
+      if (selBr) { await enterMyStore(selBr.store_provider_id); }
+      else if (mine.length === 1) { await enterMyStore(mine[0].id); }
       else { openBranchPicker(); return; }
    }
    openWalkinBillModal();
@@ -10655,6 +10875,7 @@ async function saveWalkinBill(printAfter) {
          storeId: store.owner_email || owner.email,
          storeName: store.name || '',
          store_provider_id: _currentMyStoreId,
+         branch_id: _selectedBranchId || null,
          payment_mode: 'CASH',
          doctor_name:  doctor,
          walk_in:      true,
@@ -10690,6 +10911,7 @@ async function saveWalkinBill(printAfter) {
       storeId: store.owner_email || owner.email,
       storeName: store.name || '',
       store_provider_id: _currentMyStoreId,
+      branch_id: _selectedBranchId || null,
       payment_mode: 'CASH',
       doctor_name:  doctor,
       walk_in:      true,
@@ -11425,6 +11647,7 @@ async function saveStockBatch() {
       id:                'inv_' + productId.split('_').pop().slice(0,6) + '_' + Date.now(),
       product_id:        productId,
       store_provider_id: _currentMyStoreId,
+      branch_id:         _selectedBranchId || null,
       batch_no:          document.getElementById('stk-batch').value.trim(),
       mfg_date:          monthToDate(document.getElementById('stk-mfg').value),
       expiry_date:       monthToDate(document.getElementById('stk-exp').value),
@@ -12455,15 +12678,17 @@ async function renderBillsRegister() {
    var myStores = (_storeProvidersCache || []).filter(function(s) {
       return (s.owner_email || '').toLowerCase() === (user.email || '').toLowerCase() || isAdmin(user.email);
    });
-   // In multi-branch mode, scope bills register to the selected branch only
-   if (_selectedBranchId && myStores.length > 1) {
-      myStores = myStores.filter(function(s) { return s.id === _selectedBranchId; });
-   }
    if (!myStores.length) { container.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:30px">No stores linked to your account.</p>'; return; }
 
    var storeIds = myStores.map(function(s) { return s.id; });
+   var _brBills = _getBranch(_selectedBranchId);
    var allOrders = (_db.orders || []).filter(function(o) {
-      if (!storeIds.some(function(id) { return id === o.store_provider_id; })) return false;
+      // Scope to the selected branch (branch_id), else all of the owner's stores
+      if (_brBills) {
+         if (!(o.branch_id === _selectedBranchId || (!o.branch_id && o.store_provider_id === _brBills.store_provider_id))) return false;
+      } else if (!storeIds.some(function(id) { return id === o.store_provider_id; })) {
+         return false;
+      }
       var d = (o.date || o.createdAt || '');
       // date field can be "26 Jun 2026, 10:30 AM" or "2026-06-26T..." — normalise
       var ymd = '';
@@ -12623,14 +12848,16 @@ async function renderStoreDashboard() {
    var myStores = (_storeProvidersCache || []).filter(function(s) {
       return (s.owner_email || '').toLowerCase() === user.email.toLowerCase() || isAdmin(user.email);
    });
-   // In multi-branch mode, scope dashboard to the selected branch only
-   if (_selectedBranchId && myStores.length > 1) {
-      myStores = myStores.filter(function(s) { return s.id === _selectedBranchId; });
-   }
    if (!myStores.length) { container.innerHTML = '<div class="shop-empty">No stores linked to your account.</div>'; return; }
 
    var orders = _db.orders || [];
+   var _brDash = _getBranch(_selectedBranchId);
    var myOrders = orders.filter(function(o) {
+      // Scope to the selected branch (branch_id) when one is active
+      if (_brDash) {
+         return o.branch_id === _selectedBranchId ||
+                (!o.branch_id && o.store_provider_id === _brDash.store_provider_id);
+      }
       return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
    });
 
@@ -13094,10 +13321,11 @@ async function _dashToggleDelivery(storeId) {
    renderStoreDashboard();
    _wlBroadcast(storeId);
 }
-function _dashOpenTemplate(storeId) {
-   openStoreTemplate(storeId);
-   // Hide Colors & Theme and Layout tabs — store owners don't manage those
-   ['stmTabColor', 'stmTabLayout'].forEach(function(tabId) {
+async function _dashOpenTemplate(storeId) {
+   await openStoreTemplate(storeId);
+   // Hide Colors & Theme and Layout tabs — store owners don't manage those.
+   // Branches + Routing are admin-only too (added via admin store cards).
+   ['stmTabColor', 'stmTabLayout', 'stmTabBranches', 'stmTabRouting'].forEach(function(tabId) {
       var btn = document.querySelector('[data-stm-tab="' + tabId + '"]');
       if (btn) btn.style.display = 'none';
       var panel = document.getElementById(tabId);
@@ -20429,8 +20657,9 @@ var _stmBgMode     = 'black';
 var _stmTheme      = null;
 var _stmBannerMedia = null;  // base64 data URL or http URL
 
-function openStoreTemplate(storeId) {
+async function openStoreTemplate(storeId) {
    _stmStoreId = storeId;
+   try { await loadStoreBranches(); } catch (e) {}
    var sp = _storeGetProvider(storeId);
    var t  = (sp && sp.template) ? sp.template : {};
    _stmCards  = Array.isArray(t.promoCards) && t.promoCards.length ? JSON.parse(JSON.stringify(t.promoCards)) : _stmDefaultCards();
@@ -20466,6 +20695,41 @@ async function saveStoreTemplate() {
    // Update local cache directly — no full re-fetch needed
    var sp = _storeGetProvider(_stmStoreId);
    if (sp) sp.template = t;
+
+   // ── Persist Linked Branches + brand-wide routing policy ──────────────
+   var _routingEl = document.querySelector('input[name="stmRoutingPolicy"]:checked');
+   var _policy = _routingEl ? _routingEl.value : 'strict';
+   // Save policy on the store_provider (brand-wide)
+   if (typeof AppDB.setStoreFulfillmentPolicy === 'function') {
+      await AppDB.setStoreFulfillmentPolicy(_stmStoreId, _policy);
+   }
+   if (sp) sp.fulfillment_policy = _policy;
+
+   // Delete removed branches
+   for (var d = 0; d < _stmBranchDeleted.length; d++) {
+      await AppDB.deleteStoreBranch(_stmBranchDeleted[d]);
+   }
+   // Upsert current rows (skip blank ones with no city+name+address)
+   var savedAny = false;
+   for (var i = 0; i < _stmBranchRows.length; i++) {
+      var b = _stmBranchRows[i];
+      if (!(b.city_keyword || b.branch_label || b.address)) continue;
+      await AppDB.upsertStoreBranch({
+         id:                 b.id,
+         store_provider_id:  _stmStoreId,
+         branch_label:       b.branch_label,
+         address:            b.address,
+         phone:              b.phone || '',
+         timing:             b.timing || '',
+         city_keyword:       (b.city_keyword || '').toLowerCase(),
+         fulfillment_policy: _policy,
+         is_main:            !!b.is_main
+      });
+      savedAny = true;
+   }
+   if (savedAny || _stmBranchDeleted.length) { await loadStoreBranches(true); }
+   _stmBranchDeleted = [];
+
    if (typeof _wlBroadcast === 'function') _wlBroadcast(_stmStoreId);
    closeStoreTemplate();
    var toast = document.createElement('div');
@@ -20531,7 +20795,65 @@ function _stmLoadForm(sp, t) {
    setChk('stmComplianceOn',     t.complianceEnabled);
    setVal('stmComplianceText',   t.complianceText    || '⚠️ NOTICE: Controlled substances & schedules are subject to strict legal dispensing rules.');
    _stmRenderCards();
+
+   // Branches + routing (brand-wide policy lives on the store_provider)
+   _stmBranchRows = _branchesForStore(sp.id).map(function(b) {
+      return { id: b.id, city_keyword: b.city_keyword || '', branch_label: b.branch_label || '',
+               address: b.address || '', is_main: !!b.is_main, phone: b.phone || '', timing: b.timing || '' };
+   });
+   _stmBranchDeleted = [];
+   _stmRenderBranchRows();
+   var pol = (sp.fulfillment_policy === 'bidding') ? 'bidding' : 'strict';
+   var polEl = document.querySelector('input[name="stmRoutingPolicy"][value="' + pol + '"]');
+   if (polEl) polEl.checked = true;
 }
+
+// ── Template editor: Linked Branches ────────────────────────────────────────
+var _stmBranchRows = [];
+var _stmBranchDeleted = [];
+
+function _stmRenderBranchRows() {
+   var host = document.getElementById('stmBranchList');
+   if (!host) return;
+   if (!_stmBranchRows.length) {
+      host.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:0.82rem;background:#f8fafc;border-radius:8px">No branches yet. Click ➕ Add Branch to create the first one.</div>';
+      return;
+   }
+   var inpS = 'padding:8px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;box-sizing:border-box;font-family:inherit';
+   host.innerHTML = _stmBranchRows.map(function(b, i) {
+      return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">' +
+         '<input type="text" value="' + _stmEsc(b.city_keyword) + '" placeholder="anna-nagar" oninput="_stmBranchRows[' + i + '].city_keyword=this.value" style="width:24%;' + inpS + '">' +
+         '<input type="text" value="' + _stmEsc(b.branch_label) + '" placeholder="Anna Nagar Branch" oninput="_stmBranchRows[' + i + '].branch_label=this.value" style="width:30%;' + inpS + '">' +
+         '<input type="text" value="' + _stmEsc(b.address) + '" placeholder="12 Main Rd, City - PIN" oninput="_stmBranchRows[' + i + '].address=this.value" style="width:38%;' + inpS + '">' +
+         '<button title="' + (b.is_main ? 'Main branch' : 'Set as main') + '" onclick="_stmSetMainBranch(' + i + ')" style="background:none;border:none;cursor:pointer;font-size:15px;filter:' + (b.is_main ? 'none' : 'grayscale(1) opacity(0.4)') + '">⭐</button>' +
+         '<button onclick="_stmRemoveBranchRow(' + i + ')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;padding:6px 9px;cursor:pointer;font-size:0.8rem">✕</button>' +
+      '</div>';
+   }).join('');
+}
+
+function _stmAddBranchRow() {
+   _stmBranchRows.push({ id: 'br_' + (_stmStoreId || 'x').split('_').pop() + '_' + Date.now().toString(36),
+      city_keyword: '', branch_label: '', address: '', is_main: !_stmBranchRows.length, phone: '', timing: '' });
+   _stmRenderBranchRows();
+}
+
+function _stmRemoveBranchRow(i) {
+   var b = _stmBranchRows[i];
+   if (!b) return;
+   if (!confirm('Remove branch "' + (b.branch_label || 'this branch') + '"? Stock/orders tagged to it will be orphaned.')) return;
+   if (b.id) _stmBranchDeleted.push(b.id);
+   _stmBranchRows.splice(i, 1);
+   // Ensure at least one main branch remains
+   if (_stmBranchRows.length && !_stmBranchRows.some(function(x) { return x.is_main; })) _stmBranchRows[0].is_main = true;
+   _stmRenderBranchRows();
+}
+
+function _stmSetMainBranch(i) {
+   _stmBranchRows.forEach(function(b, idx) { b.is_main = (idx === i); });
+   _stmRenderBranchRows();
+}
+
+function _stmEsc(s) { return String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
 function _stmCollect() {
    function val(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; }
@@ -20873,7 +21195,7 @@ function _stmGetCards() {
 }
 
 function _ensureStoreTemplateModal() {
-   var _STM_VER = 6;
+   var _STM_VER = 7;
    var existing = document.getElementById('storeTemplateModal');
    if (existing && parseInt(existing.dataset.ver||0) === _STM_VER) return;
    if (existing) existing.remove();
@@ -20900,6 +21222,8 @@ function _ensureStoreTemplateModal() {
       {id:'stmTabLayout',  label:'📐 Layout'},
       {id:'stmTabCards',   label:'🃏 Offer Cards'},
       {id:'stmTabRx',      label:'💊 Rx Addons'},
+      {id:'stmTabBranches',label:'🏬 Linked Branches'},
+      {id:'stmTabRouting', label:'🌐 Routing Strategy'},
       {id:'stmTabPreview', label:'👁️ Live Preview'}
    ];
    var sidebarHtml = tabs.map(function(t) {
@@ -21052,7 +21376,35 @@ function _ensureStoreTemplateModal() {
       '<div style="margin-top:14px;text-align:center"><button onclick="_stmRenderPreview()" style="padding:10px 28px;background:#0284c7;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.88rem;cursor:pointer">🔄 Refresh Preview</button>' +
       '<span style="font-size:0.78rem;color:#94a3b8;margin-left:12px">Updates with your current form values</span></div>';
 
-   var panelMap = { stmTabColor: panelColor, stmTabBanner: panelBanner, stmTabTicker: panelTicker, stmTabLayout: panelLayout, stmTabCards: panelCards, stmTabRx: panelRx, stmTabPreview: panelPreview };
+   var panelBranches =
+      '<h4 style="margin:0 0 6px;color:#0f172a">Linked Branches</h4>' +
+      '<p style="margin:0 0 14px;font-size:0.8rem;color:#64748b">Branches share this store\'s catalogue &amp; template. They differ only by city area, name and address. Each branch keeps its own stock &amp; orders.</p>' +
+      '<div style="display:flex;font-weight:700;font-size:0.7rem;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;padding:0 6px 6px">' +
+         '<div style="width:24%">City / Area Keyword</div>' +
+         '<div style="width:30%">Branch Name</div>' +
+         '<div style="width:38%">Physical Address</div>' +
+         '<div style="width:8%"></div>' +
+      '</div>' +
+      '<div id="stmBranchList" style="max-height:340px;overflow-y:auto"></div>' +
+      '<button onclick="_stmAddBranchRow()" style="margin-top:10px;padding:8px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer">➕ Add Branch</button>';
+
+   var panelRouting =
+      '<h4 style="margin:0 0 6px;color:#0f172a">Order Fulfilment Strategy</h4>' +
+      '<p style="margin:0 0 14px;font-size:0.8rem;color:#64748b">Applies to all branches of this store. Decides what happens when a customer\'s delivery address falls outside the ordering branch\'s area.</p>' +
+      '<div style="background:#f0f7ff;border:1px solid #bae6fd;border-radius:10px;padding:16px">' +
+         '<label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin-bottom:14px">' +
+            '<input type="radio" name="stmRoutingPolicy" value="bidding" style="margin-top:3px">' +
+            '<span><b style="color:#0f172a">Template 1 — Cross-Branch Interception &amp; Bidding</b><br>' +
+            '<span style="font-size:0.8rem;color:#64748b">Allows cross-branch orders. Out-of-area orders are broadcast so another branch can claim &amp; fulfil them.</span></span>' +
+         '</label>' +
+         '<label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">' +
+            '<input type="radio" name="stmRoutingPolicy" value="strict" style="margin-top:3px">' +
+            '<span><b style="color:#0f172a">Template 2 — Strict Same-Branch Only</b><br>' +
+            '<span style="font-size:0.8rem;color:#64748b">Rejects checkout when the delivery city doesn\'t match the ordering branch\'s area.</span></span>' +
+         '</label>' +
+      '</div>';
+
+   var panelMap = { stmTabColor: panelColor, stmTabBanner: panelBanner, stmTabTicker: panelTicker, stmTabLayout: panelLayout, stmTabCards: panelCards, stmTabRx: panelRx, stmTabBranches: panelBranches, stmTabRouting: panelRouting, stmTabPreview: panelPreview };
    var panelsHtml = tabs.map(function(t, i) {
       return '<div id="' + t.id + '" class="stm-panel" style="display:' + (i===0?'block':'none') + '">' + panelMap[t.id] + '</div>';
    }).join('');

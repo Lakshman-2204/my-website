@@ -60,6 +60,9 @@ function _orderFromDB(r) {
             storeId: r.store_id, storeName: r.store_name,
             // New columns (Phase 2/3/4) — must read these back for the owner UI:
             store_provider_id: r.store_provider_id || null,
+            branch_id:         r.branch_id         || null,
+            claimed_by:        r.claimed_by        || null,
+            routing_type:      r.routing_type      || null,
             prescription_url:  r.prescription_url  || null,
             delivery_address:  r.delivery_address  || null,
             payment_mode:      r.payment_mode      || 'COD',
@@ -93,6 +96,11 @@ function _orderToDB(o) {
    // sending the column would make Supabase reject the entire insert.
    if (o.stock_deducted) row.stock_deducted = true;
    if (o.pickup_override) row.pickup_override = true;
+   // Branch-model columns — only send when set so inserts don't fail if the
+   // migration for a given column hasn't been applied yet.
+   if (o.branch_id)    row.branch_id    = o.branch_id;
+   if (o.claimed_by)   row.claimed_by   = o.claimed_by;
+   if (o.routing_type) row.routing_type = o.routing_type;
    return row;
 }
 
@@ -201,10 +209,12 @@ window.AppDB = {
       return data || [];
    },
 
-   // List all batches for a whole store (used for stock summary / customer badges)
-   async getBatchesForStore(storeProviderId) {
-      const { data, error } = await _sb.from('inventory_batches')
-         .select('*').eq('store_provider_id', storeProviderId);
+   // List all batches for a whole store (used for stock summary / customer badges).
+   // When branchId is given, scope to that branch's stock only (branch model).
+   async getBatchesForStore(storeProviderId, branchId) {
+      let q = _sb.from('inventory_batches').select('*').eq('store_provider_id', storeProviderId);
+      if (branchId) q = q.eq('branch_id', branchId);
+      const { data, error } = await q;
       if (error) { console.error('getBatchesForStore:', error.message); return []; }
       return data || [];
    },
@@ -214,6 +224,7 @@ window.AppDB = {
          id:                batch.id,
          product_id:        batch.product_id,
          store_provider_id: batch.store_provider_id,
+         branch_id:         batch.branch_id      || null,
          batch_no:          batch.batch_no       || '',
          mfg_date:          batch.mfg_date       || null,
          expiry_date:       batch.expiry_date    || null,
@@ -1555,6 +1566,14 @@ window.AppDB = {
       if (error) { console.error('setDeliveryPaused:', error.message); return false; }
       return true;
    },
+   // Brand-wide order routing policy ('strict' | 'bidding') on the store.
+   async setStoreFulfillmentPolicy(storeId, policy) {
+      const { error } = await _sb.from('store_providers')
+         .update({ fulfillment_policy: policy || 'strict' })
+         .eq('id', storeId);
+      if (error) { console.error('setStoreFulfillmentPolicy:', error.message); return false; }
+      return true;
+   },
    async setStoreAds(storeId, adsJson) {
       const { error } = await _sb.from('store_providers')
          .update({ store_ads: adsJson })
@@ -1572,6 +1591,48 @@ window.AppDB = {
    async deleteStoreProvider(id) {
       const { error } = await _sb.from('store_providers').delete().eq('id', id);
       if (error) { console.error('deleteStoreProvider:', error.message); return false; }
+      return true;
+   },
+
+   // ── STORE BRANCHES ────────────────────────────────────────
+   // A store (store_providers row) can have many branches. Branches share the
+   // store's catalog + settings; they differ only in address / phone / stock /
+   // order routing. inventory_batches.branch_id and orders.branch_id scope
+   // stock and fulfillment to a single branch.
+   async getAllStoreBranches() {
+      const { data, error } = await _sb.from('store_branches').select('*').order('created_at', { ascending: true });
+      if (error) { console.error('getAllStoreBranches:', error.message); return []; }
+      return data || [];
+   },
+
+   async getStoreBranches(storeProviderId) {
+      const { data, error } = await _sb.from('store_branches')
+         .select('*').eq('store_provider_id', storeProviderId)
+         .order('created_at', { ascending: true });
+      if (error) { console.error('getStoreBranches:', error.message); return []; }
+      return data || [];
+   },
+
+   async upsertStoreBranch(b) {
+      const row = {
+         id:                 b.id,
+         store_provider_id:  b.store_provider_id,
+         branch_label:       b.branch_label       || '',
+         address:            b.address            || '',
+         phone:              b.phone              || '',
+         timing:             b.timing             || '',
+         city_keyword:       (b.city_keyword || '').toLowerCase() || null,
+         fulfillment_policy: b.fulfillment_policy || 'strict',
+         is_main:            !!b.is_main
+      };
+      const { error } = await _sb.from('store_branches').upsert(row, { onConflict: 'id' });
+      if (error) { console.error('upsertStoreBranch:', error.message); return false; }
+      return true;
+   },
+
+   async deleteStoreBranch(id) {
+      const { error } = await _sb.from('store_branches').delete().eq('id', id);
+      if (error) { console.error('deleteStoreBranch:', error.message); return false; }
       return true;
    },
 

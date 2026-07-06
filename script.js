@@ -450,13 +450,21 @@ function renderCard(item, catKey, grid) {
    grid.appendChild(card);
 }
 
+// Does the currently-viewed branch/store actually track inventory? True only
+// when at least one batch is loaded. If a branch has NO batches at all, we treat
+// it as "not tracking stock" and skip Out-of-stock badges / add-to-cart blocks
+// (otherwise every item would falsely read Out of stock).
+function _branchTracksStock() {
+   return !!(_currentStockByProduct && Object.keys(_currentStockByProduct).length > 0);
+}
+
 // Rx + stock badges for a product card (medical store flow).
 // Only renders the stock badge when this product belongs to a store with
 // inventory data loaded (avoids polluting the general/grocery cards).
 function _rxStockTags(item) {
    var html = '';
    if (item.rx_required) html += '<div class="rx-required-tag">⚠️ Prescription required</div>';
-   if (item.store_provider_id) {
+   if (item.store_provider_id && _branchTracksStock()) {
       var batches = _currentStockByProduct[item.id] || [];
       var qty = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
       if (qty <= 0)        html += '<span class="customer-stock-tag oos">Out of stock</span>';
@@ -519,7 +527,7 @@ async function confirmRxUpload() {
 }
 
 function _addToCartButton(item, catKey) {
-   if (item.store_provider_id) {
+   if (item.store_provider_id && _branchTracksStock()) {
       var batches = _currentStockByProduct[item.id] || [];
       var qty = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
       if (qty <= 0) return '<button class="btn-cart" disabled style="background:#bdbdbd;cursor:not-allowed">Out of stock</button>';
@@ -568,8 +576,9 @@ function addToCart(itemId, catKey) {
    if (!item) return;
 
    // Block add-to-cart for out-of-stock store items (UI button is already disabled,
-   // but this is the belt-and-braces safety net for keyboard/programmatic calls)
-   if (item.store_provider_id) {
+   // but this is the belt-and-braces safety net for keyboard/programmatic calls).
+   // Skipped when the branch doesn't track inventory (no batches loaded).
+   if (item.store_provider_id && _branchTracksStock()) {
       var batches = _currentStockByProduct[item.id] || [];
       var qty = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
       if (qty <= 0) { showToast('❌ Out of stock'); return; }

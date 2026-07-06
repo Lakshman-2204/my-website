@@ -2073,9 +2073,22 @@ function _customerBranchSelectorHtml(storeProviderId) {
    '</div>';
 }
 
-function _customerSwitchBranch(storeProviderId, branchId) {
+async function _customerSwitchBranch(storeProviderId, branchId) {
    _customerBranchByStore[storeProviderId] = branchId;
-   showStoreProvider(storeProviderId);   // reloads branch stock + re-renders
+   if (window._wlMode && window._wlSp && window._wlSp.id === storeProviderId) {
+      // White-label site: reload branch stock and re-render the WL page in place
+      var br = _getBranch(branchId);
+      try {
+         var rows = await AppDB.getBatchesForStore(storeProviderId, br ? br.id : undefined);
+         _currentStockByProduct = {};
+         (rows || []).forEach(function(b) {
+            (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
+         });
+      } catch (e) { _currentStockByProduct = {}; }
+      buildWLPage(window._wlSp, window._wlVendor);
+      return;
+   }
+   showStoreProvider(storeProviderId);   // platform view — reloads branch stock + re-renders
 }
 
 // Full storefront branch bar: delivery-zone notice + "Ordering from" selector +
@@ -6007,6 +6020,9 @@ async function showStoreProvider(providerId) {
       } else {
          _wlHref = 'https://' + _storeDomain + '/home.html' + _ssoSuffix;
       }
+      // Carry the selected branch so the white-label site opens on that branch
+      var _actBr = _customerActiveBranch(p.id);
+      if (_actBr) { _wlHref += (_wlHref.indexOf('?') !== -1 ? '&' : '?') + 'branch=' + encodeURIComponent(_actBr.id); }
       domainBtn = '<a class="store-hero-outline-btn" href="' + _wlHref + '" target="_blank" rel="noopener">🌐 Visit Website ↗</a>';
    }
    // Apply this store's brand theme (color from registry, reset on back/home)
@@ -7145,13 +7161,22 @@ async function _activateWhiteLabel(vendor) {
       });
 
       if (sp) {
+         // Branch-aware: preselect the branch passed via ?branch= (from Visit Website)
+         try { await loadStoreBranches(); } catch(e) {}
+         var _wlBranchParam = new URLSearchParams(window.location.search).get('branch');
+         if (_wlBranchParam) {
+            var _wlBr = _getBranch(_wlBranchParam);
+            if (_wlBr && _wlBr.store_provider_id === sp.id) _customerBranchByStore[sp.id] = _wlBranchParam;
+         }
+         var _wlActive = _customerActiveBranch(sp.id);
          try {
-            var wlBatches = await AppDB.getBatchesForStore(sp.id);
+            var wlBatches = await AppDB.getBatchesForStore(sp.id, _wlActive ? _wlActive.id : undefined);
             _currentStockByProduct = {};
             (wlBatches || []).forEach(function(b) {
                (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
             });
          } catch(e) { _currentStockByProduct = {}; }
+         window._wlSp = sp; window._wlVendor = resolvedVendor;   // for branch switching
          buildWLPage(sp, resolvedVendor);
          // Live-refresh when owner edits products
          _liveSubscribe('storeProdsWL', 'products', async function() {
@@ -7218,7 +7243,9 @@ function initDomainRouter() {
 //  WHITE-LABEL FULL-PAGE STORE BUILDER
 // ══════════════════════════════════════════════════════════
 function buildWLPage(sp, vendor) {
-   var displayName = sp.name.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+   // Reflect the customer's selected branch (name / address / timing)
+   var _wlEff = _customerEffectiveInfo(sp);
+   var displayName = (_wlEff.name || sp.name).replace(/\b\w/g, function(c) { return c.toUpperCase(); });
 
    // Collect products grouped by category (shared brand catalog across branches)
    var storeCats = [];
@@ -7324,10 +7351,10 @@ function buildWLPage(sp, vendor) {
          (_wlIsVideo ? '<video autoplay muted loop playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0"><source src="' + _tpl.bannerMedia + '"></video><div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.48);z-index:1"></div>' : '') +
          '<div style="position:relative;z-index:2">' +
          '<h2 style="margin:0 0 10px;font-size:2.1rem;font-weight:900;color:' + (_tpl.bannerTitleColor||'#ffffff') + ';line-height:1.1">' + displayName + '</h2>' +
-         (sp.timing || sp.address
+         (_wlEff.timing || _wlEff.address
             ? '<div style="display:flex;align-items:center;gap:20px;font-size:0.875rem;color:rgba(255,255,255,0.88);margin-bottom:16px">' +
-                 (sp.timing  ? '<span>🕐 ' + sp.timing  + '</span>' : '') +
-                 (sp.address ? '<span>📍 ' + sp.address + '</span>' : '') +
+                 (_wlEff.timing  ? '<span>🕐 ' + _tplEsc(_wlEff.timing)  + '</span>' : '') +
+                 (_wlEff.address ? '<span>📍 ' + _tplEsc(_wlEff.address) + '</span>' : '') +
               '</div>'
             : '<div style="margin-bottom:16px"></div>') +
          (sp.door_delivery
@@ -7443,6 +7470,7 @@ function buildWLPage(sp, vendor) {
    var fullPage =
       emergencyBar +
       heroCard +
+      _buildCustomerBranchBar(sp) +
       tickerBar +
       complianceBar +
       _wlSearchBar +

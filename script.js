@@ -1948,16 +1948,22 @@ async function _routeOrderToBranch(storeProviderId, deliveryAddr, items, sourcin
       return kw && addrText.indexOf(kw) !== -1;
    };
 
-   // Branch that physically serves the delivery city
+   // Honour the customer's SELECTED branch: if it can serve this address —
+   // either its area keyword matches, OR it has no area keyword set (delivers
+   // anywhere) — assign the order to it. This is what makes "Ordering from"
+   // authoritative even when several branches share the same city.
+   var sourcingHasArea = !!(sourcing.city_keyword || '').trim();
+   if (!sourcingHasArea || kwInAddr(sourcing)) {
+      return { branch: sourcing, allow: true, broadcast: false };
+   }
+
+   // Selected branch has an area that doesn't match → find a branch that serves it
    var served = branches.find(kwInAddr);
    if (!served) {
       var cities = branches.map(function(b) { return b.city_keyword; }).filter(Boolean).join(', ');
       return { branch: null, allow: false, broadcast: false,
          reason: 'We don\'t deliver to this address. We currently serve: ' + (cities || 'selected areas') + '.' };
    }
-
-   // Delivery address is within the branch the customer is ordering from → standard
-   if (kwInAddr(sourcing)) return { branch: sourcing, allow: true, broadcast: false };
 
    // Cross-branch: delivery city differs from the sourcing branch's area
    var policy = sourcing.fulfillment_policy || 'strict';
@@ -10039,17 +10045,19 @@ function _stockBadgeFor(p) {
    if (!batches.length) return ' <span class="shop-stock-badge oos">Out of stock</span>';
    var totalRemaining = batches.reduce(function(s, b) { return s + (Number(b.qty_remaining) || 0); }, 0);
    if (totalRemaining <= 0) return ' <span class="shop-stock-badge oos">Out of stock</span>';
-   if (p.reorder_point && totalRemaining <= Number(p.reorder_point))
-      return ' <span class="shop-stock-badge low">Low \u2014 ' + totalRemaining + '</span>';
-   // Expiring soon?
+   // In-stock: always show the count, with the right colour/label for low stock.
+   var isLow = p.reorder_point && totalRemaining <= Number(p.reorder_point);
+   var main = ' <span class="shop-stock-badge ' + (isLow ? 'low' : 'ok') + '">' +
+              (isLow ? 'Low' : 'In stock') + ': ' + totalRemaining + '</span>';
+   // Expiring soon? Show it as an ADDITIONAL badge, not instead of the count.
    var soon = new Date(); soon.setMonth(soon.getMonth() + 3);
    var expiringSoon = batches.some(function(b) {
       if (!b.expiry_date) return false;
       var d = new Date(b.expiry_date);
       return !isNaN(d) && d <= soon && (Number(b.qty_remaining) || 0) > 0;
    });
-   if (expiringSoon) return ' <span class="shop-stock-badge expiring">Expiring soon</span>';
-   return ' <span class="shop-stock-badge ok">In stock: ' + totalRemaining + '</span>';
+   if (expiringSoon) main += ' <span class="shop-stock-badge expiring">Expiring soon</span>';
+   return main;
 }
 
 var _editProdIdx = -1;

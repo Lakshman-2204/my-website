@@ -1948,37 +1948,47 @@ async function _routeOrderToBranch(storeProviderId, deliveryAddr, items, sourcin
       return kw && addrText.indexOf(kw) !== -1;
    };
 
-   // Honour the customer's SELECTED branch: if it can serve this address —
-   // either its area keyword matches, OR it has no area keyword set (delivers
-   // anywhere) — assign the order to it. This is what makes "Ordering from"
-   // authoritative even when several branches share the same city.
+   // Decide which branch fulfils, honouring the customer's SELECTED branch:
+   // it fulfils when its area matches OR it has no area keyword (delivers
+   // anywhere). Otherwise find a branch whose area serves the address.
    var sourcingHasArea = !!(sourcing.city_keyword || '').trim();
+   var fulfiller, crossBranch = false;
    if (!sourcingHasArea || kwInAddr(sourcing)) {
-      return { branch: sourcing, allow: true, broadcast: false };
+      fulfiller = sourcing;
+   } else {
+      var served = branches.find(kwInAddr);
+      if (!served) {
+         var cities = branches.map(function(b) { return b.city_keyword; }).filter(Boolean).join(', ');
+         return { branch: null, allow: false, broadcast: false,
+            reason: 'We don\'t deliver to this address. We currently serve: ' + (cities || 'selected areas') + '.' };
+      }
+      // Selected branch can't serve this area — strict rejects, bidding reroutes
+      if ((sourcing.fulfillment_policy || 'strict') !== 'bidding') {
+         return { branch: null, allow: false, broadcast: false,
+            reason: 'This address is outside ' + (sourcing.branch_label || 'the selected branch') + '\'s area. Switch "Ordering from" to ' + (served.branch_label || served.city_keyword) + ', which serves your address.' };
+      }
+      fulfiller = served; crossBranch = true;
    }
 
-   // Selected branch has an area that doesn't match → find a branch that serves it
-   var served = branches.find(kwInAddr);
-   if (!served) {
-      var cities = branches.map(function(b) { return b.city_keyword; }).filter(Boolean).join(', ');
-      return { branch: null, allow: false, broadcast: false,
-         reason: 'We don\'t deliver to this address. We currently serve: ' + (cities || 'selected areas') + '.' };
-   }
-
-   // Cross-branch: delivery city differs from the sourcing branch's area
-   var policy = sourcing.fulfillment_policy || 'strict';
-   if (policy !== 'bidding') {
-      return { branch: null, allow: false, broadcast: false,
-         reason: 'This address is outside ' + (sourcing.branch_label || 'the selected branch') + '\'s area. Switch "Ordering from" to ' + (served.branch_label || served.city_keyword) + ', which serves your address.' };
-   }
-   // Bidding: the destination branch fulfils if it has stock, else broadcast
-   var inStock = await _branchHasStock(storeProviderId, served.id, items);
+   // ── Stock gate: an item out of stock at the fulfilling branch can't just be
+   // ordered. (A branch with NO batches at all is treated as "not tracking" and
+   // allowed — see _branchHasStock.) ──────────────────────────────────────────
+   var inStock = await _branchHasStock(storeProviderId, fulfiller.id, items);
    if (inStock) {
-      return { branch: served, allow: true, broadcast: false,
-         reason: 'Routed to ' + (served.branch_label || served.city_keyword) + ' (serves your area). Cross-branch order — delivery may take a little longer.' };
+      return { branch: fulfiller, allow: true, broadcast: false,
+         reason: crossBranch ? ('Routed to ' + (fulfiller.branch_label || fulfiller.city_keyword) + ' (serves your area). Cross-branch order — delivery may take a little longer.') : '' };
    }
-   return { branch: served, allow: true, broadcast: true,
-      reason: (served.branch_label || 'The local branch') + ' is out of stock — broadcasting to other branches for cross-branch fulfilment (delivery may take a little longer).' };
+
+   // Fulfilling branch is OUT OF STOCK
+   var policy = fulfiller.fulfillment_policy || sourcing.fulfillment_policy || 'strict';
+   if (policy === 'bidding') {
+      // Broadcast so a branch that DOES have stock can claim it
+      return { branch: fulfiller, allow: true, broadcast: true,
+         reason: (fulfiller.branch_label || 'This branch') + ' is out of stock — broadcasting to other branches for cross-branch fulfilment (delivery may take a little longer).' };
+   }
+   // strict → block the order
+   return { branch: fulfiller, allow: false, broadcast: false,
+      reason: 'Sorry, one or more items are out of stock at ' + (fulfiller.branch_label || 'this branch') + ' right now.' };
 }
 
 async function loadStoreCategories(force) {
@@ -9175,10 +9185,32 @@ async function checkShopOwnerLogin() {
       switchShopTab(defaultTab);
    }
 
-   // Auto-refresh if admin enabled it
-   var s = getAdminSettings();
-   if (s.autoRefreshOrders && ownsStores) {
-      setInterval(function() { renderShopDashboard(window._shopCurrentFilter); }, 30000);
+   // Orders polling fallback — re-fetches orders every 15s so new/updated orders
+   // appear WITHOUT a manual refresh even if Supabase Realtime isn't enabled on
+   // the `orders` table. Refreshes whichever tab (Orders / Dashboard) is visible.
+   if (ownsStores) {
+      clearInterval(window._shopOrdersPoll);
+      window._shopOrdersPoll = setInterval(function() {
+         AppDB.getAllOrders().then(function(rows) {
+            if (!rows) return;
+            var prev = _db.orders || [];
+            // Skip work if nothing changed (same count + same latest id)
+            var changed = rows.length !== prev.length ||
+               (rows[0] && prev[0] && (rows[0].order_id || rows[0].orderId) !== (prev[0].order_id || prev[0].orderId));
+            _db.orders = rows;
+            if (!changed) return;
+            // New online order toast
+            rows.forEach(function(o) {
+               if (o.walk_in) return;
+               var oid = o.orderId || o.order_id;
+               if (!prev.find(function(p) { return (p.orderId || p.order_id) === oid; })) _shopNewOrderToast(o);
+            });
+            var ordersPanel = document.getElementById('shop-panel-orders');
+            if (ordersPanel && !ordersPanel.classList.contains('hidden')) renderShopDashboard(window._shopCurrentFilter);
+            var dashPanel = document.getElementById('shopDashboardContent');
+            if (dashPanel && dashPanel.closest('.shop-panel') && !dashPanel.closest('.shop-panel').classList.contains('hidden')) renderStoreDashboard();
+         });
+      }, 15000);
    }
 }
 
@@ -9201,6 +9233,15 @@ function _shopToast(html, bg) {
    };
    document.body.appendChild(t);
    setTimeout(function() { if (t.parentNode) t.onclick(); }, 8000);
+}
+
+// Is the given branch the canonical main branch of its store? (Deterministic —
+// picks is_main, else the first branch — so legacy/unassigned orders land under
+// exactly one branch even if is_main is missing or duplicated.)
+function _isCanonicalMain(branch) {
+   if (!branch) return false;
+   var main = _mainBranchFor(branch.store_provider_id);
+   return !!(main && main.id === branch.id);
 }
 
 function _shopNewOrderToast(order) {
@@ -9231,9 +9272,10 @@ function renderShopDashboard(filterStatus) {
          // Scope strictly to the chosen branch. Orders explicitly tagged to this
          // branch always show; legacy orders with no branch_id show ONLY under the
          // main branch, so newly created branches start empty.
+         var _selMain = _isCanonicalMain(_selBr);
          allOrders = allOrders.filter(function(o) {
             return o.branch_id === _selectedBranchId ||
-                   (!o.branch_id && _selBr.is_main && o.store_provider_id === _selBr.store_provider_id);
+                   (!o.branch_id && _selMain && o.store_provider_id === _selBr.store_provider_id);
          });
       } else {
          var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
@@ -13008,7 +13050,7 @@ async function renderBillsRegister() {
    var allOrders = (_db.orders || []).filter(function(o) {
       // Scope to the selected branch (branch_id), else all of the owner's stores
       if (_brBills) {
-         if (!(o.branch_id === _selectedBranchId || (!o.branch_id && _brBills.is_main && o.store_provider_id === _brBills.store_provider_id))) return false;
+         if (!(o.branch_id === _selectedBranchId || (!o.branch_id && _isCanonicalMain(_brBills) && o.store_provider_id === _brBills.store_provider_id))) return false;
       } else if (!storeIds.some(function(id) { return id === o.store_provider_id; })) {
          return false;
       }
@@ -13213,7 +13255,7 @@ async function renderStoreDashboard() {
       // the main branch, so a newly created branch starts with no orders.
       if (_brDash) {
          return o.branch_id === _selectedBranchId ||
-                (!o.branch_id && _brDash.is_main && o.store_provider_id === _brDash.store_provider_id);
+                (!o.branch_id && _isCanonicalMain(_brDash) && o.store_provider_id === _brDash.store_provider_id);
       }
       return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
    });
@@ -13745,7 +13787,7 @@ async function renderStoreRevenue() {
       // Scope to the selected branch (legacy/unassigned orders → main branch only)
       if (_brRev) {
          return o.branch_id === _selectedBranchId ||
-                (!o.branch_id && _brRev.is_main && o.store_provider_id === _brRev.store_provider_id);
+                (!o.branch_id && _isCanonicalMain(_brRev) && o.store_provider_id === _brRev.store_provider_id);
       }
       return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
    });

@@ -10004,7 +10004,10 @@ function renderMyStoreProducts(storeId) {
       return '<div class="shop-prod-card">' +
                 '<img src="' + imgSrc + '" onerror="_fallbackItemImg(this)"/>' +
                 '<div class="shop-prod-info">' +
-                   '<div class="shop-prod-name">' + p.name + stockBadge + (p.mrp && p.mrp > p.price ? ' <span style="background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;padding:2px 6px;border-radius:4px;margin-left:4px">\u26a1 LIVE SALE</span>' : '') + '</div>' +
+                   '<div class="shop-prod-name">' + p.name + '</div>' +
+                   '<div class="shop-prod-badges" style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:3px 0 2px">' + stockBadge +
+                      (p.mrp && p.mrp > p.price ? ' <span style="background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;padding:2px 6px;border-radius:4px">\u26a1 LIVE SALE</span>' : '') +
+                   '</div>' +
                    '<div class="shop-prod-meta">\u20b9' + (p.price || 0).toLocaleString('en-IN') + (p.mrp && p.mrp > p.price ? ' <span style="text-decoration:line-through;color:#999;margin-left:4px">MRP \u20b9' + p.mrp.toLocaleString('en-IN') + '</span>' : '') + ' \xb7 ' + (p.desc || '') + '</div>' +
                 '</div>' +
                 '<div class="shop-prod-actions">' +

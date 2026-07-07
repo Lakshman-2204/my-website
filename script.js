@@ -9764,7 +9764,9 @@ async function renderStoreOwnerProducts() {
    if (!user) return;
    await loadStoreCategories();
    await loadStoreProviders(true);
-   if (_currentMyStoreId) { renderMyStoreProducts(_currentMyStoreId); return; }
+   // Reload stock scoped to the selected branch (enterMyStore fetches branch
+   // batches, then renders) — not a stale snapshot from another branch.
+   if (_currentMyStoreId) { await enterMyStore(_currentMyStoreId); return; }
    // Owners with exactly one store skip the picker — auto-enter that store.
    // Owners with two or more see the list so they can choose which to manage.
    var mine = (_storeProvidersCache || []).filter(function(p) {
@@ -9893,14 +9895,23 @@ function renderMyStoreProducts(storeId) {
    var backBtn = document.getElementById('shopStoreBackBtn');
    if (backBtn) backBtn.classList.toggle('hidden', owned.length < 2);
 
-   // Inline meta strip \u2014 all on one line beside the back button & action buttons.
+   // Inline meta strip \u2014 reflects the SELECTED BRANCH's details (address, phone,
+   // timing, tagline), falling back to the store when a field is blank.
    var metaEl = document.getElementById('shopStoreMeta');
    if (metaEl) {
-      var parts = ['<strong>' + meta.icon + ' ' + meta.label + '</strong>'];
-      if (store.tagline) parts.push(store.tagline);
-      if (store.address) parts.push('\ud83d\udccd ' + store.address);
-      if (store.timing)  parts.push('\ud83d\udd52 ' + store.timing);
-      if (store.phone)   parts.push('\ud83d\udcde ' + store.phone);
+      var _mb = _getBranch(_selectedBranchId);
+      var _md = (_mb && _mb.store_provider_id === store.id && _mb.details) ? _mb.details : {};
+      var _mBranchMatches = _mb && _mb.store_provider_id === store.id;
+      var _mAddr   = _md.address || (_mBranchMatches && _mb.address) || store.address;
+      var _mPhone  = _md.phone   || (_mBranchMatches && _mb.phone)   || store.phone;
+      var _mTiming = _md.timing  || (_mBranchMatches && _mb.timing)  || store.timing;
+      var _mTag    = _md.tagline || store.tagline;
+      var _mLabel  = _mBranchMatches ? (_mb.branch_label || meta.label) : meta.label;
+      var parts = ['<strong>' + meta.icon + ' ' + _mLabel + '</strong>'];
+      if (_mTag)    parts.push(_mTag);
+      if (_mAddr)   parts.push('\ud83d\udccd ' + _mAddr);
+      if (_mTiming) parts.push('\ud83d\udd52 ' + _mTiming);
+      if (_mPhone)  parts.push('\ud83d\udcde ' + _mPhone);
       if (store.door_delivery && store.delivery_paused) {
          parts.push('<span style="color:#c62828;font-weight:600">\u23f8 Delivery paused</span>');
       }
@@ -13222,10 +13233,15 @@ async function renderStoreDashboard() {
    });
    var productCount = myStoreProducts.length;
 
+   // Stock health is per selected branch (falls back to all owner stores if no branch)
    var allBatches = [];
-   for (var _si = 0; _si < myStores.length; _si++) {
-      var _sb2 = await AppDB.getBatchesForStore(myStores[_si].id);
-      allBatches = allBatches.concat(_sb2 || []);
+   if (_brDash) {
+      allBatches = await AppDB.getBatchesForStore(_brDash.store_provider_id, _brDash.id) || [];
+   } else {
+      for (var _si = 0; _si < myStores.length; _si++) {
+         var _sb2 = await AppDB.getBatchesForStore(myStores[_si].id);
+         allBatches = allBatches.concat(_sb2 || []);
+      }
    }
    var ninety = new Date(now); ninety.setDate(now.getDate() + 90);
    var thirty = new Date(now); thirty.setDate(now.getDate() + 30);
@@ -13716,7 +13732,13 @@ async function renderStoreRevenue() {
    if (!myStores.length) { host.innerHTML = '<div class="shop-empty">No stores linked.</div>'; return; }
 
    var orders = _db.orders || [];
+   var _brRev = _getBranch(_selectedBranchId);
    var myOrders = orders.filter(function(o) {
+      // Scope to the selected branch (legacy/unassigned orders → main branch only)
+      if (_brRev) {
+         return o.branch_id === _selectedBranchId ||
+                (!o.branch_id && _brRev.is_main && o.store_provider_id === _brRev.store_provider_id);
+      }
       return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
    });
    var completed = myOrders.filter(function(o) { return o.status === 'Delivered' || o.status === 'Completed'; });

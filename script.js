@@ -655,15 +655,23 @@ function doAddToCart(item, catKey) {
       cartId = item.id;
    }
 
+   // Capture the branch the customer is CURRENTLY viewing/ordering-from, right
+   // now, onto the cart line. The order will use this exact branch — no reliance
+   // on a separately-stored selection that can fall back to main later.
+   var _cartBranch = effectiveSpId ? _customerActiveBranch(effectiveSpId) : null;
+   var _cartBranchId = _cartBranch ? _cartBranch.id : null;
+
    const existing = cart.find(c => c.id === cartId);
    if (existing) {
       existing.qty += qty;
+      existing.branch_id = _cartBranchId;   // keep it fresh to the current branch
    } else {
       cart.push({ id: cartId, name: label, price: unitPrice, qty, img: item.img,
                   storeId: effectiveStore, storeName: effectiveName,
                   // Carry these through so the medical checkout knows which store
                   // provider the items came from and whether to enforce Rx upload:
                   store_provider_id: effectiveSpId,
+                  branch_id:         _cartBranchId,
                   rx_required:       !!item.rx_required });
    }
    updateCartUI();
@@ -1111,10 +1119,11 @@ async function makeOrder() {
            });
       var supportsDelivery = _storeAcceptsDeliveryNow(prov);
 
-      // No delivery address in this flow (pickup) → assign to the branch the
-      // customer is ordering from (falls back to main).
+      // Branch = the one captured on the cart line at add time (falls back to
+      // active branch, then main).
       var _nmSpId = (prov && prov.id) || grp.store_provider_id;
-      var _nmBranch = _customerActiveBranch(_nmSpId) || _mainBranchFor(_nmSpId);
+      var _nmCartBr = (grp.items.find(function(c) { return c.branch_id; }) || {}).branch_id;
+      var _nmBranch = (_nmCartBr && _getBranch(_nmCartBr)) || _customerActiveBranch(_nmSpId) || _mainBranchFor(_nmSpId);
 
       var newOrder = {
          orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
@@ -1502,10 +1511,11 @@ async function placeMedicalOrder() {
       var needsAddr = _storeAcceptsDeliveryNow(prov);
       if (needsAddr && !addr) { alert('Please choose a delivery address for ' + (prov.name || g.storeName) + '.'); btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; return; }
 
-      // Multi-branch routing: the customer's selected "Ordering from" branch is
-      // the sourcing branch (template_6 model).
-      var _srcBranch = _customerActiveBranch(g.spId);
-      var routing = await _routeOrderToBranch(g.spId, needsAddr ? addr : null, g.items, _srcBranch ? _srcBranch.id : null);
+      // The branch is whatever the customer captured on the cart line at add
+      // time (falls back to the active branch, then main).
+      var _cartBr = (g.items.find(function(c) { return c.branch_id; }) || {}).branch_id
+                    || (_customerActiveBranch(g.spId) || {}).id || null;
+      var routing = await _routeOrderToBranch(g.spId, needsAddr ? addr : null, g.items, _cartBr);
       if (!routing.allow) {
          alert('🚫 ' + routing.reason);
          btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)';
@@ -9402,9 +9412,15 @@ function renderShopDashboard(filterStatus) {
          actions += ' <button class="apt-view-btn" style="background:#c62828" onclick="if(confirm(\'Cancel this order?\'))updateOrderStatus(\'' + oid + '\',\'Cancelled\')">✕ Cancel</button>';
       }
 
+      // Which branch this order is tagged to (diagnostic + clarity)
+      var _obr = order.branch_id ? _getBranch(order.branch_id) : null;
+      var _obrLabel = _obr ? (_obr.branch_label || 'Branch')
+                    : (order.branch_id ? 'Unknown branch' : 'Unassigned');
+      var _obrTag = '<div class="apt-tbl-sub" style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:0.68rem;font-weight:700;padding:1px 7px;border-radius:10px">🏬 ' + _obrLabel + '</span></div>';
+
       return '<tr>' +
                 '<td><div class="apt-tbl-name">' + (order.orderId || '') + '</div>' +
-                    '<div class="apt-tbl-sub">' + (order.date || '') + '</div></td>' +
+                    '<div class="apt-tbl-sub">' + (order.date || '') + '</div>' + _obrTag + '</td>' +
                 '<td><div class="apt-tbl-name">' + (order.customerName || '—') + rxIcon + deliveryIcon + '</div>' + phoneTxt + '</td>' +
                 '<td>' + itemsCell + '</td>' +
                 '<td style="text-align:right"><div class="apt-tbl-fee">₹' + Number(order.total || 0).toLocaleString('en-IN') + '</div>' +

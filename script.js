@@ -904,10 +904,15 @@ async function _ensureCustomerPhone(user) {
 
 // ── CASH ON DELIVERY ──
 // ── CART CHECKOUT MODAL ──────────────────────────────────────────────────────
-function openCartCheckout() {
+async function openCartCheckout() {
    if (!cart || !cart.length) { showToast('Your cart is empty.'); return; }
    var user = JSON.parse(sessionStorage.getItem('loggedInUser'));
    if (!user) { window.location.href = 'login.html'; return; }
+
+   // Ensure the customer's saved addresses + branches are loaded (the home page
+   // may not have populated them) so the delivery picker + routing work.
+   try { if (!(_db.addresses && _db.addresses.length)) await loadUserData(user.email); } catch (e) {}
+   try { await loadStoreBranches(); } catch (e) {}
 
    // Populate items list
    var totalItems = cart.reduce(function(s, c) { return s + c.qty; }, 0);

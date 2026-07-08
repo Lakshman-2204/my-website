@@ -2008,12 +2008,22 @@ function _getBranch(branchId) {
 }
 
 // ── Customer-side branch selection (storefront "Ordering from" picker) ──────
-var _customerBranchByStore = {};   // storeProviderId → chosen branch id
+// Persisted in sessionStorage so the choice survives navigation (store page →
+// cart/checkout on another page); otherwise checkout would fall back to main.
+var _customerBranchByStore = {};   // storeProviderId → chosen branch id (in-memory cache)
+
+function _custBranchKey(storeProviderId) { return '_custBranch_' + storeProviderId; }
+
+function _setCustomerBranch(storeProviderId, branchId) {
+   _customerBranchByStore[storeProviderId] = branchId;
+   try { sessionStorage.setItem(_custBranchKey(storeProviderId), branchId); } catch (e) {}
+}
 
 function _customerActiveBranch(storeProviderId) {
    var branches = _branchesForStore(storeProviderId);
    if (!branches.length) return null;
    var chosen = _customerBranchByStore[storeProviderId];
+   if (!chosen) { try { chosen = sessionStorage.getItem(_custBranchKey(storeProviderId)); } catch (e) {} }
    return branches.find(function(b) { return b.id === chosen; })
        || branches.find(function(b) { return b.is_main; })
        || branches[0];
@@ -2056,7 +2066,7 @@ function _customerBranchSelectorHtml(storeProviderId) {
 }
 
 async function _customerSwitchBranch(storeProviderId, branchId) {
-   _customerBranchByStore[storeProviderId] = branchId;
+   _setCustomerBranch(storeProviderId, branchId);
    if (window._wlMode && window._wlSp && window._wlSp.id === storeProviderId) {
       // White-label site: reload branch stock and re-render the WL page in place
       var br = _getBranch(branchId);
@@ -4371,8 +4381,7 @@ async function renderStoreProvidersAdmin() {
                 '<div class="apt-provider-footer">' +
                    '<span style="font-family:ui-monospace,monospace;color:#888;font-size:0.72rem">ID: ' + p.id + '</span>' +
                    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-                      '<button class="apt-view-btn" style="background:#7c3aed;color:#fff" onclick="openStoreTemplate(\'' + pid + '\')">🎨 Template · 🏬 ' + _branchesForStore(p.id).length + '</button>' +
-                      '<button class="apt-view-btn" onclick="openStoreProviderModal(\'' + pid + '\')">✏️ Edit</button>' +
+                      '<button class="apt-view-btn" style="background:#7c3aed;color:#fff" onclick="openStoreTemplate(\'' + pid + '\')">⚙️ Manage · 🏬 ' + _branchesForStore(p.id).length + '</button>' +
                       '<button class="apt-view-btn" style="background:#c62828" onclick="deleteStoreProviderUi(\'' + pid + '\')">🗑 Delete</button>' +
                    '</div>' +
                 '</div>' +
@@ -7148,7 +7157,7 @@ async function _activateWhiteLabel(vendor) {
          var _wlBranchParam = new URLSearchParams(window.location.search).get('branch');
          if (_wlBranchParam) {
             var _wlBr = _getBranch(_wlBranchParam);
-            if (_wlBr && _wlBr.store_provider_id === sp.id) _customerBranchByStore[sp.id] = _wlBranchParam;
+            if (_wlBr && _wlBr.store_provider_id === sp.id) _setCustomerBranch(sp.id, _wlBranchParam);
          }
          var _wlActive = _customerActiveBranch(sp.id);
          try {
@@ -13704,8 +13713,8 @@ async function _dashToggleDelivery(storeId) {
 async function _dashOpenTemplate(storeId) {
    await openStoreTemplate(storeId);
    // Hide Colors & Theme and Layout tabs — store owners don't manage those.
-   // Branches + Routing are admin-only too (added via admin store cards).
-   ['stmTabColor', 'stmTabLayout', 'stmTabBranches', 'stmTabRouting'].forEach(function(tabId) {
+   // Store/Brand, Branches + Routing are admin-only too.
+   ['stmTabBrand', 'stmTabColor', 'stmTabLayout', 'stmTabBranches', 'stmTabRouting'].forEach(function(tabId) {
       var btn = document.querySelector('[data-stm-tab="' + tabId + '"]');
       if (btn) btn.style.display = 'none';
       var panel = document.getElementById(tabId);
@@ -21059,7 +21068,7 @@ async function openStoreTemplate(storeId) {
    if (nameEl) nameEl.textContent = sp ? sp.name : '';
    _stmLoadForm(sp || {}, t);
    document.getElementById('storeTemplateModal').style.display = 'flex';
-   _stmSwitchTab('stmTabColor');
+   _stmSwitchTab('stmTabBrand');
 }
 
 function closeStoreTemplate() {
@@ -21078,6 +21087,28 @@ async function saveStoreTemplate() {
    // Update local cache directly — no full re-fetch needed
    var sp = _storeGetProvider(_stmStoreId);
    if (sp) sp.template = t;
+
+   // ── Persist Store / Brand tab (brand-level fields) ───────────────────
+   var _bName = (document.getElementById('stmBrandName') || {}).value;
+   if (_bName != null && sp) {
+      var _merged = Object.assign({}, sp);
+      _merged.name             = _bName.trim() || sp.name;
+      _merged.category         = (document.getElementById('stmBrandCategory') || {}).value || sp.category;
+      _merged.owner_email      = (document.getElementById('stmBrandOwner') || {}).value || '';
+      _merged.logo_url         = ((document.getElementById('stmBrandLogo') || {}).value || '').trim() || undefined;
+      _merged.commission_type  = (document.getElementById('stmBrandCommType') || {}).value || 'percent';
+      _merged.commission_value = parseFloat((document.getElementById('stmBrandCommVal') || {}).value) || 0;
+      _merged.door_delivery    = !!(document.getElementById('stmBrandDoorDelivery') || {}).checked;
+      var _stOk = await AppDB.upsertStoreProvider(_merged);
+      if (_stOk) {
+         // reflect into local cache
+         Object.assign(sp, {
+            name: _merged.name, category: _merged.category, owner_email: _merged.owner_email,
+            logo_url: _merged.logo_url, commission_type: _merged.commission_type,
+            commission_value: _merged.commission_value, door_delivery: _merged.door_delivery
+         });
+      }
+   }
 
    // ── Persist Linked Branches + brand-wide routing policy ──────────────
    var _routingEl = document.querySelector('input[name="stmRoutingPolicy"]:checked');
@@ -21219,6 +21250,34 @@ function _stmLoadForm(sp, t) {
    var pol = (sp.fulfillment_policy === 'bidding') ? 'bidding' : 'strict';
    var polEl = document.querySelector('input[name="stmRoutingPolicy"][value="' + pol + '"]');
    if (polEl) polEl.checked = true;
+
+   // ── Store / Brand tab (brand-level fields formerly in the admin Edit modal) ──
+   setVal('stmBrandName', sp.name || '');
+   var catSel = el('stmBrandCategory');
+   if (catSel) {
+      catSel.innerHTML = Object.keys(STORE_CAT_META).map(function(k) {
+         var c = STORE_CAT_META[k];
+         return '<option value="' + k + '"' + (k === sp.category ? ' selected' : '') + '>' + c.icon + ' ' + c.label + '</option>';
+      }).join('');
+   }
+   var ownSel = el('stmBrandOwner');
+   if (ownSel) {
+      var owners = (getUsers() || []).filter(function(u) { return u.role === 'storeowner'; });
+      var cur = (sp.owner_email || '').toLowerCase();
+      var opts = '<option value="">— Not assigned (admin manages) —</option>';
+      owners.forEach(function(u) {
+         var sel = ((u.email || '').toLowerCase() === cur) ? ' selected' : '';
+         opts += '<option value="' + u.email + '"' + sel + '>' + (u.name || u.email) + ' (' + u.email + ')</option>';
+      });
+      if (cur && !owners.find(function(u) { return (u.email || '').toLowerCase() === cur; })) {
+         opts += '<option value="' + sp.owner_email + '" selected>' + sp.owner_email + '</option>';
+      }
+      ownSel.innerHTML = opts;
+   }
+   setVal('stmBrandLogo', sp.logo_url || '');
+   setVal('stmBrandCommType', sp.commission_type || 'percent');
+   setVal('stmBrandCommVal', sp.commission_value != null ? sp.commission_value : '');
+   setChk('stmBrandDoorDelivery', sp.door_delivery);
 }
 
 // ── Template editor: Linked Branches ────────────────────────────────────────
@@ -21304,6 +21363,7 @@ function _ensureBranchDetailsModal() {
             '<div style="font-weight:800;font-size:0.95rem">📋 Branch Details</div>' +
             '<button onclick="_stmCloseBranchDetails()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;line-height:1">×</button>' +
          '</div>' +
+         '<div id="stmbdInherited" style="margin:10px 20px 0;padding:9px 12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;font-size:0.78rem;color:#475569"></div>' +
          '<div style="padding:8px 20px 0"><button onclick="_stmCopyStoreToBranchDetails()" style="width:100%;padding:9px;background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;margin-bottom:8px">📥 Copy all details from main store</button></div>' +
          '<div style="flex:1;overflow-y:auto;padding:6px 20px 16px">' + fields +
             '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;color:#334155;font-weight:600"><input type="checkbox" id="stmbd_door_delivery"> 🚚 Door delivery available at this branch</label>' +
@@ -21336,6 +21396,15 @@ function _stmOpenBranchDetails(i) {
    });
    var dd = document.getElementById('stmbd_door_delivery');
    if (dd) dd.checked = !!d.door_delivery;
+   // Read-only inherited-from-store banner (category + owner are brand-level)
+   var inh = document.getElementById('stmbdInherited');
+   if (inh) {
+      var sp = _storeGetProvider(_stmStoreId) || {};
+      var catMeta = STORE_CAT_META[sp.category] || {};
+      inh.innerHTML = '<b>Inherited from store</b> (set under 🏪 Store / Brand): ' +
+         'Category <b>' + ((catMeta.icon || '') + ' ' + (catMeta.label || sp.category || '—')) + '</b> · ' +
+         'Owner <b>' + (sp.owner_email || 'Not assigned') + '</b>';
+   }
    document.getElementById('stmBranchDetailModal').style.display = 'flex';
 }
 
@@ -21735,7 +21804,7 @@ function _stmGetCards() {
 }
 
 function _ensureStoreTemplateModal() {
-   var _STM_VER = 7;
+   var _STM_VER = 8;
    var existing = document.getElementById('storeTemplateModal');
    if (existing && parseInt(existing.dataset.ver||0) === _STM_VER) return;
    if (existing) existing.remove();
@@ -21756,6 +21825,7 @@ function _ensureStoreTemplateModal() {
 
    var tabBtnBase = 'class="stm-tab-btn" style="width:100%;padding:11px 18px;border:none;background:none;text-align:left;font-weight:600;color:#475569;cursor:pointer;display:flex;align-items:center;gap:9px;font-size:13px;border-left:4px solid transparent;font-family:inherit"';
    var tabs = [
+      {id:'stmTabBrand',   label:'🏪 Store / Brand'},
       {id:'stmTabColor',   label:'🎨 Colors & Theme'},
       {id:'stmTabBanner',  label:'🖼️ Header Banner'},
       {id:'stmTabTicker',  label:'📢 Ticker Bar'},
@@ -21916,6 +21986,25 @@ function _ensureStoreTemplateModal() {
       '<div style="margin-top:14px;text-align:center"><button onclick="_stmRenderPreview()" style="padding:10px 28px;background:#0284c7;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:0.88rem;cursor:pointer">🔄 Refresh Preview</button>' +
       '<span style="font-size:0.78rem;color:#94a3b8;margin-left:12px">Updates with your current form values</span></div>';
 
+   var _bfld = 'style="margin-bottom:14px"';
+   var _blbl = 'style="display:block;font-weight:700;font-size:0.8rem;color:#334155;margin-bottom:5px"';
+   var _binp = 'style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.88rem;box-sizing:border-box;font-family:inherit"';
+   var _bsel = 'style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.88rem;background:#fff;font-family:inherit"';
+   var panelBrand =
+      '<h4 style="margin:0 0 6px;color:#0f172a">Store / Brand Settings</h4>' +
+      '<p style="margin:0 0 14px;font-size:0.8rem;color:#64748b">Brand-level settings shared by every branch. Category &amp; owner are inherited by all branches. Location details (address, phone, GST, licences) are set per branch under 🏬 Linked Branches.</p>' +
+      '<div ' + _bfld + '><label ' + _blbl + '>Store Name</label><input type="text" id="stmBrandName" ' + _binp + '></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
+         '<div ' + _bfld + '><label ' + _blbl + '>Category</label><select id="stmBrandCategory" ' + _bsel + '></select></div>' +
+         '<div ' + _bfld + '><label ' + _blbl + '>Store Owner</label><select id="stmBrandOwner" ' + _bsel + '></select></div>' +
+      '</div>' +
+      '<div ' + _bfld + '><label ' + _blbl + '>Logo URL</label><input type="text" id="stmBrandLogo" placeholder="https://…/logo.png" ' + _binp + '></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
+         '<div ' + _bfld + '><label ' + _blbl + '>Commission Type</label><select id="stmBrandCommType" ' + _bsel + '><option value="percent">Percent (%)</option><option value="fixed_monthly">Fixed ₹/month</option></select></div>' +
+         '<div ' + _bfld + '><label ' + _blbl + '>Commission Value</label><input type="number" id="stmBrandCommVal" min="0" ' + _binp + '></div>' +
+      '</div>' +
+      '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;color:#334155;font-weight:600;margin-top:4px"><input type="checkbox" id="stmBrandDoorDelivery"> 🚚 Home delivery available (brand-wide)</label>';
+
    var panelBranches =
       '<h4 style="margin:0 0 6px;color:#0f172a">Linked Branches</h4>' +
       '<p style="margin:0 0 14px;font-size:0.8rem;color:#64748b">Branches share this store\'s catalogue &amp; template. They differ only by city area, name and address. Each branch keeps its own stock &amp; orders.</p>' +
@@ -21944,7 +22033,7 @@ function _ensureStoreTemplateModal() {
          '</label>' +
       '</div>';
 
-   var panelMap = { stmTabColor: panelColor, stmTabBanner: panelBanner, stmTabTicker: panelTicker, stmTabLayout: panelLayout, stmTabCards: panelCards, stmTabRx: panelRx, stmTabBranches: panelBranches, stmTabRouting: panelRouting, stmTabPreview: panelPreview };
+   var panelMap = { stmTabBrand: panelBrand, stmTabColor: panelColor, stmTabBanner: panelBanner, stmTabTicker: panelTicker, stmTabLayout: panelLayout, stmTabCards: panelCards, stmTabRx: panelRx, stmTabBranches: panelBranches, stmTabRouting: panelRouting, stmTabPreview: panelPreview };
    var panelsHtml = tabs.map(function(t, i) {
       return '<div id="' + t.id + '" class="stm-panel" style="display:' + (i===0?'block':'none') + '">' + panelMap[t.id] + '</div>';
    }).join('');

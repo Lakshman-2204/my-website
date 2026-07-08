@@ -996,11 +996,18 @@ async function _coPlaceOrder(paymentMode, txnId) {
       groups[key].items.push(c);
    });
 
+   try { await loadStoreBranches(); } catch (e) {}
    var placed = 0;
    for (var ki = 0; ki < groupKeys.length; ki++) {
       var grp     = groups[groupKeys[ki]];
       var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
       var total   = grp.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
+      // Branch = the "Ordering from" dropdown value now, else cart stamp, else main.
+      var _coSpId = grp.store_provider_id;
+      var _coBranch = _readOrderingFromBranch(_coSpId)
+                      || (grp.items.find(function(c) { return c.branch_id; }) || {}).branch_id
+                      || (_customerActiveBranch(_coSpId) || {}).id
+                      || (_mainBranchFor(_coSpId) || {}).id || null;
       var order   = {
          orderId: orderId, order_id: orderId,
          date: dateStr,
@@ -1016,7 +1023,8 @@ async function _coPlaceOrder(paymentMode, txnId) {
          txn_ref: txnId || null,
          storeId: grp.storeId,
          storeName: grp.storeName,
-         store_provider_id: grp.store_provider_id
+         store_provider_id: grp.store_provider_id,
+         branch_id: _coBranch
       };
       _db.orders.unshift(order);
       await AppDB.insertOrder(order);
@@ -1326,9 +1334,12 @@ async function submitRxOnlyOrder() {
       addr = (_db.addresses || []).find(function(a) { return a.id === window._rxOnlySelectedAddr; });
       if (!addr) { status.innerHTML = '<span style="color:#c62828">Pick a delivery address first.</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
    }
-   var _rxSrc = _customerActiveBranch(store.id);
-   var _rxRouting = await _routeOrderToBranch(store.id, needsAddr ? addr : null, [], _rxSrc ? _rxSrc.id : null);
-   if (!_rxRouting.allow) { status.innerHTML = '<span style="color:#c62828">🚫 ' + _rxRouting.reason + '</span>'; btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return; }
+   var _rxSrc = _readOrderingFromBranch(store.id) || (_customerActiveBranch(store.id) || {}).id || null;
+   var _rxRouting = await _routeOrderToBranch(store.id, needsAddr ? addr : null, [], _rxSrc);
+   if (!_rxRouting.allow) {
+      if (!_rxRouting.abort) status.innerHTML = '<span style="color:#c62828">🚫 ' + _rxRouting.reason + '</span>';
+      btn.disabled = false; btn.textContent = '📤 Send to Pharmacist'; return;
+   }
 
    var notes = document.getElementById('rxOnlyNotes').value.trim();
    var now = new Date();
@@ -1420,18 +1431,31 @@ function openMedicalCheckout() {
       return _storeAcceptsDeliveryNow(p);
    });
    if (needsAddr) {
+      // Active branch for the (first) store being checked out → its serviced city
+      var _coFirstSp = (Object.keys(groups).map(function(k){ return groups[k].spId; }).filter(Boolean))[0];
+      var _coBr = _coFirstSp ? _customerActiveBranch(_coFirstSp) : null;
+      var _coCity = _coBr ? (_coBr.city_keyword || '') : '';
+      var _cityMatch = function(a) {
+         if (!_coCity) return null;   // no branch area configured → no tag
+         return ((a.city || '') + ' ' + (a.line || '') + ' ' + (a.pin || '')).toLowerCase().indexOf(_coCity.toLowerCase()) !== -1;
+      };
       html += '<div class="med-checkout-address"><strong>Delivery Address:</strong>';
+      if (_coBr && _coCity) {
+         html += '<div style="font-size:0.78rem;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:5px 9px;margin:6px 0">📍 Ordering from <b>' + _stmEsc(_coBr.branch_label || 'branch') + '</b> — serves <b>' + _stmEsc(_coCity) + '</b></div>';
+      }
+      var _addBtn = '<button onclick="_coAddAddressLocked(\'' + (_coCity || '').replace(/\'/g,"\\'") + '\')" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:0.82rem">➕ Add Address' + (_coCity ? ' in ' + _stmEsc(_coCity) : '') + '</button>';
       if (!addresses.length) {
-         html += '<p style="color:#c62828;margin:6px 0">No saved addresses. ' +
-                    '<button onclick="closeMedCheckout();window.location=\'profile.html?tab=addresses\'" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer">➕ Add Address</button>' +
-                 '</p>';
+         html += '<p style="color:#c62828;margin:6px 0">No saved addresses. ' + _addBtn + '</p>';
       } else {
          html += '<select id="medCheckoutAddr" onchange="window._medCheckoutSelectedAddr=this.value" style="width:100%;padding:8px;margin-top:6px;border:1px solid #ccc;border-radius:6px">';
          addresses.forEach(function(a) {
-            var label = a.name + ' · ' + (a.line || '') + (a.city ? ', ' + a.city : '') + (a.pin ? ' ' + a.pin : '');
+            var m = _cityMatch(a);
+            var tag = m === true ? '  ✓ Local' : (m === false ? '  ⚠ Cross-branch' : '');
+            var label = a.name + ' · ' + (a.line || '') + (a.city ? ', ' + a.city : '') + (a.pin ? ' ' + a.pin : '') + tag;
             html += '<option value="' + a.id + '"' + (a.id === defaultAddrId ? ' selected' : '') + '>' + label + '</option>';
          });
          html += '</select>';
+         html += '<div style="margin-top:6px">' + _addBtn + '</div>';
       }
       html += '</div>';
    }
@@ -1519,7 +1543,7 @@ async function placeMedicalOrder() {
                     || (_customerActiveBranch(g.spId) || {}).id || null;
       var routing = await _routeOrderToBranch(g.spId, needsAddr ? addr : null, g.items, _cartBr);
       if (!routing.allow) {
-         alert('🚫 ' + routing.reason);
+         if (!routing.abort) alert('🚫 ' + routing.reason);   // abort = customer cancelled a confirm
          btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)';
          return;
       }
@@ -1537,7 +1561,7 @@ async function placeMedicalOrder() {
          status: routing.broadcast ? 'PENDING_CLAIM' : 'Pending Pickup',
          storeId: g.storeId || null, storeName: g.storeName || prov.name || null,
          store_provider_id: g.spId || null,
-         branch_id:         _cartBr || (routing.branch && routing.branch.id) || null,
+         branch_id:         (routing.branch && routing.branch.id) || _cartBr || null,
          prescription_url:  hasAnyRx ? window._cartPrescriptionUrl : null,
          delivery_address:  needsAddr && addr ? addr : null,
          payment_mode:      'COD',
@@ -1596,13 +1620,18 @@ function processPayment(method) {
       var mm  = String(now.getMonth() + 1).padStart(2, '0');
       var dd  = String(now.getDate()).padStart(2, '0');
       var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+      var _ppSp = (cart.find(function(c){ return c.store_provider_id; }) || {}).store_provider_id || null;
+      var _ppBranch = _ppSp ? (_readOrderingFromBranch(_ppSp) || (cart.find(function(c){ return c.branch_id; }) || {}).branch_id || (_customerActiveBranch(_ppSp) || {}).id || null) : null;
       const order = {
          orderId: orderId, order_id: orderId,
          date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
          customerName: user.name, customerEmail: user.email, customerPhone: phone,
          items: cart.map(c => ({ id: c.id, name: c.name, qty: c.qty, price: c.price })),
          total, method, status: 'Confirmed',
-         storeId: null, storeName: null
+         storeId: (cart.find(function(c){ return c.storeId; }) || {}).storeId || null,
+         storeName: (cart.find(function(c){ return c.storeName; }) || {}).storeName || null,
+         store_provider_id: _ppSp,
+         branch_id: _ppBranch
       };
       _db.orders.unshift(order);
       AppDB.insertOrder(order);
@@ -1931,32 +1960,77 @@ async function _branchHasStock(storeProviderId, branchId, items) {
    });
 }
 
-// The order is fulfilled by the branch the customer is ordering FROM — full stop.
-// No address-based rerouting: order from branch X → assigned to branch X, so it
-// shows only under X in the owner dashboard. The only gate is stock:
-//   • in stock (or branch not tracking inventory) → allow, assign to X
-//   • out of stock + Federated policy            → allow, broadcast (PENDING_CLAIM)
-//   • out of stock + Strict policy               → reject
-// Returns { branch, allow, broadcast, reason }.
+// Routing — mirrors multibranch_template_6:
+//   • Delivery address in the ordering branch's area → order goes to it.
+//   • Address in ANOTHER branch's area (cross-branch):
+//        Strict   → REJECT (ask to switch "Ordering from").
+//        Federated→ ASK 2 confirmations (different-branch + delay), then route to
+//                   the branch that serves the address (in stock) or broadcast.
+//   • Address served by NO branch → REJECT.
+// Then a stock gate blocks out-of-stock (Strict) or broadcasts (Federated).
+// Returns { branch, allow, broadcast, reason, abort }.
 async function _routeOrderToBranch(storeProviderId, deliveryAddr, items, sourcingBranchId) {
    var branches = _branchesForStore(storeProviderId);
    if (!branches.length) return { branch: null, allow: true, broadcast: false };
 
    var main     = branches.find(function(b) { return b.is_main; }) || branches[0];
-   var fulfiller = _getBranch(sourcingBranchId) || main;
+   var sourcing = _getBranch(sourcingBranchId) || main;
+   var anyCity  = branches.some(function(b) { return (b.city_keyword || '').trim(); });
 
-   // Stock gate at the selected branch
-   var inStock = await _branchHasStock(storeProviderId, fulfiller.id, items);
-   if (inStock) {
-      return { branch: fulfiller, allow: true, broadcast: false };
+   var addrText = deliveryAddr
+      ? [deliveryAddr.line, deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
+         deliveryAddr.area, deliveryAddr.pin, deliveryAddr.pincode, deliveryAddr.state]
+        .filter(Boolean).join(' ').toLowerCase()
+      : '';
+   var kwInAddr = function(b) {
+      var kw = (b.city_keyword || '').toLowerCase().trim();
+      return kw && addrText.indexOf(kw) !== -1;
+   };
+
+   var fulfiller = sourcing, crossBranch = false;
+
+   // Geographic checks only when there's a delivery address + city keywords set
+   if (deliveryAddr && anyCity) {
+      var served = branches.find(kwInAddr);
+      if (!served) {
+         var cities = branches.map(function(b) { return b.city_keyword; }).filter(Boolean).join(', ');
+         return { branch: null, allow: false,
+            reason: 'We don\'t deliver to this address. We currently serve: ' + (cities || 'selected areas') + '.' };
+      }
+      if (!kwInAddr(sourcing)) {
+         // Cross-branch: the delivery area differs from the branch being ordered from
+         var policy = sourcing.fulfillment_policy || 'strict';
+         if (policy !== 'bidding') {
+            return { branch: null, allow: false,
+               reason: 'This address is in ' + (served.branch_label || served.city_keyword) + '\'s area, outside ' +
+                       (sourcing.branch_label || 'the selected branch') + '. Please switch "Ordering from" to ' +
+                       (served.branch_label || served.city_keyword) + '.' };
+         }
+         // Federated → template_6's two confirmations
+         if (!confirm('⚠️ You are ordering from "' + (sourcing.branch_label || 'the selected branch') +
+                      '" but the delivery address is in "' + (served.branch_label || served.city_keyword) +
+                      '"\'s area.\n\nContinue with cross-branch delivery?')) {
+            return { branch: null, allow: false, abort: true };
+         }
+         if (!confirm('⏳ Cross-branch orders need routing coordination, so delivery will take a little longer.\n\nIs that okay?')) {
+            return { branch: null, allow: false, abort: true };
+         }
+         fulfiller = served; crossBranch = true;
+      }
    }
 
-   var policy = fulfiller.fulfillment_policy || 'strict';
-   if (policy === 'bidding') {
+   // Stock gate at the fulfilling branch
+   var inStock = await _branchHasStock(storeProviderId, fulfiller.id, items);
+   if (inStock) {
+      return { branch: fulfiller, allow: true, broadcast: false,
+         reason: crossBranch ? ('Routed to ' + (fulfiller.branch_label || fulfiller.city_keyword) + '. Delivery may take a little longer.') : '' };
+   }
+   var pol = fulfiller.fulfillment_policy || 'strict';
+   if (pol === 'bidding') {
       return { branch: fulfiller, allow: true, broadcast: true,
          reason: (fulfiller.branch_label || 'This branch') + ' is out of stock — broadcasting to other branches for cross-branch fulfilment (delivery may take a little longer).' };
    }
-   return { branch: fulfiller, allow: false, broadcast: false,
+   return { branch: fulfiller, allow: false,
       reason: 'Sorry, one or more items are out of stock at ' + (fulfiller.branch_label || 'this branch') + ' right now.' };
 }
 
@@ -9445,10 +9519,18 @@ function renderShopDashboard(filterStatus) {
       var _obrLabel = _obr ? (_obr.branch_label || 'Branch')
                     : (order.branch_id ? 'Unknown branch' : 'Unassigned');
       var _obrTag = '<div class="apt-tbl-sub" style="margin-top:2px"><span style="background:#e0f2fe;color:#0369a1;font-size:0.68rem;font-weight:700;padding:1px 7px;border-radius:10px">🏬 ' + _obrLabel + '</span></div>';
+      // Cross-branch status banner (template_6 style)
+      var _dcity = order.delivery_address ? (order.delivery_address.city || order.delivery_address.area || '') : '';
+      var _crossBanner = '';
+      if (order.status === 'PENDING_CLAIM') {
+         _crossBanner = '<div style="margin-top:3px;font-size:0.66rem;font-weight:700;color:#b45309">📡 Awaiting claim' + (_dcity ? ' → ' + _dcity : '') + '</div>';
+      } else if (order.routing_type === 'BIDDING_STREAM') {
+         _crossBanner = '<div style="margin-top:3px;font-size:0.66rem;font-weight:700;color:#0369a1">🚀 Cross-branch: deliver' + (_dcity ? ' to ' + _dcity : '') + ' locally from stock</div>';
+      }
 
       return '<tr>' +
                 '<td><div class="apt-tbl-name">' + (order.orderId || '') + '</div>' +
-                    '<div class="apt-tbl-sub">' + (order.date || '') + '</div>' + _obrTag + '</td>' +
+                    '<div class="apt-tbl-sub">' + (order.date || '') + '</div>' + _obrTag + _crossBanner + '</td>' +
                 '<td><div class="apt-tbl-name">' + (order.customerName || '—') + rxIcon + deliveryIcon + '</div>' + phoneTxt + '</td>' +
                 '<td>' + itemsCell + '</td>' +
                 '<td style="text-align:right"><div class="apt-tbl-fee">₹' + Number(order.total || 0).toLocaleString('en-IN') + '</div>' +
@@ -22299,7 +22381,13 @@ function switchProfileTab(tab) {
       titleEl.textContent = titleMap[tab] || 'Profile';
    }
    if (tab === 'contact')      renderContactAdmin();
-   if (tab === 'addresses')    renderAddresses();
+   if (tab === 'addresses')  { renderAddresses();
+      // Arrived from storefront "➕ Add Address in <city>" → auto-open locked form
+      if ((location.search || '').indexOf('newaddr=1') !== -1) {
+         try { history.replaceState(null, '', location.pathname + '?tab=addresses'); } catch (e) {}
+         setTimeout(function() { openAddressModal(); }, 60);
+      }
+   }
    if (tab === 'orders')       renderOrders();
    if (tab === 'appointments') renderMyAppointments();
    if (tab === 'wishlist')     renderWishlistTab();
@@ -22450,7 +22538,30 @@ function openAddressModal(idx) {
    } else {
       ['addr-name','addr-phone','addr-line','addr-city','addr-state','addr-pin'].forEach(id => document.getElementById(id).value = '');
    }
+   // City locked to the branch the customer is ordering from (template_6): when a
+   // lock is pending (set from the storefront checkout), prefill + lock the City.
+   var _lockCity = '';
+   try { _lockCity = sessionStorage.getItem('_lockAddrCity') || ''; } catch (e) {}
+   var cityEl = document.getElementById('addr-city');
+   if (cityEl) {
+      if (_lockCity && _editAddrIdx < 0) {
+         cityEl.value = _lockCity;
+         cityEl.readOnly = true;
+         cityEl.style.background = '#edf2f7';
+         cityEl.title = 'City is locked to the branch you are ordering from';
+      } else {
+         cityEl.readOnly = false;
+         cityEl.style.background = '';
+      }
+   }
    document.getElementById('addressModal').classList.remove('hidden');
+}
+
+// Called from the storefront checkout "➕ Add Address in <city>" button.
+function _coAddAddressLocked(city) {
+   try { sessionStorage.setItem('_lockAddrCity', city || ''); } catch (e) {}
+   if (typeof closeMedCheckout === 'function') closeMedCheckout();
+   window.location = 'profile.html?tab=addresses&newaddr=1';
 }
 
 function closeAddressModal() { document.getElementById('addressModal').classList.add('hidden'); _editAddrIdx = -1; }
@@ -22483,6 +22594,7 @@ function saveAddress() {
    // auto-set default if this is the only address
    if (addrs.length === 1) addrs[0].isDefault = true;
    saveAddressesData(user.email, addrs);
+   try { sessionStorage.removeItem('_lockAddrCity'); } catch (e) {}   // clear branch city lock
    closeAddressModal();
    renderAddresses();
    showProfileToast(isEdit ? '✅ Address updated!' : '✅ Address saved!');

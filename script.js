@@ -941,9 +941,48 @@ function openCartCheckout() {
    var vpaEl    = document.getElementById('coUPIVpa');
    if (vpaEl) vpaEl.textContent = upiVpa || 'No UPI ID configured — contact store';
 
+   // Delivery address picker + "Ordering from" branch (needed for branch routing)
+   _coRenderAddrSection(storeId);
+
    _coShowPanel('pick');
    document.getElementById('cartCheckoutOverlay').classList.remove('hidden');
    closeCart();
+}
+
+// Renders the delivery-address dropdown + active branch info inside the cart
+// checkout overlay, so branch routing (and cross-branch checks) can run.
+function _coRenderAddrSection(storeId) {
+   var host = document.getElementById('coAddrSection');
+   if (!host) { return; }
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
+   var addrs = [];
+   try { addrs = (user && getAddresses(user.email)) || []; } catch (e) {}
+   var br = storeId ? _customerActiveBranch(storeId) : null;
+   var brCity = br ? (br.city_keyword || '') : '';
+   var brName = br ? (br.branch_label || 'branch') : '';
+
+   var head = '';
+   if (br && brCity) {
+      head = '<div style="font-size:0.72rem;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:5px 9px;margin-bottom:8px">📍 Ordering from <b>' + brName + '</b> — serves <b>' + brCity + '</b></div>';
+   }
+   var body;
+   if (!addrs.length) {
+      body = '<div style="font-size:0.8rem;color:#c62828">No delivery address saved. ' +
+             '<button onclick="_coAddAddressLocked(\'' + (brCity || '').replace(/\'/g,"\\'") + '\')" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.78rem">➕ Add Address' + (brCity ? ' in ' + brCity : '') + '</button></div>';
+   } else {
+      var def = addrs.find(function(a){ return a.isDefault; }) || addrs[0];
+      window._coSelectedAddrIdx = addrs.indexOf(def);
+      var cityMatch = function(a){ if (!brCity) return null; return ((a.city||'')+' '+(a.line||'')+' '+(a.pin||'')).toLowerCase().indexOf(brCity.toLowerCase())!==-1; };
+      body = '<label style="font-size:0.72rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.04em">Deliver to</label>' +
+             '<select id="coDeliveryAddr" onchange="window._coSelectedAddrIdx=parseInt(this.value,10)" style="width:100%;padding:8px;margin-top:4px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.83rem">' +
+             addrs.map(function(a, i){
+                var m = cityMatch(a);
+                var tag = m===true ? '  ✓ Local' : (m===false ? '  ⚠ Cross-branch' : '');
+                return '<option value="' + i + '"' + (a===def?' selected':'') + '>' + (a.name||'') + ' · ' + (a.line||'') + (a.city?', '+a.city:'') + tag + '</option>';
+             }).join('') +
+             '</select>';
+   }
+   host.innerHTML = head + body;
 }
 
 function closeCartCheckout() {
@@ -997,10 +1036,11 @@ async function _coPlaceOrder(paymentMode, txnId) {
    });
 
    try { await loadStoreBranches(); } catch (e) {}
-   // Customer's delivery address (default, else first) — used for cross-branch routing
+   // Customer's chosen delivery address (from the overlay dropdown) — used for routing
    var _coAddrs = [];
    try { _coAddrs = getAddresses(user.email) || []; } catch (e) {}
-   var _coAddr = _coAddrs.find(function(a) { return a.isDefault; }) || _coAddrs[0] || null;
+   var _coIdx = (typeof window._coSelectedAddrIdx === 'number') ? window._coSelectedAddrIdx : -1;
+   var _coAddr = (_coIdx >= 0 && _coAddrs[_coIdx]) || _coAddrs.find(function(a) { return a.isDefault; }) || _coAddrs[0] || null;
 
    var placed = 0;
    for (var ki = 0; ki < groupKeys.length; ki++) {

@@ -1018,7 +1018,11 @@ async function _coPlaceOrder(paymentMode, txnId) {
       // is outside the ordering branch's area.
       var _coStore = _coSpId && (_storeProvidersCache || []).find(function(s) { return s.id === _coSpId; });
       var _coNeedsAddr = _storeAcceptsDeliveryNow(_coStore);
-      var _coRouting = await _routeOrderToBranch(_coSpId, _coNeedsAddr ? _coAddr : null, grp.items, _coSrc);
+      // Always feed the address to routing when we have one, so the cross-branch
+      // check fires even for pickup-configured stores.
+      var _coSrcBr = _getBranch(_coSrc);
+      try { console.log('[branch-routing] ordering-from area:', _coSrcBr && _coSrcBr.city_keyword, '(', _coSrc, ') · addr-city:', _coAddr && _coAddr.city, '· needsAddr:', _coNeedsAddr); } catch (e) {}
+      var _coRouting = await _routeOrderToBranch(_coSpId, _coAddr || null, grp.items, _coSrc);
       if (!_coRouting.allow) {
          if (!_coRouting.abort) alert('🚫 ' + _coRouting.reason);
          return;   // stop the whole checkout
@@ -2176,7 +2180,9 @@ function _customerBranchSelectorHtml(storeProviderId) {
    if (branches.length < 2) return '';
    var active = _customerActiveBranch(storeProviderId);
    var opts = branches.map(function(b) {
-      var label = (b.branch_label || b.city_keyword || 'Branch') + (b.is_main ? ' (Main)' : '');
+      // Distinguish branches by area/address (names are often identical)
+      var area = b.city_keyword || (b.address ? b.address.split(',')[0] : '');
+      var label = (b.branch_label || 'Branch') + (area ? ' — ' + area : '') + (b.is_main ? ' (Main)' : '');
       return '<option value="' + b.id + '"' + (active && b.id === active.id ? ' selected' : '') + '>' + label + '</option>';
    }).join('');
    return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:24px;padding:6px 8px 6px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">' +

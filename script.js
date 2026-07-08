@@ -1919,74 +1919,31 @@ async function _branchHasStock(storeProviderId, branchId, items) {
    });
 }
 
-// Choose the fulfilling branch + routing decision — mirrors template_6, where the
-// customer's SELECTED "Ordering from" branch is the sourcing branch:
-//   1. No branches / no city keywords / pickup → sourcing (or main) branch, allow.
-//   2. No branch serves the delivery city → REJECT (outside serviced areas).
-//   3. Delivery city == sourcing branch's city → STANDARD, sourcing fulfils.
-//   4. Delivery city ≠ sourcing branch (cross-branch):
-//        strict  → REJECT (ask customer to switch "Ordering from")
-//        bidding → destination branch IN stock → it fulfils (local-cross)
-//                  destination branch OUT of stock → PENDING_CLAIM broadcast
+// The order is fulfilled by the branch the customer is ordering FROM — full stop.
+// No address-based rerouting: order from branch X → assigned to branch X, so it
+// shows only under X in the owner dashboard. The only gate is stock:
+//   • in stock (or branch not tracking inventory) → allow, assign to X
+//   • out of stock + Federated policy            → allow, broadcast (PENDING_CLAIM)
+//   • out of stock + Strict policy               → reject
 // Returns { branch, allow, broadcast, reason }.
 async function _routeOrderToBranch(storeProviderId, deliveryAddr, items, sourcingBranchId) {
    var branches = _branchesForStore(storeProviderId);
    if (!branches.length) return { branch: null, allow: true, broadcast: false };
 
    var main     = branches.find(function(b) { return b.is_main; }) || branches[0];
-   var sourcing = _getBranch(sourcingBranchId) || main;
-   var anyCity  = branches.some(function(b) { return (b.city_keyword || '').trim(); });
+   var fulfiller = _getBranch(sourcingBranchId) || main;
 
-   // Pickup / no address / no geo config → sourcing branch, allow
-   if (!deliveryAddr || !anyCity) return { branch: sourcing, allow: true, broadcast: false };
-
-   var addrText = [deliveryAddr.line, deliveryAddr.line1, deliveryAddr.line2, deliveryAddr.city,
-                   deliveryAddr.area, deliveryAddr.pin, deliveryAddr.pincode, deliveryAddr.state]
-      .filter(Boolean).join(' ').toLowerCase();
-   var kwInAddr = function(b) {
-      var kw = (b.city_keyword || '').toLowerCase().trim();
-      return kw && addrText.indexOf(kw) !== -1;
-   };
-
-   // Decide which branch fulfils, honouring the customer's SELECTED branch:
-   // it fulfils when its area matches OR it has no area keyword (delivers
-   // anywhere). Otherwise find a branch whose area serves the address.
-   var sourcingHasArea = !!(sourcing.city_keyword || '').trim();
-   var fulfiller, crossBranch = false;
-   if (!sourcingHasArea || kwInAddr(sourcing)) {
-      fulfiller = sourcing;
-   } else {
-      var served = branches.find(kwInAddr);
-      if (!served) {
-         var cities = branches.map(function(b) { return b.city_keyword; }).filter(Boolean).join(', ');
-         return { branch: null, allow: false, broadcast: false,
-            reason: 'We don\'t deliver to this address. We currently serve: ' + (cities || 'selected areas') + '.' };
-      }
-      // Selected branch can't serve this area — strict rejects, bidding reroutes
-      if ((sourcing.fulfillment_policy || 'strict') !== 'bidding') {
-         return { branch: null, allow: false, broadcast: false,
-            reason: 'This address is outside ' + (sourcing.branch_label || 'the selected branch') + '\'s area. Switch "Ordering from" to ' + (served.branch_label || served.city_keyword) + ', which serves your address.' };
-      }
-      fulfiller = served; crossBranch = true;
-   }
-
-   // ── Stock gate: an item out of stock at the fulfilling branch can't just be
-   // ordered. (A branch with NO batches at all is treated as "not tracking" and
-   // allowed — see _branchHasStock.) ──────────────────────────────────────────
+   // Stock gate at the selected branch
    var inStock = await _branchHasStock(storeProviderId, fulfiller.id, items);
    if (inStock) {
-      return { branch: fulfiller, allow: true, broadcast: false,
-         reason: crossBranch ? ('Routed to ' + (fulfiller.branch_label || fulfiller.city_keyword) + ' (serves your area). Cross-branch order — delivery may take a little longer.') : '' };
+      return { branch: fulfiller, allow: true, broadcast: false };
    }
 
-   // Fulfilling branch is OUT OF STOCK
-   var policy = fulfiller.fulfillment_policy || sourcing.fulfillment_policy || 'strict';
+   var policy = fulfiller.fulfillment_policy || 'strict';
    if (policy === 'bidding') {
-      // Broadcast so a branch that DOES have stock can claim it
       return { branch: fulfiller, allow: true, broadcast: true,
          reason: (fulfiller.branch_label || 'This branch') + ' is out of stock — broadcasting to other branches for cross-branch fulfilment (delivery may take a little longer).' };
    }
-   // strict → block the order
    return { branch: fulfiller, allow: false, broadcast: false,
       reason: 'Sorry, one or more items are out of stock at ' + (fulfiller.branch_label || 'this branch') + ' right now.' };
 }

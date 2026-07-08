@@ -1119,11 +1119,12 @@ async function makeOrder() {
            });
       var supportsDelivery = _storeAcceptsDeliveryNow(prov);
 
-      // Branch = the one captured on the cart line at add time (falls back to
-      // active branch, then main).
+      // Branch = the "Ordering from" dropdown value now, else cart stamp, else main.
       var _nmSpId = (prov && prov.id) || grp.store_provider_id;
-      var _nmCartBr = (grp.items.find(function(c) { return c.branch_id; }) || {}).branch_id;
-      var _nmBranch = (_nmCartBr && _getBranch(_nmCartBr)) || _customerActiveBranch(_nmSpId) || _mainBranchFor(_nmSpId);
+      var _nmCartBr = _readOrderingFromBranch(_nmSpId)
+                      || (grp.items.find(function(c) { return c.branch_id; }) || {}).branch_id
+                      || (_customerActiveBranch(_nmSpId) || {}).id
+                      || (_mainBranchFor(_nmSpId) || {}).id || null;
 
       var newOrder = {
          orderId: orderId, order_id: orderId, date: dateStr, timestamp: now.getTime(),
@@ -1132,7 +1133,7 @@ async function makeOrder() {
          method: supportsDelivery ? 'COD-Delivery' : 'Pickup',
          storeId: grp.storeId, storeName: grp.storeName,
          store_provider_id: grp.store_provider_id || (prov && prov.id) || null,
-         branch_id: _nmBranch ? _nmBranch.id : null
+         branch_id: _nmCartBr
       };
       _db.orders.unshift(newOrder);
       AppDB.insertOrder(newOrder);
@@ -1511,9 +1512,10 @@ async function placeMedicalOrder() {
       var needsAddr = _storeAcceptsDeliveryNow(prov);
       if (needsAddr && !addr) { alert('Please choose a delivery address for ' + (prov.name || g.storeName) + '.'); btn.disabled = false; btn.textContent = '✅ Place Order (Cash / UPI on Delivery)'; return; }
 
-      // The branch is whatever the customer captured on the cart line at add
-      // time (falls back to the active branch, then main).
-      var _cartBr = (g.items.find(function(c) { return c.branch_id; }) || {}).branch_id
+      // Branch = the "Ordering from" dropdown's value right now (template_6 style),
+      // else the cart-line stamp, else the active branch.
+      var _cartBr = _readOrderingFromBranch(g.spId)
+                    || (g.items.find(function(c) { return c.branch_id; }) || {}).branch_id
                     || (_customerActiveBranch(g.spId) || {}).id || null;
       var routing = await _routeOrderToBranch(g.spId, needsAddr ? addr : null, g.items, _cartBr);
       if (!routing.allow) {
@@ -1535,7 +1537,7 @@ async function placeMedicalOrder() {
          status: routing.broadcast ? 'PENDING_CLAIM' : 'Pending Pickup',
          storeId: g.storeId || null, storeName: g.storeName || prov.name || null,
          store_provider_id: g.spId || null,
-         branch_id:         routing.branch ? routing.branch.id : null,
+         branch_id:         _cartBr || (routing.branch && routing.branch.id) || null,
          prescription_url:  hasAnyRx ? window._cartPrescriptionUrl : null,
          delivery_address:  needsAddr && addr ? addr : null,
          payment_mode:      'COD',
@@ -2029,6 +2031,20 @@ function _setCustomerBranch(storeProviderId, branchId) {
    try { sessionStorage.setItem(_custBranchKey(storeProviderId), branchId); } catch (e) {}
 }
 
+// The branch id to stamp on an order at checkout — read RAW so it works even if
+// the branch cache didn't resolve. Order of trust: exact store's saved pick →
+// any saved customer pick (usually one store in play) → null.
+function _capturedBranchIdForCheckout(spId) {
+   try {
+      if (spId) { var v = sessionStorage.getItem(_custBranchKey(spId)); if (v) return v; }
+      for (var i = 0; i < sessionStorage.length; i++) {
+         var k = sessionStorage.key(i);
+         if (k && k.indexOf('_custBranch_') === 0) { var val = sessionStorage.getItem(k); if (val) return val; }
+      }
+   } catch (e) {}
+   return null;
+}
+
 function _customerActiveBranch(storeProviderId) {
    var branches = _branchesForStore(storeProviderId);
    if (!branches.length) return null;
@@ -2071,8 +2087,20 @@ function _customerBranchSelectorHtml(storeProviderId) {
    }).join('');
    return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:24px;padding:6px 8px 6px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">' +
       '<span style="font-size:12.5px;color:#64748b;white-space:nowrap">📍 Ordering from:</span>' +
-      '<select onchange="_customerSwitchBranch(\'' + storeProviderId + '\',this.value)" style="border:none;outline:none;font-size:13.5px;font-weight:700;color:#0891b2;background:transparent;cursor:pointer">' + opts + '</select>' +
+      '<select id="branchSelector_' + storeProviderId + '" data-spid="' + storeProviderId + '" onchange="_customerSwitchBranch(\'' + storeProviderId + '\',this.value)" style="border:none;outline:none;font-size:13.5px;font-weight:700;color:#0891b2;background:transparent;cursor:pointer">' + opts + '</select>' +
    '</div>';
+}
+
+// Read the "Ordering from" dropdown's CURRENT value directly (template_6 style).
+// This is the source of truth at order time. Falls back to the saved pick when
+// the selector isn't in the DOM (e.g. a separate cart page).
+function _readOrderingFromBranch(storeProviderId) {
+   var sel = document.getElementById('branchSelector_' + storeProviderId);
+   if (sel && sel.value) return sel.value;
+   // Any store's selector present on the page (usually just one store in play)
+   var any = document.querySelector('select[id^="branchSelector_"]');
+   if (any && any.value) return any.value;
+   return _capturedBranchIdForCheckout(storeProviderId);
 }
 
 async function _customerSwitchBranch(storeProviderId, branchId) {

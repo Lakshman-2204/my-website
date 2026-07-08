@@ -9279,25 +9279,22 @@ function renderShopDashboard(filterStatus) {
    if (!list) return;
    window._shopCurrentFilter = filterStatus || '';
 
-   // Filter to store-owner's own orders (or just the selected branch when multi-branch)
+   // Scope orders. IMPORTANT: branch scoping applies whenever a branch is
+   // selected — even for admin-flagged accounts (a store owner's email may be in
+   // ADMIN_EMAILS). Only when NO branch is selected do we fall back.
    var loggedUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
-   if (loggedUser && !isAdmin(loggedUser.email)) {
-      var _selBr = _getBranch(_selectedBranchId);
-      if (_selBr) {
-         // Scope strictly to the chosen branch. Orders explicitly tagged to this
-         // branch always show; legacy orders with no branch_id show ONLY under the
-         // main branch, so newly created branches start empty.
-         allOrders = allOrders.filter(function(o) { return _orderInBranchView(o, _selBr); });
-      } else {
-         var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
-            return (s.owner_email || '').toLowerCase() === loggedUser.email.toLowerCase();
+   var _selBr = _getBranch(_selectedBranchId);
+   if (_selBr) {
+      allOrders = allOrders.filter(function(o) { return _orderInBranchView(o, _selBr); });
+   } else if (loggedUser && !isAdmin(loggedUser.email)) {
+      var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
+         return (s.owner_email || '').toLowerCase() === loggedUser.email.toLowerCase();
+      });
+      allOrders = allOrders.filter(function(o) {
+         return _ownerStores.some(function(s) {
+            return s.id === o.store_provider_id || s.owner_email === o.storeId;
          });
-         allOrders = allOrders.filter(function(o) {
-            return _ownerStores.some(function(s) {
-               return s.id === o.store_provider_id || s.owner_email === o.storeId;
-            });
-         });
-      }
+      });
    }
 
    // Apply date range filter (uses order date — falls back to created_at if present)

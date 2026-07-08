@@ -997,17 +997,35 @@ async function _coPlaceOrder(paymentMode, txnId) {
    });
 
    try { await loadStoreBranches(); } catch (e) {}
+   // Customer's delivery address (default, else first) — used for cross-branch routing
+   var _coAddrs = [];
+   try { _coAddrs = getAddresses(user.email) || []; } catch (e) {}
+   var _coAddr = _coAddrs.find(function(a) { return a.isDefault; }) || _coAddrs[0] || null;
+
    var placed = 0;
    for (var ki = 0; ki < groupKeys.length; ki++) {
       var grp     = groups[groupKeys[ki]];
       var orderId = 'ORD-' + yy + mm + dd + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
       var total   = grp.items.reduce(function(s, c) { return s + c.price * c.qty; }, 0);
-      // Branch = the "Ordering from" dropdown value now, else cart stamp, else main.
       var _coSpId = grp.store_provider_id;
-      var _coBranch = _readOrderingFromBranch(_coSpId)
-                      || (grp.items.find(function(c) { return c.branch_id; }) || {}).branch_id
-                      || (_customerActiveBranch(_coSpId) || {}).id
-                      || (_mainBranchFor(_coSpId) || {}).id || null;
+      // Sourcing branch = the "Ordering from" dropdown value (else cart/active/main)
+      var _coSrc = _readOrderingFromBranch(_coSpId)
+                   || (grp.items.find(function(c) { return c.branch_id; }) || {}).branch_id
+                   || (_customerActiveBranch(_coSpId) || {}).id
+                   || (_mainBranchFor(_coSpId) || {}).id || null;
+      // Run the SAME cross-branch routing as the medical checkout (address-aware).
+      // This asks the template_6 confirmations / rejects when the delivery address
+      // is outside the ordering branch's area.
+      var _coStore = _coSpId && (_storeProvidersCache || []).find(function(s) { return s.id === _coSpId; });
+      var _coNeedsAddr = _storeAcceptsDeliveryNow(_coStore);
+      var _coRouting = await _routeOrderToBranch(_coSpId, _coNeedsAddr ? _coAddr : null, grp.items, _coSrc);
+      if (!_coRouting.allow) {
+         if (!_coRouting.abort) alert('🚫 ' + _coRouting.reason);
+         return;   // stop the whole checkout
+      }
+      if (_coRouting.broadcast) { alert('ℹ️ ' + _coRouting.reason); }
+      var _coBranch = (_coRouting.branch && _coRouting.branch.id) || _coSrc;
+
       var order   = {
          orderId: orderId, order_id: orderId,
          date: dateStr,
@@ -1017,14 +1035,16 @@ async function _coPlaceOrder(paymentMode, txnId) {
          items: grp.items.map(function(c) { return { id: c.id, name: c.name, price: c.price, qty: c.qty, img: c.img }; }),
          total: total,
          amount: total,
-         status: 'Pending Pickup',
+         status: _coRouting.broadcast ? 'PENDING_CLAIM' : 'Pending Pickup',
          method: paymentMode,
          payment_mode: paymentMode,
          txn_ref: txnId || null,
          storeId: grp.storeId,
          storeName: grp.storeName,
          store_provider_id: grp.store_provider_id,
-         branch_id: _coBranch
+         branch_id: _coBranch,
+         delivery_address: _coNeedsAddr && _coAddr ? _coAddr : null,
+         routing_type: _coRouting.broadcast ? 'BIDDING_STREAM' : 'STANDARD'
       };
       _db.orders.unshift(order);
       await AppDB.insertOrder(order);

@@ -9244,6 +9244,21 @@ function _isCanonicalMain(branch) {
    return !!(main && main.id === branch.id);
 }
 
+// Should this order appear when the given branch is selected?
+//   • tagged to THIS branch                        → yes
+//   • tagged to another EXISTING branch            → no (belongs there)
+//   • untagged, or tagged to a branch that no longer
+//     exists (orphaned/legacy)                     → yes ONLY under main
+// This guarantees every order is visible under exactly one branch and none vanish.
+function _orderInBranchView(o, selBr) {
+   if (!selBr) return true;
+   if (o.branch_id && o.branch_id === selBr.id) return true;
+   if (o.branch_id && _getBranch(o.branch_id)) return false;   // belongs to another live branch
+   // untagged / orphaned → attribute to the store's main branch
+   return _isCanonicalMain(selBr) &&
+          (!o.store_provider_id || o.store_provider_id === selBr.store_provider_id);
+}
+
 function _shopNewOrderToast(order) {
    _shopToast(
       '🛒 New Order Received!<br><span style="font-weight:400;font-size:0.8rem">' + (order.orderId || '') + ' · ' + (order.customerName || 'Customer') + ' · ₹' + Number(order.total || 0).toLocaleString('en-IN') + '</span>',
@@ -9272,11 +9287,7 @@ function renderShopDashboard(filterStatus) {
          // Scope strictly to the chosen branch. Orders explicitly tagged to this
          // branch always show; legacy orders with no branch_id show ONLY under the
          // main branch, so newly created branches start empty.
-         var _selMain = _isCanonicalMain(_selBr);
-         allOrders = allOrders.filter(function(o) {
-            return o.branch_id === _selectedBranchId ||
-                   (!o.branch_id && _selMain && o.store_provider_id === _selBr.store_provider_id);
-         });
+         allOrders = allOrders.filter(function(o) { return _orderInBranchView(o, _selBr); });
       } else {
          var _ownerStores = (_storeProvidersCache || []).filter(function(s) {
             return (s.owner_email || '').toLowerCase() === loggedUser.email.toLowerCase();
@@ -13050,7 +13061,7 @@ async function renderBillsRegister() {
    var allOrders = (_db.orders || []).filter(function(o) {
       // Scope to the selected branch (branch_id), else all of the owner's stores
       if (_brBills) {
-         if (!(o.branch_id === _selectedBranchId || (!o.branch_id && _isCanonicalMain(_brBills) && o.store_provider_id === _brBills.store_provider_id))) return false;
+         if (!_orderInBranchView(o, _brBills)) return false;
       } else if (!storeIds.some(function(id) { return id === o.store_provider_id; })) {
          return false;
       }
@@ -13253,10 +13264,7 @@ async function renderStoreDashboard() {
    var myOrders = orders.filter(function(o) {
       // Scope to the selected branch. Unassigned (legacy) orders show only under
       // the main branch, so a newly created branch starts with no orders.
-      if (_brDash) {
-         return o.branch_id === _selectedBranchId ||
-                (!o.branch_id && _isCanonicalMain(_brDash) && o.store_provider_id === _brDash.store_provider_id);
-      }
+      if (_brDash) { return _orderInBranchView(o, _brDash); }
       return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
    });
 
@@ -13785,10 +13793,7 @@ async function renderStoreRevenue() {
    var _brRev = _getBranch(_selectedBranchId);
    var myOrders = orders.filter(function(o) {
       // Scope to the selected branch (legacy/unassigned orders → main branch only)
-      if (_brRev) {
-         return o.branch_id === _selectedBranchId ||
-                (!o.branch_id && _isCanonicalMain(_brRev) && o.store_provider_id === _brRev.store_provider_id);
-      }
+      if (_brRev) { return _orderInBranchView(o, _brRev); }
       return myStores.some(function(s) { return s.id === o.store_provider_id || s.owner_email === o.store_id; });
    });
    var completed = myOrders.filter(function(o) { return o.status === 'Delivered' || o.status === 'Completed'; });

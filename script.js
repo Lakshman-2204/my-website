@@ -9244,19 +9244,30 @@ function _isCanonicalMain(branch) {
    return !!(main && main.id === branch.id);
 }
 
+// The owner's single PRIMARY branch id (deterministic across ALL their branches
+// and stores): the is_main one, else the first. Unassigned/legacy orders are
+// attributed here so they surface under exactly ONE branch — never everywhere.
+function _ownerPrimaryBranchId() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser')) || {};
+   var brs = _branchesForOwner(user.email || '');
+   if (!brs.length) return null;
+   return (brs.find(function(b) { return b.is_main; }) || brs[0]).id;
+}
+
 // Should this order appear when the given branch is selected?
-//   • tagged to THIS branch                        → yes
-//   • tagged to another EXISTING branch            → no (belongs there)
-//   • untagged, or tagged to a branch that no longer
-//     exists (orphaned/legacy)                     → yes ONLY under main
-// This guarantees every order is visible under exactly one branch and none vanish.
+//   • tagged to THIS branch                → yes
+//   • tagged to another EXISTING branch    → no (belongs there)
+//   • unassigned / orphaned (no branch_id, or a branch that no longer exists)
+//        → yes ONLY under the owner's single primary branch
+// Guarantees each order shows under exactly one branch and none vanish.
 function _orderInBranchView(o, selBr) {
    if (!selBr) return true;
-   if (o.branch_id && o.branch_id === selBr.id) return true;
-   if (o.branch_id && _getBranch(o.branch_id)) return false;   // belongs to another live branch
-   // untagged / orphaned → attribute to the store's main branch
-   return _isCanonicalMain(selBr) &&
-          (!o.store_provider_id || o.store_provider_id === selBr.store_provider_id);
+   if (o.branch_id) {
+      if (o.branch_id === selBr.id) return true;
+      if (_getBranch(o.branch_id)) return false;   // belongs to another live branch
+      // else: branch_id points to a deleted branch → treat as unassigned
+   }
+   return selBr.id === _ownerPrimaryBranchId();
 }
 
 function _shopNewOrderToast(order) {

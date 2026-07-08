@@ -12425,7 +12425,10 @@ function switchShopTab(tab) {
    // navigating away from Products in single-store (no branch selected) mode.
    if (tab !== 'products' && !_selectedBranchId) _currentMyStoreId = null;
    if (tab === 'dashboard')    (window._ownsStores && !window._ownsHospital) ? renderStoreDashboard() : renderShopOverview();
-   if (tab === 'orders') { var _odf = document.getElementById('shopOrderDateFilter'); if (_odf) _odf.value = 'today'; }
+   if (tab === 'orders') {
+      var _odf = document.getElementById('shopOrderDateFilter'); if (_odf) _odf.value = 'today';
+      renderShopDashboard(window._shopCurrentFilter || 'Pending Pickup');   // re-render for the active branch
+   }
    if (tab === 'products')     renderStoreOwnerProducts();
    if (tab === 'bills')        renderBillsRegister();
    if (tab === 'appointments') {

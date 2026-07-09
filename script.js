@@ -6190,7 +6190,9 @@ async function showStoreProvider(providerId) {
       window._custStoreTracksStock = !!(allStoreBatches && allStoreBatches.length);
       _currentStockByProduct = {};
       (allStoreBatches || []).forEach(function(b) {
-         if (_custBranch && b.branch_id && b.branch_id !== _custBranch.id) return;   // scope to viewed branch
+         // STRICT per-branch, exactly like the owner's view: only batches tagged
+         // to the viewed branch count (legacy/null-branch batches don't).
+         if (_custBranch && b.branch_id !== _custBranch.id) return;
          (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
       });
    } catch (e) { _currentStockByProduct = {}; window._custStoreTracksStock = false; }
@@ -7410,7 +7412,7 @@ async function _activateWhiteLabel(vendor) {
             window._custStoreTracksStock = !!(wlAll && wlAll.length);
             _currentStockByProduct = {};
             (wlAll || []).forEach(function(b) {
-               if (_wlActive && b.branch_id && b.branch_id !== _wlActive.id) return;
+               if (_wlActive && b.branch_id !== _wlActive.id) return;   // strict per-branch
                (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
             });
          } catch(e) { _currentStockByProduct = {}; window._custStoreTracksStock = false; }

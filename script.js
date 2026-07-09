@@ -6156,6 +6156,25 @@ async function showStoreCategory(catKey) {
    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Poll fallback: reload the store's branch stock and re-render ONLY if it
+// actually changed (so a mid-scroll customer isn't disrupted needlessly).
+async function _refreshCustomerStock(providerId) {
+   try {
+      var custBranch = _customerActiveBranch(providerId);
+      var all = await AppDB.getBatchesForStore(providerId);
+      var byProd = {};
+      (all || []).forEach(function(b) {
+         if (custBranch && b.branch_id !== custBranch.id) return;
+         byProd[b.product_id] = (byProd[b.product_id] || 0) + (Number(b.qty_remaining) || 0);
+      });
+      var sig = Object.keys(byProd).sort().map(function(k) { return k + ':' + byProd[k]; }).join('|');
+      if (sig !== window._custStockSig) {
+         window._custStockSig = sig;
+         showStoreProvider(providerId);
+      }
+   } catch (e) {}
+}
+
 // Step 3: products inside one store (grouped by sub-category sidebar)
 async function showStoreProvider(providerId) {
    var p = (_storeProvidersCache || []).find(function(x) { return x.id === providerId; });
@@ -6178,6 +6197,23 @@ async function showStoreProvider(providerId) {
          showStoreProvider(providerId);
       }
    });
+   // Live-refresh when the owner changes STOCK (inventory_batches) — so In/Out of
+   // stock badges update on the customer page without a manual refresh.
+   _liveSubscribe('storeStockCustomer', 'inventory_batches', function() {
+      if (window._currentStoreProvider && window._currentStoreProvider.id === providerId) {
+         showStoreProvider(providerId);   // reloads branch stock + re-renders
+      }
+   });
+   // Fallback poll (in case Realtime isn't enabled on inventory_batches): refresh
+   // the stock snapshot every 20s while the customer is on this store page.
+   clearInterval(window._custStockPoll);
+   window._custStockPoll = setInterval(function() {
+      if (window._currentStoreProvider && window._currentStoreProvider.id === providerId) {
+         _refreshCustomerStock(providerId);
+      } else {
+         clearInterval(window._custStockPoll);
+      }
+   }, 20000);
 
    // Refresh in-memory stock snapshot for badges, scoped to the chosen branch.
    // Also determine whether this STORE tracks inventory at all (any batch across
@@ -7434,6 +7470,20 @@ async function _activateWhiteLabel(vendor) {
             } catch(e) {}
             var freshSp = (_storeProvidersCache || []).find(function(x) { return x.id === sp.id; }) || sp;
             buildWLPage(freshSp, resolvedVendor);
+         });
+         // Live-refresh when owner changes STOCK (inventory_batches)
+         _liveSubscribe('storeStockWL', 'inventory_batches', async function() {
+            var act = _customerActiveBranch(sp.id);
+            try {
+               var b2 = await AppDB.getBatchesForStore(sp.id);
+               window._custStoreTracksStock = !!(b2 && b2.length);
+               _currentStockByProduct = {};
+               (b2 || []).forEach(function(b) {
+                  if (act && b.branch_id !== act.id) return;
+                  (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
+               });
+            } catch (e) {}
+            buildWLPage(sp, resolvedVendor);
          });
          // Live-refresh when owner updates banners, ads, or delivery status
          _liveSubscribe('storeProvWL', 'store_providers', async function() {
@@ -11174,11 +11224,13 @@ async function _commitFEFODeduction(updates) {
    for (var i = 0; i < updates.length; i++) {
       var u = updates[i];
       var b = u.batchRef;
-      // Update DB
+      // Update DB — MUST preserve branch_id, else the batch loses its branch tag
+      // and the product wrongly reads Out of stock at every branch.
       await AppDB.upsertInventoryBatch({
          id:                b.id,
          product_id:        b.product_id,
          store_provider_id: b.store_provider_id,
+         branch_id:         b.branch_id,
          batch_no:          b.batch_no,
          mfg_date:          b.mfg_date,
          expiry_date:       b.expiry_date,

@@ -22811,12 +22811,25 @@ function _addrUseMyLocation() {
 async function _addrMapSearch() {
    var q = (document.getElementById('addr-map-search') || {}).value || '';
    if (!q.trim()) return;
+   var btnMsg = function(m) { var el = document.getElementById('addr-map-search'); if (el) el.placeholder = m; };
    try {
-      var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q), { headers: { 'Accept-Language': 'en' } });
-      var arr = await res.json();
-      if (arr && arr.length) { _addrSetMarker(parseFloat(arr[0].lat), parseFloat(arr[0].lon), true); }
-      else alert('Place not found. Try a more specific search.');
-   } catch (e) { console.warn(e); }
+      // India-biased search, up to 5 candidates. If none, retry worldwide.
+      var base = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&';
+      var res = await fetch(base + 'countrycodes=in&q=' + encodeURIComponent(q), { headers: { 'Accept-Language': 'en' } });
+      var arr = res.ok ? await res.json() : [];
+      if (!arr || !arr.length) {
+         res = await fetch(base + 'q=' + encodeURIComponent(q), { headers: { 'Accept-Language': 'en' } });
+         arr = res.ok ? await res.json() : [];
+      }
+      if (arr && arr.length) {
+         _addrSetMarker(parseFloat(arr[0].lat), parseFloat(arr[0].lon), true);
+      } else {
+         alert('Couldn\'t find "' + q + '". Try adding city/PIN, or just tap the map to drop the pin manually.');
+      }
+   } catch (e) {
+      console.warn(e);
+      alert('Search is busy right now. Please tap the map to set your location, or try again in a moment.');
+   }
 }
 
 // Reverse-geocode a point → fill the address fields (respects the locked City).

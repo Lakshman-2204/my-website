@@ -1119,6 +1119,32 @@ window.AppDB = {
       return true;
    },
 
+   // ── DELIVERY TRACKING (Leaflet + OpenStreetMap map, no Google) ──────────
+   async getOrderById(orderId) {
+      const { data, error } = await _sb.from('orders').select('*').eq('order_id', orderId).maybeSingle();
+      if (error) { console.error('getOrderById:', error.message); return null; }
+      return data ? _orderFromDB(data) : null;
+   },
+   // Delivery person pushes their live GPS here every few seconds.
+   async upsertDeliveryLocation(orderId, lat, lng, status) {
+      const row = { order_id: orderId, lat: lat, lng: lng, status: status || 'en_route', updated_at: new Date().toISOString() };
+      const { error } = await _sb.from('delivery_tracking').upsert(row, { onConflict: 'order_id' });
+      if (error) { console.error('upsertDeliveryLocation:', error.message); return false; }
+      return true;
+   },
+   async getDeliveryLocation(orderId) {
+      const { data, error } = await _sb.from('delivery_tracking').select('*').eq('order_id', orderId).maybeSingle();
+      if (error) { return null; }
+      return data || null;
+   },
+   // Live subscription to one order's delivery location (for the customer map).
+   subscribeDeliveryLocation(orderId, cb) {
+      return _sb.channel('delivery-' + orderId)
+         .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_tracking', filter: 'order_id=eq.' + orderId },
+             function(payload) { try { cb(payload.new || payload.old); } catch (e) {} })
+         .subscribe();
+   },
+
    async updateOrderStatus(orderId, status) {
       const { error } = await _sb.from('orders').update({ status }).eq('order_id', orderId);
       if (error) { console.error('updateOrderStatus:', error.message); return false; }

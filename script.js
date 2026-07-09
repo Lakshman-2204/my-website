@@ -9686,6 +9686,10 @@ function renderShopDashboard(filterStatus) {
          if (status === 'Out for Delivery') actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">✅ Delivered</button>';
          // Legacy delivery rows still on 'Ready' — let owner advance them
          if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#1565c0" onclick="updateOrderStatus(\'' + oid + '\',\'Out for Delivery\')">🚚 Out for Delivery</button>';
+         // Delivery-person live-location sharing page (Leaflet/OSM)
+         if (status === 'Out for Delivery' || status === 'Ready') {
+            actions += ' <button class="apt-view-btn" style="background:#0891b2" title="Open on the delivery person\'s phone to share live location" onclick="window.open(\'delivery.html?order=' + oid + '&role=driver\',\'_blank\')">📡 Share Location</button>';
+         }
       } else {
          if (status === 'Packed')           actions += ' <button class="apt-view-btn" style="background:#2e7d32" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">🏪 Ready for Pickup</button>';
          if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">🏁 Picked up</button>';
@@ -23020,6 +23024,10 @@ async function renderOrders() {
       var cancelBtn = canCancel
          ? '<button onclick="customerCancelOrder(\'' + (o.orderId||'').replace(/'/g,"\\'") + '\')" style="background:none;border:1.5px solid #ef4444;color:#ef4444;border-radius:8px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">✕ Cancel Order</button>'
          : '';
+      // Live delivery tracking (Leaflet/OSM) — shown for in-transit delivery orders
+      var _trackBtn = (o.status === 'Out for Delivery' && o.delivery_address)
+         ? '<button onclick="window.open(\'delivery.html?order=' + (o.orderId||'').replace(/'/g,"\\'") + '\',\'_blank\')" style="background:#0891b2;border:none;color:#fff;border-radius:8px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">📍 Track Delivery</button>'
+         : '';
       return ''
        + '<div class="order-card">'
        +    '<div class="order-card-header">'
@@ -23031,6 +23039,7 @@ async function renderOrders() {
        +    '<div class="order-footer">'
        +       '<span>' + _orderFooterLabel(o) + '</span>'
        +       totalHtml
+       +       _trackBtn
        +       cancelBtn
        +    '</div>'
        + '</div>';

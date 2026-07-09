@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Delivery Tracking — MyStore</title>
+   <!-- Leaflet (OpenStreetMap) — free, no API key, no billing -->
+   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+   <!-- Supabase -->
+   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+   <script src="supabase.js"></script>
+   <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+      #topbar { padding: 12px 16px; background: #111c33; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      #topbar h1 { font-size: 1rem; margin: 0; }
+      #topbar .sub { font-size: 0.75rem; color: #94a3b8; }
+      #map { width: 100%; height: calc(100vh - 130px); }
+      #panel { padding: 12px 16px; background: #111c33; font-size: 0.85rem; }
+      .row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+      .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+      .badge { display:inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; }
+      button { font-family: inherit; cursor: pointer; }
+      .btn-share { background: #16a34a; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; font-size: 0.9rem; }
+      .btn-stop  { background: #dc2626; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; font-size: 0.9rem; }
+      .muted { color: #94a3b8; }
+   </style>
+</head>
+<body>
+   <div id="topbar">
+      <div>
+         <h1 id="title">🚚 Delivery Tracking</h1>
+         <div class="sub" id="orderline">Loading…</div>
+      </div>
+      <div id="statusBadge"></div>
+   </div>
+
+   <div id="map"></div>
+
+   <div id="panel">
+      <div class="row"><span class="dot" style="background:#0ea5e9"></span> <span>Store / Branch</span> <span class="muted" id="storeAddr"></span></div>
+      <div class="row"><span class="dot" style="background:#ef4444"></span> <span>Delivery address</span> <span class="muted" id="custAddr"></span></div>
+      <div class="row"><span class="dot" style="background:#16a34a"></span> <span>Delivery person</span> <span class="muted" id="driverInfo">— waiting for location —</span></div>
+      <div id="driverControls" style="margin-top:10px"></div>
+      <div id="etaLine" style="margin-top:8px" class="muted"></div>
+   </div>
+
+<script>
+(function () {
+   var params   = new URLSearchParams(location.search);
+   var orderId  = params.get('order') || '';
+   var isDriver = params.get('role') === 'driver';
+
+   var map, storeMarker, custMarker, driverMarker, routeLine;
+   var storeLL = null, custLL = null;
+   var watchId = null, pushTimer = null, lastPos = null;
+
+   // ── Geocoding via OpenStreetMap Nominatim (free, cached in localStorage) ──
+   async function geocode(addr) {
+      if (!addr) return null;
+      var key = 'geo:' + addr.toLowerCase().trim();
+      try { var c = localStorage.getItem(key); if (c) return JSON.parse(c); } catch (e) {}
+      try {
+         var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(addr);
+         var res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+         var arr = await res.json();
+         if (arr && arr.length) {
+            var ll = { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon) };
+            try { localStorage.setItem(key, JSON.stringify(ll)); } catch (e) {}
+            return ll;
+         }
+      } catch (e) { console.warn('geocode failed', e); }
+      return null;
+   }
+
+   function addrToStr(a) {
+      if (!a) return '';
+      return [a.line, a.line1, a.line2, a.area, a.city, a.state, a.pin, a.pincode].filter(Boolean).join(', ');
+   }
+
+   function icon(color) {
+      return L.divIcon({
+         className: '', iconSize: [22, 22], iconAnchor: [11, 11],
+         html: '<div style="width:20px;height:20px;border-radius:50%;background:' + color + ';border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,0,0.5)"></div>'
+      });
+   }
+
+   function fitAll() {
+      var pts = [];
+      if (storeLL)  pts.push([storeLL.lat, storeLL.lng]);
+      if (custLL)   pts.push([custLL.lat, custLL.lng]);
+      if (lastPos)  pts.push([lastPos.lat, lastPos.lng]);
+      if (pts.length === 1) map.setView(pts[0], 14);
+      else if (pts.length > 1) map.fitBounds(pts, { padding: [40, 40] });
+   }
+
+   function drawRoute() {
+      // Simple straight line store → customer (free; upgrade to OSRM later if needed)
+      if (routeLine) map.removeLayer(routeLine);
+      if (storeLL && custLL) {
+         routeLine = L.polyline([[storeLL.lat, storeLL.lng], [custLL.lat, custLL.lng]],
+            { color: '#38bdf8', weight: 3, opacity: 0.6, dashArray: '6 8' }).addTo(map);
+      }
+   }
+
+   function haversineKm(a, b) {
+      var R = 6371, dLat = (b.lat - a.lat) * Math.PI / 180, dLng = (b.lng - a.lng) * Math.PI / 180;
+      var s = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+   }
+
+   function updateDriver(lat, lng, ts) {
+      lastPos = { lat: lat, lng: lng };
+      var ll = [lat, lng];
+      if (!driverMarker) driverMarker = L.marker(ll, { icon: icon('#16a34a') }).addTo(map).bindPopup('🚚 Delivery');
+      else driverMarker.setLatLng(ll);
+      var when = ts ? new Date(ts).toLocaleTimeString() : 'just now';
+      document.getElementById('driverInfo').textContent = 'Live · updated ' + when;
+      if (custLL) {
+         var km = haversineKm(lastPos, custLL);
+         document.getElementById('etaLine').textContent = '📍 ~' + km.toFixed(1) + ' km from the delivery address (straight-line)';
+      }
+   }
+
+   function setStatus(txt, color) {
+      var b = document.getElementById('statusBadge');
+      b.innerHTML = '<span class="badge" style="background:' + (color || '#334155') + ';color:#fff">' + txt + '</span>';
+   }
+
+   // ── Driver mode: share GPS ───────────────────────────────────────────────
+   function startSharing() {
+      if (!navigator.geolocation) { alert('Geolocation not supported on this device.'); return; }
+      setStatus('Sharing location…', '#16a34a');
+      document.getElementById('driverControls').innerHTML =
+         '<button class="btn-stop" onclick="__stopShare()">■ Stop sharing</button>';
+      watchId = navigator.geolocation.watchPosition(function (p) {
+         lastPos = { lat: p.coords.latitude, lng: p.coords.longitude };
+         updateDriver(lastPos.lat, lastPos.lng, Date.now());
+         fitAll();
+      }, function (err) {
+         console.warn(err); setStatus('Location error', '#dc2626');
+      }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+      // Push to Supabase every 5s
+      pushTimer = setInterval(function () {
+         if (lastPos) AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, 'en_route');
+      }, 5000);
+   }
+   window.__stopShare = function () {
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+      if (pushTimer) clearInterval(pushTimer);
+      watchId = null; pushTimer = null;
+      if (lastPos) AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, 'stopped');
+      setStatus('Stopped', '#334155');
+      document.getElementById('driverControls').innerHTML =
+         '<button class="btn-share" onclick="__startShare()">▶ Resume sharing</button>';
+   };
+   window.__startShare = startSharing;
+
+   async function init() {
+      if (!orderId) { document.getElementById('orderline').textContent = 'No order specified.'; return; }
+      document.getElementById('title').textContent = isDriver ? '🚚 Share Delivery Location' : '📍 Track Your Delivery';
+
+      map = L.map('map').setView([20.5937, 78.9629], 5);   // India default
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+         maxZoom: 19, attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      var order = await AppDB.getOrderById(orderId);
+      if (!order) { document.getElementById('orderline').textContent = 'Order not found.'; return; }
+      document.getElementById('orderline').textContent = orderId + ' · ' + (order.customerName || 'Customer');
+
+      // Resolve store/branch address + customer address
+      var branches = [], provs = [];
+      try { branches = await AppDB.getAllStoreBranches(); } catch (e) {}
+      try { provs = await AppDB.getStoreProviders(); } catch (e) {}
+      var branch = order.branch_id ? branches.find(function (b) { return b.id === order.branch_id; }) : null;
+      var store  = provs.find(function (p) { return p.id === order.store_provider_id; }) || {};
+      var storeAddrStr = (branch && (branch.address || (branch.details && branch.details.address))) || store.address || '';
+      var custAddrStr  = addrToStr(order.delivery_address);
+
+      document.getElementById('storeAddr').textContent = storeAddrStr || '—';
+      document.getElementById('custAddr').textContent  = custAddrStr || '—';
+
+      storeLL = await geocode(storeAddrStr);
+      custLL  = await geocode(custAddrStr);
+      if (storeLL) storeMarker = L.marker([storeLL.lat, storeLL.lng], { icon: icon('#0ea5e9') }).addTo(map).bindPopup('🏬 ' + (store.name || 'Store'));
+      if (custLL)  custMarker  = L.marker([custLL.lat, custLL.lng],  { icon: icon('#ef4444') }).addTo(map).bindPopup('🏠 Delivery address');
+      drawRoute();
+      fitAll();
+
+      if (isDriver) {
+         document.getElementById('driverControls').innerHTML =
+            '<button class="btn-share" onclick="__startShare()">▶ Start sharing my location</button>' +
+            '<div class="muted" style="margin-top:6px">Keep this page open while delivering.</div>';
+      } else {
+         // Customer view: load last known + subscribe to live updates
+         setStatus('Waiting for driver…', '#334155');
+         var last = await AppDB.getDeliveryLocation(orderId);
+         if (last && last.lat != null) { updateDriver(last.lat, last.lng, last.updated_at); setStatus(last.status === 'en_route' ? 'On the way' : (last.status || 'Tracking'), '#16a34a'); fitAll(); }
+         AppDB.subscribeDeliveryLocation(orderId, function (row) {
+            if (row && row.lat != null) { updateDriver(row.lat, row.lng, row.updated_at); setStatus(row.status === 'stopped' ? 'Paused' : 'On the way', row.status === 'stopped' ? '#334155' : '#16a34a'); }
+         });
+      }
+   }
+
+   window.addEventListener('load', init);
+})();
+</script>
+</body>
+</html>

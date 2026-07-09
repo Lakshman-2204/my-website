@@ -101,12 +101,32 @@
    }
 
    function drawRoute() {
-      // Simple straight line store → customer (free; upgrade to OSRM later if needed)
+      // Faint straight reference store → customer (the real road route is drawn separately)
       if (routeLine) map.removeLayer(routeLine);
       if (storeLL && custLL) {
          routeLine = L.polyline([[storeLL.lat, storeLL.lng], [custLL.lat, custLL.lng]],
-            { color: '#38bdf8', weight: 3, opacity: 0.6, dashArray: '6 8' }).addTo(map);
+            { color: '#64748b', weight: 2, opacity: 0.35, dashArray: '4 8' }).addTo(map);
       }
+   }
+
+   // Real ROAD route via OSRM (free, no key). Draws driver → customer along roads.
+   var roadLine = null, _lastRouteAt = 0;
+   async function drawRoadRoute(from, to) {
+      if (!from || !to) return;
+      try {
+         var url = 'https://router.project-osrm.org/route/v1/driving/' +
+            from.lng + ',' + from.lat + ';' + to.lng + ',' + to.lat + '?overview=full&geometries=geojson';
+         var res = await fetch(url);
+         var d = await res.json();
+         if (d && d.routes && d.routes.length) {
+            var coords = d.routes[0].geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+            if (roadLine) map.removeLayer(roadLine);
+            roadLine = L.polyline(coords, { color: '#16a34a', weight: 5, opacity: 0.85 }).addTo(map);
+            var km  = (d.routes[0].distance / 1000).toFixed(1);
+            var min = Math.round(d.routes[0].duration / 60);
+            note('🛣️ ' + km + ' km · ~' + min + ' min by road to the delivery address');
+         }
+      } catch (e) { console.warn('route failed', e); }
    }
 
    function haversineKm(a, b) {
@@ -115,6 +135,12 @@
       return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
    }
 
+   // Open the phone's maps app for real turn-by-turn voice navigation to the customer.
+   window.__navigate = function () {
+      if (!custLL) { alert('Delivery location not available yet.'); return; }
+      window.open('https://www.google.com/maps/dir/?api=1&destination=' + custLL.lat + ',' + custLL.lng + '&travelmode=driving', '_blank');
+   };
+
    function updateDriver(lat, lng, ts) {
       lastPos = { lat: lat, lng: lng };
       var ll = [lat, lng];
@@ -122,9 +148,10 @@
       else driverMarker.setLatLng(ll);
       var when = ts ? new Date(ts).toLocaleTimeString() : 'just now';
       document.getElementById('driverInfo').textContent = 'Live · updated ' + when;
+      // Recompute the road route at most every 15s (avoid hammering OSRM)
       if (custLL) {
-         var km = haversineKm(lastPos, custLL);
-         document.getElementById('etaLine').textContent = '📍 ~' + km.toFixed(1) + ' km from the delivery address (straight-line)';
+         var now = Date.now();
+         if (now - _lastRouteAt > 15000) { _lastRouteAt = now; drawRoadRoute(lastPos, custLL); }
       }
    }
 
@@ -148,7 +175,10 @@
       setStatus('Getting location…', '#16a34a');
       note('Requesting location permission… please tap "Allow".');
       document.getElementById('driverControls').innerHTML =
-         '<button class="btn-stop" onclick="__stopShare()">■ Stop sharing</button>';
+         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="btn-stop" style="flex:1;min-width:130px" onclick="__stopShare()">■ Stop sharing</button>' +
+            '<button onclick="__navigate()" style="flex:1;min-width:140px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:700;font-size:0.9rem;cursor:pointer">🧭 Navigate (voice)</button>' +
+         '</div>';
       watchId = navigator.geolocation.watchPosition(function (p) {
          lastPos = { lat: p.coords.latitude, lng: p.coords.longitude };
          updateDriver(lastPos.lat, lastPos.lng, Date.now());
@@ -176,7 +206,10 @@
       if (lastPos) AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, 'stopped');
       setStatus('Stopped', '#334155');
       document.getElementById('driverControls').innerHTML =
-         '<button class="btn-share" onclick="__startShare()">▶ Resume sharing</button>';
+         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="btn-share" style="flex:1;min-width:130px" onclick="__startShare()">▶ Resume sharing</button>' +
+            '<button onclick="__navigate()" style="flex:1;min-width:140px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:700;font-size:0.9rem;cursor:pointer">🧭 Navigate (voice)</button>' +
+         '</div>';
    };
    window.__startShare = startSharing;
 
@@ -220,9 +253,14 @@
       fitAll();
 
       if (isDriver) {
+         // Draw the initial road route from the store to the customer (until GPS starts)
+         if (storeLL && custLL) drawRoadRoute(storeLL, custLL);
          document.getElementById('driverControls').innerHTML =
-            '<button class="btn-share" onclick="__startShare()">▶ Start sharing my location</button>' +
-            '<div class="muted" style="margin-top:6px">Keep this page open while delivering.</div>';
+            '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+               '<button class="btn-share" style="flex:1;min-width:150px" onclick="__startShare()">▶ Start sharing my location</button>' +
+               '<button onclick="__navigate()" style="flex:1;min-width:140px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:700;font-size:0.9rem;cursor:pointer">🧭 Navigate (voice)</button>' +
+            '</div>' +
+            '<div class="muted" style="margin-top:6px">Keep this page open while delivering. Green line = road route to the customer.</div>';
       } else {
          // Customer view: load last known + subscribe to live updates
          setStatus('Waiting for driver…', '#334155');

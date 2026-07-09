@@ -183,7 +183,9 @@
       document.getElementById('custAddr').textContent  = custAddrStr || '—';
 
       storeLL = await geocode(storeAddrStr);
-      custLL  = await geocode(custAddrStr);
+      // Prefer the exact lat/lng the customer pinned on the map; else geocode.
+      var da = order.delivery_address || {};
+      custLL = (da.lat != null && da.lng != null) ? { lat: Number(da.lat), lng: Number(da.lng) } : await geocode(custAddrStr);
       if (storeLL) storeMarker = L.marker([storeLL.lat, storeLL.lng], { icon: icon('#0ea5e9') }).addTo(map).bindPopup('🏬 ' + (store.name || 'Store'));
       if (custLL)  custMarker  = L.marker([custLL.lat, custLL.lng],  { icon: icon('#ef4444') }).addTo(map).bindPopup('🏠 Delivery address');
       drawRoute();

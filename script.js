@@ -7971,7 +7971,7 @@ async function loadUserData(email) {
       AppDB.getWishlist(email)
    ]);
    _db.addresses = (addrs || []).map(function(a) {
-      return { id: a.id, name: a.name, phone: a.phone || '', line: a.line, city: a.city, state: a.state || '', pin: a.pin, isDefault: a.is_default || false };
+      return { id: a.id, name: a.name, phone: a.phone || '', line: a.line, city: a.city, state: a.state || '', pin: a.pin, lat: (a.lat != null ? a.lat : null), lng: (a.lng != null ? a.lng : null), isDefault: a.is_default || false };
    });
    _db.cards = (cards || []).map(function(c) {
       return { id: c.id, last4: c.last4 || '', brand: c.brand || '', expiry: c.expiry || '', nameOnCard: c.name_on_card || '' };
@@ -22688,7 +22688,7 @@ function saveAddressesData(email, arr) {
    _db.addresses = arr;
    AppDB.deleteUserAddresses(email).then(function() {
       arr.forEach(function(a) {
-         AppDB.upsertAddress({ id: a.id, user_email: email, name: a.name, phone: a.phone || '', line: a.line, city: a.city, state: a.state || '', pin: a.pin, is_default: a.isDefault || false });
+         AppDB.upsertAddress({ id: a.id, user_email: email, name: a.name, phone: a.phone || '', line: a.line, city: a.city, state: a.state || '', pin: a.pin, lat: (a.lat != null ? a.lat : null), lng: (a.lng != null ? a.lng : null), is_default: a.isDefault || false });
       });
    });
 }
@@ -22719,6 +22719,7 @@ function renderAddresses() {
 function openAddressModal(idx) {
    _editAddrIdx = (idx !== undefined && idx >= 0) ? idx : -1;
    document.getElementById('addrModalTitle').textContent = _editAddrIdx >= 0 ? '✏️ Edit Address' : '➕ Add New Address';
+   var _editLat = null, _editLng = null;
    if (_editAddrIdx >= 0) {
       const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
       const a = getAddresses(user.email)[_editAddrIdx];
@@ -22728,9 +22729,13 @@ function openAddressModal(idx) {
       document.getElementById('addr-city').value  = a.city  || '';
       document.getElementById('addr-state').value = a.state || '';
       document.getElementById('addr-pin').value   = a.pin   || '';
+      _editLat = a.lat; _editLng = a.lng;
    } else {
       ['addr-name','addr-phone','addr-line','addr-city','addr-state','addr-pin'].forEach(id => document.getElementById(id).value = '');
    }
+   var latEl = document.getElementById('addr-lat'), lngEl = document.getElementById('addr-lng');
+   if (latEl) latEl.value = _editLat != null ? _editLat : '';
+   if (lngEl) lngEl.value = _editLng != null ? _editLng : '';
    // City locked to the branch the customer is ordering from (template_6): when a
    // lock is pending (set from the storefront checkout), prefill + lock the City.
    var _lockCity = '';
@@ -22748,6 +22753,86 @@ function openAddressModal(idx) {
       }
    }
    document.getElementById('addressModal').classList.remove('hidden');
+   // Init the Leaflet location picker after the modal is visible
+   setTimeout(function() { _addrInitMap(_editLat, _editLng); }, 60);
+}
+
+// ── Address location picker (Leaflet / OpenStreetMap — free) ────────────────
+var _addrMap = null, _addrMarker = null;
+
+function _addrInitMap(lat, lng) {
+   if (typeof L === 'undefined') return;   // Leaflet not loaded on this page
+   var el = document.getElementById('addr-map');
+   if (!el) return;
+   var start = (lat != null && lng != null) ? [Number(lat), Number(lng)] : [20.5937, 78.9629];
+   var zoom  = (lat != null && lng != null) ? 16 : 5;
+   if (!_addrMap) {
+      _addrMap = L.map('addr-map').setView(start, zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(_addrMap);
+      _addrMap.on('click', function(e) { _addrSetMarker(e.latlng.lat, e.latlng.lng, true); });
+   } else {
+      _addrMap.setView(start, zoom);
+   }
+   _addrMap.invalidateSize();   // modal was hidden → recalc size
+   if (lat != null && lng != null) _addrSetMarker(Number(lat), Number(lng), false);
+   else if (_addrMarker) { _addrMap.removeLayer(_addrMarker); _addrMarker = null; }
+}
+
+function _addrSetMarker(lat, lng, doReverse) {
+   if (!_addrMap) return;
+   if (!_addrMarker) {
+      _addrMarker = L.marker([lat, lng], { draggable: true }).addTo(_addrMap);
+      _addrMarker.on('dragend', function() {
+         var p = _addrMarker.getLatLng();
+         _setAddrLatLng(p.lat, p.lng);
+         _addrReverseGeocode(p.lat, p.lng);
+      });
+   } else {
+      _addrMarker.setLatLng([lat, lng]);
+   }
+   _addrMap.setView([lat, lng], Math.max(_addrMap.getZoom(), 16));
+   _setAddrLatLng(lat, lng);
+   if (doReverse) _addrReverseGeocode(lat, lng);
+}
+
+function _setAddrLatLng(lat, lng) {
+   var la = document.getElementById('addr-lat'), ln = document.getElementById('addr-lng');
+   if (la) la.value = lat; if (ln) ln.value = lng;
+}
+
+function _addrUseMyLocation() {
+   if (!navigator.geolocation) { alert('Location not supported on this device.'); return; }
+   navigator.geolocation.getCurrentPosition(function(p) {
+      _addrSetMarker(p.coords.latitude, p.coords.longitude, true);
+   }, function() { alert('Could not get your location. Please allow location access or pick on the map.'); },
+   { enableHighAccuracy: true, timeout: 12000 });
+}
+
+async function _addrMapSearch() {
+   var q = (document.getElementById('addr-map-search') || {}).value || '';
+   if (!q.trim()) return;
+   try {
+      var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q), { headers: { 'Accept-Language': 'en' } });
+      var arr = await res.json();
+      if (arr && arr.length) { _addrSetMarker(parseFloat(arr[0].lat), parseFloat(arr[0].lon), true); }
+      else alert('Place not found. Try a more specific search.');
+   } catch (e) { console.warn(e); }
+}
+
+// Reverse-geocode a point → fill the address fields (respects the locked City).
+async function _addrReverseGeocode(lat, lng) {
+   try {
+      var res = await fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng, { headers: { 'Accept-Language': 'en' } });
+      var d = await res.json();
+      var a = (d && d.address) || {};
+      var lineParts = [a.house_number, a.road, a.neighbourhood, a.suburb].filter(Boolean);
+      var setIf = function(id, val) { var el = document.getElementById(id); if (el && val && !el.readOnly) el.value = val; };
+      if (lineParts.length) { var lineEl = document.getElementById('addr-line'); if (lineEl) lineEl.value = lineParts.join(', '); }
+      var city = a.city || a.town || a.village || a.county || '';
+      setIf('addr-city', city);
+      setIf('addr-state', a.state || '');
+      setIf('addr-pin', a.postcode || '');
+   } catch (e) { console.warn('reverse geocode failed', e); }
 }
 
 // Called from the storefront checkout "➕ Add Address in <city>" button.
@@ -22776,13 +22861,15 @@ function saveAddress() {
    const city  = document.getElementById('addr-city').value.trim();
    const state = document.getElementById('addr-state').value.trim();
    const pin   = document.getElementById('addr-pin').value.trim();
+   var _lv = (document.getElementById('addr-lat') || {}).value, _gv = (document.getElementById('addr-lng') || {}).value;
+   const lat = _lv ? parseFloat(_lv) : null, lng = _gv ? parseFloat(_gv) : null;
    if (!name || !line || !city || !pin) { alert('Please fill Name, Address, City and PIN.'); return; }
    const user  = JSON.parse(sessionStorage.getItem('loggedInUser'));
    const addrs = getAddresses(user.email);
    const isEdit = _editAddrIdx >= 0;
    // preserve existing isDefault when editing
    const wasDefault = isEdit ? addrs[_editAddrIdx].isDefault : false;
-   const addr  = { name, phone, line, city, state, pin, isDefault: wasDefault };
+   const addr  = { name, phone, line, city, state, pin, lat, lng, isDefault: wasDefault };
    if (isEdit) addrs[_editAddrIdx] = addr; else addrs.push(addr);
    // auto-set default if this is the only address
    if (addrs.length === 1) addrs[0].isDefault = true;

@@ -9763,13 +9763,9 @@ function _shareDeliveryLink(orderId) {
    var order = (_db.orders || []).find(function(o) { return (o.orderId || o.order_id) === orderId; }) || {};
    var msg  = 'Please share your live location for delivery of order ' + orderId +
               (order.customerName ? ' (' + order.customerName + ')' : '') + ':\n' + url;
+   window._shareLinkMsg = msg;
 
-   // Native share (best on phones — offers WhatsApp / SMS / etc.)
-   if (navigator.share) {
-      navigator.share({ title: 'Delivery location', text: msg, url: url }).catch(function() {});
-      return;
-   }
-   // Desktop fallback modal: copy link / WhatsApp / QR / open here
+   // Always show the share modal (copy link / WhatsApp / QR / native share / open)
    var wa = 'https://wa.me/?text=' + encodeURIComponent(msg);
    var qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
    var ov = document.getElementById('_shareLinkOverlay');
@@ -9789,8 +9785,11 @@ function _shareDeliveryLink(orderId) {
             '<div style="font-size:0.7rem;color:#94a3b8;margin:6px 0 12px">Scan the QR with the delivery person\'s phone</div>' +
             '<input id="_shareLinkInput" value="' + url + '" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.78rem;margin-bottom:12px" onclick="this.select()"/>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
-               '<button onclick="_copyShareLink()" style="flex:1;min-width:110px;background:#0284c7;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer">📋 Copy Link</button>' +
-               '<a href="' + wa + '" target="_blank" rel="noopener" style="flex:1;min-width:110px;background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;text-decoration:none;text-align:center">🟢 WhatsApp</a>' +
+               '<button onclick="_copyShareLink()" style="flex:1;min-width:130px;background:#0284c7;color:#fff;border:none;border-radius:8px;padding:11px;font-weight:800;cursor:pointer;font-size:0.9rem">📋 Copy Link</button>' +
+               '<a href="' + wa + '" target="_blank" rel="noopener" style="flex:1;min-width:110px;background:#25d366;color:#fff;border-radius:8px;padding:11px;font-weight:700;text-decoration:none;text-align:center">🟢 WhatsApp</a>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px">' +
+               (navigator.share ? '<button onclick="_nativeShareLink()" style="flex:1;min-width:110px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer">📤 Share…</button>' : '') +
                '<a href="' + url + '" target="_blank" rel="noopener" style="flex:1;min-width:110px;background:#e2e8f0;color:#475569;border-radius:8px;padding:10px;font-weight:700;text-decoration:none;text-align:center">Open here</a>' +
             '</div>' +
             '<button onclick="document.getElementById(\'_shareLinkOverlay\').style.display=\'none\'" style="margin-top:12px;background:none;border:none;color:#94a3b8;font-size:0.82rem;cursor:pointer">Close</button>' +
@@ -9801,9 +9800,18 @@ function _shareDeliveryLink(orderId) {
 function _copyShareLink() {
    var el = document.getElementById('_shareLinkInput');
    if (!el) return;
-   el.select();
-   try { navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand('copy'); }
-   var b = event && event.target; if (b) { var t = b.textContent; b.textContent = '✅ Copied'; setTimeout(function(){ b.textContent = t; }, 1500); }
+   el.select(); el.setSelectionRange(0, 99999);   // mobile-friendly select
+   var done = function() { var b = event && event.target; if (b) { var t = b.textContent; b.textContent = '✅ Copied!'; setTimeout(function(){ b.textContent = t; }, 1600); } };
+   if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(el.value).then(done).catch(function(){ try { document.execCommand('copy'); done(); } catch (e) {} });
+   } else {
+      try { document.execCommand('copy'); done(); } catch (e) {}
+   }
+}
+function _nativeShareLink() {
+   var el = document.getElementById('_shareLinkInput');
+   var url = el ? el.value : '';
+   if (navigator.share) navigator.share({ title: 'Delivery location', text: window._shareLinkMsg || url, url: url }).catch(function(){});
 }
 
 async function switchOrderToPickup(orderId) {

@@ -128,22 +128,40 @@
       b.innerHTML = '<span class="badge" style="background:' + (color || '#334155') + ';color:#fff">' + txt + '</span>';
    }
 
+   function note(msg, color) {
+      var el = document.getElementById('etaLine');
+      if (el) el.innerHTML = '<span style="color:' + (color || '#94a3b8') + '">' + msg + '</span>';
+   }
+
    // ── Driver mode: share GPS ───────────────────────────────────────────────
+   var _pushErrShown = false;
    function startSharing() {
       if (!navigator.geolocation) { alert('Geolocation not supported on this device.'); return; }
-      setStatus('Sharing location…', '#16a34a');
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+         alert('Live location needs a secure (https) page. Open this link over https.'); return;
+      }
+      setStatus('Getting location…', '#16a34a');
+      note('Requesting location permission… please tap "Allow".');
       document.getElementById('driverControls').innerHTML =
          '<button class="btn-stop" onclick="__stopShare()">■ Stop sharing</button>';
       watchId = navigator.geolocation.watchPosition(function (p) {
          lastPos = { lat: p.coords.latitude, lng: p.coords.longitude };
          updateDriver(lastPos.lat, lastPos.lng, Date.now());
+         setStatus('Sharing location…', '#16a34a');
+         note('✅ Sharing live location.');
          fitAll();
       }, function (err) {
-         console.warn(err); setStatus('Location error', '#dc2626');
-      }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+         console.warn(err); setStatus('Location blocked', '#dc2626');
+         note('❌ Location ' + (err && err.code === 1 ? 'permission denied — allow it in the browser and retry.' : 'unavailable. Move to open sky / enable GPS.'), '#fca5a5');
+      }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 });
       // Push to Supabase every 5s
-      pushTimer = setInterval(function () {
-         if (lastPos) AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, 'en_route');
+      pushTimer = setInterval(async function () {
+         if (!lastPos) return;
+         var ok = await AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, 'en_route');
+         if (!ok && !_pushErrShown) {
+            _pushErrShown = true;
+            note('⚠️ Could not save location to server. Make sure the delivery_tracking table exists (run the SQL) and Realtime is on.', '#fca5a5');
+         }
       }, 5000);
    }
    window.__stopShare = function () {
@@ -182,7 +200,9 @@
       document.getElementById('storeAddr').textContent = storeAddrStr || '—';
       document.getElementById('custAddr').textContent  = custAddrStr || '—';
 
-      storeLL = await geocode(storeAddrStr);
+      // Prefer the exact pin the owner set for the branch; else geocode its address.
+      var bd = (branch && branch.details) || {};
+      storeLL = (bd.lat != null && bd.lng != null) ? { lat: Number(bd.lat), lng: Number(bd.lng) } : await geocode(storeAddrStr);
       // Prefer the exact lat/lng the customer pinned on the map; else geocode.
       var da = order.delivery_address || {};
       custLL = (da.lat != null && da.lng != null) ? { lat: Number(da.lat), lng: Number(da.lng) } : await geocode(custAddrStr);

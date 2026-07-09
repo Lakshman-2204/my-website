@@ -21683,6 +21683,17 @@ function _ensureBranchDetailsModal() {
             '<button onclick="_stmCloseBranchDetails()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;line-height:1">×</button>' +
          '</div>' +
          '<div id="stmbdInherited" style="margin:10px 20px 0;padding:9px 12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;font-size:0.78rem;color:#475569"></div>' +
+         '<div style="padding:10px 20px 0">' +
+            '<div style="font-weight:700;font-size:0.78rem;color:#334155;margin-bottom:5px">📍 Store location on map (for customer navigation)</div>' +
+            '<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">' +
+               '<button type="button" onclick="_stmbdUseLocation()" style="background:#0891b2;color:#fff;border:none;border-radius:7px;padding:6px 11px;font-size:0.8rem;font-weight:700;cursor:pointer">📍 Use my location</button>' +
+               '<input type="text" id="stmbd_map_search" placeholder="Search a place…" onkeydown="if(event.key===\'Enter\'){event.preventDefault();_stmbdSearch();}" style="flex:1;min-width:130px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.8rem">' +
+               '<button type="button" onclick="_stmbdSearch()" style="background:#e2e8f0;color:#475569;border:none;border-radius:7px;padding:6px 11px;font-size:0.8rem;font-weight:700;cursor:pointer">🔍</button>' +
+            '</div>' +
+            '<div id="stmbd-map" style="width:100%;height:200px;border-radius:9px;border:1px solid #cbd5e1;overflow:hidden;background:#eef2f7"></div>' +
+            '<div style="font-size:0.7rem;color:#64748b;margin-top:3px">Tap the map / drag the pin — the address fields fill automatically.</div>' +
+            '<input type="hidden" id="stmbd_lat"><input type="hidden" id="stmbd_lng">' +
+         '</div>' +
          '<div style="padding:8px 20px 0"><button onclick="_stmCopyStoreToBranchDetails()" style="width:100%;padding:9px;background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;margin-bottom:8px">📥 Copy all details from main store</button></div>' +
          '<div style="flex:1;overflow-y:auto;padding:6px 20px 16px">' + fields +
             '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;color:#334155;font-weight:600"><input type="checkbox" id="stmbd_door_delivery"> 🚚 Door delivery available at this branch</label>' +
@@ -21724,7 +21735,68 @@ function _stmOpenBranchDetails(i) {
          'Category <b>' + ((catMeta.icon || '') + ' ' + (catMeta.label || sp.category || '—')) + '</b> · ' +
          'Owner <b>' + (sp.owner_email || 'Not assigned') + '</b>';
    }
+   var la = document.getElementById('stmbd_lat'), ln = document.getElementById('stmbd_lng');
+   if (la) la.value = d.lat != null ? d.lat : '';
+   if (ln) ln.value = d.lng != null ? d.lng : '';
    document.getElementById('stmBranchDetailModal').style.display = 'flex';
+   setTimeout(function() { _stmbdInitMap(d.lat, d.lng); }, 60);
+}
+
+// ── Branch location map picker (Leaflet / OpenStreetMap) ────────────────────
+var _stmbdMap = null, _stmbdMarker = null;
+function _stmbdInitMap(lat, lng) {
+   if (typeof L === 'undefined') return;
+   var el = document.getElementById('stmbd-map'); if (!el) return;
+   var start = (lat != null && lng != null) ? [Number(lat), Number(lng)] : [20.5937, 78.9629];
+   var zoom  = (lat != null && lng != null) ? 16 : 5;
+   if (!_stmbdMap) {
+      _stmbdMap = L.map('stmbd-map').setView(start, zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(_stmbdMap);
+      _stmbdMap.on('click', function(e) { _stmbdSetMarker(e.latlng.lat, e.latlng.lng, true); });
+   } else { _stmbdMap.setView(start, zoom); }
+   _stmbdMap.invalidateSize();
+   if (lat != null && lng != null) _stmbdSetMarker(Number(lat), Number(lng), false);
+   else if (_stmbdMarker) { _stmbdMap.removeLayer(_stmbdMarker); _stmbdMarker = null; }
+}
+function _stmbdSetMarker(lat, lng, doReverse) {
+   if (!_stmbdMap) return;
+   if (!_stmbdMarker) {
+      _stmbdMarker = L.marker([lat, lng], { draggable: true }).addTo(_stmbdMap);
+      _stmbdMarker.on('dragend', function() { var p = _stmbdMarker.getLatLng(); _stmbdLL(p.lat, p.lng); _stmbdReverse(p.lat, p.lng); });
+   } else { _stmbdMarker.setLatLng([lat, lng]); }
+   _stmbdMap.setView([lat, lng], Math.max(_stmbdMap.getZoom(), 16));
+   _stmbdLL(lat, lng);
+   if (doReverse) _stmbdReverse(lat, lng);
+}
+function _stmbdLL(lat, lng) {
+   var la = document.getElementById('stmbd_lat'), ln = document.getElementById('stmbd_lng');
+   if (la) la.value = lat; if (ln) ln.value = lng;
+}
+function _stmbdUseLocation() {
+   if (!navigator.geolocation) { alert('Location not supported.'); return; }
+   navigator.geolocation.getCurrentPosition(function(p) { _stmbdSetMarker(p.coords.latitude, p.coords.longitude, true); },
+      function() { alert('Could not get location. Tap the map instead.'); }, { enableHighAccuracy: true, timeout: 12000 });
+}
+async function _stmbdSearch() {
+   var q = (document.getElementById('stmbd_map_search') || {}).value || '';
+   if (!q.trim()) return;
+   try {
+      var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=' + encodeURIComponent(q), { headers: { 'Accept-Language': 'en' } });
+      var arr = res.ok ? await res.json() : [];
+      if (!arr.length) { res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q)); arr = res.ok ? await res.json() : []; }
+      if (arr && arr.length) _stmbdSetMarker(parseFloat(arr[0].lat), parseFloat(arr[0].lon), true);
+      else alert('Place not found. Tap the map to set the location.');
+   } catch (e) { alert('Search busy — tap the map to set the location.'); }
+}
+async function _stmbdReverse(lat, lng) {
+   try {
+      var res = await fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng, { headers: { 'Accept-Language': 'en' } });
+      var d = await res.json(); var a = (d && d.address) || {};
+      var line = [a.house_number, a.road, a.neighbourhood, a.suburb].filter(Boolean).join(', ');
+      var set = function(id, v) { var el = document.getElementById(id); if (el && v) el.value = v; };
+      if (line) set('stmbd_address', line);
+      set('stmbd_city_keyword', (a.city || a.town || a.village || a.county || '').toLowerCase());
+   } catch (e) {}
 }
 
 function _stmCopyStoreToBranchDetails() {
@@ -21749,6 +21821,9 @@ function _stmSaveBranchDetails() {
    });
    var dd = document.getElementById('stmbd_door_delivery');
    d.door_delivery = dd ? dd.checked : false;
+   var _la = (document.getElementById('stmbd_lat') || {}).value, _ln = (document.getElementById('stmbd_lng') || {}).value;
+   d.lat = _la ? parseFloat(_la) : null;
+   d.lng = _ln ? parseFloat(_ln) : null;
    b.details = d;
    // Mirror the key fields back to the row so list + routing stay in sync
    if (d.name)    b.branch_label = d.name;
@@ -23019,6 +23094,7 @@ async function renderOrders() {
    // Make sure store metadata is ready so we can derive each order's category
    // AND know each store's door_delivery flag (used by _orderFooterLabel)
    try { await loadStoreCategories(); await loadStoreProviders(); } catch (e) {}
+   try { await loadStoreBranches(); } catch (e) {}
 
    const allOrders = _db.orders.filter(function(o) { return o.customerEmail === user.email; });
    if (!allOrders.length) {
@@ -23128,6 +23204,21 @@ async function renderOrders() {
       var _trackBtn = (o.status === 'Out for Delivery' && o.delivery_address)
          ? '<button onclick="window.open(\'delivery.html?order=' + (o.orderId||'').replace(/'/g,"\\'") + '\',\'_blank\')" style="background:#0891b2;border:none;color:#fff;border-radius:8px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">📍 Track Delivery</button>'
          : '';
+      // Pickup orders → "Navigate to Store" (opens maps directions to the branch)
+      var _navBtn = '';
+      var _isPickup = !o.delivery_address || o.method === 'Pickup' || o.pickup_override;
+      var _navActive = _isPickup && o.status !== 'Cancelled' && o.status !== 'Completed';
+      if (_navActive) {
+         var _nbBranch = o.branch_id ? _getBranch(o.branch_id) : null;
+         var _nbDetails = (_nbBranch && _nbBranch.details) || {};
+         var _nbStore = (providers.find(function(p){ return p.id === o.store_provider_id; }) || {});
+         var _nbDest = (_nbDetails.lat != null && _nbDetails.lng != null)
+            ? (_nbDetails.lat + ',' + _nbDetails.lng)
+            : ((_nbBranch && _nbBranch.address) || _nbStore.address || o.storeName || '');
+         if (_nbDest) {
+            _navBtn = '<button onclick="window.open(\'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(_nbDest) + '\',\'_blank\')" style="background:#16a34a;border:none;color:#fff;border-radius:8px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">🧭 Navigate to Store</button>';
+         }
+      }
       return ''
        + '<div class="order-card">'
        +    '<div class="order-card-header">'
@@ -23139,6 +23230,7 @@ async function renderOrders() {
        +    '<div class="order-footer">'
        +       '<span>' + _orderFooterLabel(o) + '</span>'
        +       totalHtml
+       +       _navBtn
        +       _trackBtn
        +       cancelBtn
        +    '</div>'

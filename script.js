@@ -9686,9 +9686,9 @@ function renderShopDashboard(filterStatus) {
          if (status === 'Out for Delivery') actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">✅ Delivered</button>';
          // Legacy delivery rows still on 'Ready' — let owner advance them
          if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#1565c0" onclick="updateOrderStatus(\'' + oid + '\',\'Out for Delivery\')">🚚 Out for Delivery</button>';
-         // Delivery-person live-location sharing page (Leaflet/OSM)
+         // Send the live-location link to the delivery person's phone
          if (status === 'Out for Delivery' || status === 'Ready') {
-            actions += ' <button class="apt-view-btn" style="background:#0891b2" title="Open on the delivery person\'s phone to share live location" onclick="window.open(\'delivery.html?order=' + oid + '&role=driver\',\'_blank\')">📡 Share Location</button>';
+            actions += ' <button class="apt-view-btn" style="background:#0891b2" title="Send the live-location link to the delivery person" onclick="_shareDeliveryLink(\'' + oid + '\')">📡 Send to Delivery Person</button>';
          }
       } else {
          if (status === 'Packed')           actions += ' <button class="apt-view-btn" style="background:#2e7d32" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">🏪 Ready for Pickup</button>';
@@ -9755,6 +9755,57 @@ function renderShopDashboard(filterStatus) {
 // the store. Confirms first (this is a customer-visible change), then strips
 // method='COD-Delivery' / delivery_address so the status labels and action
 // buttons re-render as a pickup flow.
+// Build the driver link and let the owner send it to the delivery person
+// (native share sheet on mobile; copy / WhatsApp / QR on desktop).
+function _shareDeliveryLink(orderId) {
+   var base = location.origin + location.pathname.replace(/[^/]*$/, '');   // dir of current page
+   var url  = base + 'delivery.html?order=' + encodeURIComponent(orderId) + '&role=driver';
+   var order = (_db.orders || []).find(function(o) { return (o.orderId || o.order_id) === orderId; }) || {};
+   var msg  = 'Please share your live location for delivery of order ' + orderId +
+              (order.customerName ? ' (' + order.customerName + ')' : '') + ':\n' + url;
+
+   // Native share (best on phones — offers WhatsApp / SMS / etc.)
+   if (navigator.share) {
+      navigator.share({ title: 'Delivery location', text: msg, url: url }).catch(function() {});
+      return;
+   }
+   // Desktop fallback modal: copy link / WhatsApp / QR / open here
+   var wa = 'https://wa.me/?text=' + encodeURIComponent(msg);
+   var qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
+   var ov = document.getElementById('_shareLinkOverlay');
+   if (!ov) {
+      ov = document.createElement('div');
+      ov.id = '_shareLinkOverlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:12000;background:rgba(15,23,42,0.7);display:flex;align-items:center;justify-content:center;padding:16px';
+      ov.onclick = function(e) { if (e.target === ov) ov.style.display = 'none'; };
+      document.body.appendChild(ov);
+   }
+   ov.innerHTML =
+      '<div style="background:#fff;color:#0f172a;width:min(420px,94vw);border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.35)">' +
+         '<div style="background:#0f172a;color:#fff;padding:14px 18px;font-weight:800">📡 Send live-location link to delivery person</div>' +
+         '<div style="padding:18px;text-align:center">' +
+            '<div style="font-size:0.82rem;color:#64748b;margin-bottom:10px">The delivery person opens this on their phone and taps “Start sharing”.</div>' +
+            '<img src="' + qr + '" alt="QR" style="width:180px;height:180px;border:1px solid #e2e8f0;border-radius:10px" onerror="this.style.display=\'none\'"/>' +
+            '<div style="font-size:0.7rem;color:#94a3b8;margin:6px 0 12px">Scan the QR with the delivery person\'s phone</div>' +
+            '<input id="_shareLinkInput" value="' + url + '" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.78rem;margin-bottom:12px" onclick="this.select()"/>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">' +
+               '<button onclick="_copyShareLink()" style="flex:1;min-width:110px;background:#0284c7;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer">📋 Copy Link</button>' +
+               '<a href="' + wa + '" target="_blank" rel="noopener" style="flex:1;min-width:110px;background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;text-decoration:none;text-align:center">🟢 WhatsApp</a>' +
+               '<a href="' + url + '" target="_blank" rel="noopener" style="flex:1;min-width:110px;background:#e2e8f0;color:#475569;border-radius:8px;padding:10px;font-weight:700;text-decoration:none;text-align:center">Open here</a>' +
+            '</div>' +
+            '<button onclick="document.getElementById(\'_shareLinkOverlay\').style.display=\'none\'" style="margin-top:12px;background:none;border:none;color:#94a3b8;font-size:0.82rem;cursor:pointer">Close</button>' +
+         '</div>' +
+      '</div>';
+   ov.style.display = 'flex';
+}
+function _copyShareLink() {
+   var el = document.getElementById('_shareLinkInput');
+   if (!el) return;
+   el.select();
+   try { navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand('copy'); }
+   var b = event && event.target; if (b) { var t = b.textContent; b.textContent = '✅ Copied'; setTimeout(function(){ b.textContent = t; }, 1500); }
+}
+
 async function switchOrderToPickup(orderId) {
    var order = _db.orders.find(function(o) { return o.orderId === orderId || o.order_id === orderId; });
    if (!order) return;

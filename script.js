@@ -6271,6 +6271,10 @@ async function showStoreProvider(providerId) {
    var rxBtn = (p.category === 'medical')
       ? '<button class="rx-only-btn" onclick="openRxOnlyOrderModal(\'' + p.id.replace(/\'/g, "\\'") + '\')">📋 Prescription</button>'
       : '';
+   // "Locate Store" — opens the map showing the store + a road route from the
+   // customer's current location, without needing to place an order.
+   var _locActBr = _customerActiveBranch(p.id);
+   var locateBtn = '<button class="store-hero-outline-btn" onclick="_locateStore(\'' + p.id.replace(/\'/g, "\\'") + '\',\'' + ((_locActBr && _locActBr.id) || '').replace(/\'/g, "\\'") + '\')">📍 Locate Store</button>';
    // In white-label mode: no "back to platform" or "visit website" buttons
    var backBtn = window._wlMode ? '' : '<button class="store-hero-outline-btn" onclick="showStoreCategory(\'' + p.category.replace(/'/g,"'") + '\')">← ' + meta.label + '</button>';
    // Per-branch website (from the selected branch's Details) wins over the brand
@@ -6326,7 +6330,7 @@ async function showStoreProvider(providerId) {
             '<p>' + (_effSepa.timing ? '🕒 Open ' + _effSepa.timing + (_effSepa.address ? '&nbsp;&nbsp;📍 ' + _effSepa.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
             '<div class="store-hero-actions">' +
                '<button class="shop-now-btn" onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
-               rxBtn + backBtn + domainBtn +
+               rxBtn + locateBtn + backBtn + domainBtn +
             '</div>' +
          '</div>' +
          '<div class="store-hero-image">' + heroEmoji + '</div>' +
@@ -6532,6 +6536,8 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
 
    var _rxOnclick = rxBtn ? 'openRxOnlyOrderModal()' : '';
    var _visitHref = domainBtn ? (domainBtn.match(/href="([^"]+)"/) || [])[1] || '#' : '';
+   var _locBr = _customerActiveBranch(sp.id);
+   var _locOnclick = "_locateStore('" + sp.id.replace(/'/g, "\\'") + "','" + ((_locBr && _locBr.id) || '').replace(/'/g, "\\'") + "')";
 
    var _isVideo2 = _tpl2.bannerMedia && _tpl2.bannerMedia.startsWith('data:video');
    var _heroBg2 = (_tpl2.bannerMedia && !_isVideo2)
@@ -6560,6 +6566,7 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
             (_rxOnclick ? '<button onclick="' + _rxOnclick + '" style="' + _uploadBtnStyle + '">📋 Upload Prescription</button>' : '') +
             (_tpl2.rxBadgeEnabled ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1.5px solid rgba(14,165,233,0.4);color:#e0f2fe;border-radius:9px;padding:10px 18px;font-size:0.84rem;font-weight:700">🏥 Govt Approved Digital Pharmacy</div>' : '') +
             (_visitHref && _visitHref !== '#' ? '<a href="' + _visitHref + '" target="_blank" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;text-decoration:none">🌐 Visit Website ↗</a>' : '') +
+            '<button onclick="' + _locOnclick + '" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer">📍 Locate Store</button>' +
          '</div>' +
          (_tpl2.liveCounterEnabled && _tpl2.liveCounterText
             ? '<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(15,23,42,0.7);color:#22c55e;border-radius:50px;padding:8px 18px;font-size:0.82rem;font-weight:700;margin-top:14px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block;font-size:10px">●</span>' + _e2(_tpl2.liveCounterText) + '</div>'
@@ -9686,9 +9693,10 @@ function renderShopDashboard(filterStatus) {
          if (status === 'Out for Delivery') actions += ' <button class="apt-view-btn" style="background:#0a8a3a" onclick="updateOrderStatus(\'' + oid + '\',\'Completed\')">✅ Delivered</button>';
          // Legacy delivery rows still on 'Ready' — let owner advance them
          if (status === 'Ready')            actions += ' <button class="apt-view-btn" style="background:#1565c0" onclick="updateOrderStatus(\'' + oid + '\',\'Out for Delivery\')">🚚 Out for Delivery</button>';
-         // Send the live-location link to the delivery person's phone
+         // Send the live-location link to the delivery person + view their location
          if (status === 'Out for Delivery' || status === 'Ready') {
             actions += ' <button class="apt-view-btn" style="background:#0891b2" title="Send the live-location link to the delivery person" onclick="_shareDeliveryLink(\'' + oid + '\')">📡 Send to Delivery Person</button>';
+            actions += ' <button class="apt-view-btn" style="background:#f97316" title="See the delivery person\'s live location" onclick="window.open(\'delivery.html?order=' + oid + '\',\'_blank\')">📍 View Location</button>';
          }
       } else {
          if (status === 'Packed')           actions += ' <button class="apt-view-btn" style="background:#2e7d32" onclick="updateOrderStatus(\'' + oid + '\',\'Ready\')">🏪 Ready for Pickup</button>';
@@ -9757,6 +9765,15 @@ function renderShopDashboard(filterStatus) {
 // buttons re-render as a pickup flow.
 // Build the driver link and let the owner send it to the delivery person
 // (native share sheet on mobile; copy / WhatsApp / QR on desktop).
+// Open the store location map (store pin + road route from the customer's current
+// location) without needing an order. Used by the "📍 Locate Store" button.
+function _locateStore(storeProviderId, branchId) {
+   var base = location.origin + location.pathname.replace(/[^/]*$/, '');   // dir of current page
+   var url  = base + 'delivery.html?store=' + encodeURIComponent(storeProviderId) +
+              (branchId ? '&branch=' + encodeURIComponent(branchId) : '') + '&role=locate';
+   window.open(url, '_blank');
+}
+
 function _shareDeliveryLink(orderId) {
    var base = location.origin + location.pathname.replace(/[^/]*$/, '');   // dir of current page
    var url  = base + 'delivery.html?order=' + encodeURIComponent(orderId) + '&role=driver';

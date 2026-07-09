@@ -450,11 +450,11 @@ function renderCard(item, catKey, grid) {
    grid.appendChild(card);
 }
 
-// Does the currently-viewed branch/store actually track inventory? True only
-// when at least one batch is loaded. If a branch has NO batches at all, we treat
-// it as "not tracking stock" and skip Out-of-stock badges / add-to-cart blocks
-// (otherwise every item would falsely read Out of stock).
+// Does the current STORE track inventory at all? (set when the storefront loads).
+// If the store keeps inventory, a product with 0/no stock at the viewed branch is
+// Out of stock; if the store keeps none, we don't show OOS badges or block orders.
 function _branchTracksStock() {
+   if (typeof window._custStoreTracksStock === 'boolean') return window._custStoreTracksStock;
    return !!(_currentStockByProduct && Object.keys(_currentStockByProduct).length > 0);
 }
 
@@ -970,14 +970,13 @@ function _coRenderAddrSection(storeId) {
    if (br && brCity) {
       head = '<div style="font-size:0.72rem;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:5px 9px;margin-bottom:8px">📍 Ordering from <b>' + brName + '</b> — serves <b>' + brCity + '</b></div>';
    }
+   var cityMatch = function(a){ if (!brCity) return null; return ((a.city||'')+' '+(a.line||'')+' '+(a.pin||'')).toLowerCase().indexOf(brCity.toLowerCase())!==-1; };
    var body;
    if (!addrs.length) {
-      body = '<div style="font-size:0.8rem;color:#c62828">No delivery address saved. ' +
-             '<button onclick="_coAddAddressLocked(\'' + (brCity || '').replace(/\'/g,"\\'") + '\')" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.78rem">➕ Add Address' + (brCity ? ' in ' + brCity : '') + '</button></div>';
+      body = '<div style="font-size:0.8rem;color:#c62828;margin-bottom:6px">No delivery address yet.</div>';
    } else {
       var def = addrs.find(function(a){ return a.isDefault; }) || addrs[0];
       window._coSelectedAddrIdx = addrs.indexOf(def);
-      var cityMatch = function(a){ if (!brCity) return null; return ((a.city||'')+' '+(a.line||'')+' '+(a.pin||'')).toLowerCase().indexOf(brCity.toLowerCase())!==-1; };
       body = '<label style="font-size:0.72rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.04em">Deliver to</label>' +
              '<select id="coDeliveryAddr" onchange="window._coSelectedAddrIdx=parseInt(this.value,10)" style="width:100%;padding:8px;margin-top:4px;border:1px solid #cbd5e1;border-radius:7px;font-size:0.83rem">' +
              addrs.map(function(a, i){
@@ -987,7 +986,54 @@ function _coRenderAddrSection(storeId) {
              }).join('') +
              '</select>';
    }
-   host.innerHTML = head + body;
+   // Inline "add address" toggle (no profile round-trip — template_6 style)
+   var addBtn = '<button onclick="_coToggleAddrForm(true)" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.78rem;margin-top:6px">📍 Manage / Add Address</button>';
+   host.innerHTML = head + body + addBtn + _coAddrFormHtml(brCity);
+}
+
+// Inline add-address form (hidden until toggled). City locked to the branch area.
+function _coAddrFormHtml(brCity) {
+   var inp = 'style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;box-sizing:border-box;margin-top:3px"';
+   var lbl = 'style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase"';
+   return '<div id="coAddrForm" style="display:none;margin-top:10px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">' +
+      '<div style="font-weight:800;font-size:0.82rem;color:#0f172a;margin-bottom:8px">➕ New Delivery Address</div>' +
+      '<div style="margin-bottom:7px"><span ' + lbl + '>Full Name</span><input id="coAddrName" ' + inp + '></div>' +
+      '<div style="margin-bottom:7px"><span ' + lbl + '>Phone</span><input id="coAddrPhone" ' + inp + '></div>' +
+      '<div style="margin-bottom:7px"><span ' + lbl + '>Address Line</span><input id="coAddrLine" placeholder="House/Flat, Street, Area" ' + inp + '></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+         '<div><span ' + lbl + '>City (locked to branch)</span><input id="coAddrCity" value="' + (brCity || '') + '"' + (brCity ? ' readonly' : '') + ' style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;box-sizing:border-box;margin-top:3px;background:' + (brCity ? '#edf2f7' : '#fff') + '"></div>' +
+         '<div><span ' + lbl + '>State</span><input id="coAddrState" ' + inp + '></div>' +
+      '</div>' +
+      '<div style="margin-top:7px"><span ' + lbl + '>PIN Code</span><input id="coAddrPin" ' + inp + '></div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+         '<button onclick="_coSaveNewAddr()" style="flex:1;background:#15803d;color:#fff;border:none;border-radius:6px;padding:8px;font-weight:700;font-size:0.82rem;cursor:pointer">💾 Save Address</button>' +
+         '<button onclick="_coToggleAddrForm(false)" style="background:#e2e8f0;color:#475569;border:none;border-radius:6px;padding:8px 14px;font-weight:700;font-size:0.82rem;cursor:pointer">Cancel</button>' +
+      '</div>' +
+   '</div>';
+}
+
+function _coToggleAddrForm(show) {
+   var f = document.getElementById('coAddrForm');
+   if (f) f.style.display = show ? 'block' : 'none';
+}
+
+async function _coSaveNewAddr() {
+   var user = JSON.parse(sessionStorage.getItem('loggedInUser') || 'null');
+   if (!user) return;
+   var g = function(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; };
+   var name = g('coAddrName'), phone = g('coAddrPhone'), line = g('coAddrLine'),
+       city = g('coAddrCity'), state = g('coAddrState'), pin = g('coAddrPin');
+   if (!name || !line || !city || !pin) { alert('Please fill Name, Address, City and PIN.'); return; }
+   var addrs = (getAddresses(user.email) || []).slice();
+   var addr = { id: (crypto && crypto.randomUUID ? crypto.randomUUID() : 'addr_' + Date.now()),
+                name: name, phone: phone, line: line, city: city, state: state, pin: pin,
+                isDefault: addrs.length === 0 };
+   addrs.push(addr);
+   saveAddressesData(user.email, addrs);            // persists + updates _db.addresses immediately
+   window._coSelectedAddrIdx = addrs.length - 1;    // select the new one
+   var sp = (cart.find(function(c){ return c.store_provider_id; }) || {}).store_provider_id || null;
+   _coRenderAddrSection(sp);                          // re-render → new address shows right away
+   showToast('✅ Address saved');
 }
 
 function closeCartCheckout() {
@@ -1046,6 +1092,17 @@ async function _coPlaceOrder(paymentMode, txnId) {
    try { _coAddrs = getAddresses(user.email) || []; } catch (e) {}
    var _coIdx = (typeof window._coSelectedAddrIdx === 'number') ? window._coSelectedAddrIdx : -1;
    var _coAddr = (_coIdx >= 0 && _coAddrs[_coIdx]) || _coAddrs.find(function(a) { return a.isDefault; }) || _coAddrs[0] || null;
+
+   // Block out-of-stock items (inventory-tracking stores). Uses the branch stock
+   // snapshot loaded on the storefront.
+   if (_branchTracksStock()) {
+      var _oos = cart.find(function(c) {
+         var b = _currentStockByProduct[c.id] || [];
+         var q = b.reduce(function(s, x) { return s + (Number(x.qty_remaining) || 0); }, 0);
+         return q <= 0;
+      });
+      if (_oos) { alert('❌ "' + _oos.name + '" is out of stock at this branch. Please remove it from your cart.'); return; }
+   }
 
    var placed = 0;
    for (var ki = 0; ki < groupKeys.length; ki++) {
@@ -6122,16 +6179,21 @@ async function showStoreProvider(providerId) {
       }
    });
 
-   // Refresh in-memory stock snapshot so we can render Out-of-stock / In-stock
-   // badges on each card. Scoped to the customer's chosen branch (per-branch stock).
+   // Refresh in-memory stock snapshot for badges, scoped to the chosen branch.
+   // Also determine whether this STORE tracks inventory at all (any batch across
+   // any branch) — if so, a product with 0/no stock at the viewed branch counts
+   // as Out of stock (owner-consistent); if the store keeps no inventory, we
+   // don't show OOS badges or block ordering.
    try {
       var _custBranch = _customerActiveBranch(providerId);
-      var batches = await AppDB.getBatchesForStore(providerId, _custBranch ? _custBranch.id : undefined);
+      var allStoreBatches = await AppDB.getBatchesForStore(providerId);   // all branches
+      window._custStoreTracksStock = !!(allStoreBatches && allStoreBatches.length);
       _currentStockByProduct = {};
-      (batches || []).forEach(function(b) {
+      (allStoreBatches || []).forEach(function(b) {
+         if (_custBranch && b.branch_id && b.branch_id !== _custBranch.id) return;   // scope to viewed branch
          (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
       });
-   } catch (e) { _currentStockByProduct = {}; }
+   } catch (e) { _currentStockByProduct = {}; window._custStoreTracksStock = false; }
    window._currentStoreProvider = p;   // used by addToCart for door_delivery / Rx logic
 
    document.getElementById('heroSection').classList.add('hidden');
@@ -7344,12 +7406,14 @@ async function _activateWhiteLabel(vendor) {
          }
          var _wlActive = _customerActiveBranch(sp.id);
          try {
-            var wlBatches = await AppDB.getBatchesForStore(sp.id, _wlActive ? _wlActive.id : undefined);
+            var wlAll = await AppDB.getBatchesForStore(sp.id);   // all branches → tracking flag
+            window._custStoreTracksStock = !!(wlAll && wlAll.length);
             _currentStockByProduct = {};
-            (wlBatches || []).forEach(function(b) {
+            (wlAll || []).forEach(function(b) {
+               if (_wlActive && b.branch_id && b.branch_id !== _wlActive.id) return;
                (_currentStockByProduct[b.product_id] = _currentStockByProduct[b.product_id] || []).push(b);
             });
-         } catch(e) { _currentStockByProduct = {}; }
+         } catch(e) { _currentStockByProduct = {}; window._custStoreTracksStock = false; }
          window._wlSp = sp; window._wlVendor = resolvedVendor;   // for branch switching
          buildWLPage(sp, resolvedVendor);
          // Live-refresh when owner edits products

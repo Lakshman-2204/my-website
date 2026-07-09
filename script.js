@@ -6330,7 +6330,7 @@ async function showStoreProvider(providerId) {
             '<p>' + (_effSepa.timing ? '🕒 Open ' + _effSepa.timing + (_effSepa.address ? '&nbsp;&nbsp;📍 ' + _effSepa.address : '') : 'Browse our catalog and get the best deals.') + '</p>' +
             '<div class="store-hero-actions">' +
                '<button class="shop-now-btn" onclick="document.getElementById(\'storeSubcatPanel\').scrollIntoView({behavior:\'smooth\'})">Shop Now ↓</button>' +
-               rxBtn + locateBtn + backBtn + domainBtn +
+               rxBtn + backBtn + locateBtn + domainBtn +
             '</div>' +
          '</div>' +
          '<div class="store-hero-image">' + heroEmoji + '</div>' +
@@ -6565,8 +6565,8 @@ function buildMedicalWLLayout(sp, rxBtn, domainBtn, backBtn) {
          '<div class="wl-hero-actions" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
             (_rxOnclick ? '<button onclick="' + _rxOnclick + '" style="' + _uploadBtnStyle + '">📋 Upload Prescription</button>' : '') +
             (_tpl2.rxBadgeEnabled ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1.5px solid rgba(14,165,233,0.4);color:#e0f2fe;border-radius:9px;padding:10px 18px;font-size:0.84rem;font-weight:700">🏥 Govt Approved Digital Pharmacy</div>' : '') +
-            (_visitHref && _visitHref !== '#' ? '<a href="' + _visitHref + '" target="_blank" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;text-decoration:none">🌐 Visit Website ↗</a>' : '') +
             '<button onclick="' + _locOnclick + '" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer">📍 Locate Store</button>' +
+            (_visitHref && _visitHref !== '#' ? '<a href="' + _visitHref + '" target="_blank" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;text-decoration:none">🌐 Visit Website ↗</a>' : '') +
          '</div>' +
          (_tpl2.liveCounterEnabled && _tpl2.liveCounterText
             ? '<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(15,23,42,0.7);color:#22c55e;border-radius:50px;padding:8px 18px;font-size:0.82rem;font-weight:700;margin-top:14px;backdrop-filter:blur(4px)"><span style="animation:blink 1.5s linear infinite;display:inline-block;font-size:10px">●</span>' + _e2(_tpl2.liveCounterText) + '</div>'
@@ -7661,6 +7661,7 @@ function buildWLPage(sp, vendor) {
             : '') +
          '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
             '<button onclick="openRxOnlyOrderModal()" style="' + _wlUploadStyle + '">📋 Upload Prescription File (.pdf, .png, .jpg)</button>' +
+            '<button onclick="_locateStore(\'' + sp.id.replace(/'/g, "\\'") + '\',\'' + ((_customerActiveBranch(sp.id) || {}).id || '').replace(/'/g, "\\'") + '\')" style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:9px;padding:11px 22px;font-size:0.88rem;font-weight:700;cursor:pointer">📍 Locate Store</button>' +
             (_tpl.rxBadgeEnabled ? '<div style="display:inline-flex;align-items:center;gap:7px;background:rgba(14,165,233,0.15);border:1.5px solid rgba(14,165,233,0.4);color:#e0f2fe;border-radius:9px;padding:10px 18px;font-size:0.84rem;font-weight:700">🏥 Govt Approved Digital Pharmacy</div>' : '') +
          '</div>' +
          (_tpl.liveCounterEnabled && _tpl.liveCounterText

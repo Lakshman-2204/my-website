@@ -71,7 +71,8 @@ function _orderFromDB(r) {
             walk_in:           !!r.walk_in,
             doctor_name:       r.doctor_name       || '',
             stock_deducted:    !!r.stock_deducted,
-            pickup_override:   !!r.pickup_override };
+            pickup_override:   !!r.pickup_override,
+            delivery_otp:      r.delivery_otp       || null };
 }
 function _orderToDB(o) {
    const row = { order_id: o.orderId || o.order_id,
@@ -101,6 +102,7 @@ function _orderToDB(o) {
    if (o.branch_id)    row.branch_id    = o.branch_id;
    if (o.claimed_by)   row.claimed_by   = o.claimed_by;
    if (o.routing_type) row.routing_type = o.routing_type;
+   if (o.delivery_otp) row.delivery_otp = o.delivery_otp;
    return row;
 }
 
@@ -1149,6 +1151,60 @@ window.AppDB = {
       const { error } = await _sb.from('orders').update({ status }).eq('order_id', orderId);
       if (error) { console.error('updateOrderStatus:', error.message); return false; }
       return true;
+   },
+
+   // Mark an order Delivered from the driver page: deduct stock via FEFO (once,
+   // guarded by stock_deducted) and set status Completed. Self-contained so the
+   // standalone delivery.html (which doesn't load script.js) can call it. The
+   // owner's updateOrderStatus() checks the same flag, so there's no double count.
+   async markOrderDelivered(orderId) {
+      const order = await this.getOrderById(orderId);
+      if (!order) return false;
+      const storeId = order.store_provider_id;
+      const items   = order.items || [];
+      // Deduct stock only if the store tracks inventory and it wasn't already done.
+      if (storeId && items.length && !order.stock_deducted) {
+         let batches = [];
+         try { batches = await this.getBatchesForStore(storeId, order.branch_id || undefined); }
+         catch (e) { batches = []; }
+         if (batches.length) {
+            const byProduct = {};
+            batches.forEach(b => { (byProduct[b.product_id] = byProduct[b.product_id] || []).push(b); });
+            const updates = [];
+            items.forEach(it => {
+               let need = Number(it.qty) || 0;
+               if (!need) return;
+               if (it.allocations && it.allocations.length) {
+                  it.allocations.forEach(a => {
+                     const qty = Number(a.qty) || 0; if (!qty) return;
+                     const lot = (byProduct[it.id] || []).find(b => b.id === a.batchId);
+                     if (!lot) return;
+                     const have = Number(lot.qty_remaining) || 0;
+                     updates.push({ lot, newRemaining: have - Math.min(have, qty) });
+                  });
+                  return;
+               }
+               const lots = (byProduct[it.id] || []).slice().sort((a, b) => {
+                  const da = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+                  const db = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
+                  return da - db;
+               });
+               let remaining = need;
+               for (let i = 0; i < lots.length && remaining > 0; i++) {
+                  const have = Number(lots[i].qty_remaining) || 0;
+                  if (have <= 0) continue;
+                  const take = Math.min(have, remaining);
+                  updates.push({ lot: lots[i], newRemaining: have - take });
+                  remaining -= take;
+               }
+            });
+            for (const u of updates) {
+               await this.upsertInventoryBatch(Object.assign({}, u.lot, { qty_remaining: u.newRemaining }));
+            }
+            try { await this.patchOrder(orderId, { stock_deducted: true }); } catch (e) {}
+         }
+      }
+      return this.updateOrderStatus(orderId, 'Completed');
    },
 
    // Generic order patch — used by the shop-owner bill flow to update items,

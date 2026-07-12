@@ -44,8 +44,8 @@
    <div id="map"></div>
 
    <div id="panel">
-      <div class="row"><span class="dot" style="background:#2563eb"></span> <span>Store / Branch</span> <span class="muted" id="storeAddr"></span></div>
-      <div class="row"><span class="dot" style="background:#16a34a"></span> <span>Delivery address</span> <span class="muted" id="custAddr"></span></div>
+      <div class="row"><span style="font-size:16px;line-height:1">🏪</span> <span>Store / Branch</span> <span class="muted" id="storeAddr"></span></div>
+      <div class="row"><span style="font-size:16px;line-height:1">🏠</span> <span>Delivery address</span> <span class="muted" id="custAddr"></span></div>
       <div class="row"><span style="font-size:16px;line-height:1">🏍️</span> <span>Delivery person</span> <span class="muted" id="driverInfo">— waiting for location —</span></div>
       <div id="driverControls" style="margin-top:10px"></div>
       <div id="etaLine" style="margin-top:8px" class="muted"></div>
@@ -60,8 +60,17 @@
    var isDriver = params.get('role') === 'driver';
    var isLocate = params.get('role') === 'locate' || (!orderId && !!storeParam);  // just show/route to a store
    var isPickup = params.get('role') === 'pickup' || isLocate;   // customer walks/drives to the store
-   // Where the road route should end: store for pickup, customer address for delivery
-   function routeDest() { return isPickup ? storeLL : custLL; }
+   var _picked = false;   // driver has collected the order from the store (leg 2)
+   var _orderOtp = null;  // 4-digit OTP the customer must give to confirm delivery
+   var _delivered = false;
+   // Road route destination:
+   //  - pickup/locate: always the store
+   //  - delivery (driver + customer view): the STORE first, then the CUSTOMER after pickup
+   function routeDest() {
+      if (isPickup) return storeLL;
+      return _picked ? custLL : storeLL;
+   }
+   function curStatus() { return _picked ? 'en_route' : 'to_store'; }
 
    var map, storeMarker, custMarker, driverMarker, routeLine;
    var storeLL = null, custLL = null;
@@ -96,13 +105,17 @@
          html: '<div style="width:20px;height:20px;border-radius:50%;background:' + color + ';border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,0,0.5)"></div>'
       });
    }
-   // Orange bike marker for the delivery person
-   function bikeIcon() {
+   // Emoji markers (no circle background) — bike rider, store, and home.
+   function emojiIcon(emoji, size) {
+      var s = size || 30;
       return L.divIcon({
-         className: '', iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -18],
-         html: '<div style="width:36px;height:36px;border-radius:50%;background:#f97316;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1">🏍️</div>'
+         className: '', iconSize: [s + 4, s + 4], iconAnchor: [(s + 4) / 2, (s + 4) / 2], popupAnchor: [0, -(s / 2)],
+         html: '<div style="font-size:' + s + 'px;line-height:1;text-align:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.45))">' + emoji + '</div>'
       });
    }
+   function bikeIcon()  { return emojiIcon('🏍️', 30); }
+   function storeIcon() { return emojiIcon('🏪', 30); }
+   function homeIcon()  { return emojiIcon('🏠', 28); }
    var COL_STORE = '#2563eb', COL_CUST = '#16a34a', COL_BIKE = '#f97316';
 
    function fitAll() {
@@ -138,7 +151,8 @@
             roadLine = L.polyline(coords, { color: COL_BIKE, weight: 5, opacity: 0.85 }).addTo(map);
             var km  = (d.routes[0].distance / 1000).toFixed(1);
             var min = Math.round(d.routes[0].duration / 60);
-            note('🛣️ ' + km + ' km · ~' + min + ' min by road to the delivery address');
+            var toStore = storeLL && to && to.lat === storeLL.lat && to.lng === storeLL.lng;
+            note('🛣️ ' + km + ' km · ~' + min + ' min by road to the ' + (toStore ? 'store' : 'delivery address'));
          }
       } catch (e) { console.warn('route failed', e); }
    }
@@ -183,7 +197,57 @@
    }
 
    // ── Driver mode: accept → auto-share GPS (no stop; owner stays informed) ──
+   // Two legs: (1) navigate to the STORE, (2) after "Picked up", navigate to the CUSTOMER.
    var _pushErrShown = false, _sharing = false;
+
+   function renderDriverControls() {
+      if (_delivered) {
+         document.getElementById('driverControls').innerHTML =
+            '<div style="background:#052e16;color:#4ade80;border:1px solid #166534;border-radius:8px;padding:14px;font-weight:800;text-align:center;font-size:1rem">✅ Order delivered — thank you!</div>';
+         return;
+      }
+      var navLabel = _picked ? '🧭 Navigate to Customer (voice)' : '🧭 Navigate to Store (voice)';
+      var phaseBadge = _picked
+         ? '<div style="flex:1;min-width:160px;background:#052e16;color:#4ade80;border:1px solid #166534;border-radius:8px;padding:10px;font-weight:800;text-align:center">🚀 Picked up · delivering to customer</div>'
+         : '<div style="flex:1;min-width:160px;background:#0c1e3a;color:#93c5fd;border:1px solid #1e40af;border-radius:8px;padding:10px;font-weight:800;text-align:center">🛵 Go to the store to pick up the order</div>';
+      var pickBtn = _picked ? ''
+         : '<button onclick="__pickedUp()" style="width:100%;margin-top:8px;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:13px;font-weight:800;font-size:0.95rem;cursor:pointer">📦 I picked up the item from the store</button>';
+      // Delivered button appears only after pickup (leg 2) — asks for the customer OTP.
+      var deliverBtn = _picked
+         ? '<button onclick="__deliver()" style="width:100%;margin-top:8px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:13px;font-weight:800;font-size:0.95rem;cursor:pointer">✅ Mark as Delivered (enter customer OTP)</button>'
+         : '';
+      document.getElementById('driverControls').innerHTML =
+         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch">' +
+            phaseBadge +
+            '<button onclick="__navigate()" style="flex:1;min-width:160px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:700;font-size:0.9rem;cursor:pointer">' + navLabel + '</button>' +
+         '</div>' +
+         pickBtn + deliverBtn +
+         '<div class="muted" style="margin-top:6px">Keep this page open until the delivery is complete.</div>';
+   }
+
+   // Driver confirms handover by entering the 4-digit OTP the customer shows them.
+   window.__deliver = function () {
+      if (_delivered) return;
+      if (!_orderOtp) {
+         if (!confirm('No delivery OTP is set for this order. Mark it delivered anyway?')) return;
+      } else {
+         var entered = (prompt('Enter the 4-digit delivery OTP shown in the customer\'s order:') || '').trim();
+         if (!entered) return;
+         if (entered !== String(_orderOtp)) { alert('❌ Incorrect OTP. Please ask the customer to read it again.'); return; }
+      }
+      _delivered = true;
+      setStatus('Delivered', '#16a34a');
+      note('✅ Delivery confirmed with OTP. Thank you!', '#4ade80');
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+      if (pushTimer) clearInterval(pushTimer);
+      renderDriverControls();
+      // Persist: mark the tracking row delivered AND flip the order to Completed.
+      if (lastPos) AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, 'delivered');
+      else AppDB.upsertDeliveryLocation(orderId, null, null, 'delivered');
+      // Deduct stock (FEFO, once) + set the order Completed via the shared helper.
+      try { AppDB.markOrderDelivered(orderId); } catch (e) { try { AppDB.updateOrderStatus(orderId, 'Completed'); } catch (e2) {} }
+   };
+
    function startSharing() {
       if (_sharing) return;
       if (!navigator.geolocation) { alert('Location not supported on this device.'); return; }
@@ -193,28 +257,22 @@
       _sharing = true;
       setStatus('Getting location…', '#16a34a');
       note('Requesting location permission… please tap "Allow".');
-      // Locked "sharing active" state — no stop button (owner can always see the rider)
-      document.getElementById('driverControls').innerHTML =
-         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch">' +
-            '<div style="flex:1;min-width:150px;background:#052e16;color:#4ade80;border:1px solid #166534;border-radius:8px;padding:10px;font-weight:800;text-align:center">🟢 Delivery accepted · sharing live location</div>' +
-            '<button onclick="__navigate()" style="flex:1;min-width:150px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:700;font-size:0.9rem;cursor:pointer">🧭 Navigate (voice)</button>' +
-         '</div>' +
-         '<div class="muted" style="margin-top:6px">Keep this page open until the delivery is complete.</div>';
+      renderDriverControls();   // locked sharing state — no stop button
       // Mark accepted immediately so the owner sees it even before the first GPS fix
-      AppDB.upsertDeliveryLocation(orderId, (lastPos && lastPos.lat) || null, (lastPos && lastPos.lng) || null, 'en_route');
+      AppDB.upsertDeliveryLocation(orderId, (lastPos && lastPos.lat) || null, (lastPos && lastPos.lng) || null, curStatus());
       watchId = navigator.geolocation.watchPosition(function (p) {
          lastPos = { lat: p.coords.latitude, lng: p.coords.longitude };
          updateDriver(lastPos.lat, lastPos.lng, Date.now());
-         setStatus('Sharing live location', '#16a34a');
+         setStatus(_picked ? 'On the way to customer' : 'Heading to store', '#16a34a');
          fitAll();
       }, function (err) {
          console.warn(err); setStatus('Location blocked', '#dc2626');
          note('❌ Location ' + (err && err.code === 1 ? 'permission denied — enable location for this site and reopen the link.' : 'unavailable. Move to open sky / enable GPS.'), '#fca5a5');
       }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 });
-      // Push to Supabase every 5s (status stays en_route — no stopping)
+      // Push to Supabase every 5s (status reflects the current leg: to_store / en_route)
       pushTimer = setInterval(async function () {
          if (!lastPos) return;
-         var ok = await AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, 'en_route');
+         var ok = await AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, curStatus());
          if (!ok && !_pushErrShown) {
             _pushErrShown = true;
             note('⚠️ Could not save location to server. Make sure the delivery_tracking table exists (run the SQL) and Realtime is on.', '#fca5a5');
@@ -222,6 +280,22 @@
       }, 5000);
    }
    window.__accept = startSharing;
+
+   // Driver confirms pickup → switch navigation from store → customer.
+   window.__pickedUp = function () {
+      if (_picked) return;
+      _picked = true;
+      renderDriverControls();
+      note('📦 Marked as picked up — now navigating to the customer.', '#4ade80');
+      _lastRouteAt = 0;   // force an immediate route recompute to the customer
+      if (lastPos) {
+         drawRoadRoute(lastPos, custLL);
+         AppDB.upsertDeliveryLocation(orderId, lastPos.lat, lastPos.lng, 'en_route');
+      } else {
+         AppDB.upsertDeliveryLocation(orderId, null, null, 'en_route');
+      }
+      fitAll();
+   };
 
    async function init() {
       if (!orderId && !storeParam) { document.getElementById('orderline').textContent = 'No order or store specified.'; return; }
@@ -251,6 +325,8 @@
          order = await AppDB.getOrderById(orderId);
          if (!order) { document.getElementById('orderline').textContent = 'Order not found.'; return; }
          document.getElementById('orderline').textContent = orderId + ' · ' + (order.customerName || 'Customer');
+         _orderOtp = order.delivery_otp || null;
+         if (order.status === 'Completed' || order.status === 'Delivered') _delivered = true;
          branch = order.branch_id ? branches.find(function (b) { return b.id === order.branch_id; }) : null;
          store  = provs.find(function (p) { return p.id === order.store_provider_id; }) || {};
          custAddrStr = addrToStr(order.delivery_address);
@@ -273,8 +349,8 @@
       // Prefer the exact lat/lng the customer pinned on the map; else geocode.
       var da = (order && order.delivery_address) || {};
       custLL = (da.lat != null && da.lng != null) ? { lat: Number(da.lat), lng: Number(da.lng) } : (custAddrStr ? await geocode(custAddrStr) : null);
-      if (storeLL) storeMarker = L.marker([storeLL.lat, storeLL.lng], { icon: icon(COL_STORE) }).addTo(map).bindPopup('🏬 ' + (store.name || 'Store'));
-      if (custLL)  custMarker  = L.marker([custLL.lat, custLL.lng],  { icon: icon(COL_CUST) }).addTo(map).bindPopup('🏠 Delivery address');
+      if (storeLL) storeMarker = L.marker([storeLL.lat, storeLL.lng], { icon: storeIcon() }).addTo(map).bindPopup('🏪 ' + (store.name || 'Store'));
+      if (custLL)  custMarker  = L.marker([custLL.lat, custLL.lng],  { icon: homeIcon() }).addTo(map).bindPopup('🏠 Delivery address');
       drawRoute();
       fitAll();
 
@@ -302,8 +378,13 @@
          if (storeLL && custLL) drawRoadRoute(storeLL, custLL);
          // If this delivery was already accepted earlier, auto-resume sharing so a
          // page reload doesn't require re-accepting (and can't be used to stop it).
+         // Restore the correct leg: en_route = already picked up (→ customer).
          var existing = await AppDB.getDeliveryLocation(orderId);
-         if (existing && existing.status === 'en_route') {
+         if (_delivered || (existing && existing.status === 'delivered')) {
+            _delivered = true;
+            renderDriverControls();
+         } else if (existing && (existing.status === 'to_store' || existing.status === 'en_route')) {
+            _picked = (existing.status === 'en_route');
             startSharing();
          } else {
             document.getElementById('driverControls').innerHTML =
@@ -311,13 +392,33 @@
                '<div class="muted" style="margin-top:8px">Tap Accept to take this delivery. Your live location will be shared with the store until the order is delivered.</div>';
          }
       } else {
-         // Customer view: load last known + subscribe to live updates
+         // Customer / owner view: load last known + subscribe to live updates.
+         // Show which leg the rider is on so the customer knows the item was picked up.
          setStatus('Waiting for driver…', '#334155');
+         function applyLive(row) {
+            if (!row) return;
+            if (row.status === 'delivered') {
+               setStatus('✅ Delivered', '#16a34a');
+               note('✅ Your order has been delivered. Thank you!', '#4ade80');
+               if (row.lat != null) { updateDriver(row.lat, row.lng, row.updated_at); fitAll(); }
+               return;
+            }
+            if (row.lat == null) return;
+            _picked = (row.status === 'en_route');   // en_route = picked up, heading to customer
+            _lastRouteAt = 0;                          // recompute route for the current leg
+            updateDriver(row.lat, row.lng, row.updated_at);
+            if (row.status === 'to_store') {
+               setStatus('🛵 Heading to store', '#2563eb');
+               note('The delivery person is going to the store to pick up your order.', '#93c5fd');
+            } else {
+               setStatus('🚀 On the way to you', '#16a34a');
+               note('✅ Order picked up — the delivery person is on the way to your address.', '#4ade80');
+            }
+            fitAll();
+         }
          var last = await AppDB.getDeliveryLocation(orderId);
-         if (last && last.lat != null) { updateDriver(last.lat, last.lng, last.updated_at); setStatus(last.status === 'en_route' ? 'On the way' : (last.status || 'Tracking'), '#16a34a'); fitAll(); }
-         AppDB.subscribeDeliveryLocation(orderId, function (row) {
-            if (row && row.lat != null) { updateDriver(row.lat, row.lng, row.updated_at); setStatus(row.status === 'stopped' ? 'Paused' : 'On the way', row.status === 'stopped' ? '#334155' : '#16a34a'); }
-         });
+         applyLive(last);
+         AppDB.subscribeDeliveryLocation(orderId, applyLive);
       }
    }
 

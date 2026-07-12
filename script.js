@@ -1132,6 +1132,10 @@ async function _coPlaceOrder(paymentMode, txnId) {
       if (_coRouting.broadcast) { alert('ℹ️ ' + _coRouting.reason); }
       var _coBranch = (_coRouting.branch && _coRouting.branch.id) || _coSrc;
 
+      // 4-digit delivery OTP — shown in the customer's order list; the rider must
+      // enter it on the delivery page to mark the order Delivered (proof of handover).
+      var _coOtp = String(Math.floor(1000 + Math.random() * 9000));
+
       var order   = {
          orderId: orderId, order_id: orderId,
          date: dateStr,
@@ -1150,6 +1154,7 @@ async function _coPlaceOrder(paymentMode, txnId) {
          store_provider_id: grp.store_provider_id,
          branch_id: _coBranch,
          delivery_address: _coNeedsAddr && _coAddr ? _coAddr : null,
+         delivery_otp: _coOtp,
          routing_type: _coRouting.broadcast ? 'BIDDING_STREAM' : 'STANDARD'
       };
       _db.orders.unshift(order);
@@ -23296,6 +23301,16 @@ async function renderOrders() {
             _navBtn = '<button onclick="window.open(\'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(_nbDest) + '\',\'_blank\')" style="background:#16a34a;border:none;color:#fff;border-radius:8px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">🧭 Navigate to Store</button>';
          }
       }
+      // Delivery OTP — the rider must enter this to mark the order Delivered.
+      // Shown for active DELIVERY orders (not pickup, not completed/cancelled).
+      var _otpActive = o.delivery_otp && o.delivery_address && !_isPickup &&
+                       liveStatus !== 'Completed' && liveStatus !== 'Cancelled';
+      var _otpHtml = _otpActive
+         ? '<div style="margin:8px 0;padding:10px 12px;background:#f0fdf4;border:1px dashed #16a34a;border-radius:9px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
+              '<div style="font-size:0.75rem;color:#166534;font-weight:700">🔐 Delivery OTP<br><span style="font-weight:500;color:#15803d">Share with the rider only when your order arrives</span></div>' +
+              '<div style="font-size:1.5rem;font-weight:900;letter-spacing:6px;color:#15803d;font-family:monospace">' + o.delivery_otp + '</div>' +
+           '</div>'
+         : '';
       return ''
        + '<div class="order-card">'
        +    '<div class="order-card-header">'
@@ -23304,6 +23319,7 @@ async function renderOrders() {
        +    '</div>'
        +    (o.storeName ? '<div class="order-store-tag">🏪 ' + o.storeName + '</div>' : '')
        +    '<div class="order-items">' + itemsHtml + '</div>'
+       +    _otpHtml
        +    '<div class="order-footer">'
        +       '<span>' + _orderFooterLabel(o) + '</span>'
        +       totalHtml

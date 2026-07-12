@@ -1844,7 +1844,37 @@ function goHome() {
    });
 }
 
+// ── In-app browser history guard ────────────────────────────────────────────
+// home.html is a single-page app: opening a store / category / product group
+// swaps content via JS without a real URL change, so the browser Back button
+// used to leave the page entirely (straight back to login.html). We push a
+// history entry for each in-app view and, on Back (popstate), re-render the
+// previous view instead of navigating away.
+var _navSuppressPush = false;
+function _pushView(state) {
+   if (_navSuppressPush) return;
+   try {
+      var cur = history.state;
+      if (cur && cur.view === state.view && cur.id === state.id &&
+          cur.cat === state.cat && cur.name === state.name) return;   // ignore duplicate
+      history.pushState(state, '');
+   } catch (e) {}
+}
+window.addEventListener('popstate', function(e) {
+   var s = e.state || { view: 'home' };
+   _navSuppressPush = true;   // don't re-push while restoring a view
+   try {
+      if      (s.view === 'stores')   showStoresList();
+      else if (s.view === 'category') showStoreCategory(s.cat);
+      else if (s.view === 'store')    showStoreProvider(s.id);
+      else if (s.view === 'group')    showByCategory(s.name);
+      else                            goHome();
+   } catch (err) { console.warn('popstate restore failed', err); }
+   finally { _navSuppressPush = false; }
+});
+
 function showByCategory(groupName) {
+   _pushView({ view: 'group', name: groupName });
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    document.getElementById('productTitle').textContent = groupName;
@@ -5894,6 +5924,7 @@ function _setStoresChromeMode(on) {
    }
 }
 async function showStoresList() {
+   _pushView({ view: 'stores' });
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    applyStoreTheme({ primaryColor: '#00BCD4' });
@@ -6090,6 +6121,7 @@ async function showStoreCategory(catKey) {
    await loadStoreCategories();
    var meta = STORE_CAT_META[catKey];
    if (!meta) return;
+   _pushView({ view: 'category', cat: catKey });
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.remove('hidden');
    // Reset theme back to platform default when leaving a store
@@ -6184,6 +6216,7 @@ async function _refreshCustomerStock(providerId) {
 async function showStoreProvider(providerId) {
    var p = (_storeProvidersCache || []).find(function(x) { return x.id === providerId; });
    if (!p) return;
+   _pushView({ view: 'store', id: providerId });
    try { await loadStoreBranches(); } catch (e) {}
    var meta = STORE_CAT_META[p.category] || { icon: '🏪', label: p.category };
    // Live-refresh when this store's delivery/door_delivery flag changes

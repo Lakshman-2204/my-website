@@ -1860,18 +1860,57 @@ function _pushView(state) {
       history.pushState(state, '');
    } catch (e) {}
 }
+// Are we currently showing a sub-view (not the home hero)?
+function _isSubView() {
+   var hero = document.getElementById('heroSection');
+   var apt  = document.getElementById('appointmentSection');
+   var heroHidden = hero && hero.classList.contains('hidden');
+   var aptShown   = apt && !apt.classList.contains('hidden');
+   return !!(heroHidden || aptShown);
+}
 window.addEventListener('popstate', function(e) {
+   if (!document.getElementById('heroSection')) return;   // only manage history on home.html
    var s = e.state || { view: 'home' };
    _navSuppressPush = true;   // don't re-push while restoring a view
    try {
-      if      (s.view === 'stores')   showStoresList();
-      else if (s.view === 'category') showStoreCategory(s.cat);
-      else if (s.view === 'store')    showStoreProvider(s.id);
-      else if (s.view === 'group')    showByCategory(s.name);
-      else                            goHome();
+      if      (s.view === 'stores')     showStoresList();
+      else if (s.view === 'category')   showStoreCategory(s.cat);
+      else if (s.view === 'store')      showStoreProvider(s.id);
+      else if (s.view === 'group')      showByCategory(s.name);
+      else if (s.view === 'apt')        showBookAppointment();
+      else if (s.view === 'aptCat')     showAptCategory(s.cat);
+      else if (s.view === 'aptProvider')showAptProvider(s.cat, s.id);
+      else {
+         // Popped back to the home baseline. If a sub-view is still on screen
+         // (e.g. reached via an un-instrumented function that pushed no state),
+         // return to home and re-arm the guard so Back never falls through to
+         // login. If we're already at home, let the next Back leave the page.
+         var wasSub = _isSubView();
+         goHome();
+         if (wasSub) { try { history.pushState({ view: 'home' }, ''); } catch (e2) {} }
+      }
    } catch (err) { console.warn('popstate restore failed', err); }
    finally { _navSuppressPush = false; }
 });
+// Install a guard entry on top of the initial home page so the FIRST Back press
+// from any sub-view (even ones that push no state) is caught by popstate instead
+// of navigating away to login.html.
+(function _installHomeBackGuard() {
+   function arm() {
+      if (!document.getElementById('heroSection')) return;   // only on home.html
+      if (window._homeGuardArmed) return;
+      window._homeGuardArmed = true;
+      try {
+         history.replaceState({ view: 'home' }, '');
+         history.pushState({ view: 'home' }, '');
+      } catch (e) {}
+   }
+   if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', arm);
+   } else {
+      arm();
+   }
+})();
 
 function showByCategory(groupName) {
    _pushView({ view: 'group', name: groupName });
@@ -2448,6 +2487,7 @@ function formatAvailLine(windows) {
 }
 
 async function showBookAppointment() {
+   _pushView({ view: 'apt' });
    document.getElementById('heroSection').classList.add('hidden');
    document.getElementById('productsSection').classList.add('hidden');
    document.getElementById('appointmentSection').classList.remove('hidden');
@@ -2522,6 +2562,7 @@ function showAptCategory(catKey) {
    window._aptCurrentView = { view: 'providers', catKey: catKey };
    var meta = APT_CAT_META[catKey];
    if (!meta) return;
+   _pushView({ view: 'aptCat', cat: catKey });
    var aptContent = document.getElementById('aptContent');
    if (aptContent) aptContent.style.removeProperty('--store-primary');
    var providers = _aptProvidersByCat(catKey);
@@ -2568,6 +2609,7 @@ function showAptProvider(catKey, providerId) {
    var meta = APT_CAT_META[catKey];
    var provider = _aptGetProvider(providerId);
    if (!provider) return;
+   _pushView({ view: 'aptProvider', cat: catKey, id: providerId });
    var icon = provider.icon || (meta && meta.icon) || '🏥';
    var _provColor = provider.shade_color || (meta && meta.themeColor) || '';
    var aptContent = document.getElementById('aptContent');

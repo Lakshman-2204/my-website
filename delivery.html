@@ -105,18 +105,18 @@
          html: '<div style="width:20px;height:20px;border-radius:50%;background:' + color + ';border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,0,0.5)"></div>'
       });
    }
-   // Emoji markers (no circle background) — bike rider, store, and home.
-   function emojiIcon(emoji, size) {
-      var s = size || 30;
+   // Emoji markers on a white disc with a colored ring, so they stand out from the map.
+   function emojiIcon(emoji, ring) {
+      var d = 40;   // disc diameter
       return L.divIcon({
-         className: '', iconSize: [s + 4, s + 4], iconAnchor: [(s + 4) / 2, (s + 4) / 2], popupAnchor: [0, -(s / 2)],
-         html: '<div style="font-size:' + s + 'px;line-height:1;text-align:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.45))">' + emoji + '</div>'
+         className: '', iconSize: [d, d], iconAnchor: [d / 2, d / 2], popupAnchor: [0, -(d / 2)],
+         html: '<div style="width:' + d + 'px;height:' + d + 'px;border-radius:50%;background:#fff;border:3px solid ' + ring + ';box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:22px;line-height:1">' + emoji + '</div>'
       });
    }
-   function bikeIcon()  { return emojiIcon('🏍️', 30); }
-   function storeIcon() { return emojiIcon('🏪', 30); }
-   function homeIcon()  { return emojiIcon('🏠', 28); }
-   var COL_STORE = '#2563eb', COL_CUST = '#16a34a', COL_BIKE = '#f97316';
+   function bikeIcon()  { return emojiIcon('🏍️', COL_BIKE); }
+   function storeIcon() { return emojiIcon('🏪', COL_STORE); }
+   function homeIcon()  { return emojiIcon('🏠', COL_CUST); }
+   var COL_STORE = '#2563eb', COL_CUST = '#16a34a', COL_BIKE = '#f97316', COL_ROUTE = '#7c3aed';
 
    function fitAll() {
       var pts = [];
@@ -148,7 +148,7 @@
          if (d && d.routes && d.routes.length) {
             var coords = d.routes[0].geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
             if (roadLine) map.removeLayer(roadLine);
-            roadLine = L.polyline(coords, { color: COL_BIKE, weight: 5, opacity: 0.85 }).addTo(map);
+            roadLine = L.polyline(coords, { color: COL_ROUTE, weight: 5, opacity: 0.85 }).addTo(map);
             var km  = (d.routes[0].distance / 1000).toFixed(1);
             var min = Math.round(d.routes[0].duration / 60);
             var toStore = storeLL && to && to.lat === storeLL.lat && to.lng === storeLL.lng;
